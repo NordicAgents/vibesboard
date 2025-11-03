@@ -1,3 +1,4 @@
+-- migrate:up
 create table "public"."chats" (
     "id" text not null,
     "user_id" uuid null default auth.uid (),
@@ -30,5 +31,7 @@ to authenticated
 using ((auth.uid() = user_id))
 with check ((auth.uid() = user_id));
 
-
-
+-- migrate:down
+drop policy if exists "Allow full access to own chats" on "public"."chats";
+drop policy if exists "Allow public read for shared chats" on "public"."chats";
+drop table if exists "public"."chats";
