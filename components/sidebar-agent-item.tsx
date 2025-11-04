@@ -27,12 +27,7 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
       )}
     >
       <IconUser className="h-4 w-4 flex-none" />
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-sm font-medium">{agent.name}</span>
-        <span className="truncate text-xs text-muted-foreground">
-          /a/{agent.agentUrl}
-        </span>
-      </div>
+      <span className="truncate text-sm font-medium">{agent.name}</span>
     </Link>
   )
 }

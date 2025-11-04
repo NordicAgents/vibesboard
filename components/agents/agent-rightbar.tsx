@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   type AgentSharePayload,
   type VibeAgent,
@@ -19,7 +19,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { IconClose, IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 
 interface AgentRightbarProps {
   agent: VibeAgent
@@ -41,6 +41,25 @@ export function AgentRightbar({
   const [name, setName] = useState(agent.name)
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
   const [saving, setSaving] = useState(false)
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(conversations[0]?.id ?? null)
+
+  useEffect(() => {
+    if (!conversations.length) {
+      if (selectedConversationId !== null) {
+        setSelectedConversationId(null)
+      }
+      return
+    }
+    if (!selectedConversationId) {
+      setSelectedConversationId(conversations[0].id)
+      return
+    }
+    if (!conversations.some(c => c.id === selectedConversationId)) {
+      setSelectedConversationId(conversations[0].id)
+    }
+  }, [conversations, selectedConversationId])
 
   const handleCopy = async () => {
     try {
@@ -75,6 +94,13 @@ export function AgentRightbar({
   const topConversations = useMemo(
     () => conversations.slice(0, 10),
     [conversations]
+  )
+  const selectedConversation = useMemo(
+    () =>
+      selectedConversationId
+        ? conversations.find(conv => conv.id === selectedConversationId)
+        : undefined,
+    [conversations, selectedConversationId]
   )
 
   return (
@@ -174,10 +200,16 @@ export function AgentRightbar({
             {topConversations.length ? (
               <div className="space-y-2">
                 {topConversations.map(c => (
-                  <Link
+                  <button
                     key={c.id}
-                    href={`/agents/${agent.id}/conversations/${c.id}`}
-                    className="block rounded-md border p-2 text-sm hover:border-primary"
+                    type="button"
+                    onClick={() => setSelectedConversationId(c.id)}
+                    className={cn(
+                      'block w-full rounded-md border p-2 text-left text-sm transition',
+                      selectedConversationId === c.id
+                        ? 'border-primary bg-primary/5'
+                        : 'hover:border-primary'
+                    )}
                   >
                     <div className="line-clamp-1 font-medium">
                       {c.summary || c.messages.at(-1)?.content || 'Conversation'}
@@ -185,7 +217,7 @@ export function AgentRightbar({
                     <div className="text-xs text-muted-foreground">
                       Updated {formatDate(c.updatedAt)}
                     </div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -199,6 +231,39 @@ export function AgentRightbar({
                 <Link href={`/agents/${agent.id}/conversations`}>View all</Link>
               </Button>
             </div>
+            {selectedConversation && (
+              <div className="mt-3 rounded-md border p-3">
+                <div className="mb-2">
+                  <p className="text-sm font-semibold">Conversation preview</p>
+                  <p className="text-xs text-muted-foreground">
+                    Last updated {formatDate(selectedConversation.updatedAt)}
+                  </p>
+                </div>
+                <div className="max-h-64 space-y-3 overflow-y-auto pr-2 text-sm">
+                  {selectedConversation.messages.length ? (
+                    selectedConversation.messages.map((message, index) => (
+                      <div
+                        key={message.id ?? `${message.role}-${index}`}
+                        className="rounded-md border bg-muted/40 p-2"
+                      >
+                        <p className="text-xs uppercase text-muted-foreground">
+                          {message.role === 'assistant' ? 'Agent' : 'User'}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm">
+                          {typeof message.content === 'string'
+                            ? message.content
+                            : ''}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No messages recorded.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

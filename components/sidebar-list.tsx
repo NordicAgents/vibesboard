@@ -4,7 +4,14 @@ import { getAgents, getChats, removeChat, shareChat } from '@/app/actions'
 import { SidebarActions } from '@/components/sidebar-actions'
 import { SidebarItem } from '@/components/sidebar-item'
 import { SidebarAgentItem } from '@/components/sidebar-agent-item'
-import { buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { IconPlus } from '@/components/ui/icons'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 
 export interface SidebarListProps {
   userId?: string
@@ -19,29 +26,32 @@ export async function SidebarList({ userId }: SidebarListProps) {
   return (
     <div className="flex-1 overflow-auto space-y-4">
       <div className="space-y-2 border-b pb-4">
-        <div className="flex items-center justify-between px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="flex items-center justify-between px-4 text-xs font-semibold tracking-wide text-muted-foreground">
           <span>Agents</span>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/agents/new"
-              className={buttonVariants({
-                variant: 'ghost',
-                size: 'sm'
-              })}
-            >
-              New
-            </Link>
-            <Link
-              href="/agents/new/chat"
-              className={buttonVariants({
-                variant: 'ghost',
-                size: 'sm'
-              })}
-              title="Create via chat"
-            >
-              New via Chat
-            </Link>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Create agent"
+                title="Create agent"
+              >
+                <IconPlus className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem asChild>
+                <Link href="/agents/new" className="flex w-full items-center justify-between">
+                  <span>UI builder</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/agents/new/chat" className="flex w-full items-center justify-between">
+                  <span>Chat builder</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {agents?.length ? (
           <div className="space-y-1 px-2">
@@ -56,7 +66,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
         )}
       </div>
       <div className="space-y-2 px-2">
-        <div className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="px-2 text-xs font-semibold tracking-wide text-muted-foreground">
           Chats
         </div>
         {chats?.length ? (
