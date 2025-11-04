@@ -54,6 +54,11 @@ export async function Header() {
         </div>
       </div>
       <div className="flex items-center justify-end space-x-2">
+        {session?.user && (
+          <Button variant="secondary" asChild>
+            <Link href="/agents/new">New Agent</Link>
+          </Button>
+        )}
         <a
           target="_blank"
           href="https://github.com/thorwebdev/vercel-ai-chatbot"

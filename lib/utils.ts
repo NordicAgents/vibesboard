@@ -41,3 +41,11 @@ export function formatDate(input: string | number | Date): string {
     year: 'numeric'
   })
 }
+
+export function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-') || nanoid().toLowerCase()
+}

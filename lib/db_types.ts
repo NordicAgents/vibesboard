@@ -59,6 +59,98 @@ export interface Database {
           }
         ]
       }
+      vibe_agent_conversations: {
+        Row: {
+          agent_id: string
+          created_at: string
+          external_id: string | null
+          id: string
+          messages: Json
+          summary: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          messages?: Json
+          summary?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          messages?: Json
+          summary?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vibe_agent_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            referencedRelation: "vibe_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vibe_agent_conversations_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      vibe_agents: {
+        Row: {
+          agent_url: string
+          allow_anonymous: boolean
+          created_at: string
+          file_keys: Json
+          id: string
+          instructions: string
+          name: string
+          tools: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_url: string
+          allow_anonymous?: boolean
+          created_at?: string
+          file_keys?: Json
+          id?: string
+          instructions: string
+          name: string
+          tools?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_url?: string
+          allow_anonymous?: boolean
+          created_at?: string
+          file_keys?: Json
+          id?: string
+          instructions?: string
+          name?: string
+          tools?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vibe_agents_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -253,4 +345,3 @@ export interface Database {
     }
   }
 }
-

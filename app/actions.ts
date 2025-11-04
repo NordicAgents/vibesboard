@@ -6,7 +6,8 @@ import { Database } from '@/lib/db_types'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { type Chat } from '@/lib/types'
+import { type Chat, type VibeAgent } from '@/lib/types'
+import { mapAgentRow } from '@/lib/agents/db'
 
 export async function getChats(userId?: string | null) {
   if (!userId) {
@@ -110,4 +111,26 @@ export async function shareChat(chat: Chat) {
     .throwOnError()
 
   return payload
+}
+
+export async function getAgents(userId?: string | null) {
+  if (!userId) {
+    return []
+  }
+
+  try {
+    const cookieStore = cookies()
+    const supabase = createServerActionClient<Database>({
+      cookies: () => cookieStore
+    })
+    const { data } = await supabase
+      .from('vibe_agents')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    return (data ?? []).map(mapAgentRow) as VibeAgent[]
+  } catch (error) {
+    return []
+  }
 }
