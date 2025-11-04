@@ -8,8 +8,11 @@ import {
   type VibeAgent,
   type VibeAgentConversation
 } from '@/lib/types'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -17,6 +20,7 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
 import { IconClose, IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { formatDate } from '@/lib/utils'
@@ -39,8 +43,14 @@ export function AgentRightbar({
   const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [name, setName] = useState(agent.name)
+  const [instructions, setInstructions] = useState(agent.instructions)
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
+  const [fileKeys, setFileKeys] = useState<string[]>(agent.fileKeys)
+  const [selectedTools, setSelectedTools] = useState<
+    Array<import('@/lib/types').AgentToolType>
+  >(() => agent.tools.map(t => t.type))
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -70,6 +80,48 @@ export function AgentRightbar({
     } finally {
       setSaving(false)
     }
+  }
+
+  const toolOptions = useMemo(
+    () => Object.values(BUILTIN_AGENT_TOOLS),
+    []
+  )
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploading(true)
+    const supabase = getBrowserSupabaseClient()
+    try {
+      const uploads = await Promise.all(
+        Array.from(files).map(async file => {
+          const path = `${agent.userId}/${Date.now()}-${file.name}`
+          const { data, error } = await supabase.storage
+            .from('agent-files')
+            .upload(path, file, { upsert: true })
+          if (error || !data) throw error ?? new Error('Upload failed')
+          return data.path
+        })
+      )
+      const next = Array.from(new Set([...fileKeys, ...uploads]))
+      setFileKeys(next)
+      await updateAgent({ fileKeys: next })
+    } catch (_) {
+      // silent fail
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleRemoveFile = async (path: string) => {
+    const supabase = getBrowserSupabaseClient()
+    try {
+      await supabase.storage.from('agent-files').remove([path])
+    } catch (_) {
+      // ignore removal failures
+    }
+    const next = fileKeys.filter(item => item !== path)
+    setFileKeys(next)
+    await updateAgent({ fileKeys: next })
   }
 
   const topConversations = useMemo(
@@ -138,6 +190,123 @@ export function AgentRightbar({
                   updateAgent({ allowAnonymous: value })
                 }}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Instructions */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Instructions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              rows={6}
+              placeholder="Explain how the agent should behave, tone, and guardrails."
+              disabled={saving}
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => updateAgent({ instructions })}
+                disabled={
+                  saving ||
+                  instructions.trim().length < 10 ||
+                  instructions === agent.instructions
+                }
+              >
+                Save
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tools & files */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Tools & files</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Tools</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {toolOptions.map(tool => {
+                  const checked = selectedTools.includes(tool.id as any)
+                  return (
+                    <Badge
+                      key={tool.id}
+                      variant={checked ? 'default' : 'secondary'}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setSelectedTools(prev =>
+                          checked
+                            ? prev.filter(item => item !== (tool.id as any))
+                            : [...prev, tool.id as any]
+                        )
+                      }}
+                    >
+                      {tool.name}
+                    </Badge>
+                  )
+                })}
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    updateAgent({
+                      tools: selectedTools.map(t => ({
+                        ...(BUILTIN_AGENT_TOOLS[t as keyof typeof BUILTIN_AGENT_TOOLS] ??
+                          { name: t }),
+                        id: t,
+                        type: t
+                      }))
+                    })
+                  }
+                  disabled={saving}
+                >
+                  Save tools
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reference files</label>
+              <input
+                type="file"
+                multiple
+                onChange={e => handleUpload(e.target.files)}
+                disabled={uploading || saving}
+                className="block w-full text-sm"
+              />
+              {fileKeys.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Upload transcripts, docs, or FAQs to ground responses.
+                </p>
+              )}
+              {fileKeys.length > 0 && (
+                <ul className="space-y-1 text-sm">
+                  {fileKeys.map(key => (
+                    <li
+                      key={key}
+                      className="flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <span className="truncate">{key}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveFile(key)}
+                        disabled={saving}
+                      >
+                        Remove
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </CardContent>
         </Card>
