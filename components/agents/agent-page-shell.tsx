@@ -36,34 +36,32 @@ export function AgentPageShell({
   return (
     <div className="relative flex-1">
       {/* Mobile trigger */}
-      <div className="container mx-auto px-4 pt-4 lg:hidden">
-        <div className="flex items-center justify-end">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="secondary" size="sm">
-                Agent Details
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[96vw] sm:w-[520px]">
-              <SheetHeader>
-                <SheetTitle>Agent Details</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4 overflow-y-auto pb-6">
-                <AgentRightbar
-                  agent={agent}
-                  share={share}
-                  conversations={conversations}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
+      <div className="container mx-auto flex justify-end px-4 pt-4 lg:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="secondary" size="sm">
+              Agent Details
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[96vw] sm:w-[520px]">
+            <SheetHeader>
+              <SheetTitle>Agent Details</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 overflow-y-auto pb-6">
+              <AgentRightbar
+                agent={agent}
+                share={share}
+                conversations={conversations}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Main area with responsive margin depending on sidebar visibility */}
       <div
         className={cn(
-          'transition-[margin-right] duration-200',
+          'transition-[margin] duration-200',
           isSidebarOpen ? 'lg:mr-[520px]' : 'lg:mr-0'
         )}
       >
@@ -74,7 +72,7 @@ export function AgentPageShell({
       <div className="hidden lg:block">
         <div
           className={cn(
-            'fixed right-0 top-16 bottom-0 w-[90vw] max-w-[520px] overflow-y-auto border-l bg-background p-4 shadow-lg transition-transform duration-200',
+            'fixed top-16 right-0 bottom-0 max-w-[520px] w-[90vw] overflow-y-auto border-l bg-background p-4 shadow-lg transition-transform duration-200',
             isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
           )}
         >

@@ -146,9 +146,75 @@ type PublicSchema = GenericSchema & {
         }
       ]
     }
+    vibe_agent_conversation_chunks: {
+      Row: {
+        id: string
+        agent_id: string
+        conversation_id: string
+        message_index: number
+        chunk_index: number
+        role: string
+        content: string
+        embedding: number[] | string | null
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        agent_id: string
+        conversation_id: string
+        message_index: number
+        chunk_index?: number
+        role: string
+        content: string
+        embedding: number[] | string | null
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        agent_id?: string
+        conversation_id?: string
+        message_index?: number
+        chunk_index?: number
+        role?: string
+        content?: string
+        embedding?: number[] | string | null
+        created_at?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: 'vibe_agent_conversation_chunks_agent_id_fkey'
+          columns: ['agent_id']
+          referencedRelation: 'vibe_agents'
+          referencedColumns: ['id']
+        },
+        {
+          foreignKeyName: 'vibe_agent_conversation_chunks_conversation_id_fkey'
+          columns: ['conversation_id']
+          referencedRelation: 'vibe_agent_conversations'
+          referencedColumns: ['id']
+        }
+      ]
+    }
   }
   Views: GenericSchema['Views']
-  Functions: GenericSchema['Functions']
+  Functions: GenericSchema['Functions'] & {
+    match_agent_conversation_chunks: {
+      Args: {
+        p_agent_id: string
+        p_query_embedding: number[] | string
+        p_match_count: number
+        p_conversation_id?: string | null
+      }
+      Returns: {
+        conversation_id: string
+        message_index: number
+        chunk_index: number
+        role: string
+        content: string
+        similarity: number
+      }[]
+    }
+  }
 }
 
 export interface Database {

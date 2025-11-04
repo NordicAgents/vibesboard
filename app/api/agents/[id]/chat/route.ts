@@ -15,6 +15,7 @@ import { fetchAgentFileContext } from '@/lib/agent/rag'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { nanoid } from '@/lib/utils'
 import { summarizeConversation } from '@/lib/agent/summarize'
+import { upsertConversationEmbeddings } from '@/lib/agent/embeddings'
 
 export const runtime = 'nodejs'
 
@@ -80,6 +81,12 @@ export async function POST(
         conversationId: conversation.id,
         messages: newMessages,
         summary
+      })
+      await upsertConversationEmbeddings({
+        supabase,
+        agentId: agent.id,
+        conversationId: conversation.id,
+        messages: newMessages
       })
     }
   })

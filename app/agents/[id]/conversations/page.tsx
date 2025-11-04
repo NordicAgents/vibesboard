@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
 import { AgentConversationList } from '@/components/agents/agent-conversation-list'
+import { AgentConversationsAsk } from '@/components/agents/agent-conversations-ask'
 
 export const runtime = 'nodejs'
 
@@ -53,7 +54,10 @@ export default async function AgentConversationsPage({
           <h1 className="text-3xl font-semibold">{agent.name}</h1>
         </div>
       </div>
-      <AgentConversationList agentId={agent.id} conversations={conversations} />
+      <div className="space-y-6">
+        <AgentConversationList agentId={agent.id} conversations={conversations} />
+        <AgentConversationsAsk agentId={agent.id} conversations={conversations} />
+      </div>
     </div>
   )
 }

@@ -41,3 +41,8 @@ export const agentChatRequestSchema = z.object({
 export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
   externalId: z.string().uuid().optional()
 })
+
+export const agentAskRequestSchema = z.object({
+  question: z.string().min(4),
+  conversationId: z.string().uuid().optional()
+})

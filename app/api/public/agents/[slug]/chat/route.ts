@@ -13,6 +13,7 @@ import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
 import { nanoid } from '@/lib/utils'
 import { summarizeConversation } from '@/lib/agent/summarize'
+import { upsertConversationEmbeddings } from '@/lib/agent/embeddings'
 
 export const runtime = 'nodejs'
 
@@ -79,6 +80,12 @@ export async function POST(
         conversationId: conversation.id,
         messages: nextMessages,
         summary
+      })
+      await upsertConversationEmbeddings({
+        supabase,
+        agentId: agent.id,
+        conversationId: conversation.id,
+        messages: nextMessages
       })
     }
   })
