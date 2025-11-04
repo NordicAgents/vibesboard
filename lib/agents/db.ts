@@ -31,6 +31,11 @@ export const BUILTIN_AGENT_TOOLS: Record<
     id: 'builtin:search',
     name: 'Search',
     description: 'Performs a simple web search via a configured API.'
+  },
+  'builtin:file_search': {
+    id: 'builtin:file_search',
+    name: 'File Search',
+    description: 'Searches the agent\'s uploaded files for matching snippets.'
   }
 }
 
@@ -91,16 +96,6 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
           } satisfies VibeAgentTool
         }
         return null
-      }
-
-      if (type === 'mcp' && typeof id === 'string') {
-        return {
-          id,
-          type: 'mcp',
-          name: name ?? id,
-          description,
-          config
-        } satisfies VibeAgentTool
       }
 
       return null

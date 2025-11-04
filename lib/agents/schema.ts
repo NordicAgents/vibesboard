@@ -11,7 +11,7 @@ const builtinToolTypeSchema = z.enum(builtinToolIds)
 
 export const agentToolSchema = z.object({
   id: z.string(),
-  type: z.union([builtinToolTypeSchema, z.literal('mcp')]),
+  type: builtinToolTypeSchema,
   name: z.string().optional(),
   description: z.string().optional(),
   config: z.record(z.any()).optional()

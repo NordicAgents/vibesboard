@@ -14,6 +14,7 @@ import {
 import { fetchAgentFileContext } from '@/lib/agent/rag'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { nanoid } from '@/lib/utils'
+import { summarizeConversation } from '@/lib/agent/summarize'
 
 export const runtime = 'nodejs'
 
@@ -58,6 +59,9 @@ export async function POST(
     agent,
     messages: normalizedMessages,
     context,
+    toolContext: {
+      fileContext: context
+    },
     onCompletion: async completion => {
       const newMessages = [
         ...normalizedMessages,
@@ -67,10 +71,12 @@ export async function POST(
           content: completion
         }
       ]
+      const summary = await summarizeConversation(newMessages)
       await updateConversationMessages({
         supabase,
         conversationId: conversation.id,
-        messages: newMessages
+        messages: newMessages,
+        summary
       })
     }
   })

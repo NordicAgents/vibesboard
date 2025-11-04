@@ -1,6 +1,6 @@
 # VibeAgent – Implementation Plan
 
-This plan outlines how to implement user‑built agents, public sharing via URL/QR, persisted conversations, and chat over existing conversations. It builds on the current Next.js + Supabase + Vercel AI SDK template and introduces a LangGraph-powered agent runtime with MCP tools.
+This plan outlines how to implement user‑built agents, public sharing via URL/QR, persisted conversations, and chat over existing conversations. It builds on the current Next.js + Supabase + Vercel AI SDK template and introduces a LangGraph-powered agent runtime with curated built-in tools.
 
 ## Goals & Outcomes
 
@@ -8,7 +8,7 @@ This plan outlines how to implement user‑built agents, public sharing via URL/
 - Each agent has a shareable URL and QR code. Visitors can chat with the agent.
 - Conversations are stored per agent (authenticated or anonymous visitors), summarized, and resume‑able.
 - Users see their agents in the sidebar and manage dashboards, files, and conversations.
-- Implementation cleanly integrates LangGraph with MCP tools for tool‑use and RAG over uploaded files.
+- Implementation cleanly integrates LangGraph with built-in tools for tool‑use and RAG over uploaded files.
 
 ---
 
@@ -17,13 +17,13 @@ This plan outlines how to implement user‑built agents, public sharing via URL/
 - UI: Next.js 13 App Router, Tailwind, existing components.
 - Auth & Data: Supabase (Auth, Postgres, Storage). RLS for multi‑tenancy.
 - LLM/Streaming: Vercel AI SDK (`ai`) with OpenAI (or compatible) models.
-- Agent Runtime: LangGraph (Node runtime) + MCP tools bridge.
+- Agent Runtime: LangGraph (Node runtime) with built-in tool bridge.
 - Files: Supabase Storage (`agent-files` bucket). File keys stored per agent.
 - Share: Public route `/a/:slug` (agentURL). QR encodes this URL.
 - Persistence: Conversations saved in `vibe_agent_conversations` as JSON messages; summarized on completion.
 
 Notes:
-- MCP tool execution and LangGraph require Node runtime (not Edge). Use `export const runtime = 'nodejs'` for agent chat routes.
+- LangGraph requires the Node runtime (not Edge). Use `export const runtime = 'nodejs'` for agent chat routes.
 - Public chats (via QR) write through a server route using a Supabase service key to simplify anon persistence while keeping RLS strict.
 
 ---
@@ -129,17 +129,17 @@ Update generated types in `lib/db_types.ts` after migration.
 
 ---
 
-## Agent Runtime (LangGraph + MCP)
+## Agent Runtime (LangGraph + Tools)
 
 Goal: Compose an agent pipeline that can:
 - Use instructions + uploaded files (RAG) to ground responses.
-- Call MCP tools (web fetch, file loaders, custom APIs).
+- Call approved built-in tools (web fetch, file loaders, custom APIs via server routes).
 - Stream tokens to the client while persisting messages.
 
 Components:
 - `lib/agent/graph.ts`: Constructs LangGraph with nodes: Input → Router → Tools → LLM → Output.
 - `lib/agent/memory.ts`: Conversation state adapter (reads/writes to `vibe_agent_conversations`).
-- `lib/agent/mcp.ts`: MCP tool runner integrating `@modelcontextprotocol/sdk` providers.
+- `lib/agent/tools/builtin.ts`: Built-in tool runners (web fetch, search, file lookup).
 - `lib/agent/rag.ts`: Loader + chunking + embedding + retrieval for `file_keys` (Supabase Storage + optional pgvector).
 
 Graph sketch:
@@ -152,7 +152,7 @@ Input ->
   Route: if tool call present -> Tools else -> LLM
 
 Tools ->
-  Call MCP tool runner with limited set from agent.tools
+  Call tool runner with limited set from agent.tools
   Append tool results to messages
   Back to LLM
 
@@ -164,7 +164,7 @@ Output -> stream via Vercel AI SDK
 ```
 
 Runtime notes:
-- Use Node runtime. Avoid Edge for MCP process spawning and storage I/O.
+- Use Node runtime. Avoid Edge for tool process spawning and storage I/O.
 - Enforce tool whitelist per agent (`tools` column).
 - Add execution budget, token limits, and size caps.
 
@@ -278,8 +278,7 @@ Routing (new pages):
 ## Environment & Dependencies
 
 Add:
-- `langgraph` (runtime)
-- `@modelcontextprotocol/sdk` (MCP)
+- `@langchain/langgraph` + `@langchain/core` (agent runtime)
 - `qrcode` or `qrcode.react` (QR rendering)
 - `pgvector` extension in Supabase + embedding model
 
@@ -314,7 +313,7 @@ M5 – Public Chat (QR) (1–2 days)
 - Build `/a/[slug]` page and `POST /api/public/agents/:slug/chat`
 - Cookie/session handling (`va_ext`)
 
-M6 – LangGraph + MCP Tools (2–3 days)
+M6 – LangGraph Tooling (2–3 days)
 - Implement graph runner, memory adapter, tool whitelist
 - Add core tools: web fetch, file loader, simple search
 - Wire RAG over `file_keys`
@@ -380,4 +379,3 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
 - Advanced RAG with pgvector and reranking
 - Tool marketplace and per‑agent tool billing/quotas
 - Analytics on engagement and conversation quality
-

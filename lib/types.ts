@@ -11,7 +11,10 @@ export interface Chat extends Record<string, any> {
   sharePath?: string // Refactor to use RLS
 }
 
-export type AgentToolType = 'builtin:web_fetch' | 'builtin:search' | 'mcp'
+export type AgentToolType =
+  | 'builtin:web_fetch'
+  | 'builtin:search'
+  | 'builtin:file_search'
 
 export interface VibeAgentTool {
   id: string
