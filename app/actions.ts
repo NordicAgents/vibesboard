@@ -6,8 +6,8 @@ import { Database } from '@/lib/db_types'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { type Chat, type VibeAgent } from '@/lib/types'
-import { mapAgentRow } from '@/lib/agents/db'
+import { type Chat, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
+import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
 
 export async function getChats(userId?: string | null) {
   if (!userId) {
@@ -130,6 +130,28 @@ export async function getAgents(userId?: string | null) {
       .order('created_at', { ascending: false })
 
     return (data ?? []).map(mapAgentRow) as VibeAgent[]
+  } catch (error) {
+    return []
+  }
+}
+
+export async function getAgentConversations(userId?: string | null) {
+  if (!userId) {
+    return []
+  }
+
+  try {
+    const cookieStore = cookies()
+    const supabase = createServerActionClient<Database>({
+      cookies: () => cookieStore
+    })
+    const { data } = await supabase
+      .from('vibe_agent_conversations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+
+    return (data ?? []).map(mapConversationRow) as VibeAgentConversation[]
   } catch (error) {
     return []
   }

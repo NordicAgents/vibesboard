@@ -1,6 +1,12 @@
 import Link from 'next/link'
 
-import { getAgents, getChats, removeChat, shareChat } from '@/app/actions'
+import {
+  getAgents,
+  getChats,
+  getAgentConversations,
+  removeChat,
+  shareChat
+} from '@/app/actions'
 import { SidebarActions } from '@/components/sidebar-actions'
 import { SidebarItem } from '@/components/sidebar-item'
 import { SidebarAgentItem } from '@/components/sidebar-agent-item'
@@ -23,10 +29,20 @@ export interface SidebarListProps {
 }
 
 export async function SidebarList({ userId }: SidebarListProps) {
-  const [agents, chats] = await Promise.all([
+  const [agents, chats, conversations] = await Promise.all([
     getAgents(userId),
-    getChats(userId)
+    getChats(userId),
+    getAgentConversations(userId)
   ])
+
+  const conversationsByAgent = conversations.reduce(
+    (acc, convo) => {
+      if (!acc[convo.agentId]) acc[convo.agentId] = []
+      acc[convo.agentId].push(convo)
+      return acc
+    },
+    {} as Record<string, typeof conversations>
+  )
 
   return (
     <div className="flex-1 overflow-auto space-y-4">
@@ -61,7 +77,29 @@ export async function SidebarList({ userId }: SidebarListProps) {
         {agents?.length ? (
           <div className="space-y-1 px-2">
             {agents.map(agent => (
-              <SidebarAgentItem key={agent.id} agent={agent} />
+              <div key={agent.id} className="space-y-1">
+                <SidebarAgentItem agent={agent} />
+                {conversationsByAgent[agent.id]?.length ? (
+                  <div className="ml-6 space-y-1">
+                    {conversationsByAgent[agent.id].map(session => {
+                      const label =
+                        session.summary ||
+                        session.messages.at(-1)?.content?.slice(0, 80) ||
+                        'Conversation'
+                      return (
+                        <Link
+                          key={session.id}
+                          href={`/agents/${agent.id}?session=${session.id}`}
+                          className="block truncate rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted/50"
+                          title={label}
+                        >
+                          {label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         ) : (
@@ -71,8 +109,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
         )}
       </div>
       <div className="space-y-2 px-2">
-        <div className="flex items-center justify-between px-2 text-xs font-semibold tracking-wide text-muted-foreground">
-          <span>Chats</span>
+        <div className="flex items-center gap-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -89,6 +126,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
             </TooltipTrigger>
             <TooltipContent>New chat</TooltipContent>
           </Tooltip>
+          <span>Chats</span>
         </div>
         {chats?.length ? (
           <div className="space-y-2">

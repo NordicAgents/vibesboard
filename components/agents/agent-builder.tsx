@@ -128,7 +128,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+    <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
       <form className="space-y-6" onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
@@ -153,7 +153,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 rows={8}
               />
             </div>
-            <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium">Allow anonymous chat</p>
                 <p className="text-xs text-muted-foreground">
@@ -207,6 +207,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 multiple
                 onChange={event => handleUpload(event.target.files)}
                 disabled={isUploading}
+                className="block w-full text-sm"
               />
               {fileKeys.length === 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -218,7 +219,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                   {fileKeys.map(key => (
                     <li
                       key={key}
-                      className="flex items-center justify-between rounded-md border px-3 py-1"
+                      className="flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <span className="truncate">{key}</span>
                       <Button
@@ -237,11 +238,11 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           </CardContent>
         </Card>
 
-        <Button type="submit" disabled={isSubmitting || isUploading}>
+        <Button type="submit" disabled={isSubmitting || isUploading} className="w-full sm:w-auto">
           {isSubmitting ? 'Creating...' : 'Create agent'}
         </Button>
       </form>
-      <div className="space-y-4">
+      <div className="space-y-4 self-start md:sticky md:top-24">
         <AgentBuilderHelper onUseSuggestion={setInstructions} />
       </div>
     </div>

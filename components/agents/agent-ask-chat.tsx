@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { type Message } from 'ai'
 import { useCompletion } from 'ai/react'
+import { useSearchParams } from 'next/navigation'
 
 import { type VibeAgent, type VibeAgentConversation } from '@/lib/types'
 import { nanoid } from '@/lib/utils'
@@ -10,7 +11,7 @@ import { ChatList } from '@/components/chat-list'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { PromptForm } from '@/components/prompt-form'
 import { Button } from '@/components/ui/button'
-import { AgentAskSidebar } from '@/components/agents/agent-ask-sidebar'
+// The main app sidebar now shows conversations under each agent.
 
 interface AgentAskChatProps {
   agent: VibeAgent
@@ -28,6 +29,7 @@ export function AgentAskChat({
   ownerId,
   ownerSessions
 }: AgentAskChatProps) {
+  const searchParams = useSearchParams()
   const [sessions, setSessions] = React.useState(() => sortSessions(ownerSessions))
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     ownerSessions[0]?.id ?? null
@@ -44,6 +46,21 @@ export function AgentAskChat({
   React.useEffect(() => {
     setSessions(sortSessions(ownerSessions))
   }, [ownerSessions])
+
+  // Sync active session with `?session=` query param from the main sidebar
+  React.useEffect(() => {
+    const param = searchParams.get('session')
+    if (param && param !== activeSessionId) {
+      const found = ownerSessions.find(entry => entry.id === param)
+      if (found) {
+        setActiveSessionId(found.id)
+        sessionIdRef.current = found.id
+        setMessages(found.messages ?? [])
+        setInput('')
+        setCompletion('')
+      }
+    }
+  }, [searchParams, ownerSessions])
 
   React.useEffect(() => {
     if (!activeSessionId && ownerSessions.length) {
@@ -188,17 +205,13 @@ export function AgentAskChat({
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-1">
-      <aside className="hidden w-80 border-r bg-muted/20 p-4 lg:block">
-        <AgentAskSidebar
-          sessions={sessions}
-          activeId={activeSessionId}
-          onSelect={handleSelectSession}
-          onNewChat={handleNewChat}
-        />
-      </aside>
-
       <div className="flex flex-1 flex-col">
         <div className="relative flex-1 pb-36 pt-20">
+          <div className="absolute left-4 top-4 z-10">
+            <Button size="sm" variant="secondary" onClick={handleNewChat}>
+              New chat
+            </Button>
+          </div>
           <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2 text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.4em] text-muted-foreground">
               ASK AI
@@ -215,22 +228,24 @@ export function AgentAskChat({
           )}
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50%">
-          <div className="mx-auto max-w-2xl px-4">
-            <div className="flex h-10 items-center justify-center">
+        <div className="sticky bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50%">
+          <div className="mx-auto max-w-xl px-4 pb-4 pt-2">
+            <div className="mb-2 flex h-8 items-center justify-center">
               {isLoading ? (
                 <Button variant="outline" onClick={() => stop()} className="bg-background">
                   Stop generating
                 </Button>
               ) : null}
             </div>
-            <div className="space-y-4 border-t bg-background px-4 py-2 shadow-lg sm:rounded-t-xl sm:border md:py-4">
-              <PromptForm
-                onSubmit={handleSubmit}
-                input={input}
-                setInput={setInput}
-                isLoading={isLoading}
-              />
+            <div className="border-t bg-background px-4 py-3 shadow-lg sm:rounded-t-xl sm:border">
+              <div className="mx-auto max-w-lg">
+                <PromptForm
+                  onSubmit={handleSubmit}
+                  input={input}
+                  setInput={setInput}
+                  isLoading={isLoading}
+                />
+              </div>
             </div>
           </div>
         </div>

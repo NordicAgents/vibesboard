@@ -14,10 +14,5 @@ export default async function NewAgentChatPage() {
     redirect('/sign-in?next=/agents/new/chat')
   }
 
-  return (
-    <div className="container mx-auto flex-1 space-y-6 px-4 py-8">
-      <AgentCreatorChat />
-    </div>
-  )
+  return <AgentCreatorChat />
 }
-

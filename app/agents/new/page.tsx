@@ -18,7 +18,7 @@ export default async function NewAgentPage() {
     <div className="container mx-auto flex-1 space-y-6 px-4 py-8">
       <div>
         <p className="text-sm uppercase text-muted-foreground">Create</p>
-        <h1 className="text-3xl font-semibold">Build a new VibeAgent</h1>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Build a new VibeAgent</h1>
       </div>
       <AgentBuilder userId={session.user.id} />
     </div>
