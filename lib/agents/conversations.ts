@@ -5,7 +5,10 @@ import { type Database, type Json } from '@/lib/db_types'
 import { mapConversationRow } from './db'
 import { type VibeAgentConversation } from '@/lib/types'
 
-type Client = SupabaseClient<Database, 'public', Database['public']>
+type Client = SupabaseClient<any>
+type ConversationRow = Database['public']['Tables']['vibe_agent_conversations']['Row']
+type ConversationInsert = Database['public']['Tables']['vibe_agent_conversations']['Insert']
+type ConversationUpdate = Database['public']['Tables']['vibe_agent_conversations']['Update']
 
 interface ConversationIdentifier {
   conversationId?: string
@@ -32,7 +35,7 @@ export async function ensureConversation({
       .from('vibe_agent_conversations')
       .select('*')
       .eq('id', conversationId)
-      .maybeSingle()
+      .maybeSingle<ConversationRow>()
 
     if (error) {
       throw error
@@ -52,7 +55,7 @@ export async function ensureConversation({
     }
   }
 
-  const payload = {
+  const payload: ConversationInsert = {
     ...(conversationId ? { id: conversationId } : {}),
     agent_id: agentId,
     user_id: userId ?? null,
@@ -62,9 +65,9 @@ export async function ensureConversation({
 
   const { data, error } = await supabase
     .from('vibe_agent_conversations')
-    .insert(payload)
+    .insert(payload as ConversationInsert)
     .select('*')
-    .single()
+    .single<ConversationRow>()
 
   if (error) {
     throw error
@@ -86,13 +89,15 @@ export async function updateConversationMessages({
   messages,
   summary
 }: UpdateConversationArgs) {
+  const updatePayload: ConversationUpdate = {
+    messages: serializeMessages(messages),
+    summary: summary ?? null,
+    updated_at: new Date().toISOString()
+  }
+
   const { error } = await supabase
     .from('vibe_agent_conversations')
-    .update({
-      messages: serializeMessages(messages),
-      summary: summary ?? null,
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload as ConversationUpdate)
     .eq('id', conversationId)
 
   if (error) {
@@ -133,12 +138,12 @@ export async function getConversation(
     .from('vibe_agent_conversations')
     .select('*')
     .eq('id', id)
-    .maybeSingle()
+    .maybeSingle<ConversationRow>()
 
   return data ? mapConversationRow(data) : null
 }
 
-const serializeMessages = (messages: Message[]): Json =>
+const serializeMessages = (messages: Message[]): ConversationInsert['messages'] =>
   messages.map(message => ({
     id: message.id,
     role: message.role,

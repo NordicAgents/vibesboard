@@ -50,7 +50,7 @@ export function AgentChat({
       conversationId
     },
     initialMessages,
-    onResponse(response) {
+    onResponse(response: Response) {
       const headerId = response.headers.get('x-conversation-id')
       if (headerId) {
         setConversationId(headerId)

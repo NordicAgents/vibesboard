@@ -111,7 +111,7 @@ If unsure, ask a clarifying question instead of assuming.`
     messages: initialMessages as any,
     functions: functions as any,
     function_call: 'auto'
-  })
+  } as any)
 
   const stream = OpenAIStream(response as any, {
     experimental_onFunctionCall: async (
@@ -200,7 +200,7 @@ If unsure, ask a clarifying question instead of assuming.`
           messages: [...(initialMessages as any), ...newMessages],
           functions: functions as any,
           function_call: 'auto'
-        }) as any
+        } as any)
       }
 
       const parsed = validation.data
@@ -234,7 +234,7 @@ If unsure, ask a clarifying question instead of assuming.`
           messages: [...(initialMessages as any), ...newMessages],
           functions: functions as any,
           function_call: 'auto'
-        }) as any
+        } as any)
       }
 
       const dashboardUrl = `/agents/${data.id}`
@@ -254,7 +254,7 @@ If unsure, ask a clarifying question instead of assuming.`
         messages: [...(initialMessages as any), ...newMessages],
         functions: functions as any,
         function_call: 'auto'
-      }) as any
+      } as any)
     }
   })
 

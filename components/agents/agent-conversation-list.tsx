@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
+import type { Message } from 'ai'
 
 import { type VibeAgentConversation } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
@@ -42,13 +44,16 @@ export function AgentConversationList({
     )
   }
 
+  const getMessageText = (message?: Message) =>
+    message && typeof message.content === 'string' ? message.content : ''
+
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="space-y-2 lg:w-1/2">
         {conversations.map(conversation => {
           const contentPreview =
             conversation.summary ||
-            conversation.messages.at(-1)?.content.slice(0, 60) ||
+            getMessageText(conversation.messages.at(-1)).slice(0, 60) ||
             'Conversation'
 
           const isSelected = selectedConversationId === conversation.id

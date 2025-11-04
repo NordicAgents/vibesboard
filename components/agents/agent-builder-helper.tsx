@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useChat } from 'ai/react'
+import type { Message } from 'ai'
 import { nanoid } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,7 +19,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
     body: {
       mode: 'agent-builder-helper'
     },
-    onResponse(response) {
+    onResponse(response: Response) {
       if (response.status === 401) {
         setError('Please sign in to use the helper')
       } else {
@@ -26,6 +27,9 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
       }
     }
   })
+
+  const formatContent = (content: Message['content']) =>
+    typeof content === 'string' ? content : ''
 
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card p-4">
@@ -36,7 +40,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
             Describe what your agent should do and get a draft prompt back.
           </p>
         )}
-        {messages.map(message => (
+        {messages.map((message: Message) => (
           <div
             key={message.id}
             className="space-y-2 rounded-md bg-background p-3 shadow-sm"
@@ -44,12 +48,12 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
             <div className="text-xs uppercase text-muted-foreground">
               {message.role === 'assistant' ? 'Helper' : 'You'}
             </div>
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            <p className="whitespace-pre-wrap">{formatContent(message.content)}</p>
             {message.role === 'assistant' && (
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => onUseSuggestion(message.content)}
+                onClick={() => onUseSuggestion(formatContent(message.content))}
               >
                 Use this suggestion
               </Button>

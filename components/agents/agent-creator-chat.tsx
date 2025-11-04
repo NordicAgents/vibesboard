@@ -17,7 +17,7 @@ export function AgentCreatorChat({ className }: AgentCreatorChatProps) {
     useChat({
       id: 'agent-creator',
       api: '/api/agent-creator',
-      onResponse(res) {
+      onResponse(res: Response) {
         if (res.status === 401) {
           toast.error('Please sign in to create an agent.')
         }
@@ -56,4 +56,3 @@ export function AgentCreatorChat({ className }: AgentCreatorChatProps) {
     </div>
   )
 }
-

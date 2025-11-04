@@ -44,7 +44,7 @@ export function UserMenu({ user }: UserMenuProps) {
               <Image
                 height={60}
                 width={60}
-                className="h-6 w-6 select-none rounded-full ring-1 ring-zinc-100/10 transition-opacity duration-300 hover:opacity-80"
+                className="size-6 select-none rounded-full ring-1 ring-zinc-100/10 transition-opacity duration-300 hover:opacity-80"
                 src={
                   user?.user_metadata.avatar_url
                     ? `${user.user_metadata.avatar_url}&s=60`
@@ -53,7 +53,7 @@ export function UserMenu({ user }: UserMenuProps) {
                 alt={user.user_metadata.name ?? 'Avatar'}
               />
             ) : (
-              <div className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full bg-muted/50 text-xs font-medium uppercase text-muted-foreground">
+              <div className="flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-muted/50 text-xs font-medium uppercase text-muted-foreground">
                 {getUserInitials(user?.user_metadata.name ?? user?.email)}
               </div>
             )}
@@ -76,7 +76,7 @@ export function UserMenu({ user }: UserMenuProps) {
               className="inline-flex w-full items-center justify-between text-xs"
             >
               Vercel Homepage
-              <IconExternalLink className="ml-auto h-3 w-3" />
+              <IconExternalLink className="ml-auto size-3" />
             </a>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={signOut} className="text-xs">
