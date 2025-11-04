@@ -1,10 +1,18 @@
-import { nanoid } from '@/lib/utils'
-import { Chat } from '@/components/chat'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
-export const runtime = 'edge'
+import { auth } from '@/auth'
+import { AgentCreatorChat } from '@/components/agents/agent-creator-chat'
 
-export default function IndexPage() {
-  const id = nanoid()
+export const runtime = 'nodejs'
 
-  return <Chat id={id} />
+export default async function IndexPage() {
+  const cookieStore = cookies()
+  const session = await auth({ cookieStore })
+
+  if (!session?.user) {
+    redirect('/sign-in?next=/')
+  }
+
+  return <AgentCreatorChat />
 }

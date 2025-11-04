@@ -90,7 +90,7 @@ export function AgentPageShell({
             className="fixed right-4 top-[calc(4rem+1rem)] shadow-md"
             onClick={() => setIsSidebarOpen(true)}
           >
-            Open sidebar
+            Configure Agent
           </Button>
         )}
       </div>

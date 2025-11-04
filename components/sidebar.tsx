@@ -61,7 +61,7 @@ export function Sidebar({ children }: SidebarProps) {
       </SheetTrigger>
       <SheetContent className="inset-y-0 flex h-auto w-[300px] flex-col p-0">
         <SheetHeader className="p-4">
-          <SheetTitle className="text-sm">Chat History</SheetTitle>
+          <SheetTitle className="text-sm">vibesboard</SheetTitle>
         </SheetHeader>
         {children}
       </SheetContent>

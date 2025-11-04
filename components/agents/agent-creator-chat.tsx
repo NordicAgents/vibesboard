@@ -9,6 +9,7 @@ import { EmptyScreen } from '@/components/empty-screen'
 import { cn } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
+import { IconPlus } from '@/components/ui/icons'
 import { nanoid } from '@/lib/utils'
 
 interface AgentCreatorChatProps {
@@ -39,8 +40,15 @@ export function AgentCreatorChat({ className }: AgentCreatorChatProps) {
       <div className="flex flex-1 flex-col">
         <div className="relative flex-1 pb-36 pt-20">
           <div className="absolute left-4 top-4 z-10">
-            <Button size="sm" variant="secondary" onClick={handleNewChat}>
-              New chat
+            <Button
+              size="icon"
+              className="h-10 w-10"
+              variant="secondary"
+              onClick={handleNewChat}
+              aria-label="New chat"
+              title="New chat"
+            >
+              <IconPlus className="h-6 w-6" />
             </Button>
           </div>
           <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2 text-center">
