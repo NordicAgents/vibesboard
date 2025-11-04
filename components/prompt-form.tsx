@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { IconArrowElbow } from '@/components/ui/icons'
+import { IconArrowUp } from '@/components/ui/icons'
 
 export interface PromptProps
   extends Pick<UseChatHelpers, 'input' | 'setInput'> {
@@ -64,7 +64,7 @@ export function PromptForm({
                 size="icon"
                 disabled={isLoading || input === ''}
               >
-                <IconArrowElbow />
+                <IconArrowUp />
                 <span className="sr-only">Send message</span>
               </Button>
             </TooltipTrigger>

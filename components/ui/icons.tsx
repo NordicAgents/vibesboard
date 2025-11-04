@@ -170,6 +170,20 @@ function IconArrowDown({ className, ...props }: React.ComponentProps<'svg'>) {
   )
 }
 
+function IconArrowUp({ className, ...props }: React.ComponentProps<'svg'>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      className={cn('h-4 w-4', className)}
+      {...props}
+    >
+      <path d="m50.34 106.34 72-72a8 8 0 0 1 11.32 0l72 72a8 8 0 0 1-11.32 11.32L136 59.31V216a8 8 0 0 1-16 0V59.31l-58.34 58.35a8 8 0 0 1-11.32-11.32Z" />
+    </svg>
+  )
+}
+
 function IconArrowRight({ className, ...props }: React.ComponentProps<'svg'>) {
   return (
     <svg
@@ -484,6 +498,7 @@ export {
   IconGitHub,
   IconSeparator,
   IconArrowDown,
+  IconArrowUp,
   IconArrowRight,
   IconUser,
   IconPlus,

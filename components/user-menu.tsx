@@ -56,7 +56,7 @@ export function UserMenu({ user }: UserMenuProps) {
                 {getUserInitials(user?.user_metadata.name ?? user?.email)}
               </div>
             )}
-            <span className="ml-2">{user?.user_metadata.name ?? '👋🏼'}</span>
+            <span className="ml-2">{user?.user_metadata.name ?? ''}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent sideOffset={8} align="start" className="w-[180px]">
