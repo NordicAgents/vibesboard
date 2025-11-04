@@ -29,7 +29,6 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
       <AgentChat
         agent={agent}
         endpoint={`/api/public/agents/${agent.agentUrl}/chat`}
-        showNewChatButton={false}
       />
     </div>
   )

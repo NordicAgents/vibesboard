@@ -18,7 +18,6 @@ export interface ChatPanelProps
     | 'setInput'
   > {
   id?: string
-  showNewChatButton?: boolean
 }
 
 export function ChatPanel({
@@ -29,8 +28,7 @@ export function ChatPanel({
   reload,
   input,
   setInput,
-  messages,
-  showNewChatButton = true
+  messages
 }: ChatPanelProps) {
   return (
     <div className="fixed inset-x-0 bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50%">
@@ -71,7 +69,6 @@ export function ChatPanel({
             input={input}
             setInput={setInput}
             isLoading={isLoading}
-            showNewChatButton={showNewChatButton}
           />
           {/* Footer removed */}
         </div>

@@ -6,7 +6,7 @@ import { clearChats } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/sidebar'
 import { SidebarList } from '@/components/sidebar-list'
-import { IconNextChat, IconSeparator } from '@/components/ui/icons'
+import { IconNextChat } from '@/components/ui/icons'
 import { SidebarFooter } from '@/components/sidebar-footer'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ClearHistory } from '@/components/clear-history'
@@ -36,21 +36,13 @@ export async function Header() {
             <IconNextChat className="mr-2 hidden h-6 w-6 dark:block" />
           </Link>
         )}
-        <div className="flex items-center">
-          <IconSeparator className="h-6 w-6 text-muted-foreground/50" />
-          {session?.user ? (
-            <UserMenu user={session.user} />
-          ) : (
-            <Button variant="link" asChild className="-ml-2">
-              <Link href="/sign-in">Login</Link>
-            </Button>
-          )}
-        </div>
       </div>
-      <div className="flex items-center justify-end space-x-2">
-        {session?.user && (
-          <Button variant="secondary" asChild>
-            <Link href="/agents/new">New Agent</Link>
+      <div className="flex flex-1 items-center justify-end space-x-2">
+        {session?.user ? (
+          <UserMenu user={session.user} />
+        ) : (
+          <Button variant="link" asChild className="-ml-2">
+            <Link href="/sign-in">Login</Link>
           </Button>
         )}
       </div>

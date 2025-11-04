@@ -12,6 +12,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip'
 
 export interface SidebarListProps {
   userId?: string
@@ -66,8 +71,24 @@ export async function SidebarList({ userId }: SidebarListProps) {
         )}
       </div>
       <div className="space-y-2 px-2">
-        <div className="px-2 text-xs font-semibold tracking-wide text-muted-foreground">
-          Chats
+        <div className="flex items-center justify-between px-2 text-xs font-semibold tracking-wide text-muted-foreground">
+          <span>Chats</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                aria-label="Start a new chat"
+                title="Start a new chat"
+              >
+                <Link href="/">
+                  <IconPlus className="h-4 w-4" />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>New chat</TooltipContent>
+          </Tooltip>
         </div>
         {chats?.length ? (
           <div className="space-y-2">

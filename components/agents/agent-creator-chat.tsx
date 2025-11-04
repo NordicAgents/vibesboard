@@ -51,7 +51,6 @@ export function AgentCreatorChat({ className }: AgentCreatorChatProps) {
         messages={messages}
         input={input}
         setInput={setInput}
-        showNewChatButton={false}
       />
     </div>
   )
