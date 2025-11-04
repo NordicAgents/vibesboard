@@ -1,21 +1,44 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { type AgentSharePayload, type VibeAgent } from '@/lib/types'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
+import {
+  type AgentSharePayload,
+  type VibeAgent,
+  type VibeAgentConversation
+} from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
+import { formatDate } from '@/lib/utils'
 
 interface AgentRightbarProps {
   agent: VibeAgent
   share: AgentSharePayload
+  conversations?: VibeAgentConversation[]
   className?: string
 }
 
-export function AgentRightbar({ agent, share, className }: AgentRightbarProps) {
+export function AgentRightbar({
+  agent,
+  share,
+  conversations = [],
+  className
+}: AgentRightbarProps) {
+  const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const [name, setName] = useState(agent.name)
+  const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
+  const [saving, setSaving] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -27,15 +50,80 @@ export function AgentRightbar({ agent, share, className }: AgentRightbarProps) {
     }
   }
 
+  const updateAgent = async (payload: Partial<VibeAgent>) => {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error ?? 'Failed to update')
+      }
+      router.refresh()
+    } catch (_) {
+      // keep silent here to avoid toast dep; could add toast if needed
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const topConversations = useMemo(
+    () => conversations.slice(0, 10),
+    [conversations]
+  )
+
   return (
     <aside className={className} aria-label="Agent details sidebar">
-      <div className="space-y-4">
-        <div>
-          <p className="text-xs uppercase text-muted-foreground">Agent</p>
-          <h2 className="truncate text-xl font-semibold">{agent.name}</h2>
-          <p className="truncate text-xs text-muted-foreground">/a/{agent.agentUrl}</p>
-        </div>
+      <div className="space-y-5">
+        {/* Agent card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Agent</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <Input
+                value={name}
+                disabled={saving}
+                onChange={e => setName(e.target.value)}
+                placeholder="Agent name"
+              />
+              <div className="flex items-center justify-between">
+                <p className="truncate text-xs text-muted-foreground">
+                  /a/{agent.agentUrl}
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => updateAgent({ name })}
+                  disabled={saving || name.trim().length === 0 || name === agent.name}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Allow anonymous chat</p>
+                <p className="text-xs text-muted-foreground">
+                  Require sign-in when disabled.
+                </p>
+              </div>
+              <Switch
+                checked={allowAnonymous}
+                disabled={saving}
+                onCheckedChange={value => {
+                  setAllowAnonymous(value)
+                  updateAgent({ allowAnonymous: value })
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Share & QR */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Share</CardTitle>
@@ -53,27 +141,44 @@ export function AgentRightbar({ agent, share, className }: AgentRightbarProps) {
               </Button>
             </div>
             <div className="flex items-center justify-center">
-              <QrCode dataUrl={share.qrDataUrl} size={180} />
+              <QrCode dataUrl={share.qrDataUrl} size={220} />
             </div>
           </CardContent>
         </Card>
 
+        {/* Conversations */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Quick Info</CardTitle>
+            <CardTitle className="text-base">Conversations</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Anonymous chat</span>
-              <span className="font-medium">{agent.allowAnonymous ? 'Allowed' : 'Restricted'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Tools</span>
-              <span className="font-medium">{agent.tools.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Files</span>
-              <span className="font-medium">{agent.fileKeys.length}</span>
+          <CardContent className="space-y-2">
+            {topConversations.length ? (
+              <div className="space-y-2">
+                {topConversations.map(c => (
+                  <Link
+                    key={c.id}
+                    href={`/agents/${agent.id}/conversations/${c.id}`}
+                    className="block rounded-md border p-2 text-sm hover:border-primary"
+                  >
+                    <div className="line-clamp-1 font-medium">
+                      {c.summary || c.messages.at(-1)?.content || 'Conversation'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Updated {formatDate(c.updatedAt)}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No conversations yet.</p>
+            )}
+            <div className="flex items-center justify-between pt-1">
+              <Button asChild size="sm">
+                <Link href={`/agents/${agent.id}/conversations/new`}>Start chat</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/agents/${agent.id}/conversations`}>View all</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -81,4 +186,3 @@ export function AgentRightbar({ agent, share, className }: AgentRightbarProps) {
     </aside>
   )
 }
-

@@ -1,16 +1,15 @@
-import { cookies, headers } from 'next/headers'
+import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow } from '@/lib/agents/db'
-import { AgentDashboard } from '@/components/agents/agent-dashboard'
-import { getQrDataUrl } from '@/lib/qr'
+import { AgentChat } from '@/components/agent-chat'
 
 export const runtime = 'nodejs'
 
-export default async function AgentDashboardPage({
+export default async function AgentPageAsChat({
   params
 }: {
   params: { id: string }
@@ -26,33 +25,22 @@ export default async function AgentDashboardPage({
     cookies: () => cookieStore
   })
 
-  const { data } = await supabase
+  const { data: agentRow } = await supabase
     .from('vibe_agents')
     .select('*')
     .eq('id', params.id)
     .eq('user_id', session.user.id)
     .maybeSingle()
 
-  if (!data) {
+  if (!agentRow) {
     notFound()
   }
 
-  const agent = mapAgentRow(data)
-  const headersList = headers()
-  const protocol =
-    headersList.get('x-forwarded-proto') ??
-    (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
-  const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
-  const origin =
-    (protocol && host
-      ? `${protocol}://${host}`
-      : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
-  const shareUrl = `${origin}/a/${agent.agentUrl}`
-  const qrDataUrl = await getQrDataUrl(shareUrl)
+  const agent = mapAgentRow(agentRow)
 
   return (
-    <div className="container mx-auto flex-1 space-y-6 px-4 py-8">
-      <AgentDashboard agent={agent} share={{ url: shareUrl, qrDataUrl }} />
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
+      <AgentChat agent={agent} endpoint={`/api/agents/${agent.id}/chat`} />
     </div>
   )
 }

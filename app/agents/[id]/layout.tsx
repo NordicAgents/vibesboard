@@ -4,7 +4,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
-import { mapAgentRow } from '@/lib/agents/db'
+import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentRightbar } from '@/components/agents/agent-rightbar'
 import { Button } from '@/components/ui/button'
@@ -48,6 +48,14 @@ export default async function AgentSectionLayout({
   }
 
   const agent = mapAgentRow(data)
+  const { data: convoRows } = await supabase
+    .from('vibe_agent_conversations')
+    .select('*')
+    .eq('agent_id', agent.id)
+    .order('updated_at', { ascending: false })
+
+  const conversations = (convoRows ?? []).map(mapConversationRow)
+
   const headersList = headers()
   const protocol =
     headersList.get('x-forwarded-proto') ??
@@ -69,13 +77,17 @@ export default async function AgentSectionLayout({
             <SheetTrigger asChild>
               <Button variant="secondary" size="sm">Agent Details</Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[92vw] sm:w-[420px]">
+            <SheetContent side="right" className="w-[96vw] sm:w-[520px]">
               <SheetHeader>
                 <SheetTitle>Agent Details</SheetTitle>
               </SheetHeader>
               <div className="mt-4 overflow-y-auto pb-6">
                 {/* @ts-ignore */}
-                <AgentRightbar agent={agent} share={{ url: shareUrl, qrDataUrl }} />
+                <AgentRightbar
+                  agent={agent}
+                  share={{ url: shareUrl, qrDataUrl }}
+                  conversations={conversations}
+                />
               </div>
             </SheetContent>
           </Sheet>
@@ -83,12 +95,16 @@ export default async function AgentSectionLayout({
       </div>
 
       {/* Main content area reserves space on desktop for fixed right sidebar */}
-      <div className="lg:mr-[420px]">{children}</div>
+      <div className="lg:mr-[520px]">{children}</div>
 
       {/* Desktop right sidebar (fixed) */}
-      <div className="fixed right-0 top-16 bottom-0 hidden w-[90vw] max-w-[420px] overflow-y-auto border-l bg-background p-4 lg:block">
+      <div className="fixed right-0 top-16 bottom-0 hidden w-[90vw] max-w-[520px] overflow-y-auto border-l bg-background p-4 lg:block">
         {/* @ts-ignore */}
-        <AgentRightbar agent={agent} share={{ url: shareUrl, qrDataUrl }} />
+        <AgentRightbar
+          agent={agent}
+          share={{ url: shareUrl, qrDataUrl }}
+          conversations={conversations}
+        />
       </div>
     </div>
   )
