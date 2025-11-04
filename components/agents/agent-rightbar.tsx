@@ -17,7 +17,7 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { IconExternalLink } from '@/components/ui/icons'
+import { IconClose, IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { formatDate } from '@/lib/utils'
 
@@ -26,13 +26,15 @@ interface AgentRightbarProps {
   share: AgentSharePayload
   conversations?: VibeAgentConversation[]
   className?: string
+  onClose?: () => void
 }
 
 export function AgentRightbar({
   agent,
   share,
   conversations = [],
-  className
+  className,
+  onClose
 }: AgentRightbarProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -77,6 +79,23 @@ export function AgentRightbar({
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase text-muted-foreground">Agent</p>
+          <h2 className="text-lg font-semibold">{agent.name}</h2>
+        </div>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close sidebar"
+            title="Close sidebar"
+          >
+            <IconClose className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
       <div className="space-y-5">
         {/* Agent card */}
         <Card>
