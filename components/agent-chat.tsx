@@ -17,6 +17,7 @@ interface AgentChatProps {
   conversationId?: string
   initialMessages?: Message[]
   className?: string
+  showNewChatButton?: boolean
 }
 
 export function AgentChat({
@@ -24,7 +25,8 @@ export function AgentChat({
   endpoint,
   conversationId: initialConversationId,
   initialMessages,
-  className
+  className,
+  showNewChatButton = true
 }: AgentChatProps) {
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
@@ -84,6 +86,7 @@ export function AgentChat({
         messages={messages}
         input={input}
         setInput={setInput}
+        showNewChatButton={showNewChatButton}
       />
     </div>
   )
