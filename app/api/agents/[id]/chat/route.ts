@@ -41,7 +41,10 @@ export async function POST(
 
   const body = await req.json()
   const payload = agentChatRequestSchema.parse(body)
-  const normalizedMessages = payload.messages as Message[]
+  const normalizedMessages = payload.messages.map(message => ({
+    ...message,
+    id: message.id ?? nanoid()
+  })) as Message[]
   const conversation = await ensureConversation({
     supabase,
     agentId: agent.id,

@@ -4,7 +4,7 @@ import { type Database } from '@/lib/db_types'
 import { mapAgentRow } from './db'
 import { type VibeAgent } from '@/lib/types'
 
-type Client = SupabaseClient<Database>
+type Client = SupabaseClient<Database, 'public', Database['public']>
 
 export async function getAgentForUser(
   supabase: Client,

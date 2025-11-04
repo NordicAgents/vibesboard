@@ -28,7 +28,7 @@ export const upsertAgentSchema = z.object({
 export const patchAgentSchema = upsertAgentSchema.partial()
 
 export const agentChatMessageSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   role: z.enum(['system', 'user', 'assistant']),
   content: z.string()
 })

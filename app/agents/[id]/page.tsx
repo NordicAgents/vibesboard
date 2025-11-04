@@ -38,10 +38,15 @@ export default async function AgentDashboardPage({
   }
 
   const agent = mapAgentRow(data)
+  const headersList = headers()
+  const protocol =
+    headersList.get('x-forwarded-proto') ??
+    (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
+  const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
   const origin =
-    headers().get('origin') ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'http://localhost:3000'
+    (protocol && host
+      ? `${protocol}://${host}`
+      : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
   const shareUrl = `${origin}/a/${agent.agentUrl}`
   const qrDataUrl = await getQrDataUrl(shareUrl)
 

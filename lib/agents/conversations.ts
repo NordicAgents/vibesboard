@@ -5,7 +5,7 @@ import { type Database, type Json } from '@/lib/db_types'
 import { mapConversationRow } from './db'
 import { type VibeAgentConversation } from '@/lib/types'
 
-type Client = SupabaseClient<Database>
+type Client = SupabaseClient<Database, 'public', Database['public']>
 
 interface ConversationIdentifier {
   conversationId?: string

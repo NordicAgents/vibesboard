@@ -39,7 +39,10 @@ export async function POST(
     ...body,
     externalId
   })
-  const normalizedMessages = payload.messages as Message[]
+  const normalizedMessages = payload.messages.map(message => ({
+    ...message,
+    id: message.id ?? nanoid()
+  })) as Message[]
 
   const conversation = await ensureConversation({
     supabase,
