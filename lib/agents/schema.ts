@@ -44,5 +44,6 @@ export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
 
 export const agentAskRequestSchema = z.object({
   question: z.string().min(4),
-  conversationId: z.string().uuid().optional()
+  contextConversationId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional()
 })

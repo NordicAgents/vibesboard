@@ -45,10 +45,17 @@ export default async function AgentPageAsChat({
     .order('updated_at', { ascending: false })
 
   const conversations = (convoRows ?? []).map(mapConversationRow)
+  const ownerConversations = conversations.filter(
+    conversation => conversation.userId === session.user.id
+  )
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
-      <AgentAskChat agent={agent} conversations={conversations} />
+      <AgentAskChat
+        agent={agent}
+        ownerId={session.user.id}
+        ownerSessions={ownerConversations}
+      />
     </div>
   )
 }

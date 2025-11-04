@@ -9,7 +9,13 @@ import { type Database } from '@/lib/db_types'
 import { getAgentForUser } from '@/lib/agents/server'
 import { agentAskRequestSchema } from '@/lib/agents/schema'
 import { embedTexts } from '@/lib/agent/embeddings'
-import { listAgentConversations } from '@/lib/agents/conversations'
+import {
+  ensureConversation,
+  listAgentConversations,
+  updateConversationMessages
+} from '@/lib/agents/conversations'
+import { nanoid } from '@/lib/utils'
+import { summarizeConversation } from '@/lib/agent/summarize'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -63,8 +69,25 @@ export async function POST(
       typeof json?.question === 'string'
         ? (json.question as string)
         : (json?.prompt as string | undefined),
-    conversationId: json?.conversationId as string | undefined
+    contextConversationId: json?.contextConversationId as string | undefined,
+    sessionId: json?.sessionId as string | undefined
   })
+
+  const askConversation = await ensureConversation({
+    supabase,
+    agentId: agent.id,
+    conversationId: payload.sessionId,
+    userId: session.user.id,
+    initialMessages: []
+  })
+
+  const existingMessages = askConversation.messages ?? []
+  const userMessage = {
+    id: nanoid(),
+    role: 'user' as const,
+    content: payload.question
+  }
+  const pendingMessages = [...existingMessages, userMessage]
 
   let questionEmbedding: number[] | undefined
   try {
@@ -86,7 +109,7 @@ export async function POST(
         p_agent_id: agent.id,
         p_query_embedding: questionEmbedding,
         p_match_count: MAX_MATCHES,
-        p_conversation_id: payload.conversationId ?? null
+        p_conversation_id: payload.contextConversationId ?? null
       }
     )
 
@@ -107,8 +130,8 @@ export async function POST(
 
   if (!snippets.length) {
     const conversations = await listAgentConversations(supabase, agent.id)
-    const subset = payload.conversationId
-      ? conversations.filter(conv => conv.id === payload.conversationId)
+    const subset = payload.contextConversationId
+      ? conversations.filter(conv => conv.id === payload.contextConversationId)
       : conversations.slice(0, FALLBACK_CONVO_COUNT)
 
     for (const conversation of subset) {
@@ -148,6 +171,29 @@ ${defaultContext}`
     ]
   })
 
-  const stream = OpenAIStream(response)
-  return new StreamingTextResponse(stream)
+  const stream = OpenAIStream(response, {
+    async onCompletion(completion) {
+      const nextMessages = [
+        ...pendingMessages,
+        {
+          id: nanoid(),
+          role: 'assistant' as const,
+          content: completion
+        }
+      ]
+      const summary = await summarizeConversation(nextMessages)
+      await updateConversationMessages({
+        supabase,
+        conversationId: askConversation.id,
+        messages: nextMessages,
+        summary
+      })
+    }
+  })
+
+  return new StreamingTextResponse(stream, {
+    headers: {
+      'x-session-id': askConversation.id
+    }
+  })
 }
