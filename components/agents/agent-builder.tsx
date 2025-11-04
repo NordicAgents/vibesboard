@@ -7,7 +7,6 @@ import { toast } from 'react-hot-toast'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
 import { type AgentToolType, type VibeAgentTool } from '@/lib/types'
 import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
-import { AgentCardPreview } from './agent-card-preview'
 import { AgentBuilderHelper } from './agent-builder-helper'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -243,13 +242,6 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
         </Button>
       </form>
       <div className="space-y-4">
-        <AgentCardPreview
-          name={name}
-          instructions={instructions}
-          tools={toolsPayload}
-          fileCount={fileKeys.length}
-          allowAnonymous={allowAnonymous}
-        />
         <AgentBuilderHelper onUseSuggestion={setInstructions} />
       </div>
     </div>

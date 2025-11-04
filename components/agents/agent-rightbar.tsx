@@ -233,11 +233,21 @@ export function AgentRightbar({
             </div>
             {selectedConversation && (
               <div className="mt-3 rounded-md border p-3">
-                <div className="mb-2">
-                  <p className="text-sm font-semibold">Conversation preview</p>
-                  <p className="text-xs text-muted-foreground">
-                    Last updated {formatDate(selectedConversation.updatedAt)}
-                  </p>
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">Conversation preview</p>
+                    <p className="text-xs text-muted-foreground">
+                      Last updated {formatDate(selectedConversation.updatedAt)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Close preview"
+                    onClick={() => setSelectedConversationId(null)}
+                  >
+                    <IconClose className="h-4 w-4" />
+                  </Button>
                 </div>
                 <div className="max-h-64 space-y-3 overflow-y-auto pr-2 text-sm">
                   {selectedConversation.messages.length ? (
