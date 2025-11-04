@@ -81,6 +81,23 @@ module.exports = {
             transform: 'translateX(-100%)'
           }
         }
+        ,
+        'slide-from-right': {
+          '0%': {
+            transform: 'translateX(100%)'
+          },
+          '100%': {
+            transform: 'translateX(0)'
+          }
+        },
+        'slide-to-right': {
+          '0%': {
+            transform: 'translateX(0)'
+          },
+          '100%': {
+            transform: 'translateX(100%)'
+          }
+        }
       },
       animation: {
         'slide-from-left':
@@ -89,6 +106,11 @@ module.exports = {
           'slide-to-left 0.25s cubic-bezier(0.82, 0.085, 0.395, 0.895)',
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out'
+        ,
+        'slide-from-right':
+          'slide-from-right 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)',
+        'slide-to-right':
+          'slide-to-right 0.25s cubic-bezier(0.82, 0.085, 0.395, 0.895)'
       }
     }
   },

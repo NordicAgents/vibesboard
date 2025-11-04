@@ -21,15 +21,27 @@ export async function SidebarList({ userId }: SidebarListProps) {
       <div className="space-y-2 border-b pb-4">
         <div className="flex items-center justify-between px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <span>Agents</span>
-          <Link
-            href="/agents/new"
-            className={buttonVariants({
-              variant: 'ghost',
-              size: 'sm'
-            })}
-          >
-            New
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/agents/new"
+              className={buttonVariants({
+                variant: 'ghost',
+                size: 'sm'
+              })}
+            >
+              New
+            </Link>
+            <Link
+              href="/agents/new/chat"
+              className={buttonVariants({
+                variant: 'ghost',
+                size: 'sm'
+              })}
+              title="Create via chat"
+            >
+              New via Chat
+            </Link>
+          </div>
         </div>
         {agents?.length ? (
           <div className="space-y-1 px-2">
