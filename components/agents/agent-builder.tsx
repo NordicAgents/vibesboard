@@ -51,6 +51,12 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
     type: tool
   }))
 
+  const safeFileName = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return
     setIsUploading(true)
@@ -59,11 +65,12 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
     try {
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
-          const path = `${userId}/${Date.now()}-${file.name}`
+          const path = `${userId}/${Date.now()}-${safeFileName(file.name)}`
           const { data, error } = await supabase.storage
             .from('agent-files')
             .upload(path, file, {
-              upsert: true
+              upsert: true,
+              contentType: file.type || 'application/octet-stream'
             })
 
           if (error || !data) {
@@ -76,7 +83,9 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
       setFileKeys(prev => Array.from(new Set([...prev, ...uploads])))
       toast.success('Files uploaded')
     } catch (error) {
-      toast.error('Failed to upload files')
+      const message =
+        error instanceof Error ? error.message : 'Failed to upload files'
+      toast.error(message)
     } finally {
       setIsUploading(false)
     }

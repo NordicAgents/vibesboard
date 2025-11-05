@@ -51,6 +51,7 @@ export function AgentRightbar({
   >(() => agent.tools.map(t => t.type))
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const handleCopy = async () => {
     try {
@@ -87,17 +88,27 @@ export function AgentRightbar({
     []
   )
 
+  const safeFileName = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return
     setUploading(true)
+    setUploadError(null)
     const supabase = getBrowserSupabaseClient()
     try {
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
-          const path = `${agent.userId}/${Date.now()}-${file.name}`
+          const path = `${agent.userId}/${Date.now()}-${safeFileName(file.name)}`
           const { data, error } = await supabase.storage
             .from('agent-files')
-            .upload(path, file, { upsert: true })
+            .upload(path, file, {
+              upsert: true,
+              contentType: file.type || 'application/octet-stream'
+            })
           if (error || !data) throw error ?? new Error('Upload failed')
           return data.path
         })
@@ -105,8 +116,10 @@ export function AgentRightbar({
       const next = Array.from(new Set([...fileKeys, ...uploads]))
       setFileKeys(next)
       await updateAgent({ fileKeys: next })
-    } catch (_) {
-      // silent fail
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to upload files'
+      setUploadError(message)
     } finally {
       setUploading(false)
     }
@@ -284,6 +297,11 @@ export function AgentRightbar({
               {fileKeys.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   Upload transcripts, docs, or FAQs to ground responses.
+                </p>
+              )}
+              {uploadError && (
+                <p className="text-xs text-red-600" role="alert">
+                  {uploadError}
                 </p>
               )}
               {fileKeys.length > 0 && (

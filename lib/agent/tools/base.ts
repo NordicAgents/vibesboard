@@ -77,8 +77,10 @@ export const createToolKit = (
   }
 }
 
-export const resolveToolName = (tool: VibeAgentTool, fallback: string) =>
-  tool.name?.trim() || fallback
+// For OpenAI tool/function names, prefer a safe, stable identifier.
+// We intentionally ignore the human-readable `tool.name` (which may contain spaces)
+// and use the factory-provided fallback such as `web_search`, `file_search`, etc.
+export const resolveToolName = (_tool: VibeAgentTool, fallback: string) => fallback
 
 export const resolveToolDescription = (tool: VibeAgentTool) =>
   tool.description ||
