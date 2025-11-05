@@ -78,7 +78,7 @@ get_env_value() {
 }
 
 # Only include NEXT_PUBLIC_* actually used by the app
-for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_AUTH_GITHUB; do
+for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_AUTH_GITHUB NEXT_PUBLIC_AUTH_GOOGLE NEXT_PUBLIC_APP_URL; do
   val=$(get_env_value "$key" || true)
   add_build_arg "$key" "$val"
 done
@@ -148,4 +148,3 @@ Note:
   these under next start, but behavior may differ from Vercel Edge. Test
   your API routes after deploy.
 EONOTE
-

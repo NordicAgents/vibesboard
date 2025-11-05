@@ -1,6 +1,6 @@
 import 'server-only'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -18,6 +18,21 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
+  // Build a robust origin using proxy headers when present to avoid
+  // redirecting to internal hosts like localhost:8080 behind proxies.
+  const headersList = headers()
+  const rawProto = headersList.get('x-forwarded-proto')
+  const protocol =
+    (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
+    (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
+  const rawHost = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const host = rawHost ? rawHost.split(',')[0]?.trim() : null
+
+  const origin =
+    (protocol && host
+      ? `${protocol}://${host}`
+      : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
+
   // URL to redirect to after sign in process completes
-  return NextResponse.redirect(requestUrl.origin)
+  return NextResponse.redirect(origin)
 }
