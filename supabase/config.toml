@@ -71,6 +71,14 @@ redirect_uri = ""
 # or any other third-party OIDC providers.
 url = ""
 
+# Google OAuth provider
+[auth.external.google]
+enabled = true
+client_id = "env(AUTH_GOOGLE_ID)"
+secret = "env(AUTH_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+
 [analytics]
 enabled = false
 port = 54327

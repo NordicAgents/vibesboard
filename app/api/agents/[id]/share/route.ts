@@ -37,10 +37,13 @@ export async function GET(
 
   const agent = mapAgentRow(data)
   const headersList = headers()
+  // Handle comma-separated proxy headers (e.g., "https,http") by taking the first value
+  const rawProto = headersList.get('x-forwarded-proto')
   const protocol =
-    headersList.get('x-forwarded-proto') ??
+    (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
     (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
-  const host = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const rawHost = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const host = rawHost ? rawHost.split(',')[0]?.trim() : null
   const origin =
     (protocol && host
       ? `${protocol}://${host}`
