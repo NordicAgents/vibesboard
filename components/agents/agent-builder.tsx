@@ -136,6 +136,9 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
     }
   }
 
+  // Feature flag to show/hide Tools & Context section in the builder
+  const SHOW_TOOLS_AND_CONTEXT = false
+
   return (
     <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
       <form className="space-y-6" onSubmit={handleSubmit}>
@@ -177,75 +180,77 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Tools & context</CardTitle>
-            <CardDescription>
-              Enable optional tools and upload files for RAG.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium">Tools</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {toolOptions.map(tool => {
-                  const checked = selectedTools.includes(tool.id as AgentToolType)
-                  return (
-                    <Badge
-                      key={tool.id}
-                      variant={checked ? 'default' : 'secondary'}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setSelectedTools(prev =>
-                          checked
-                            ? prev.filter(item => item !== tool.id)
-                            : [...prev, tool.id as AgentToolType]
-                        )
-                      }}
-                    >
-                      {tool.name}
-                    </Badge>
-                  )
-                })}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reference files</label>
-              <input
-                type="file"
-                multiple
-                onChange={event => handleUpload(event.target.files)}
-                disabled={isUploading}
-                className="block w-full text-sm"
-              />
-              {fileKeys.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Upload transcripts, docs, or FAQs to ground responses.
-                </p>
-              )}
-              {fileKeys.length > 0 && (
-                <ul className="space-y-1 text-sm">
-                  {fileKeys.map(key => (
-                    <li
-                      key={key}
-                      className="flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <span className="truncate">{key}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveFile(key)}
+        {SHOW_TOOLS_AND_CONTEXT && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tools & context</CardTitle>
+              <CardDescription>
+                Enable optional tools and upload files for RAG.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-medium">Tools</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {toolOptions.map(tool => {
+                    const checked = selectedTools.includes(tool.id as AgentToolType)
+                    return (
+                      <Badge
+                        key={tool.id}
+                        variant={checked ? 'default' : 'secondary'}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setSelectedTools(prev =>
+                            checked
+                              ? prev.filter(item => item !== tool.id)
+                              : [...prev, tool.id as AgentToolType]
+                          )
+                        }}
                       >
-                        Remove
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                        {tool.name}
+                      </Badge>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Reference files</label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={event => handleUpload(event.target.files)}
+                  disabled={isUploading}
+                  className="block w-full text-sm"
+                />
+                {fileKeys.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Upload transcripts, docs, or FAQs to ground responses.
+                  </p>
+                )}
+                {fileKeys.length > 0 && (
+                  <ul className="space-y-1 text-sm">
+                    {fileKeys.map(key => (
+                      <li
+                        key={key}
+                        className="flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <span className="truncate">{key}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveFile(key)}
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Button type="submit" disabled={isSubmitting || isUploading} className="w-full sm:w-auto">
           {isSubmitting ? 'Creating...' : 'Create agent'}
