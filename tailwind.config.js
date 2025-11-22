@@ -14,9 +14,31 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-sans)', ...fontFamily.sans]
+        sans: ['var(--font-sans)', ...fontFamily.sans],
+        switzer: ['var(--font-switzer)', ...fontFamily.sans]
+      },
+      fontSize: {
+        'display-xs': ['60px', { lineHeight: '1.1' }],
+        'display-sm': ['80px', { lineHeight: '1.1' }],
+        'display-xl': ['100px', { lineHeight: '1.1' }],
+        'display-2xl': ['140px', { lineHeight: '1.1' }],
+        'hero': ['clamp(48px, 8vw, 120px)', { lineHeight: '1.1' }],
+        'h2': ['clamp(32px, 5vw, 60px)', { lineHeight: '1.2' }],
+        'h3': ['51px', { lineHeight: '1.3' }],
+        'h4': ['32px', { lineHeight: '1.4' }],
+        'h5': ['18px', { lineHeight: '2.1' }],
+        'body-sm': ['17px', { lineHeight: '1.6' }],
+        'body-md': ['21px', { lineHeight: '1.6' }],
+        'body-lg': ['24px', { lineHeight: '1.6' }]
       },
       colors: {
+        'black-primary': '#050505',
+        'gray-secondary': '#969696',
+        'beige-bg': '#FFFEFA',
+        'purewhite-bg': '#FFFFFF',
+        'black-10': 'rgba(5, 5, 5, 0.1)',
+        'black-25': 'rgba(5, 5, 5, 0.25)',
+        'black-50': 'rgba(0, 0, 0, 0.5)',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

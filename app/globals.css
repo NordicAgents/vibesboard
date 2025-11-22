@@ -4,6 +4,12 @@
 
 @layer base {
   :root {
+    /* Landing page colors */
+    --black-primary: #050505;
+    --gray-secondary: #969696;
+    --beige-bg: #FFFEFA;
+    --purewhite-bg: #FFFFFF;
+
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
 
@@ -72,6 +78,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
