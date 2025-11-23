@@ -44,6 +44,14 @@ You can deploy your own version of the Next.js AI Chatbot to Vercel with one cli
 
 This demo uses GitHub Oauth. Follow the [GitHub OAuth setup steps](https://supabase.com/docs/guides/auth/social-login/auth-github) on your Supabase project.
 
+### Set up Google OAuth
+
+If you prefer Google sign-in, enable the Google provider in your Supabase project and configure client credentials:
+
+- In Supabase Dashboard, go to Auth > Providers > Google and paste your Google OAuth 2.0 Client ID and Client Secret.
+- In your environment, set `NEXT_PUBLIC_AUTH_GOOGLE=true`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` (see `.env.example`).
+- Ensure your Site URL and redirect URL include `http://localhost:3000` and `http://localhost:3000/api/auth/callback` for local dev (or your deployed URL).
+
 ### Configure your site url
 
 In the Supabase Dashboard, navigate to [Auth > URL configuration](https://app.supabase.com/project/_/auth/url-configuration) and set your Vercel URL as the site URL.

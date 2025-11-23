@@ -3,7 +3,7 @@ import { Metadata } from 'next'
 import { Toaster } from 'react-hot-toast'
 
 import '@/app/globals.css'
-import { fontMono, fontSans } from '@/lib/fonts'
+import { fontMono, fontSans, fontSwitzer } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
@@ -11,18 +11,18 @@ import { Header } from '@/components/header'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Next.js AI Chatbot',
-    template: `%s - Next.js AI Chatbot`
+    default: 'vibesboard agent',
+    template: `%s - vibesboard -conversation agent builder`
   },
-  description: 'An AI-powered chatbot template built with Next.js and Vercel.',
+  description: 'An AI-powered conversation agent builder to collect responses from users.',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: 'white' },
     { media: '(prefers-color-scheme: dark)', color: 'black' }
   ],
   icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon-16x16.png',
-    apple: '/apple-touch-icon.png'
+    icon: '/logo_1.png',
+    shortcut: '/logo_1.png',
+    apple: '/logo_1.png'
   }
 }
 
@@ -38,7 +38,8 @@ export default function RootLayout({ children }: RootLayoutProps) {
         className={cn(
           'font-sans antialiased',
           fontSans.variable,
-          fontMono.variable
+          fontMono.variable,
+          fontSwitzer.variable
         )}
       >
         <Toaster />

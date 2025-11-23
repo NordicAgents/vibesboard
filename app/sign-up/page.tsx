@@ -1,5 +1,6 @@
 import { auth } from '@/auth'
 import { LoginButton } from '@/components/login-button'
+import { GoogleLoginButton } from '@/components/google-login-button'
 import { LoginForm } from '@/components/login-form'
 import { Separator } from '@/components/ui/separator'
 import { cookies } from 'next/headers'
@@ -17,8 +18,9 @@ export default async function SignInPage() {
       <div className="w-full max-w-sm">
         <LoginForm action="sign-up" />
         <Separator className="my-4" />
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-2">
           <LoginButton />
+          <GoogleLoginButton />
         </div>
       </div>
     </div>

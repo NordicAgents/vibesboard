@@ -12,16 +12,15 @@ const SheetTrigger = SheetPrimitive.Trigger
 
 const SheetClose = SheetPrimitive.Close
 
-const SheetPortal = ({
-  className,
-  children,
-  ...props
-}: SheetPrimitive.DialogPortalProps) => (
-  <SheetPrimitive.Portal
-    className={cn('fixed inset-0 z-50 flex', className)}
-    {...props}
-  >
-    {children}
+type SheetPortalProps = React.ComponentPropsWithoutRef<
+  typeof SheetPrimitive.Portal
+> & {
+  className?: string
+}
+
+const SheetPortal = ({ className, children, ...props }: SheetPortalProps) => (
+  <SheetPrimitive.Portal {...props}>
+    <div className={cn('fixed inset-0 z-50 flex', className)}>{children}</div>
   </SheetPrimitive.Portal>
 )
 SheetPortal.displayName = SheetPrimitive.Portal.displayName
@@ -41,27 +40,39 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
+type SheetSide = 'left' | 'right'
+
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed z-50 h-full border-r bg-background p-6 opacity-100 shadow-lg data-[state=closed]:animate-slide-to-left data-[state=open]:animate-slide-from-left',
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
-        <IconClose />
-        <span className="sr-only">Close</span>
-      </SheetPrimitive.Close>
-    </SheetPrimitive.Content>
-  </SheetPortal>
-))
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> & {
+    side?: SheetSide
+  }
+>(({ className, children, side = 'left', ...props }, ref) => {
+  const sideClasses =
+    side === 'right'
+      ? 'right-0 border-l data-[state=closed]:animate-slide-to-right data-[state=open]:animate-slide-from-right'
+      : 'left-0 border-r data-[state=closed]:animate-slide-to-left data-[state=open]:animate-slide-from-left'
+
+  return (
+    <SheetPortal>
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(
+          'fixed top-0 z-50 h-full bg-background p-6 opacity-100 shadow-lg',
+          sideClasses,
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+          <IconClose />
+          <span className="sr-only">Close</span>
+        </SheetPrimitive.Close>
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  )
+})
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
 const SheetHeader = ({
