@@ -23,8 +23,8 @@ export function LandingHeader() {
             </nav>
 
             <div className="flex items-center">
-                <Button variant="outline" className="rounded-full px-6 border-black-primary text-black-primary hover:bg-black-primary hover:text-white transition-colors">
-                    Let's Talk
+                <Button variant="outline" className="rounded-full px-6 border-black-primary text-black-primary hover:bg-black-primary hover:text-white transition-colors" asChild>
+                    <Link href="/sign-in">Login</Link>
                 </Button>
             </div>
         </header>
