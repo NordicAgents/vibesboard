@@ -1,0 +1,31 @@
+import { cookies } from 'next/headers'
+import { randomUUID } from 'crypto'
+
+const COOKIE_NAME = 'va_ext'
+const COOKIE_TTL_DAYS = 30
+
+export function ensureExternalSessionId() {
+  const cookieStore = cookies()
+  const existing = cookieStore.get(COOKIE_NAME)?.value
+
+  if (existing) {
+    return existing
+  }
+
+  const value = randomUUID()
+  cookieStore.set({
+    name: COOKIE_NAME,
+    value,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: true,
+    maxAge: COOKIE_TTL_DAYS * 24 * 60 * 60,
+    path: '/'
+  })
+  return value
+}
+
+export function getExternalSessionId() {
+  const cookieStore = cookies()
+  return cookieStore.get(COOKIE_NAME)?.value ?? null
+}

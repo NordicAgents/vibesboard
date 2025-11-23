@@ -20,7 +20,9 @@ export async function middleware(req: NextRequest) {
   if (
     !session &&
     !req.url.includes('/sign-in') &&
-    !req.url.includes('/sign-up')
+    !req.url.includes('/sign-up') &&
+    !req.url.includes('/landing') &&
+    req.nextUrl.pathname !== '/'
   ) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/sign-in'
@@ -41,6 +43,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!share|api|_next/static|_next/image|favicon.ico).*)'
+    // Allow public anonymous agent pages under `/a/*`
+    '/((?!a/|share|api|_next/static|_next/image|favicon.ico).*)'
   ]
 }

@@ -1,0 +1,38 @@
+# Dependencies and build artifacts
+node_modules
+.next
+out
+dist
+
+# VCS & editor
+.git
+.gitignore
+.github
+.vscode
+.DS_Store
+
+# Test, tooling, and local caches
+coverage
+tests
+*.log
+pnpm-debug.log*
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Env files (prefer passing via Cloud Run)
+.env
+.env.local
+.env.development
+.env.test
+.env.*.local
+env.yaml
+
+# Note: If you rely on build-time NEXT_PUBLIC_* vars via .env.production,
+# do not ignore it. Next automatically reads it at build time.
+# .env.production
+
+# Tooling directories not needed in container
+supabase
+
