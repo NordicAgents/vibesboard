@@ -15,8 +15,8 @@ export function LandingFooter() {
                             </h2>
                         </FadeIn>
                         <FadeIn delay={0.2}>
-                            <a href="mailto:hello@vibesboard.com" className="text-2xl md:text-4xl border-b border-white/20 pb-2 hover:text-gray-secondary transition-colors">
-                                hello@vibesboard.com
+                            <a href="mailto:hi@vibesboard.com" className="text-2xl md:text-4xl border-b border-white/20 pb-2 hover:text-gray-secondary transition-colors">
+                                hi@vibesboard.com
                             </a>
                         </FadeIn>
                     </div>
@@ -25,10 +25,10 @@ export function LandingFooter() {
                         <FadeIn delay={0.3}>
                             <span className="text-sm font-mono text-gray-secondary">[SOCIALS]</span>
                             <div className="flex flex-col gap-2 mt-2">
-                                <Link href="#" className="hover:text-gray-secondary transition-colors">Instagram</Link>
-                                <Link href="#" className="hover:text-gray-secondary transition-colors">Twitter</Link>
-                                <Link href="#" className="hover:text-gray-secondary transition-colors">LinkedIn</Link>
-                                <Link href="#" className="hover:text-gray-secondary transition-colors">Discord</Link>
+                                <Link href="https://www.instagram.com/vibesboard_ai/" target="_blank" rel="noopener noreferrer" className="hover:text-gray-secondary transition-colors">Instagram</Link>
+                                <Link href="https://x.com/vibesboard_ai" target="_blank" rel="noopener noreferrer" className="hover:text-gray-secondary transition-colors">Twitter</Link>
+                                <Link href="https://www.linkedin.com/company/vibesboard-ai/" target="_blank" rel="noopener noreferrer" className="hover:text-gray-secondary transition-colors">LinkedIn</Link>
+                                <Link href="https://www.youtube.com/@vibesboard_ai" target="_blank" rel="noopener noreferrer" className="hover:text-gray-secondary transition-colors">YouTube</Link>
                             </div>
                         </FadeIn>
                     </div>
