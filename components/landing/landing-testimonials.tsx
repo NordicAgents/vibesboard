@@ -40,7 +40,7 @@ export function LandingTestimonials() {
                 {/* Testimonial content */}
                 <div className="text-center mb-12">
                     <blockquote className="font-switzer text-2xl md:text-3xl lg:text-4xl text-black-primary font-medium mb-8 leading-relaxed">
-                        "{testimonials[currentIndex].quote}"
+                        &ldquo;{testimonials[currentIndex].quote}&rdquo;
                     </blockquote>
                     <div className="font-switzer">
                         <div className="text-lg font-semibold text-black-primary">
@@ -59,8 +59,8 @@ export function LandingTestimonials() {
                             key={index}
                             onClick={() => goToSlide(index)}
                             className={`transition-all duration-300 rounded-full ${index === currentIndex
-                                    ? 'w-12 h-3 bg-black-primary'
-                                    : 'w-3 h-3 bg-gray-secondary hover:bg-black-25'
+                                ? 'w-12 h-3 bg-black-primary'
+                                : 'w-3 h-3 bg-gray-secondary hover:bg-black-25'
                                 }`}
                             aria-label={`Go to testimonial ${index + 1}`}
                         />
