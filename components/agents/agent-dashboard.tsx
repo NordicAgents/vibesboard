@@ -15,9 +15,9 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
 import { IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
+import { ToolsFilesDisplay } from '@/components/agents/tools-files-display'
 
 interface AgentDashboardProps {
   agent: VibeAgent
@@ -115,49 +115,7 @@ export function AgentDashboard({ agent, share }: AgentDashboardProps) {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Tools & files</CardTitle>
-            <CardDescription>
-              Context used by the agent when responding.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium">Tools</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {agent.tools.length ? (
-                  agent.tools.map(tool => (
-                    <Badge key={tool.id} variant="secondary">
-                      {tool.name}
-                    </Badge>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">None enabled.</p>
-                )}
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-medium">Files</p>
-              <div className="mt-2 space-y-2">
-                {agent.fileKeys.length ? (
-                  agent.fileKeys.map(key => (
-                    <div
-                      key={key}
-                      className="rounded-md border border-dashed px-3 py-2 text-sm"
-                    >
-                      {key}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    No files uploaded yet.
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <ToolsFilesDisplay agent={agent} />
       </div>
       <Card>
         <CardHeader>
