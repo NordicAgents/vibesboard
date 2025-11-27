@@ -5,7 +5,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
-import { AgentAskChat } from '@/components/agents/agent-ask-chat'
+import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
 
 export const runtime = 'nodejs'
 
@@ -50,12 +50,10 @@ export default async function AgentPageAsChat({
   )
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
-      <AgentAskChat
-        agent={agent}
-        ownerId={session.user.id}
-        ownerSessions={ownerConversations}
-      />
-    </div>
+    <AgentChatWithLayout
+      agent={agent}
+      ownerId={session.user.id}
+      ownerSessions={ownerConversations}
+    />
   )
 }
