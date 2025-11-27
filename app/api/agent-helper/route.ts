@@ -4,7 +4,7 @@ import { OpenAIStream, StreamingTextResponse } from 'ai'
 
 import { auth } from '@/auth'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
