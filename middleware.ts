@@ -44,6 +44,6 @@ export const config = {
      * - favicon.ico (favicon file)
      */
     // Allow public anonymous agent pages under `/a/*`
-    '/((?!a/|share|api|_next/static|_next/image|favicon.ico).*)'
+    '/((?!a/|share|api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg)).*)'
   ]
 }
