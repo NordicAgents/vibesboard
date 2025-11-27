@@ -22,17 +22,17 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
     const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
 
     return (
-        <Card>
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg">
             <CardHeader>
-                <CardTitle>Tools & files</CardTitle>
-                <CardDescription>
+                <CardTitle className="font-switzer text-2xl font-bold text-black-primary">Tools & files</CardTitle>
+                <CardDescription className="font-switzer text-gray-secondary">
                     Context used by the agent when responding.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Tools Section */}
                 <div>
-                    <p className="text-sm font-medium">Tools</p>
+                    <p className="font-switzer text-sm font-medium text-black-primary">Tools</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                         {agent.tools.length > 0 ? (
                             agent.tools.map(tool => (
@@ -42,11 +42,11 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
                                 </Badge>
                             ))
                         ) : (
-                            <p className="text-xs text-muted-foreground">None enabled.</p>
+                            <p className="font-switzer text-xs text-gray-secondary">None enabled.</p>
                         )}
                     </div>
                     {agent.tools.length > 0 && (
-                        <p className="mt-2 text-xs text-muted-foreground">
+                        <p className="mt-2 font-switzer text-xs text-gray-secondary">
                             {agent.tools.length} tool{agent.tools.length > 1 ? 's' : ''} enabled
                         </p>
                     )}
@@ -54,30 +54,30 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
 
                 {/* Files Section */}
                 <div>
-                    <p className="text-sm font-medium">Reference Files</p>
+                    <p className="font-switzer text-sm font-medium text-black-primary">Reference Files</p>
                     <div className="mt-2 space-y-2">
                         {agent.fileKeys.length > 0 ? (
                             <ul className="space-y-2">
                                 {agent.fileKeys.map(key => (
                                     <li
                                         key={key}
-                                        className="flex items-center gap-2 rounded-md border bg-card p-3"
+                                        className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-3"
                                     >
-                                        <IconFile className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                        <span className="text-sm truncate">
+                                        <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
+                                        <span className="font-switzer text-sm truncate text-black-primary">
                                             {getFileName(key)}
                                         </span>
                                     </li>
                                 ))}
                             </ul>
                         ) : (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="font-switzer text-xs text-gray-secondary">
                                 No files uploaded yet.
                             </p>
                         )}
                     </div>
                     {agent.fileKeys.length > 0 && (
-                        <p className="mt-2 text-xs text-muted-foreground">
+                        <p className="mt-2 font-switzer text-xs text-gray-secondary">
                             {agent.fileKeys.length} file{agent.fileKeys.length > 1 ? 's' : ''} uploaded
                         </p>
                     )}

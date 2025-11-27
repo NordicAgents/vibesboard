@@ -48,11 +48,11 @@ export default async function AgentConversationsPage({
   const conversations = (convoRows ?? []).map(mapConversationRow)
 
   return (
-    <div className="container mx-auto flex-1 space-y-6 px-4 py-8">
+    <div className="container mx-auto flex-1 space-y-6 bg-beige-bg px-4 py-8">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm uppercase text-muted-foreground">Conversations</p>
-          <h1 className="text-3xl font-semibold">{agent.name}</h1>
+          <p className="font-switzer text-sm uppercase tracking-wider text-gray-secondary">Conversations</p>
+          <h1 className="font-switzer text-3xl font-bold text-black-primary">{agent.name}</h1>
         </div>
       </div>
       <div className="space-y-6">

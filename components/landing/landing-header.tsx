@@ -36,20 +36,20 @@ const products = [
 
 export function LandingHeader() {
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-beige-bg/80 backdrop-blur-sm">
+        <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-beige-bg/80 backdrop-blur-sm dark:bg-background/80">
             <div className="flex items-center">
-                <Link href="/" className="text-2xl font-bold font-switzer tracking-tighter">
+                <Link href="/" className="text-2xl font-bold font-switzer tracking-tighter dark:text-foreground">
                     vibesboard
                 </Link>
             </div>
 
             <nav className="hidden md:flex items-center space-x-8">
                 <DropdownMenu>
-                    <DropdownMenuTrigger className="text-sm font-medium hover:text-gray-secondary transition-colors outline-none flex items-center gap-1 group">
+                    <DropdownMenuTrigger className="text-sm font-medium hover:text-gray-secondary transition-colors outline-none flex items-center gap-1 group dark:text-foreground dark:hover:text-muted-foreground">
                         Products
                         <ChevronDown className="w-3.5 h-3.5 transition-transform group-data-[state=open]:rotate-180" />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-[320px] p-2 bg-white/95 backdrop-blur-lg border-gray-200 shadow-2xl">
+                    <DropdownMenuContent align="start" className="min-w-[320px] p-2 bg-white/95 backdrop-blur-lg border-gray-200 shadow-2xl dark:bg-popover/95 dark:border-border">
                         <div className="space-y-1">
                             {products.map((product) => {
                                 return (
@@ -58,19 +58,19 @@ export function LandingHeader() {
                                             href={product.href}
                                             target={product.isExternal ? '_blank' : undefined}
                                             rel={product.isExternal ? 'noopener noreferrer' : undefined}
-                                            className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all hover:bg-beige-bg/50 group/item relative overflow-hidden"
+                                            className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all hover:bg-beige-bg/50 group/item relative overflow-hidden dark:hover:bg-accent"
                                         >
                                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${product.accentColor} transform scale-y-0 group-hover/item:scale-y-100 transition-transform origin-top`} />
                                             <div className="flex-1 min-w-0 pl-2">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <h3 className="font-semibold text-sm text-black-primary group-hover/item:translate-x-1 transition-transform">
+                                                    <h3 className="font-semibold text-sm text-black-primary group-hover/item:translate-x-1 transition-transform dark:text-foreground">
                                                         {product.name}
                                                     </h3>
                                                     {product.isExternal && (
                                                         <ExternalLink className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover/item:opacity-100 transition-opacity" />
                                                     )}
                                                 </div>
-                                                <p className="text-xs text-gray-secondary mt-0.5">
+                                                <p className="text-xs text-gray-secondary mt-0.5 dark:text-muted-foreground">
                                                     {product.description}
                                                 </p>
                                             </div>
@@ -81,16 +81,16 @@ export function LandingHeader() {
                         </div>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                <Link href="#services" className="text-sm font-medium hover:text-gray-secondary transition-colors">
+                <Link href="#services" className="text-sm font-medium hover:text-gray-secondary transition-colors dark:text-foreground dark:hover:text-muted-foreground">
                     Features
                 </Link>
-                <Link href="#about" className="text-sm font-medium hover:text-gray-secondary transition-colors">
+                <Link href="#about" className="text-sm font-medium hover:text-gray-secondary transition-colors dark:text-foreground dark:hover:text-muted-foreground">
                     About
                 </Link>
             </nav>
 
             <div className="flex items-center">
-                <Button variant="outline" className="rounded-full px-6 border-black-primary text-black-primary hover:bg-black-primary hover:text-white transition-colors" asChild>
+                <Button variant="outline" className="rounded-full px-6 border-black-primary text-black-primary hover:bg-black-primary hover:text-white transition-colors dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-black" asChild>
                     <Link href="/sign-in">Login</Link>
                 </Button>
             </div>

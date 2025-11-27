@@ -76,7 +76,7 @@ export function LoginForm({
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
           <div className="flex flex-col gap-y-1">
-            <Label>Email</Label>
+            <Label className="font-switzer text-sm font-medium text-black-primary">Email</Label>
             <Input
               name="email"
               type="email"
@@ -90,7 +90,7 @@ export function LoginForm({
             />
           </div>
           <div className="flex flex-col gap-y-1">
-            <Label>Password</Label>
+            <Label className="font-switzer text-sm font-medium text-black-primary">Password</Label>
             <Input
               name="password"
               type="password"
@@ -105,23 +105,23 @@ export function LoginForm({
           </div>
         </fieldset>
 
-        <div className="mt-4 flex items-center">
-          <Button disabled={isLoading}>
+        <div className="mt-6 flex flex-col gap-4">
+          <Button disabled={isLoading} className="w-full rounded-full font-switzer">
             {isLoading && <IconSpinner className="mr-2 animate-spin" />}
             {action === 'sign-in' ? 'Sign In' : 'Sign Up'}
           </Button>
-          <p className="ml-4">
+          <p className="text-center font-switzer text-sm text-gray-secondary">
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="font-medium">
+                <Link href="/sign-up" className="font-medium text-black-primary hover:underline">
                   Sign Up
                 </Link>
               </>
             ) : (
               <>
                 Already have an account?{' '}
-                <Link href="/sign-in" className="font-medium">
+                <Link href="/sign-in" className="font-medium text-black-primary hover:underline">
                   Sign In
                 </Link>
               </>
