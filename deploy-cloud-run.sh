@@ -144,7 +144,7 @@ Note:
   This script forwards NEXT_PUBLIC_* values from your shell or .env file
   to the Docker build as --build-arg so Next.js can embed them.
 
-- This app sets several routes/pages to runtime = 'edge'. Next.js can run
-  these under next start, but behavior may differ from Vercel Edge. Test
-  your API routes after deploy.
+- This app runs all Next.js pages and API routes with runtime = 'nodejs'
+  on Cloud Run, so behavior should closely match running `next start`
+  locally. You should still test key routes after each deploy.
 EONOTE

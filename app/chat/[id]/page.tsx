@@ -6,7 +6,7 @@ import { getChat } from '@/app/actions'
 import { Chat } from '@/components/chat'
 import { cookies } from 'next/headers'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 export const preferredRegion = 'home'
 
 export interface ChatPageProps {
