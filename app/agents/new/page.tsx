@@ -7,7 +7,7 @@ import { AgentBuilder } from '@/components/agents/agent-builder'
 export const runtime = 'nodejs'
 
 export default async function NewAgentPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {

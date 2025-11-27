@@ -11,17 +11,18 @@ export const runtime = 'nodejs'
 export default async function PublicAgentPage({
   params
 }: {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }) {
-  const cookieStore = cookies()
+  const { slug } = await params
+  const cookieStore = await cookies()
   const supabase = createServerComponentClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const { data } = await supabase
     .from('vibe_agents')
     .select('*')
-    .eq('agent_url', params.slug)
+    .eq('agent_url', slug)
     .maybeSingle()
 
   if (!data) {

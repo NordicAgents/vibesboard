@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { StreamingTextResponse, type Message } from 'ai'
 
 import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
@@ -18,11 +18,12 @@ import { upsertConversationEmbeddings } from '@/lib/agent/embeddings'
 export const runtime = 'nodejs'
 
 export async function POST(
-  req: Request,
-  { params }: { params: { slug: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params
   const supabase = getServiceSupabaseClient()
-  const agent = await getAgentBySlug(supabase, params.slug)
+  const agent = await getAgentBySlug(supabase, slug)
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
@@ -34,7 +35,7 @@ export async function POST(
     })
   }
 
-  const externalId = ensureExternalSessionId()
+  const externalId = await ensureExternalSessionId()
   const body = await req.json()
   const payload = publicAgentChatRequestSchema.parse({
     ...body,
