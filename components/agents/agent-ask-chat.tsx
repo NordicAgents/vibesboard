@@ -251,7 +251,7 @@ export function AgentAskChat({
                     </Button>
                   )}
                 </div>
-                <div className="rounded-3xl border border-black-10 bg-purewhite-bg px-4 py-3 shadow-lg">
+                <div className="px-4 py-3">
                   <PromptForm
                     onSubmit={handleSubmit}
                     input={input}
@@ -268,7 +268,7 @@ export function AgentAskChat({
 
       {/* Chat Input - Only show at bottom when messages exist */}
       {pendingMessages.length > 0 && (
-        <div className="sticky bottom-0 bg-gradient-to-b from-beige-bg/10 from-10% to-beige-bg/30 to-50%">
+        <div className="sticky bottom-0">
           <div className="mx-auto max-w-xl px-4 pb-4 pt-2">
             <div className="mb-2 flex h-8 items-center justify-center">
               {isLoading ? (
@@ -277,7 +277,7 @@ export function AgentAskChat({
                 </Button>
               ) : null}
             </div>
-            <div className="border-t border-black-10 bg-purewhite-bg px-4 py-3 shadow-lg sm:rounded-t-3xl sm:border">
+            <div className="px-4 py-3">
               <div className="mx-auto max-w-lg">
                 <PromptForm
                   onSubmit={handleSubmit}
