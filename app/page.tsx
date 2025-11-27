@@ -18,7 +18,7 @@ export default async function IndexPage() {
 
   if (!session?.user) {
     return (
-      <main className="min-h-screen bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg">
+      <main className="min-h-screen bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
         <LandingHeader />
         <LandingHero />
         <LandingShowcase />

@@ -204,40 +204,80 @@ export function AgentAskChat({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-1">
-      <div className="flex flex-1 flex-col">
-        <div className="relative flex-1 pb-36 pt-20">
+    <div className="flex flex-1 flex-col">
+      <div className="relative flex flex-1 flex-col">
+        {/* Only show new chat button when there are messages */}
+        {pendingMessages.length > 0 && (
           <div className="absolute left-4 top-4 z-10">
-            <Button size="sm" variant="secondary" onClick={handleNewChat}>
+            <Button size="sm" variant="secondary" onClick={handleNewChat} className="rounded-full font-switzer">
               New chat
             </Button>
           </div>
-          <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2 text-center">
-            <p className="text-sm font-semibold uppercase tracking-[0.4em] text-muted-foreground">
-              ASK AI
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">Chat with conversations</p>
-          </div>
-          {pendingMessages.length ? (
-            <>
+        )}
+
+        {pendingMessages.length > 0 ? (
+          <>
+            {/* Header when messages exist */}
+            <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2 text-center">
+              <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
+                ASK AI
+              </p>
+              <p className="mt-1 font-switzer text-sm text-gray-secondary">Chat with conversations</p>
+            </div>
+            <div className="flex-1 overflow-y-auto pb-36 pt-20">
               <ChatList messages={pendingMessages} />
               <ChatScrollAnchor trackVisibility={isLoading} />
-            </>
-          ) : (
-            <div className="mx-auto max-w-2xl px-4 text-center text-muted-foreground" />
-          )}
-        </div>
+            </div>
+          </>
+        ) : (
+          // Centered empty state with input below header
+          <div className="flex flex-1 flex-col items-center justify-center px-4">
+            <div className="w-full max-w-2xl space-y-8 text-center">
+              <div className="space-y-3">
+                <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
+                  ASK AI
+                </h1>
+                <p className="font-switzer text-lg text-gray-secondary">
+                  Chat with conversations
+                </p>
+              </div>
 
-        <div className="sticky bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50%">
+              {/* Input centered below header */}
+              <div className="w-full">
+                <div className="mb-2 flex h-8 items-center justify-center">
+                  {isLoading && (
+                    <Button variant="outline" onClick={() => stop()} className="rounded-full bg-purewhite-bg font-switzer">
+                      Stop generating
+                    </Button>
+                  )}
+                </div>
+                <div className="px-4 py-3">
+                  <PromptForm
+                    onSubmit={handleSubmit}
+                    input={input}
+                    setInput={setInput}
+                    isLoading={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      {/* Chat Input - Only show at bottom when messages exist */}
+      {pendingMessages.length > 0 && (
+        <div className="sticky bottom-0">
           <div className="mx-auto max-w-xl px-4 pb-4 pt-2">
             <div className="mb-2 flex h-8 items-center justify-center">
               {isLoading ? (
-                <Button variant="outline" onClick={() => stop()} className="bg-background">
+                <Button variant="outline" onClick={() => stop()} className="rounded-full bg-purewhite-bg font-switzer">
                   Stop generating
                 </Button>
               ) : null}
             </div>
-            <div className="border-t bg-background px-4 py-3 shadow-lg sm:rounded-t-xl sm:border">
+            <div className="px-4 py-3">
               <div className="mx-auto max-w-lg">
                 <PromptForm
                   onSubmit={handleSubmit}
@@ -249,7 +289,7 @@ export function AgentAskChat({
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
