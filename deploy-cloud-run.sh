@@ -6,7 +6,7 @@ set -euo pipefail
 # Override via exported env vars; edit defaults as needed
 PROJECT_ID="vibeboard-462909"
 REGION="europe-north1"
-SERVICE_NAME="vibeagent-builder"
+SERVICE_NAME="vibeagent"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 
 echo "Deploying ${SERVICE_NAME} to Cloud Run in ${PROJECT_ID}/${REGION}..."
@@ -97,7 +97,7 @@ if [ ! -f .env.production ]; then
 fi
 
 # Build and push image (linux/amd64)
-${ENGINE} build --no-cache --platform linux/amd64 -t "${IMAGE_NAME}" ${BUILD_ARGS} .
+${ENGINE} build --platform linux/amd64 -t "${IMAGE_NAME}" ${BUILD_ARGS} .
 ${ENGINE} push "${IMAGE_NAME}"
 
 # Prepare runtime env vars
@@ -127,7 +127,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --platform=managed \
   --allow-unauthenticated \
   --port=8080 \
-  --memory=2Gi \
+  --memory=1Gi \
   --cpu=1 \
   --min-instances=0 \
   --max-instances=3 \
@@ -138,5 +138,13 @@ SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}
 echo "Service deployed: ${SERVICE_URL}"
 
 cat <<'EONOTE'
+Note:
+- Server runtime environment variables are set above via Cloud Run. Client-side
+  variables must be prefixed with NEXT_PUBLIC_ and included at build time.
+  This script forwards NEXT_PUBLIC_* values from your shell or .env file
+  to the Docker build as --build-arg so Next.js can embed them.
 
+- This app sets several routes/pages to runtime = 'edge'. Next.js can run
+  these under next start, but behavior may differ from Vercel Edge. Test
+  your API routes after deploy.
 EONOTE
