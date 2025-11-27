@@ -5,7 +5,6 @@ import { auth } from '@/auth'
 import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/sidebar'
 import { SidebarList } from '@/components/sidebar-list'
-import { SidebarFooter } from '@/components/sidebar-footer'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UserMenu } from '@/components/user-menu'
 import { cookies } from 'next/headers'
@@ -23,9 +22,6 @@ export async function Header() {
                 {/* @ts-ignore */}
                 <SidebarList userId={session?.user?.id} />
               </React.Suspense>
-              <SidebarFooter>
-                <ThemeToggle />
-              </SidebarFooter>
             </Sidebar>
             <div className="h-5 w-px bg-black-10 dark:bg-gray-600" />
             <Link href="/" className="px-2 font-switzer text-base font-bold tracking-tight text-black-primary transition-colors hover:text-gray-secondary dark:text-white dark:hover:text-gray-300">
@@ -40,6 +36,7 @@ export async function Header() {
         )}
       </div>
       <div className="flex items-center justify-end space-x-2">
+        <ThemeToggle />
         {session?.user ? (
           <UserMenu user={session.user} />
         ) : (
