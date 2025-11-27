@@ -17,25 +17,25 @@ export function DashboardLayout({
     className
 }: DashboardLayoutProps) {
     return (
-        <div className={cn('flex min-h-[calc(100vh-4rem)] bg-beige-bg dark:bg-background', className)}>
+        <div className={cn('flex h-[calc(100vh-4rem)] bg-beige-bg dark:bg-background overflow-hidden', className)}>
             {/* Left Sidebar */}
             {sidebar && (
                 <aside className="hidden w-64 flex-shrink-0 border-r border-black-10 bg-purewhite-bg dark:border-border dark:bg-card lg:block">
-                    <div className="h-full overflow-y-auto p-4">
+                    <div className="h-full p-4">
                         {sidebar}
                     </div>
                 </aside>
             )}
 
             {/* Center Content Area */}
-            <main className="flex flex-1 flex-col overflow-hidden">
+            <main className="flex flex-1 flex-col overflow-y-auto">
                 {children}
             </main>
 
             {/* Right Panel */}
             {rightPanel && (
                 <aside className="hidden w-80 flex-shrink-0 border-l border-black-10 bg-purewhite-bg dark:border-border dark:bg-card xl:block">
-                    <div className="h-full overflow-y-auto p-4">
+                    <div className="h-full p-4">
                         {rightPanel}
                     </div>
                 </aside>
