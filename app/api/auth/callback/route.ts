@@ -11,16 +11,16 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({
-      cookies: () => cookieStore
+      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
     await supabase.auth.exchangeCodeForSession(code)
   }
 
   // Build a robust origin using proxy headers when present to avoid
   // redirecting to internal hosts like localhost:8080 behind proxies.
-  const headersList = headers()
+  const headersList = await headers()
   const rawProto = headersList.get('x-forwarded-proto')
   const protocol =
     (rawProto ? rawProto.split(',')[0]?.trim() : null) ??

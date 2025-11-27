@@ -18,7 +18,7 @@ export interface ChatPageProps {
 export async function generateMetadata({
   params
 }: ChatPageProps): Promise<Metadata> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -32,7 +32,7 @@ export async function generateMetadata({
 }
 
 export default async function ChatPage({ params }: ChatPageProps) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {

@@ -15,9 +15,10 @@ export default async function AgentSectionLayout({
   params
 }: {
   children: React.ReactNode
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const cookieStore = cookies()
+  const { id } = await params
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -25,13 +26,13 @@ export default async function AgentSectionLayout({
   }
 
   const supabase = createServerComponentClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const { data } = await supabase
     .from('vibe_agents')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', session.user.id)
     .maybeSingle()
 
@@ -48,7 +49,7 @@ export default async function AgentSectionLayout({
 
   const conversations = (convoRows ?? []).map(mapConversationRow)
 
-  const headersList = headers()
+  const headersList = await headers()
   // Handle comma-separated proxy headers (e.g., "https,http") by taking the first value
   const rawProto = headersList.get('x-forwarded-proto')
   const protocol =

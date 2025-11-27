@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { Configuration, OpenAIApi } from 'openai-edge'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
@@ -30,10 +30,11 @@ const FALLBACK_CONVO_COUNT = 5
 export const runtime = 'nodejs'
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = cookies()
+  const { id } = await params
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -48,10 +49,10 @@ export async function POST(
   }
 
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const agent = await getAgentForUser(supabase, params.id, session.user.id)
+  const agent = await getAgentForUser(supabase, id, session.user.id)
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })

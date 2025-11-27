@@ -13,9 +13,10 @@ export const runtime = 'nodejs'
 export default async function AgentConversationsPage({
   params
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const cookieStore = cookies()
+  const { id } = await params
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -23,13 +24,13 @@ export default async function AgentConversationsPage({
   }
 
   const supabase = createServerComponentClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const { data: agentRow } = await supabase
     .from('vibe_agents')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', session.user.id)
     .maybeSingle()
 

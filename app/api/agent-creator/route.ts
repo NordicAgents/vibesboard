@@ -22,7 +22,7 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration)
 
 export async function POST(req: Request) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   }
 
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const availableTools = Object.values(BUILTIN_AGENT_TOOLS).map(t => ({
