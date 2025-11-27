@@ -51,7 +51,7 @@ export default async function AgentPageAsChat({
     conversation => conversation.userId === session.user.id
   )
 
-  const headersList = headers()
+  const headersList = await headers()
   const rawProto = headersList.get('x-forwarded-proto')
   const protocol =
     (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
