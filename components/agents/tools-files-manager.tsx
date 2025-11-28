@@ -43,6 +43,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
     const [uploadProgress, setUploadProgress] = useState<FileUploadProgress[]>([])
     const [isSaving, setIsSaving] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
+    const [isIndexing, setIsIndexing] = useState(false)
 
     // Extract clean filename from storage path
     const getFileName = (path: string): string => {
@@ -158,7 +159,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             )
                         )
 
-                        return data.path
+                        return { path: data.path, file }
                     } catch (error) {
                         // Update progress to error
                         setUploadProgress(prev =>
@@ -177,18 +178,49 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                 })
 
                 const results = await Promise.allSettled(uploadPromises)
-                const successfulPaths = results
-                    .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+                const successfulUploads = results
+                    .filter((r): r is PromiseFulfilledResult<{ path: string; file: File }> => r.status === 'fulfilled')
                     .map(r => r.value)
 
-                if (successfulPaths.length > 0) {
-                    const newFileKeys = Array.from(new Set([...fileKeys, ...successfulPaths]))
+                if (successfulUploads.length > 0) {
+                    const newFileKeys = Array.from(new Set([...fileKeys, ...successfulUploads.map(item => item.path)]))
                     setFileKeys(newFileKeys)
                     await updateAgent({ fileKeys: newFileKeys })
 
                     toast.success(
-                        `${successfulPaths.length} file${successfulPaths.length > 1 ? 's' : ''} uploaded successfully`
+                        `${successfulUploads.length} file${successfulUploads.length > 1 ? 's' : ''} uploaded successfully`
                     )
+
+                    // Trigger ingestion for RAG search (fire and forget).
+                    setIsIndexing(true)
+                    const ingestionResults = await Promise.allSettled(
+                        successfulUploads.map(async ({ path, file }) => {
+                            const res = await fetch(`/api/agents/${agent.id}/files/ingest`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    fileKey: path,
+                                    fileName: file.name,
+                                    mimeType: file.type || undefined
+                                })
+                            })
+                            if (!res.ok) {
+                                const payload = await res.json().catch(() => ({}))
+                                throw new Error(payload.error ?? 'Ingestion failed')
+                            }
+                        })
+                    )
+                    const ingested = ingestionResults.filter(r => r.status === 'fulfilled').length
+                    const failedIngest = ingestionResults.filter(r => r.status === 'rejected').length
+                    if (ingested > 0) {
+                        toast.success(`Indexed ${ingested} file${ingested > 1 ? 's' : ''} for search`)
+                    }
+                    if (failedIngest > 0) {
+                        toast.error(`${failedIngest} file${failedIngest > 1 ? 's' : ''} failed to index`)
+                    }
+                    setIsIndexing(false)
                 }
 
                 const failedCount = results.filter(r => r.status === 'rejected').length
@@ -196,6 +228,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                     toast.error(`${failedCount} file${failedCount > 1 ? 's' : ''} failed to upload`)
                 }
             } catch (error) {
+                setIsIndexing(false)
                 toast.error('File upload failed')
             } finally {
                 // Clear progress after 3 seconds
@@ -292,9 +325,9 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                         <Button
                             size="sm"
                             onClick={handleSaveTools}
-                            disabled={isSaving}
+                            disabled={isSaving || isIndexing}
                         >
-                            {isSaving ? 'Saving...' : 'Save Tools'}
+                            {isSaving ? 'Saving...' : isIndexing ? 'Indexing...' : 'Save Tools'}
                         </Button>
                     </div>
 
@@ -337,7 +370,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             size="sm"
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isSaving}
+                            disabled={isSaving || isIndexing}
                         >
                             <IconUpload className="mr-2 h-4 w-4" />
                             Upload Files
@@ -378,6 +411,11 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                         <p className="mt-1 text-xs text-muted-foreground">
                             Supported: PDF, TXT, DOC, DOCX, MD, JSON, CSV (Max 10MB)
                         </p>
+                        {isIndexing && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                Indexing uploads for file search…
+                            </p>
+                        )}
                     </div>
 
                     {/* Upload progress */}
