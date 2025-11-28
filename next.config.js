@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
@@ -12,5 +12,11 @@ module.exports = {
         hostname: '**.googleusercontent.com'
       }
     ]
-  }
+  },
+  // Ensure pdf-parse and its native canvas dependency are available
+  // to the Node.js runtime (and serverless targets) without bundling
+  // their worker files incorrectly.
+  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas']
 }
+
+module.exports = nextConfig
