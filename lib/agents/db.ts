@@ -112,6 +112,7 @@ export const mapAgentRow = (row: AgentRow): VibeAgent => ({
   agentUrl: row.agent_url,
   tools: sanitizeTools(row.tools),
   allowAnonymous: row.allow_anonymous,
+  greetingText: (row as any).greeting_text ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })

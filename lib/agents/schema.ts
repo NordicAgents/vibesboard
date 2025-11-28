@@ -22,7 +22,8 @@ export const upsertAgentSchema = z.object({
   instructions: z.string().min(10),
   fileKeys: z.array(z.string()).default([]),
   tools: z.array(agentToolSchema).default([]),
-  allowAnonymous: z.boolean().default(true)
+  allowAnonymous: z.boolean().default(true),
+  greetingText: z.string().nullable().optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
