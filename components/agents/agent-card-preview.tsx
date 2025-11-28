@@ -3,6 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { getDisplayTools } from '@/lib/agents/tooling'
 import { type VibeAgentTool } from '@/lib/types'
 
 interface AgentCardPreviewProps {
@@ -20,6 +21,8 @@ export function AgentCardPreview({
   fileCount,
   allowAnonymous
 }: AgentCardPreviewProps) {
+  const displayTools = getDisplayTools(tools)
+
   return (
     <Card className="border-dashed">
       <CardHeader>
@@ -36,8 +39,8 @@ export function AgentCardPreview({
           {instructions || 'Add instructions on the left to preview the vibe.'}
         </p>
         <div className="flex flex-wrap gap-2">
-          {tools.length ? (
-            tools.map(tool => (
+          {displayTools.length ? (
+            displayTools.map(tool => (
               <Badge key={tool.id} variant="secondary">
                 {tool.name}
               </Badge>
