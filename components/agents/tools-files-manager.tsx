@@ -389,7 +389,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             e.target.value = '' // Reset input
                         }}
                         className="hidden"
-                        accept=".pdf,.txt,.doc,.docx,.md,.json,.csv"
+                        accept=".pdf,.txt,.doc,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.tiff,.tif,.svg,.xlsx,.xls,.ppt,.pptx,.html,.htm"
                     />
 
                     {/* Drag and drop area */}
@@ -409,7 +409,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             Drag and drop files here, or click Upload Files
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Supported: PDF, TXT, DOC, DOCX, MD, JSON, CSV (Max 10MB)
+                            Supported: PDF, TXT, DOC, DOCX, MD, JSON, CSV, images (PNG, JPG, GIF, WEBP, TIFF, SVG), and common Office files (XLS/XLSX, PPT/PPTX, HTML) — max 10MB
                         </p>
                         {isIndexing && (
                             <p className="mt-2 text-xs text-muted-foreground">
