@@ -33,6 +33,7 @@ export interface VibeAgent {
   agentUrl: string
   tools: VibeAgentTool[]
   allowAnonymous: boolean
+  greetingText?: string | null
   createdAt: string
   updatedAt: string
 }

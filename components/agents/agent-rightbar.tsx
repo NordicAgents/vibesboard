@@ -42,6 +42,7 @@ export function AgentRightbar({
   const [copied, setCopied] = useState(false)
   const [name, setName] = useState(agent.name)
   const [instructions, setInstructions] = useState(agent.instructions)
+  const [greetingText, setGreetingText] = useState(agent.greetingText ?? 'Hi How can i help you today')
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
   const [saving, setSaving] = useState(false)
 
@@ -168,6 +169,35 @@ export function AgentRightbar({
                   saving ||
                   instructions.trim().length < 10 ||
                   instructions === agent.instructions
+                }
+              >
+                Save
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Greeting Text */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Greeting</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              value={greetingText}
+              onChange={e => setGreetingText(e.target.value)}
+              rows={3}
+              placeholder="Hi How can i help you today"
+              disabled={saving}
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => updateAgent({ greetingText: greetingText.trim() || null })}
+                disabled={
+                  saving ||
+                  greetingText.trim().length === 0 ||
+                  greetingText === (agent.greetingText ?? 'Hi How can i help you today')
                 }
               >
                 Save

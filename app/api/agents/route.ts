@@ -65,7 +65,10 @@ export async function POST(req: Request) {
       file_keys: payload.fileKeys,
       tools: payload.tools,
       allow_anonymous: payload.allowAnonymous,
-      agent_url: slug
+      agent_url: slug,
+      ...(payload.greetingText !== undefined
+        ? { greeting_text: payload.greetingText }
+        : {})
     })
     .select('*')
     .single()
