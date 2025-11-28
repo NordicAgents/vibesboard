@@ -97,11 +97,81 @@ const extractFromDoc = async (buffer: Buffer) => {
   return cleanText(result.value || '')
 }
 
+let pdfWorkerConfigured = false
+let pdfWorkerGetPath: (() => string) | undefined
+let pdfWorkerGetData: (() => string) | undefined
+let pdfCanvasFactory: any
+
+const ensurePdfWorker = async (PDFParseClass: any) => {
+  if (pdfWorkerConfigured) return
+
+  try {
+    // Load the Node/Next.js worker helpers recommended by pdf-parse
+    const workerModule: any = await import('pdf-parse/worker').catch(() => null)
+
+    if (workerModule) {
+      pdfWorkerGetPath =
+        typeof workerModule.getPath === 'function' ? workerModule.getPath : undefined
+      pdfWorkerGetData =
+        typeof workerModule.getData === 'function' ? workerModule.getData : undefined
+      pdfCanvasFactory = workerModule.CanvasFactory ?? undefined
+    }
+
+    if (typeof PDFParseClass?.setWorker === 'function') {
+      const workerSource =
+        (pdfWorkerGetPath && pdfWorkerGetPath()) ||
+        (pdfWorkerGetData && pdfWorkerGetData()) ||
+        undefined
+
+      if (workerSource) {
+        PDFParseClass.setWorker(workerSource)
+      }
+    }
+
+    pdfWorkerConfigured = true
+  } catch {
+    // Ignore worker configuration errors; we'll still attempt parsing.
+  }
+}
+
 const extractFromPdf = async (buffer: Buffer) => {
   const pdfModule = await import('pdf-parse')
-  const pdfParse: any = (pdfModule as any).default ?? pdfModule
-  const data = await pdfParse(buffer)
-  return cleanText(data.text || '')
+
+  // Prefer the class-based API introduced in pdf-parse v2.x
+  const PDFParseClass: any = (pdfModule as any).PDFParse
+  if (typeof PDFParseClass === 'function') {
+    await ensurePdfWorker(PDFParseClass)
+
+    const parser = new PDFParseClass({
+      data: buffer,
+      ...(pdfCanvasFactory ? { CanvasFactory: pdfCanvasFactory } : {})
+    })
+    try {
+      const result = await parser.getText?.()
+      return cleanText(result?.text || '')
+    } finally {
+      if (typeof parser.destroy === 'function') {
+        await parser.destroy().catch(() => {
+          /* ignore */
+        })
+      }
+    }
+  }
+
+  // Fallback for the legacy function export (pdf-parse v1.x)
+  const legacyParser: any =
+    typeof (pdfModule as any).default === 'function'
+      ? (pdfModule as any).default
+      : typeof pdfModule === 'function'
+        ? pdfModule
+        : null
+
+  if (legacyParser) {
+    const data = await legacyParser(buffer)
+    return cleanText(data?.text || '')
+  }
+
+  throw new Error('Unsupported pdf-parse import shape')
 }
 
 const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
