@@ -11,6 +11,10 @@ export function buildAgentSystemPrompt(agent: VibeAgent, context?: string | null
     ? `Use the following reference material when it is relevant:\n${context}`
     : 'There is no reference material attached to this request.'
 
+  const fileSearchGuidance = agent.tools.some(tool => tool.type === 'builtin:file_search')
+    ? 'When the question could be answered with the uploaded files, call the file_search tool with a concise query first, then answer using those snippets and cite filenames.'
+    : ''
+
   return `You are VibeAgent "${agent.name}". Follow the owner's instructions strictly.
 
 Agent instructions:
@@ -18,6 +22,7 @@ ${agent.instructions}
 
 Tooling:
 ${toolsText}
+${fileSearchGuidance ? `\n${fileSearchGuidance}` : ''}
 
 Context:
 ${contextBlock}
