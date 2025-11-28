@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { type AgentSharePayload, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
+import { getDisplayTools } from '@/lib/agents/tooling'
 import { formatDate } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
 import {
@@ -51,6 +52,7 @@ export function AgentChatWithLayout({
 
     const totalConversations = ownerSessions.length
     const lastConversationAt = ownerSessions[0]?.updatedAt
+    const displayTools = getDisplayTools(agent.tools)
     const [copiedShare, setCopiedShare] = React.useState(false)
 
     const handleCopyShare = async () => {
@@ -199,11 +201,11 @@ export function AgentChatWithLayout({
             {/* Tools Section */}
             <DashboardPanelSection
                 title="Tools"
-                description={agent.tools.length > 0 ? `${agent.tools.length} enabled` : 'None enabled'}
+                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
             >
-                {agent.tools.length > 0 && (
+                {displayTools.length > 0 && (
                     <div className="flex flex-wrap gap-2">
-                        {agent.tools.map((tool) => (
+                        {displayTools.map((tool) => (
                             <Badge key={tool.id} variant="secondary" className="font-switzer text-xs">
                                 {tool.name}
                             </Badge>
