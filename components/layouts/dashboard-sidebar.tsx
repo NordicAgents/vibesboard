@@ -31,20 +31,27 @@ export function DashboardSidebar({
 interface DashboardSidebarSectionProps {
     children: ReactNode
     title?: string
+    action?: ReactNode
     className?: string
 }
 
 export function DashboardSidebarSection({
     children,
     title,
+    action,
     className
 }: DashboardSidebarSectionProps) {
     return (
         <div className={cn('flex flex-col gap-2', className)}>
-            {title && (
-                <h3 className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary">
-                    {title}
-                </h3>
+            {(title || action) && (
+                <div className="flex items-center justify-between">
+                    {title && (
+                        <h3 className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary">
+                            {title}
+                        </h3>
+                    )}
+                    {action}
+                </div>
             )}
             <div className="flex flex-col gap-1">
                 {children}

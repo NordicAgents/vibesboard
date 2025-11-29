@@ -53,7 +53,7 @@ export function LandingShowcase() {
                                     <img
                                         src={project.image}
                                         alt={project.title}
-                                        className="w-full h-full object-cover transition-transform duration-700 ease-[0.21,0.47,0.32,0.98] group-hover:scale-105"
+                                        className="w-full h-full object-cover transition-transform duration-700 ease-custom group-hover:scale-105"
                                     />
                                     <div className="absolute inset-0 bg-black-primary/0 group-hover:bg-black-primary/10 transition-colors duration-500 dark:group-hover:bg-white/10"></div>
                                 </div>
