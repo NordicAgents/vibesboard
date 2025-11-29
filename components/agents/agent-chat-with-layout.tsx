@@ -18,7 +18,7 @@ import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationModal } from '@/components/agents/conversation-modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { IconExternalLink, IconFile } from '@/components/ui/icons'
+import { IconExternalLink, IconFile, IconRefresh } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 
 interface AgentChatWithLayoutProps {
@@ -52,7 +52,6 @@ export function AgentChatWithLayout({
     const [visitorPage, setVisitorPage] = React.useState(1)
     const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
     const [syncingEmbeddings, setSyncingEmbeddings] = React.useState(false)
-    const [closingId, setClosingId] = React.useState<string | null>(null)
 
     // Sync activeSessionId with URL
     React.useEffect(() => {
@@ -113,18 +112,6 @@ export function AgentChatWithLayout({
         }
     }
 
-    const handleCloseConversation = async (conversationId: string) => {
-        setClosingId(conversationId)
-        try {
-            await fetch(`/api/agents/${agent.id}/conversations/${conversationId}/close`, {
-                method: 'POST'
-            })
-            router.refresh()
-        } finally {
-            setClosingId(null)
-        }
-    }
-
     const lastConversationAt = ownerSessions[0]?.updatedAt
     const displayTools = getDisplayTools(agent.tools)
     const [copiedShare, setCopiedShare] = React.useState(false)
@@ -169,11 +156,13 @@ export function AgentChatWithLayout({
                     <Button
                         size="sm"
                         variant="secondary"
-                        className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        className="h-7 w-7 rounded-full p-0"
                         onClick={handleRefreshSummaries}
                         disabled={refreshingSummaries}
+                        title="Refresh summaries"
+                        aria-label="Refresh summaries"
                     >
-                        {refreshingSummaries ? 'Refreshing...' : 'Refresh summaries'}
+                        <IconRefresh className={refreshingSummaries ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
                     </Button>
                 }
             >
@@ -242,22 +231,8 @@ export function AgentChatWithLayout({
                         active={activeSessionId === session.id}
                         onClick={() => handleSelectSession(session.id)}
                     >
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="truncate">
-                                {session.summary || 'Untitled conversation'}
-                            </div>
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-2 text-[11px]"
-                                disabled={closingId === session.id}
-                                onClick={(event) => {
-                                    event.stopPropagation()
-                                    handleCloseConversation(session.id)
-                                }}
-                            >
-                                {closingId === session.id ? 'Closing' : 'Close'}
-                            </Button>
+                        <div className="truncate">
+                            {session.summary || 'Untitled conversation'}
                         </div>
                     </DashboardSidebarItem>
                 ))}
