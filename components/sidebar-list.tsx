@@ -4,12 +4,6 @@ import { getAgents, getAgentConversations } from '@/app/actions'
 import { SidebarAgentGroup } from '@/components/sidebar-agent-group'
 import { Button } from '@/components/ui/button'
 import { IconPlus } from '@/components/ui/icons'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
 
 export interface SidebarListProps {
   userId?: string
@@ -35,30 +29,17 @@ export async function SidebarList({ userId }: SidebarListProps) {
       <div className="space-y-2 pb-4">
         <div className="flex items-center justify-between px-4 text-xs font-semibold tracking-wide text-muted-foreground">
           <span>Agents</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Create agent"
-                title="Create agent"
-              >
-                <IconPlus className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem asChild>
-                <Link href="/agents/new" className="flex w-full items-center justify-between">
-                  <span>UI builder</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/" className="flex w-full items-center justify-between">
-                  <span>Chat builder</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Create agent"
+            title="Create agent"
+            asChild
+          >
+            <Link href="/">
+              <IconPlus className="h-4 w-4" />
+            </Link>
+          </Button>
         </div>
         {agents?.length ? (
           <div className="space-y-1 px-2">

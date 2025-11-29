@@ -137,7 +137,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   }
 
   // Feature flag to show/hide Tools & Context section in the builder
-  const SHOW_TOOLS_AND_CONTEXT = false
+  const SHOW_TOOLS_AND_CONTEXT = true
 
   return (
     <div className="grid gap-8 md:grid-cols-[2fr_1fr]">

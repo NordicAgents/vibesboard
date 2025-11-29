@@ -60,6 +60,6 @@ export interface AgentSharePayload {
 export type ServerActionResult<Result> = Promise<
   | Result
   | {
-      error: string
-    }
+    error: string
+  }
 >
