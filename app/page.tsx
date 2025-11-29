@@ -13,12 +13,12 @@ import { LandingFooter } from '@/components/landing/landing-footer'
 export const runtime = 'nodejs'
 
 export default async function IndexPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
     return (
-      <main className="min-h-screen bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg">
+      <main className="min-h-screen bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
         <LandingHeader />
         <LandingHero />
         <LandingShowcase />
@@ -29,5 +29,5 @@ export default async function IndexPage() {
     )
   }
 
-  return <AgentCreatorChat />
+  return <AgentCreatorChat userId={session.user.id} />
 }

@@ -54,8 +54,8 @@ export function Sidebar({ children }: SidebarProps) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" className="-ml-2 h-9 w-9 p-0">
-          <IconSidebar className="h-6 w-6" />
+        <Button variant="ghost" className="h-9 w-9 rounded-xl p-0 hover:bg-black-primary/5 dark:hover:bg-white/10">
+          <IconSidebar className="h-5 w-5 text-black-primary dark:text-white" />
           <span className="sr-only">Toggle Sidebar</span>
         </Button>
       </SheetTrigger>

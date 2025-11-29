@@ -32,27 +32,28 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
     typeof content === 'string' ? content : ''
 
   return (
-    <div className="flex h-full flex-col rounded-lg border bg-card p-4">
-      <div className="mb-3 text-sm font-medium">Instruction helper</div>
-      <div className="flex-1 space-y-3 overflow-auto rounded-md bg-muted/40 p-3 text-sm">
+    <div className="flex h-full flex-col rounded-3xl border border-black-10 bg-purewhite-bg p-6 shadow-lg">
+      <div className="mb-4 font-switzer text-base font-semibold text-black-primary">Instruction helper</div>
+      <div className="flex-1 space-y-3 overflow-auto rounded-2xl bg-beige-bg/30 p-4 text-sm">
         {!messages.length && (
-          <p className="text-muted-foreground">
+          <p className="font-switzer text-gray-secondary">
             Describe what your agent should do and get a draft prompt back.
           </p>
         )}
         {messages.map((message: Message) => (
           <div
             key={message.id}
-            className="space-y-2 rounded-md bg-background p-3 shadow-sm"
+            className="space-y-2 rounded-2xl border border-black-10 bg-purewhite-bg p-4 shadow-sm"
           >
-            <div className="text-xs uppercase text-muted-foreground">
+            <div className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary">
               {message.role === 'assistant' ? 'Helper' : 'You'}
             </div>
-            <p className="whitespace-pre-wrap">{formatContent(message.content)}</p>
+            <p className="font-switzer whitespace-pre-wrap text-black-primary">{formatContent(message.content)}</p>
             {message.role === 'assistant' && (
               <Button
                 size="sm"
                 variant="secondary"
+                className="rounded-full font-switzer"
                 onClick={() => onUseSuggestion(formatContent(message.content))}
               >
                 Use this suggestion
@@ -79,7 +80,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
           onChange={event => setInput(event.target.value)}
           placeholder="Ask for ideas..."
         />
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="rounded-full font-switzer">
           Send
         </Button>
       </form>

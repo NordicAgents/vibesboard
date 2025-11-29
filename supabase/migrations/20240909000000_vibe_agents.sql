@@ -71,21 +71,24 @@ create policy convos_agent_owner_read
   );
 
 insert into storage.buckets (id, name, public)
-values ('agent-files', 'agent-files', false)
-on conflict (id) do nothing;
+values ('agent-files', 'agent-files', true)
+on conflict (id) do update set public = true;
 
-create policy "agent_files_read_own"
+drop policy if exists "agent_files_read_public" on storage.objects;
+create policy "agent_files_read_public"
   on storage.objects
   for select
-  to authenticated
-  using (bucket_id = 'agent-files' and (owner = auth.uid()));
+  to public
+  using (bucket_id = 'agent-files');
 
-create policy "agent_files_insert_own"
+drop policy if exists "agent_files_insert_public" on storage.objects;
+create policy "agent_files_insert_public"
   on storage.objects
   for insert
-  to authenticated
-  with check (bucket_id = 'agent-files' and (owner = auth.uid()));
+  to public
+  with check (bucket_id = 'agent-files');
 
+drop policy if exists "agent_files_update_own" on storage.objects;
 create policy "agent_files_update_own"
   on storage.objects
   for update
@@ -93,6 +96,7 @@ create policy "agent_files_update_own"
   using (bucket_id = 'agent-files' and (owner = auth.uid()))
   with check (bucket_id = 'agent-files' and (owner = auth.uid()));
 
+drop policy if exists "agent_files_delete_own" on storage.objects;
 create policy "agent_files_delete_own"
   on storage.objects
   for delete
@@ -102,8 +106,8 @@ create policy "agent_files_delete_own"
 -- migrate:down
 drop policy if exists "agent_files_delete_own" on storage.objects;
 drop policy if exists "agent_files_update_own" on storage.objects;
-drop policy if exists "agent_files_insert_own" on storage.objects;
-drop policy if exists "agent_files_read_own" on storage.objects;
+drop policy if exists "agent_files_insert_public" on storage.objects;
+drop policy if exists "agent_files_read_public" on storage.objects;
 delete from storage.buckets where id = 'agent-files';
 
 drop policy if exists convos_owner_all on public.vibe_agent_conversations;

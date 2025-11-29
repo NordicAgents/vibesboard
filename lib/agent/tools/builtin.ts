@@ -1,3 +1,4 @@
+import { searchAgentFileChunks } from '@/lib/agent/file-search'
 import { type ToolFactory, registerBuiltinTool, resolveToolDescription, resolveToolName } from './base'
 
 const sanitizeText = (input: string, max = 2000) =>
@@ -83,7 +84,7 @@ const searchFactory: ToolFactory = ({ tool }) => {
   }
 }
 
-const fileSearchFactory: ToolFactory = ({ tool, context }) => {
+const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
   const name = resolveToolName(tool, 'file_search')
   return {
     function: {
@@ -97,28 +98,45 @@ const fileSearchFactory: ToolFactory = ({ tool, context }) => {
           query: {
             type: 'string',
             description: 'Keywords to search for within the agent files.'
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of matches to return (default 8).'
           }
         },
         required: ['query']
       }
     },
-    execute: async (args: Record<string, any>, ctx) => {
+    execute: async (args: Record<string, any>) => {
       const query = String(args?.query ?? '').trim()
-      if (!ctx.fileContext) {
-        return 'No files are attached to this agent yet.'
-      }
+      const limit = Number.isFinite(args?.limit) ? Number(args.limit) : 8
+
       if (!query) {
         return 'Please provide a search query to look up within the files.'
       }
-      const lower = ctx.fileContext.toLowerCase()
-      const idx = lower.indexOf(query.toLowerCase())
-      if (idx === -1) {
+
+      const { matches, error } = await searchAgentFileChunks({
+        agentId: agent.id,
+        query,
+        limit
+      })
+
+      if (error && (!matches || matches.length === 0)) {
+        return `File search error: ${error}`
+      }
+
+      if (!matches?.length) {
         return `No results found for "${query}".`
       }
-      const start = Math.max(0, idx - 200)
-      const end = Math.min(ctx.fileContext.length, idx + query.length + 200)
-      const snippet = ctx.fileContext.slice(start, end)
-      return `Match for "${query}":\n${snippet}`
+
+      const formatted = matches
+        .map(
+          entry =>
+            `File: ${entry.fileName}\nScore: ${entry.score?.toFixed?.(4) ?? '0'}\nSnippet:\n${entry.snippet}`
+        )
+        .join('\n---\n')
+
+      return `Matches for "${query}":\n${formatted}`
     }
   }
 }

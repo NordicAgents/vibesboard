@@ -121,6 +121,9 @@ module.exports = {
           }
         }
       },
+      transitionTimingFunction: {
+        'custom': 'cubic-bezier(0.21, 0.47, 0.32, 0.98)'
+      },
       animation: {
         'slide-from-left':
           'slide-from-left 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)',

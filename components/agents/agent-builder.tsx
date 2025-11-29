@@ -137,19 +137,19 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   }
 
   // Feature flag to show/hide Tools & Context section in the builder
-  const SHOW_TOOLS_AND_CONTEXT = false
+  const SHOW_TOOLS_AND_CONTEXT = true
 
   return (
     <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <Card>
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:bg-card dark:border-border">
           <CardHeader>
-            <CardTitle>Agent basics</CardTitle>
-            <CardDescription>{helperText}</CardDescription>
+            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">Agent basics</CardTitle>
+            <CardDescription className="font-switzer text-gray-secondary">{helperText}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Name</label>
+              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Name</label>
               <Input
                 value={name}
                 onChange={event => setName(event.target.value)}
@@ -157,7 +157,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Instructions</label>
+              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Instructions</label>
               <Textarea
                 value={instructions}
                 onChange={event => setInstructions(event.target.value)}
@@ -165,10 +165,10 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 rows={8}
               />
             </div>
-            <div className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-background/30 dark:border-border">
               <div>
-                <p className="text-sm font-medium">Allow anonymous chat</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Allow anonymous chat</p>
+                <p className="font-switzer text-xs text-gray-secondary">
                   Visitors can message this agent without signing in.
                 </p>
               </div>
@@ -181,16 +181,16 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
         </Card>
 
         {SHOW_TOOLS_AND_CONTEXT && (
-          <Card>
+          <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg">
             <CardHeader>
-              <CardTitle>Tools & context</CardTitle>
-              <CardDescription>
+              <CardTitle className="font-switzer text-2xl font-bold text-black-primary">Tools & context</CardTitle>
+              <CardDescription className="font-switzer text-gray-secondary">
                 Enable optional tools and upload files for RAG.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-sm font-medium">Tools</p>
+                <p className="font-switzer text-sm font-medium text-black-primary">Tools</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {toolOptions.map(tool => {
                     const checked = selectedTools.includes(tool.id as AgentToolType)
@@ -214,7 +214,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Reference files</label>
+                <label className="font-switzer text-sm font-medium text-black-primary">Reference files</label>
                 <input
                   type="file"
                   multiple
@@ -252,7 +252,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           </Card>
         )}
 
-        <Button type="submit" disabled={isSubmitting || isUploading} className="w-full sm:w-auto">
+        <Button type="submit" disabled={isSubmitting || isUploading} className="w-full rounded-full font-switzer sm:w-auto">
           {isSubmitting ? 'Creating...' : 'Create agent'}
         </Button>
       </form>

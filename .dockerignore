@@ -35,4 +35,3 @@ env.yaml
 
 # Tooling directories not needed in container
 supabase
-

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 import { getAgentBySlug } from '@/lib/agents/server'
@@ -8,17 +8,18 @@ import { listAgentConversations } from '@/lib/agents/conversations'
 export const runtime = 'nodejs'
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { slug: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
 ) {
+  const { slug } = await params
   const supabase = getServiceSupabaseClient()
-  const agent = await getAgentBySlug(supabase, params.slug)
+  const agent = await getAgentBySlug(supabase, slug)
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
   }
 
-  const externalId = ensureExternalSessionId()
+  const externalId = await ensureExternalSessionId()
   const conversations = await listAgentConversations(supabase, agent.id, {
     externalId
   })

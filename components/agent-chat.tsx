@@ -33,6 +33,22 @@ export function AgentChat({
     () => initialConversationId ?? nanoid(),
     [initialConversationId]
   )
+  const defaultInitialMessages: Message[] = useMemo(
+    () => [
+      {
+        id: nanoid(),
+        role: 'assistant',
+        content: agent.greetingText || 'Hi How can i help you today'
+      }
+    ],
+    [chatKey, agent.greetingText]
+  )
+  const messagesToUse = useMemo(
+    () => initialMessages && initialMessages.length > 0 
+      ? initialMessages 
+      : defaultInitialMessages,
+    [initialMessages, defaultInitialMessages]
+  )
   const {
     messages,
     append,
@@ -47,7 +63,7 @@ export function AgentChat({
     body: {
       conversationId
     },
-    initialMessages,
+    initialMessages: messagesToUse,
     onResponse(response: Response) {
       const headerId = response.headers.get('x-conversation-id')
       if (headerId) {
@@ -58,13 +74,6 @@ export function AgentChat({
 
   return (
     <div className={cn('flex flex-1 flex-col', className)}>
-      <div className="border-b bg-background p-4">
-        <p className="text-sm uppercase text-muted-foreground">Chatting with</p>
-        <h1 className="text-2xl font-semibold">{agent.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          /a/{agent.agentUrl}
-        </p>
-      </div>
       <div className="flex-1 pb-36 pt-4">
         {messages.length ? (
           <>
