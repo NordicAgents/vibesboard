@@ -12,8 +12,7 @@ export interface Chat extends Record<string, any> {
 }
 
 export type AgentToolType =
-  | 'builtin:web_fetch'
-  | 'builtin:search'
+  | 'builtin:web'
   | 'builtin:file_search'
 
 export interface VibeAgentTool {
@@ -60,6 +59,6 @@ export interface AgentSharePayload {
 export type ServerActionResult<Result> = Promise<
   | Result
   | {
-      error: string
-    }
+    error: string
+  }
 >

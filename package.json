@@ -36,6 +36,7 @@
     "encoding": "^0.1.13",
     "focus-trap-react": "^10.1.1",
     "framer-motion": "^12.23.24",
+    "jsdom": "^27.2.0",
     "lucide-react": "^0.554.0",
     "mammoth": "^1.11.0",
     "nanoid": "^4.0.2",

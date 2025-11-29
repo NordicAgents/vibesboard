@@ -29,5 +29,5 @@ export default async function IndexPage() {
     )
   }
 
-  return <AgentCreatorChat />
+  return <AgentCreatorChat userId={session.user.id} />
 }
