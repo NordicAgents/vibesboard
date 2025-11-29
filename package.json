@@ -61,6 +61,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.9",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^20.19.25",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.7",
