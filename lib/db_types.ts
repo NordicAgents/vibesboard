@@ -76,6 +76,7 @@ type PublicSchema = GenericSchema & {
         agent_url: string
         tools: Json
         allow_anonymous: boolean
+        greeting_text: string | null
         created_at: string
         updated_at: string
       }
@@ -88,6 +89,7 @@ type PublicSchema = GenericSchema & {
         agent_url: string
         tools?: Json
         allow_anonymous?: boolean
+        greeting_text?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -100,6 +102,7 @@ type PublicSchema = GenericSchema & {
         agent_url?: string
         tools?: Json
         allow_anonymous?: boolean
+        greeting_text?: string | null
         created_at?: string
         updated_at?: string
       }
