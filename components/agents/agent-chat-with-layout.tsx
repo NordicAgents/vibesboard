@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { type AgentSharePayload, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
 import { getDisplayTools } from '@/lib/agents/tooling'
@@ -37,17 +37,37 @@ export function AgentChatWithLayout({
     share
 }: AgentChatWithLayoutProps) {
     const router = useRouter()
-    const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
-        ownerSessions[0]?.id ?? null
-    )
+    const searchParams = useSearchParams()
+    const [activeSessionId, setActiveSessionId] = React.useState<string | null>(() => {
+        const sessionParam = searchParams.get('session')
+        if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
+            return sessionParam
+        }
+        return ownerSessions[0]?.id ?? null
+    })
     const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
     const [isModalOpen, setIsModalOpen] = React.useState(false)
     const [visitorPage, setVisitorPage] = React.useState(1)
+
+    // Sync activeSessionId with URL
+    React.useEffect(() => {
+        const sessionParam = searchParams.get('session')
+        if (sessionParam && sessionParam !== activeSessionId) {
+            const found = ownerSessions.find(session => session.id === sessionParam)
+            if (found) {
+                setActiveSessionId(sessionParam)
+            }
+        } else if (!sessionParam && activeSessionId) {
+            setActiveSessionId(null)
+        }
+    }, [searchParams, ownerSessions, activeSessionId])
 
     const handleSelectSession = (sessionId: string | null) => {
         setActiveSessionId(sessionId)
         if (sessionId) {
             router.push(`/agents/${agent.id}?session=${sessionId}`)
+        } else {
+            router.push(`/agents/${agent.id}`)
         }
     }
 
@@ -163,7 +183,7 @@ export function AgentChatWithLayout({
                     <DashboardSidebarItem
                         key={session.id}
                         active={activeSessionId === session.id}
-                        onClick={() => handleOpenConversation(session)}
+                        onClick={() => handleSelectSession(session.id)}
                     >
                         <div className="truncate">
                             {session.summary || 'Untitled conversation'}
