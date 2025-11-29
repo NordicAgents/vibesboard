@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
@@ -10,10 +10,11 @@ import { listAgentConversations } from '@/lib/agents/conversations'
 export const runtime = 'nodejs'
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = cookies()
+  const { id } = await params
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -21,10 +22,10 @@ export async function GET(
   }
 
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const agent = await getAgentForUser(supabase, params.id, session.user.id)
+  const agent = await getAgentForUser(supabase, id, session.user.id)
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })

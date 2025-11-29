@@ -14,30 +14,33 @@ type AgentRow = Database['public']['Tables']['vibe_agents']['Row']
 type ConversationRow =
   Database['public']['Tables']['vibe_agent_conversations']['Row']
 
-export const BUILTIN_AGENT_TOOLS: Record<
-  Extract<AgentToolType, `builtin:${string}`>,
+export const BUILTIN_AGENT_TOOLS = {
+  'builtin:web_fetch': {
+    id: 'builtin:web_fetch' as AgentToolType,
+    name: 'Web Fetch',
+    description:
+      'Fetches web page content from a given URL.'
+  },
+  'builtin:search': {
+    id: 'builtin:search' as AgentToolType,
+    name: 'Web Search',
+    description:
+      'Searches the public web for recent information.'
+  },
+  'builtin:file_search': {
+    id: 'builtin:file_search' as AgentToolType,
+    name: 'File Search',
+    description:
+      "Searches the agent's uploaded files for matching snippets."
+  }
+} satisfies Record<
+  AgentToolType,
   {
-    id: Extract<AgentToolType, `builtin:${string}`>
+    id: AgentToolType
     name: string
     description: string
   }
-> = {
-  'builtin:web_fetch': {
-    id: 'builtin:web_fetch',
-    name: 'Web Fetch',
-    description: 'Fetches the HTML/text content for a given URL.'
-  },
-  'builtin:search': {
-    id: 'builtin:search',
-    name: 'Search',
-    description: 'Performs a simple web search via a configured API.'
-  },
-  'builtin:file_search': {
-    id: 'builtin:file_search',
-    name: 'File Search',
-    description: 'Searches the agent\'s uploaded files for matching snippets.'
-  }
-}
+>
 
 const sanitizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -76,26 +79,32 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
       const name = (entry as { name?: string }).name
       const description = (entry as { description?: string }).description
       const config = (entry as { config?: Record<string, any> }).config
-      const type = (entry as { type?: AgentToolType }).type
+      const rawType = (entry as { type?: string }).type
 
-      if (type?.startsWith('builtin:')) {
-        if (type in BUILTIN_AGENT_TOOLS) {
-          return {
-            ...BUILTIN_AGENT_TOOLS[type as keyof typeof BUILTIN_AGENT_TOOLS],
-            id: type,
-            type,
-            name:
-              name ??
-              BUILTIN_AGENT_TOOLS[type as keyof typeof BUILTIN_AGENT_TOOLS]
-                .name,
-            description:
-              description ??
-              BUILTIN_AGENT_TOOLS[type as keyof typeof BUILTIN_AGENT_TOOLS]
-                .description,
-            config
-          } satisfies VibeAgentTool
+      if (rawType?.startsWith('builtin:')) {
+        let type: AgentToolType | null = null
+
+        // Backwards compatibility for legacy "builtin:web" tool ids.
+        if (rawType === 'builtin:web') {
+          type = 'builtin:search'
+        } else if (rawType in BUILTIN_AGENT_TOOLS) {
+          type = rawType as AgentToolType
         }
-        return null
+
+        if (!type) {
+          return null
+        }
+
+        const builtin = BUILTIN_AGENT_TOOLS[type]
+
+        return {
+          ...builtin,
+          id: type,
+          type,
+          name: name ?? builtin.name,
+          description: description ?? builtin.description,
+          config
+        } satisfies VibeAgentTool
       }
 
       return null
@@ -112,6 +121,8 @@ export const mapAgentRow = (row: AgentRow): VibeAgent => ({
   agentUrl: row.agent_url,
   tools: sanitizeTools(row.tools),
   allowAnonymous: row.allow_anonymous,
+  greetingText: (row as any).greeting_text ?? null,
+  lastEmbeddingsSyncAt: (row as any).last_embeddings_sync_at ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
@@ -125,6 +136,8 @@ export const mapConversationRow = (
   externalId: row.external_id,
   summary: row.summary,
   messages: sanitizeMessages(row.messages),
+  closedAt: (row as any).closed_at ?? null,
+  summaryGeneratedAt: (row as any).summary_generated_at ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })

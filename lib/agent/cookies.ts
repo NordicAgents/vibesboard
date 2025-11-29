@@ -4,8 +4,8 @@ import { randomUUID } from 'crypto'
 const COOKIE_NAME = 'va_ext'
 const COOKIE_TTL_DAYS = 30
 
-export function ensureExternalSessionId() {
-  const cookieStore = cookies()
+export async function ensureExternalSessionId() {
+  const cookieStore = await cookies()
   const existing = cookieStore.get(COOKIE_NAME)?.value
 
   if (existing) {
@@ -25,7 +25,7 @@ export function ensureExternalSessionId() {
   return value
 }
 
-export function getExternalSessionId() {
-  const cookieStore = cookies()
+export async function getExternalSessionId() {
+  const cookieStore = await cookies()
   return cookieStore.get(COOKIE_NAME)?.value ?? null
 }

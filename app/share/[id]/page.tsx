@@ -6,7 +6,7 @@ import { getSharedChat } from '@/app/actions'
 import { ChatList } from '@/components/chat-list'
 // Footer removed for a cleaner shared view
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 export const preferredRegion = 'home'
 
 interface SharePageProps {

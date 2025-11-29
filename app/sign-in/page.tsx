@@ -7,18 +7,22 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export default async function SignInPage() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
   // redirect to home if user is already logged in
   if (session?.user) {
     redirect('/')
   }
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col items-center justify-center py-10">
-      <div className="w-full max-w-sm">
+    <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col items-center justify-center bg-beige-bg dark:bg-background py-10">
+      <div className="w-full max-w-md rounded-3xl border border-black-10 dark:border-border bg-purewhite-bg dark:bg-card p-8 shadow-lg">
+        <div className="mb-6 text-center">
+          <h1 className="font-switzer text-3xl font-bold text-black-primary dark:text-card-foreground">Welcome back</h1>
+          <p className="mt-2 font-switzer text-sm text-gray-secondary dark:text-muted-foreground">Sign in to continue to vibesboard</p>
+        </div>
         <LoginForm action="sign-in" />
-        <Separator className="my-4" />
-        <div className="flex justify-center gap-2">
+        <Separator className="my-6" />
+        <div className="flex flex-col gap-2">
           <LoginButton />
           <GoogleLoginButton />
         </div>

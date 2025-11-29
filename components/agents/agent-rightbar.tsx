@@ -2,14 +2,12 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   type AgentSharePayload,
   type VibeAgent,
   type VibeAgentConversation
 } from '@/lib/types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -20,10 +18,9 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { Badge } from '@/components/ui/badge'
 import { IconClose, IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
-import { formatDate } from '@/lib/utils'
+import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 
 interface AgentRightbarProps {
   agent: VibeAgent
@@ -44,14 +41,9 @@ export function AgentRightbar({
   const [copied, setCopied] = useState(false)
   const [name, setName] = useState(agent.name)
   const [instructions, setInstructions] = useState(agent.instructions)
+  const [greetingText, setGreetingText] = useState(agent.greetingText ?? 'Hi How can i help you today')
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
-  const [fileKeys, setFileKeys] = useState<string[]>(agent.fileKeys)
-  const [selectedTools, setSelectedTools] = useState<
-    Array<import('@/lib/types').AgentToolType>
-  >(() => agent.tools.map(t => t.type))
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const handleCopy = async () => {
     try {
@@ -83,64 +75,8 @@ export function AgentRightbar({
     }
   }
 
-  const toolOptions = useMemo(
-    () => Object.values(BUILTIN_AGENT_TOOLS),
-    []
-  )
 
-  const safeFileName = (name: string) =>
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
 
-  const handleUpload = async (files: FileList | null) => {
-    if (!files?.length) return
-    setUploading(true)
-    setUploadError(null)
-    const supabase = getBrowserSupabaseClient()
-    try {
-      const uploads = await Promise.all(
-        Array.from(files).map(async file => {
-          const path = `${agent.userId}/${Date.now()}-${safeFileName(file.name)}`
-          const { data, error } = await supabase.storage
-            .from('agent-files')
-            .upload(path, file, {
-              upsert: true,
-              contentType: file.type || 'application/octet-stream'
-            })
-          if (error || !data) throw error ?? new Error('Upload failed')
-          return data.path
-        })
-      )
-      const next = Array.from(new Set([...fileKeys, ...uploads]))
-      setFileKeys(next)
-      await updateAgent({ fileKeys: next })
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to upload files'
-      setUploadError(message)
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleRemoveFile = async (path: string) => {
-    const supabase = getBrowserSupabaseClient()
-    try {
-      await supabase.storage.from('agent-files').remove([path])
-    } catch (_) {
-      // ignore removal failures
-    }
-    const next = fileKeys.filter(item => item !== path)
-    setFileKeys(next)
-    await updateAgent({ fileKeys: next })
-  }
-
-  const topConversations = useMemo(
-    () => conversations.slice(0, 10),
-    [conversations]
-  )
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -236,98 +172,36 @@ export function AgentRightbar({
           </CardContent>
         </Card>
 
-        {/* Tools & files */}
+        {/* Greeting */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Tools & files</CardTitle>
+            <CardTitle className="text-base">Greeting</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm font-medium">Tools</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {toolOptions.map(tool => {
-                  const checked = selectedTools.includes(tool.id as any)
-                  return (
-                    <Badge
-                      key={tool.id}
-                      variant={checked ? 'default' : 'secondary'}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setSelectedTools(prev =>
-                          checked
-                            ? prev.filter(item => item !== (tool.id as any))
-                            : [...prev, tool.id as any]
-                        )
-                      }}
-                    >
-                      {tool.name}
-                    </Badge>
-                  )
-                })}
-              </div>
-              <div className="mt-3 flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    updateAgent({
-                      tools: selectedTools.map(t => ({
-                        ...(BUILTIN_AGENT_TOOLS[t as keyof typeof BUILTIN_AGENT_TOOLS] ??
-                          { name: t }),
-                        id: t,
-                        type: t
-                      }))
-                    })
-                  }
-                  disabled={saving}
-                >
-                  Save tools
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reference files</label>
-              <input
-                type="file"
-                multiple
-                onChange={e => handleUpload(e.target.files)}
-                disabled={uploading || saving}
-                className="block w-full text-sm"
-              />
-              {fileKeys.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Upload transcripts, docs, or FAQs to ground responses.
-                </p>
-              )}
-              {uploadError && (
-                <p className="text-xs text-red-600" role="alert">
-                  {uploadError}
-                </p>
-              )}
-              {fileKeys.length > 0 && (
-                <ul className="space-y-1 text-sm">
-                  {fileKeys.map(key => (
-                    <li
-                      key={key}
-                      className="flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <span className="truncate">{key}</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleRemoveFile(key)}
-                        disabled={saving}
-                      >
-                        Remove
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          <CardContent className="space-y-3">
+            <Input
+              value={greetingText}
+              onChange={e => setGreetingText(e.target.value)}
+              placeholder="Initial greeting message"
+              disabled={saving}
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => updateAgent({ greetingText: greetingText.trim() || null })}
+                disabled={
+                  saving ||
+                  greetingText.trim() === (agent.greetingText?.trim() ?? 'Hi How can i help you today')
+                }
+              >
+                Save
+              </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Tools & files */}
+        <ToolsFilesManager agent={agent} onUpdate={() => router.refresh()} />
+
 
         {/* Share & QR */}
         <Card>
@@ -352,41 +226,6 @@ export function AgentRightbar({
           </CardContent>
         </Card>
 
-        {/* Conversations */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Conversations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {topConversations.length ? (
-              <div className="space-y-2">
-                {topConversations.map(c => (
-                  <div
-                    key={c.id}
-                    className="rounded-md border p-2 text-sm transition hover:border-primary"
-                  >
-                    <div className="line-clamp-1 font-medium">
-                      {c.summary || c.messages.at(-1)?.content || 'Conversation'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Updated {formatDate(c.updatedAt)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No conversations yet.</p>
-            )}
-            <div className="flex items-center justify-between pt-1">
-              <Button asChild size="sm">
-                <Link href={`/agents/${agent.id}/conversations/new`}>Start chat</Link>
-              </Button>
-              <Button asChild variant="ghost" size="sm">
-                <Link href={`/agents/${agent.id}/conversations`}>View all</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </aside>
   )

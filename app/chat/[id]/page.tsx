@@ -6,7 +6,7 @@ import { getChat } from '@/app/actions'
 import { Chat } from '@/components/chat'
 import { cookies } from 'next/headers'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 export const preferredRegion = 'home'
 
 export interface ChatPageProps {
@@ -18,7 +18,7 @@ export interface ChatPageProps {
 export async function generateMetadata({
   params
 }: ChatPageProps): Promise<Metadata> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -32,7 +32,7 @@ export async function generateMetadata({
 }
 
 export default async function ChatPage({ params }: ChatPageProps) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {

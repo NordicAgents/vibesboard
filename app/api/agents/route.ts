@@ -10,7 +10,7 @@ import { upsertAgentSchema } from '@/lib/agents/schema'
 export const runtime = 'nodejs'
 
 export async function GET() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -18,7 +18,7 @@ export async function GET() {
   }
 
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const { data, error } = await supabase
@@ -37,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   const payload = upsertAgentSchema.parse(body)
 
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const slug = await ensureUniqueSlug(
@@ -65,7 +65,10 @@ export async function POST(req: Request) {
       file_keys: payload.fileKeys,
       tools: payload.tools,
       allow_anonymous: payload.allowAnonymous,
-      agent_url: slug
+      agent_url: slug,
+      ...(payload.greetingText !== undefined
+        ? { greeting_text: payload.greetingText }
+        : {})
     })
     .select('*')
     .single()

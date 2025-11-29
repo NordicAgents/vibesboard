@@ -1,11 +1,12 @@
 import { Annotation, StateGraph, START, END } from '@langchain/langgraph'
 import { type Message } from 'ai'
-import { nanoid } from '@/lib/utils'
 import { OpenAIApi } from 'openai-edge'
+import { nanoid } from '@/lib/utils'
 
 import { buildAgentSystemPrompt } from './prompts'
 import { type VibeAgent } from '@/lib/types'
 import { type ToolExecutor, type ToolFunctionDefinition } from './tools/base'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 const AgentState = Annotation.Root({
   messages: Annotation<Message[]>({
@@ -182,7 +183,7 @@ const callOpenAi = async ({
   })
 
   const payload: any = {
-    model: 'gpt-4o-mini',
+    model: OPENAI_CHAT_MODEL,
     temperature,
     messages: outboundMessages,
     // Provide both to maximize compatibility across model versions

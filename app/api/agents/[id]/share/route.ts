@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies, headers } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
@@ -10,10 +10,11 @@ import { getQrDataUrl } from '@/lib/qr'
 export const runtime = 'nodejs'
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const cookieStore = cookies()
+  const { id } = await params
+  const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
   if (!session?.user) {
@@ -21,13 +22,13 @@ export async function GET(
   }
 
   const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore
+    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
   const { data } = await supabase
     .from('vibe_agents')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', session.user.id)
     .maybeSingle()
 
@@ -36,7 +37,7 @@ export async function GET(
   }
 
   const agent = mapAgentRow(data)
-  const headersList = headers()
+  const headersList = await headers()
   // Handle comma-separated proxy headers (e.g., "https,http") by taking the first value
   const rawProto = headersList.get('x-forwarded-proto')
   const protocol =
