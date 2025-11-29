@@ -26,6 +26,7 @@ interface AgentChatWithLayoutProps {
     ownerId: string
     ownerSessions: VibeAgentConversation[]
     visitorSessions: VibeAgentConversation[]
+    hasUnsyncedConversations: boolean
     share: AgentSharePayload
 }
 
@@ -34,6 +35,7 @@ export function AgentChatWithLayout({
     ownerId,
     ownerSessions,
     visitorSessions,
+    hasUnsyncedConversations,
     share
 }: AgentChatWithLayoutProps) {
     const router = useRouter()
@@ -48,6 +50,9 @@ export function AgentChatWithLayout({
     const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
     const [isModalOpen, setIsModalOpen] = React.useState(false)
     const [visitorPage, setVisitorPage] = React.useState(1)
+    const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
+    const [syncingEmbeddings, setSyncingEmbeddings] = React.useState(false)
+    const [closingId, setClosingId] = React.useState<string | null>(null)
 
     // Sync activeSessionId with URL
     React.useEffect(() => {
@@ -79,6 +84,45 @@ export function AgentChatWithLayout({
     const handleNewChat = () => {
         setActiveSessionId(null)
         router.push(`/agents/${agent.id}`)
+    }
+
+    const handleRefreshSummaries = async () => {
+        setRefreshingSummaries(true)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setRefreshingSummaries(false)
+        }
+    }
+
+    const handleSyncEmbeddings = async () => {
+        if (syncingEmbeddings || !hasUnsyncedConversations) {
+            return
+        }
+        setSyncingEmbeddings(true)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/sync-embeddings`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setSyncingEmbeddings(false)
+        }
+    }
+
+    const handleCloseConversation = async (conversationId: string) => {
+        setClosingId(conversationId)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/${conversationId}/close`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setClosingId(null)
+        }
     }
 
     const lastConversationAt = ownerSessions[0]?.updatedAt
@@ -119,7 +163,20 @@ export function AgentChatWithLayout({
             </div>
 
             {/* Visitor conversations */}
-            <DashboardSidebarSection title="Visitor conversations">
+            <DashboardSidebarSection
+                title="Visitor conversations"
+                action={
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        onClick={handleRefreshSummaries}
+                        disabled={refreshingSummaries}
+                    >
+                        {refreshingSummaries ? 'Refreshing...' : 'Refresh summaries'}
+                    </Button>
+                }
+            >
                 {visitorSessions.length === 0 && (
                     <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
                         No visitor chats yet.
@@ -185,8 +242,22 @@ export function AgentChatWithLayout({
                         active={activeSessionId === session.id}
                         onClick={() => handleSelectSession(session.id)}
                     >
-                        <div className="truncate">
-                            {session.summary || 'Untitled conversation'}
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="truncate">
+                                {session.summary || 'Untitled conversation'}
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-[11px]"
+                                disabled={closingId === session.id}
+                                onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleCloseConversation(session.id)
+                                }}
+                            >
+                                {closingId === session.id ? 'Closing' : 'Close'}
+                            </Button>
                         </div>
                     </DashboardSidebarItem>
                 ))}
@@ -318,6 +389,38 @@ export function AgentChatWithLayout({
                         ))}
                     </div>
                 )}
+            </DashboardPanelSection>
+
+            <DashboardPanelSection
+                title="Data sync"
+                description="Rebuild embeddings for Ask AI when you want deeper history search."
+            >
+                <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs text-gray-secondary">
+                        <div>
+                            Last sync:{' '}
+                            {agent.lastEmbeddingsSyncAt
+                                ? formatDate(agent.lastEmbeddingsSyncAt)
+                                : 'Never'}
+                        </div>
+                        {!hasUnsyncedConversations && (
+                            <div>No new responses since last sync.</div>
+                        )}
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-full px-3 text-[11px]"
+                        disabled={!hasUnsyncedConversations || syncingEmbeddings}
+                        onClick={handleSyncEmbeddings}
+                    >
+                        {syncingEmbeddings
+                            ? 'Syncing...'
+                            : hasUnsyncedConversations
+                                ? 'Sync conversations'
+                                : 'Up to date'}
+                    </Button>
+                </div>
             </DashboardPanelSection>
 
         </DashboardPanel>

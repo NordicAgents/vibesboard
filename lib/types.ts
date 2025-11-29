@@ -34,6 +34,7 @@ export interface VibeAgent {
   tools: VibeAgentTool[]
   allowAnonymous: boolean
   greetingText?: string | null
+  lastEmbeddingsSyncAt?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -45,6 +46,8 @@ export interface VibeAgentConversation {
   externalId?: string | null
   summary?: string | null
   messages: Message[]
+  closedAt?: string | null
+  summaryGeneratedAt?: string | null
   createdAt: string
   updatedAt: string
 }
