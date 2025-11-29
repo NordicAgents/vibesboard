@@ -3,7 +3,7 @@ import { Configuration, OpenAIApi } from 'openai-edge'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 
 import { auth } from '@/auth'
-import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -83,8 +83,7 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
       history ? `Conversation so far:\n${history}` : ''
     }`
 
-    const completion = await completeText({ prompt, model, apiKey })
-    const stream = stringToStream(completion)
+    const stream = await streamText({ prompt, model, apiKey })
     return new StreamingTextResponse(stream)
   }
 
@@ -107,14 +106,4 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
 
   const stream = OpenAIStream(res)
   return new StreamingTextResponse(stream)
-}
-
-const stringToStream = (value: string) => {
-  const encoder = new TextEncoder()
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encoder.encode(value))
-      controller.close()
-    }
-  })
 }

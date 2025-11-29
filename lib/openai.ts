@@ -60,6 +60,126 @@ export async function completeText({
   return extractTextFromResponse(json)
 }
 
+/**
+ * Stream text tokens from the Responses API (GPT‑5‑nano) as a web stream.
+ * This is used for real-time UX in chat endpoints.
+ */
+export async function streamText({
+  prompt,
+  model = OPENAI_MODEL,
+  apiKey,
+  onToken,
+  onDone
+}: {
+  prompt: string
+  model?: string | null
+  apiKey?: string | null
+  onToken?: (delta: string) => void | Promise<void>
+  onDone?: (full: string) => void | Promise<void>
+}): Promise<ReadableStream<Uint8Array>> {
+  const m = model ?? OPENAI_MODEL
+
+  if (!isResponsesModel(m)) {
+    throw new Error('streamText is only intended for responses-only models like gpt-5-nano.')
+  }
+
+  const key = apiKey ?? process.env.OPENAI_API_KEY
+  if (!key) {
+    throw new Error('OPENAI_API_KEY is not configured.')
+  }
+
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: m,
+      input: prompt,
+      stream: true
+    })
+  })
+
+  if (!res.ok || !res.body) {
+    const errorText = await res.text().catch(() => '')
+    console.error('Responses API stream error', res.status, errorText)
+    throw new Error(`Responses API stream error (${res.status})`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      let buffer = ''
+      let full = ''
+
+      ;(async () => {
+        try {
+          while (true) {
+            const { value, done } = await reader.read()
+            if (done) break
+            const chunk = decoder.decode(value, { stream: true })
+            buffer += chunk
+
+            let idx: number
+            while ((idx = buffer.indexOf('\n\n')) !== -1) {
+              const rawEvent = buffer.slice(0, idx)
+              buffer = buffer.slice(idx + 2)
+
+              const lines = rawEvent.split('\n')
+              let dataLine = ''
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  dataLine += line.slice(6)
+                }
+              }
+              if (!dataLine) continue
+
+              try {
+                const payload = JSON.parse(dataLine)
+                if (
+                  payload?.type === 'response.output_text.delta' &&
+                  typeof payload.delta === 'string'
+                ) {
+                  const delta: string = payload.delta
+                  full += delta
+                  if (onToken) {
+                    await onToken(delta)
+                  }
+                  controller.enqueue(encoder.encode(delta))
+                }
+              } catch {
+                // Ignore malformed SSE chunks
+              }
+            }
+
+            // Avoid unbounded buffer growth in case of malformed streams.
+            if (buffer.length > 16384) {
+              buffer = buffer.slice(-8192)
+            }
+          }
+
+          if (onDone) {
+            await onDone(full)
+          }
+          controller.close()
+        } catch (error) {
+          console.error('Error while streaming Responses API', error)
+          controller.error(error)
+        }
+      })()
+    },
+    cancel() {
+      reader.cancel().catch(() => {
+        /* ignore */
+      })
+    }
+  })
+}
+
 const extractTextFromResponse = (json: any): string => {
   const output = json?.output
   if (!Array.isArray(output)) return ''

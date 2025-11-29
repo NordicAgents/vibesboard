@@ -12,7 +12,7 @@ import {
   ensureUniqueSlug
 } from '@/lib/agents/db'
 import { upsertAgentSchema } from '@/lib/agents/schema'
-import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -121,8 +121,7 @@ If unsure, ask a clarifying question instead of assuming.`
       .join('\n\n')
 
     const prompt = history
-    const completion = await completeText({ prompt, model, apiKey })
-    const stream = stringToStream(completion)
+    const stream = await streamText({ prompt, model, apiKey })
     return new StreamingTextResponse(stream)
   }
 
@@ -138,14 +137,4 @@ If unsure, ask a clarifying question instead of assuming.`
   const stream = OpenAIStream(response as any)
 
   return new StreamingTextResponse(stream)
-}
-
-const stringToStream = (value: string) => {
-  const encoder = new TextEncoder()
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encoder.encode(value))
-      controller.close()
-    }
-  })
 }
