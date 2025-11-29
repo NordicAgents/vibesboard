@@ -113,6 +113,7 @@ export const mapAgentRow = (row: AgentRow): VibeAgent => ({
   tools: sanitizeTools(row.tools),
   allowAnonymous: row.allow_anonymous,
   greetingText: (row as any).greeting_text ?? null,
+  lastEmbeddingsSyncAt: (row as any).last_embeddings_sync_at ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
@@ -126,6 +127,8 @@ export const mapConversationRow = (
   externalId: row.external_id,
   summary: row.summary,
   messages: sanitizeMessages(row.messages),
+  closedAt: (row as any).closed_at ?? null,
+  summaryGeneratedAt: (row as any).summary_generated_at ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
