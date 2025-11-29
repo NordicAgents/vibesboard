@@ -42,6 +42,7 @@ export function AgentChatWithLayout({
     )
     const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
     const [isModalOpen, setIsModalOpen] = React.useState(false)
+    const [visitorPage, setVisitorPage] = React.useState(1)
 
     const handleSelectSession = (sessionId: string | null) => {
         setActiveSessionId(sessionId)
@@ -60,10 +61,23 @@ export function AgentChatWithLayout({
         router.push(`/agents/${agent.id}`)
     }
 
-    const totalConversations = ownerSessions.length
     const lastConversationAt = ownerSessions[0]?.updatedAt
     const displayTools = getDisplayTools(agent.tools)
     const [copiedShare, setCopiedShare] = React.useState(false)
+
+    // Pagination for visitor conversations
+    const itemsPerPage = 5
+    const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
+    const startIndex = (visitorPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const paginatedVisitorSessions = visitorSessions.slice(startIndex, endIndex)
+
+    // Reset to page 1 if current page is out of bounds
+    React.useEffect(() => {
+        if (visitorPage > totalVisitorPages && totalVisitorPages > 0) {
+            setVisitorPage(1)
+        }
+    }, [visitorPage, totalVisitorPages])
 
     const handleCopyShare = async () => {
         try {
@@ -91,7 +105,7 @@ export function AgentChatWithLayout({
                         No visitor chats yet.
                     </div>
                 )}
-                {visitorSessions.slice(0, 10).map((session) => (
+                {paginatedVisitorSessions.map((session) => (
                     <DashboardSidebarItem
                         key={session.id}
                         className="bg-purewhite-bg dark:bg-background"
@@ -105,6 +119,31 @@ export function AgentChatWithLayout({
                         </div>
                     </DashboardSidebarItem>
                 ))}
+                {visitorSessions.length > itemsPerPage && (
+                    <div className="flex items-center justify-between gap-2 pt-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
+                            disabled={visitorPage === 1}
+                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-[11px] text-gray-secondary font-switzer">
+                            Page {visitorPage} of {totalVisitorPages}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))}
+                            disabled={visitorPage === totalVisitorPages}
+                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )}
             </DashboardSidebarSection>
 
             {/* Conversations */}
@@ -167,12 +206,6 @@ export function AgentChatWithLayout({
                             <p className="mt-0.5">
                                 {formatDate(lastConversationAt ?? agent.updatedAt)}
                             </p>
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Your conversations
-                            </p>
-                            <p className="mt-0.5">{totalConversations}</p>
                         </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-background px-3 py-2 text-xs dark:bg-muted">
@@ -267,29 +300,6 @@ export function AgentChatWithLayout({
                 )}
             </DashboardPanelSection>
 
-            {/* Conversations */}
-            <DashboardPanelSection
-                title="Conversations"
-                description={totalConversations ? `${totalConversations} total conversations` : 'No conversations yet.'}
-            >
-                {totalConversations > 0 && (
-                    <div className="space-y-2">
-                        {ownerSessions.slice(0, 5).map((session) => (
-                            <div
-                                key={session.id}
-                                className="rounded-2xl border border-black-10 bg-beige-bg/30 p-2 text-xs font-switzer text-black-primary transition-colors hover:border-black-25 dark:border-border dark:bg-background/30 dark:text-foreground"
-                            >
-                                <div className="line-clamp-1 font-medium">
-                                    {session.summary || session.messages.at(-1)?.content || 'Conversation'}
-                                </div>
-                                <div className="mt-0.5 text-[11px] text-gray-secondary">
-                                    Updated {formatDate(session.updatedAt)}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </DashboardPanelSection>
         </DashboardPanel>
     )
 

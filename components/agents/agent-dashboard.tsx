@@ -64,13 +64,8 @@ export function AgentDashboard({ agent, share }: AgentDashboardProps) {
           <h1 className="font-switzer text-3xl font-bold text-black-primary dark:text-foreground">{agent.name}</h1>
         </div>
         <div className="flex gap-3">
-          <Button asChild variant="secondary" className="rounded-full font-switzer">
-            <Link href={`/agents/${agent.id}/conversations`}>
-              View conversations
-            </Link>
-          </Button>
           <Button asChild className="rounded-full font-switzer">
-            <Link href={`/agents/${agent.id}/conversations/new`}>
+            <Link href={`/agents/${agent.id}`}>
               Start chat
             </Link>
           </Button>
