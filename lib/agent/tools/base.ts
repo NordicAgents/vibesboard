@@ -37,7 +37,7 @@ export type ToolFactory = (
 ) => RegisteredTool | null
 
 export const BUILTIN_TOOL_FACTORIES: Record<
-  Extract<AgentToolType, `builtin:${string}`>,
+  AgentToolType,
   ToolFactory
 > = {
   'builtin:web_fetch': () => null,

@@ -12,7 +12,8 @@ export interface Chat extends Record<string, any> {
 }
 
 export type AgentToolType =
-  | 'builtin:web'
+  | 'builtin:web_fetch'
+  | 'builtin:search'
   | 'builtin:file_search'
 
 export interface VibeAgentTool {

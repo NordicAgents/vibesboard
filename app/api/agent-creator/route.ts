@@ -80,7 +80,7 @@ If user provides just a **description**:
 - instructions (detailed guidance on behavior, tone, and purpose)
 - greetingText (warm, welcoming first message users will see)
 - allowAnonymous (default: true, ask only if relevant)
-- tools (suggest relevant tools based on needs, use tool IDs from the list above)
+ - tools (suggest relevant tools based on needs, use tool IDs from the list above)
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -90,7 +90,7 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "name": "suggested name",
   "instructions": "suggested instructions",
   "greetingText": "suggested greeting",
-  "tools": ["builtin:web"]
+  "tools": ["builtin:search"]
 }
 ~~~
 
