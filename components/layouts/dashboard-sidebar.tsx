@@ -1,7 +1,8 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { IconArrowDown, IconArrowUp } from '@/components/ui/icons'
 
 interface DashboardSidebarProps {
     children: ReactNode
@@ -33,29 +34,54 @@ interface DashboardSidebarSectionProps {
     title?: string
     action?: ReactNode
     className?: string
+    defaultExpanded?: boolean
 }
 
 export function DashboardSidebarSection({
     children,
     title,
     action,
-    className
+    className,
+    defaultExpanded = true
 }: DashboardSidebarSectionProps) {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
+    const handleToggle = () => {
+        setIsExpanded(!isExpanded)
+    }
+
     return (
         <div className={cn('flex flex-col gap-2', className)}>
             {(title || action) && (
                 <div className="flex items-center justify-between">
-                    {title && (
-                        <h3 className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary">
-                            {title}
-                        </h3>
+                    {title ? (
+                        <button
+                            onClick={handleToggle}
+                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer group"
+                            type="button"
+                        >
+                            <h3 className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground">
+                                {title}
+                            </h3>
+                            <div className="flex-shrink-0">
+                                {isExpanded ? (
+                                    <IconArrowUp className="h-3.5 w-3.5 text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground" />
+                                ) : (
+                                    <IconArrowDown className="h-3.5 w-3.5 text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground" />
+                                )}
+                            </div>
+                        </button>
+                    ) : (
+                        <div />
                     )}
                     {action}
                 </div>
             )}
-            <div className="flex flex-col gap-1">
-                {children}
-            </div>
+            {isExpanded && (
+                <div className="flex flex-col gap-1">
+                    {children}
+                </div>
+            )}
         </div>
     )
 }

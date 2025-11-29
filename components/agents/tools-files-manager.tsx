@@ -408,9 +408,6 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                         <p className="mt-2 text-sm text-muted-foreground">
                             Drag and drop files here, or click Upload Files
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Supported: PDF, TXT, DOC, DOCX, MD, JSON, CSV, images (PNG, JPG, GIF, WEBP, TIFF, SVG), and common Office files (XLS/XLSX, PPT/PPTX, HTML) — max 10MB
-                        </p>
                         {isIndexing && (
                             <p className="mt-2 text-xs text-muted-foreground">
                                 Indexing uploads for file search…

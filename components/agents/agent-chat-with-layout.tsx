@@ -74,9 +74,6 @@ export function AgentChatWithLayout({
                 <h3 className="font-switzer text-lg font-bold text-black-primary dark:text-foreground">
                     {agent.name}
                 </h3>
-                <p className="mt-1 font-switzer text-xs text-gray-secondary">
-                    Chat with your agent
-                </p>
             </div>
 
             {/* Visitor conversations */}
@@ -102,17 +99,18 @@ export function AgentChatWithLayout({
             </DashboardSidebarSection>
 
             {/* Conversations */}
-            <DashboardSidebarSection title="Conversations">
-                <DashboardSidebarItem
-                    active={activeSessionId === null}
-                    onClick={handleNewChat}
-                >
-                    <div className="flex items-center justify-between">
-                        <span>New conversation</span>
-                        <span className="text-xs">+</span>
-                    </div>
-                </DashboardSidebarItem>
-
+            <DashboardSidebarSection 
+                title="My Chat History"
+                action={
+                    <button
+                        onClick={handleNewChat}
+                        className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
+                        aria-label="New conversation"
+                    >
+                        +
+                    </button>
+                }
+            >
                 {ownerSessions.slice(0, 10).map((session) => (
                     <DashboardSidebarItem
                         key={session.id}
