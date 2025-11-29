@@ -50,6 +50,15 @@ export default async function AgentPageAsChat({
   const ownerConversations = conversations.filter(
     conversation => conversation.userId === session.user.id
   )
+  const visitorConversations = conversations.filter(
+    conversation => conversation.externalId
+  )
+  const lastSync = agent.lastEmbeddingsSyncAt
+    ? new Date(agent.lastEmbeddingsSyncAt)
+    : null
+  const hasUnsyncedConversations = conversations.some(conversation =>
+    lastSync ? new Date(conversation.updatedAt).getTime() > lastSync.getTime() : true
+  )
 
   const headersList = await headers()
   const rawProto = headersList.get('x-forwarded-proto')
@@ -70,6 +79,8 @@ export default async function AgentPageAsChat({
       agent={agent}
       ownerId={session.user.id}
       ownerSessions={ownerConversations}
+      visitorSessions={visitorConversations}
+      hasUnsyncedConversations={hasUnsyncedConversations}
       share={{ url: shareUrl, qrDataUrl }}
     />
   )

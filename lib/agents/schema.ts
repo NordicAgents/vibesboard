@@ -22,7 +22,8 @@ export const upsertAgentSchema = z.object({
   instructions: z.string().min(10),
   fileKeys: z.array(z.string()).default([]),
   tools: z.array(agentToolSchema).default([]),
-  allowAnonymous: z.boolean().default(true)
+  allowAnonymous: z.boolean().default(true),
+  greetingText: z.string().nullable().optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
@@ -43,7 +44,8 @@ export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
 })
 
 export const agentAskRequestSchema = z.object({
-  question: z.string().min(4),
+  // Allow any non-empty question; frontend already trims/blocks empty input
+  question: z.string().min(1),
   contextConversationId: z.string().uuid().optional(),
   sessionId: z.string().uuid().optional()
 })

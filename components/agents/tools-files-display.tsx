@@ -1,7 +1,7 @@
 'use client'
 
 import { type VibeAgent } from '@/lib/types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { getDisplayTools } from '@/lib/agents/tooling'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { IconFile, IconCheck } from '@/components/ui/icons'
@@ -19,7 +19,7 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
         return filename.replace(/^\d+-/, '')
     }
 
-    const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
+    const displayTools = getDisplayTools(agent.tools)
 
     return (
         <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg">
@@ -34,8 +34,8 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
                 <div>
                     <p className="font-switzer text-sm font-medium text-black-primary">Tools</p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                        {agent.tools.length > 0 ? (
-                            agent.tools.map(tool => (
+                        {displayTools.length > 0 ? (
+                            displayTools.map(tool => (
                                 <Badge key={tool.id} variant="default" className="flex items-center gap-1">
                                     <IconCheck className="h-3 w-3" />
                                     {tool.name}
@@ -45,9 +45,9 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
                             <p className="font-switzer text-xs text-gray-secondary">None enabled.</p>
                         )}
                     </div>
-                    {agent.tools.length > 0 && (
+                    {displayTools.length > 0 && (
                         <p className="mt-2 font-switzer text-xs text-gray-secondary">
-                            {agent.tools.length} tool{agent.tools.length > 1 ? 's' : ''} enabled
+                            {displayTools.length} tool{displayTools.length > 1 ? 's' : ''} enabled
                         </p>
                     )}
                 </div>

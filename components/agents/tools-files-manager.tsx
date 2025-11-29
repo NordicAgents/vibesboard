@@ -3,13 +3,13 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
-import { type VibeAgent, type AgentToolType } from '@/lib/types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { type VibeAgent } from '@/lib/types'
+import { deriveToolToggles, buildToolsPayload } from '@/lib/agents/tooling'
 import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
 import {
     IconTrash,
     IconDownload,
@@ -36,15 +36,14 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const [selectedTools, setSelectedTools] = useState<AgentToolType[]>(
-        agent.tools.map(t => t.type)
-    )
+    const toggles = deriveToolToggles(agent.tools)
+    const [useWeb, setUseWeb] = useState(toggles.useWeb)
+    const [fileSearchEnabled, setFileSearchEnabled] = useState(toggles.fileSearch)
     const [fileKeys, setFileKeys] = useState<string[]>(agent.fileKeys)
     const [uploadProgress, setUploadProgress] = useState<FileUploadProgress[]>([])
     const [isSaving, setIsSaving] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
-
-    const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
+    const [isIndexing, setIsIndexing] = useState(false)
 
     // Extract clean filename from storage path
     const getFileName = (path: string): string => {
@@ -94,25 +93,14 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
         }
     }
 
-    const handleToolToggle = (toolId: AgentToolType) => {
-        setSelectedTools(prev =>
-            prev.includes(toolId)
-                ? prev.filter(id => id !== toolId)
-                : [...prev, toolId]
-        )
-    }
-
     const handleSaveTools = async () => {
         try {
-            await updateAgent({
-                tools: selectedTools.map(type => ({
-                    ...(BUILTIN_AGENT_TOOLS[type as keyof typeof BUILTIN_AGENT_TOOLS] ?? {
-                        name: type
-                    }),
-                    id: type,
-                    type
-                }))
+            const tools = buildToolsPayload({
+                useWeb,
+                fileSearch: fileSearchEnabled
             })
+
+            await updateAgent({ tools })
         } catch {
             // Error already handled in updateAgent
         }
@@ -171,7 +159,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             )
                         )
 
-                        return data.path
+                        return { path: data.path, file }
                     } catch (error) {
                         // Update progress to error
                         setUploadProgress(prev =>
@@ -190,18 +178,49 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                 })
 
                 const results = await Promise.allSettled(uploadPromises)
-                const successfulPaths = results
-                    .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+                const successfulUploads = results
+                    .filter((r): r is PromiseFulfilledResult<{ path: string; file: File }> => r.status === 'fulfilled')
                     .map(r => r.value)
 
-                if (successfulPaths.length > 0) {
-                    const newFileKeys = Array.from(new Set([...fileKeys, ...successfulPaths]))
+                if (successfulUploads.length > 0) {
+                    const newFileKeys = Array.from(new Set([...fileKeys, ...successfulUploads.map(item => item.path)]))
                     setFileKeys(newFileKeys)
                     await updateAgent({ fileKeys: newFileKeys })
 
                     toast.success(
-                        `${successfulPaths.length} file${successfulPaths.length > 1 ? 's' : ''} uploaded successfully`
+                        `${successfulUploads.length} file${successfulUploads.length > 1 ? 's' : ''} uploaded successfully`
                     )
+
+                    // Trigger ingestion for RAG search (fire and forget).
+                    setIsIndexing(true)
+                    const ingestionResults = await Promise.allSettled(
+                        successfulUploads.map(async ({ path, file }) => {
+                            const res = await fetch(`/api/agents/${agent.id}/files/ingest`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    fileKey: path,
+                                    fileName: file.name,
+                                    mimeType: file.type || undefined
+                                })
+                            })
+                            if (!res.ok) {
+                                const payload = await res.json().catch(() => ({}))
+                                throw new Error(payload.error ?? 'Ingestion failed')
+                            }
+                        })
+                    )
+                    const ingested = ingestionResults.filter(r => r.status === 'fulfilled').length
+                    const failedIngest = ingestionResults.filter(r => r.status === 'rejected').length
+                    if (ingested > 0) {
+                        toast.success(`Indexed ${ingested} file${ingested > 1 ? 's' : ''} for search`)
+                    }
+                    if (failedIngest > 0) {
+                        toast.error(`${failedIngest} file${failedIngest > 1 ? 's' : ''} failed to index`)
+                    }
+                    setIsIndexing(false)
                 }
 
                 const failedCount = results.filter(r => r.status === 'rejected').length
@@ -209,6 +228,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                     toast.error(`${failedCount} file${failedCount > 1 ? 's' : ''} failed to upload`)
                 }
             } catch (error) {
+                setIsIndexing(false)
                 toast.error('File upload failed')
             } finally {
                 // Clear progress after 3 seconds
@@ -296,41 +316,50 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                 {/* Tools Section */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">Available Tools</p>
+                        <div>
+                            <p className="text-sm font-medium">Tools</p>
+                            <p className="text-xs text-muted-foreground">
+                                Control whether the agent can reach the web or search uploaded files.
+                            </p>
+                        </div>
                         <Button
                             size="sm"
                             onClick={handleSaveTools}
-                            disabled={isSaving}
+                            disabled={isSaving || isIndexing}
                         >
-                            {isSaving ? 'Saving...' : 'Save Tools'}
+                            {isSaving ? 'Saving...' : isIndexing ? 'Indexing...' : 'Save Tools'}
                         </Button>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                        {toolOptions.map(tool => {
-                            const isSelected = selectedTools.includes(tool.id)
-                            return (
-                                <Badge
-                                    key={tool.id}
-                                    variant={isSelected ? 'default' : 'secondary'}
-                                    className={cn(
-                                        'cursor-pointer transition-all hover:scale-105',
-                                        isSelected && 'ring-2 ring-primary ring-offset-2'
-                                    )}
-                                    onClick={() => handleToolToggle(tool.id)}
-                                >
-                                    {isSelected && <IconCheck className="mr-1 h-3 w-3" />}
-                                    {tool.name}
-                                </Badge>
-                            )
-                        })}
-                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
+                            <div className="pr-4">
+                                <p className="text-sm font-medium">Use web</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Let the agent fetch provided URLs or search when it needs extra context.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={useWeb}
+                                disabled={isSaving}
+                                onCheckedChange={value => setUseWeb(value)}
+                            />
+                        </div>
 
-                    {toolOptions.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                            Click to enable/disable tools. Selected tools will be available to your agent.
-                        </p>
-                    )}
+                        <div className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
+                            <div className="pr-4">
+                                <p className="text-sm font-medium">File search</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Allow the agent to ground responses in the files you upload here.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={fileSearchEnabled}
+                                disabled={isSaving}
+                                onCheckedChange={value => setFileSearchEnabled(value)}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Files Section */}
@@ -341,7 +370,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             size="sm"
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isSaving}
+                            disabled={isSaving || isIndexing}
                         >
                             <IconUpload className="mr-2 h-4 w-4" />
                             Upload Files
@@ -360,7 +389,7 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                             e.target.value = '' // Reset input
                         }}
                         className="hidden"
-                        accept=".pdf,.txt,.doc,.docx,.md,.json,.csv"
+                        accept=".pdf,.txt,.doc,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.tiff,.tif,.svg,.xlsx,.xls,.ppt,.pptx,.html,.htm"
                     />
 
                     {/* Drag and drop area */}
@@ -379,9 +408,11 @@ export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
                         <p className="mt-2 text-sm text-muted-foreground">
                             Drag and drop files here, or click Upload Files
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Supported: PDF, TXT, DOC, DOCX, MD, JSON, CSV (Max 10MB)
-                        </p>
+                        {isIndexing && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                Indexing uploads for file search…
+                            </p>
+                        )}
                     </div>
 
                     {/* Upload progress */}

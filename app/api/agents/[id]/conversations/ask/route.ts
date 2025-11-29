@@ -8,7 +8,6 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { getAgentForUser } from '@/lib/agents/server'
 import { agentAskRequestSchema } from '@/lib/agents/schema'
-import { embedTexts } from '@/lib/agent/embeddings'
 import {
   ensureConversation,
   listAgentConversations,
@@ -16,6 +15,7 @@ import {
 } from '@/lib/agents/conversations'
 import { nanoid } from '@/lib/utils'
 import { summarizeConversation } from '@/lib/agent/summarize'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -23,9 +23,10 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration)
 
-const MAX_MATCHES = 12
-const MAX_CONTEXT_CHARS = 12000
-const FALLBACK_CONVO_COUNT = 5
+const MAX_TOTAL_CONTEXT_CHARS = 12000
+const MAX_CONVO_CONTEXT_CHARS = 3500
+const MAX_MESSAGES_PER_CONVO = 20
+const MAX_CONVERSATIONS = 25
 
 export const runtime = 'nodejs'
 
@@ -90,80 +91,96 @@ export async function POST(
   }
   const pendingMessages = [...existingMessages, userMessage]
 
-  let questionEmbedding: number[] | undefined
-  try {
-    ;[questionEmbedding] = await embedTexts([payload.question])
-  } catch (error) {
-    console.error('Failed to embed ask question', error)
-    return NextResponse.json(
-      { error: 'Unable to process question embedding.' },
-      { status: 500 }
-    )
-  }
+  const conversations = await listAgentConversations(supabase, agent.id)
+  const selectedConversations = (payload.contextConversationId
+    ? conversations.filter(conv => conv.id === payload.contextConversationId)
+    : conversations.slice(0, MAX_CONVERSATIONS))
 
-  let snippets: string[] = []
+  const contextBlocks: string[] = []
+  let totalChars = 0
 
-  if (questionEmbedding) {
-    const { data, error } = await supabase.rpc(
-      'match_agent_conversation_chunks',
-      {
-        p_agent_id: agent.id,
-        p_query_embedding: questionEmbedding,
-        p_match_count: MAX_MATCHES,
-        p_conversation_id: payload.contextConversationId ?? null
-      }
-    )
-
-    if (error) {
-      console.error('match_agent_conversation_chunks failed', error)
-    } else if (data?.length) {
-      let totalChars = 0
-      for (const match of data) {
-        const snippet = `[cid: ${match.conversation_id} msg: ${match.message_index}] ${match.content}`
-        if (totalChars + snippet.length > MAX_CONTEXT_CHARS) {
-          break
-        }
-        snippets.push(snippet)
-        totalChars += snippet.length
-      }
+  for (const conversation of selectedConversations) {
+    if (totalChars >= MAX_TOTAL_CONTEXT_CHARS) {
+      break
     }
-  }
 
-  if (!snippets.length) {
-    const conversations = await listAgentConversations(supabase, agent.id)
-    const subset = payload.contextConversationId
-      ? conversations.filter(conv => conv.id === payload.contextConversationId)
-      : conversations.slice(0, FALLBACK_CONVO_COUNT)
+    const recentMessages = (conversation.messages ?? []).slice(
+      -MAX_MESSAGES_PER_CONVO
+    )
+    const serialized = recentMessages
+      .map(
+        (message, idx) =>
+          `${message.role === 'assistant' ? 'Agent' : 'User'} ${
+            message.id ?? idx
+          }: ${typeof message.content === 'string' ? message.content : ''}`
+      )
+      .join('\n')
 
-    for (const conversation of subset) {
-      if (conversation.summary) {
-        snippets.push(`[cid: ${conversation.id} summary] ${conversation.summary}`)
-        continue
-      }
-      const lastMessage = conversation.messages.at(-1)
-      if (lastMessage && typeof lastMessage.content === 'string') {
-        const content = lastMessage.content.slice(0, 600)
-        snippets.push(
-          `[cid: ${conversation.id} msg: ${conversation.messages.length - 1}] ${content}`
-        )
-      }
+    if (!serialized.trim()) {
+      continue
     }
+
+    let block = `=== Conversation cid:${conversation.id} ===\n${serialized}`
+    if (block.length > MAX_CONVO_CONTEXT_CHARS) {
+      block = block.slice(block.length - MAX_CONVO_CONTEXT_CHARS)
+    }
+
+    if (totalChars + block.length > MAX_TOTAL_CONTEXT_CHARS) {
+      const remaining = MAX_TOTAL_CONTEXT_CHARS - totalChars
+      block = block.slice(block.length - remaining)
+    }
+
+    contextBlocks.push(block)
+    totalChars += block.length
   }
 
   const defaultContext =
-    snippets.length > 0
-      ? snippets.join('\n\n').slice(0, MAX_CONTEXT_CHARS)
-      : 'No prior conversations matched this question.'
+    contextBlocks.length > 0
+      ? contextBlocks.join('\n\n')
+      : 'No prior conversations available for context.'
 
   const systemPrompt = `You help the owner of agent "${agent.name}" analyze past chats.
-Use only the supplied conversation snippets and reference them like (cid: <id> msg: <index>).
-If the snippets are insufficient, say so directly. Do not fabricate events.
+Use only the supplied conversation blocks; do not invent details that are not present.
+Prefer more recent conversations when unsure. Reference conversations by their cid.
 
-Snippets:
+Conversations:
 ${defaultContext}`
 
+  const model = OPENAI_CHAT_MODEL
+
+  if (isResponsesModel(model)) {
+    const prompt = `${systemPrompt}\n\nUser question:\n${payload.question}`
+    const stream = await streamText({
+      prompt,
+      model,
+      async onDone(completion) {
+        const nextMessages = [
+          ...pendingMessages,
+          {
+            id: nanoid(),
+            role: 'assistant' as const,
+            content: completion
+          }
+        ]
+        const summary = await summarizeConversation(nextMessages)
+        await updateConversationMessages({
+          supabase,
+          conversationId: askConversation.id,
+          messages: nextMessages,
+          summary
+        })
+      }
+    })
+
+    return new StreamingTextResponse(stream, {
+      headers: {
+        'x-session-id': askConversation.id
+      }
+    })
+  }
+
   const response = await openai.createChatCompletion({
-    model: 'gpt-4o-mini',
+    model,
     stream: true,
     temperature: 0.2,
     messages: [

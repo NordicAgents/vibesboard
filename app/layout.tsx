@@ -1,4 +1,4 @@
-import { Metadata } from 'next'
+import { Metadata, Viewport } from 'next'
 
 import { Toaster } from 'react-hot-toast'
 
@@ -15,15 +15,18 @@ export const metadata: Metadata = {
     template: `%s - vibesboard -conversation agent builder`
   },
   description: 'An AI-powered conversation agent builder to collect responses from users.',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' }
-  ],
   icons: {
     icon: '/logo_1.png',
     shortcut: '/logo_1.png',
     apple: '/logo_1.png'
   }
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' }
+  ]
 }
 
 interface RootLayoutProps {

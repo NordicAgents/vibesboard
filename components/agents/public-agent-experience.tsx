@@ -33,10 +33,6 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
         <h2 className="mt-2 text-2xl font-semibold">
           You&apos;re now vibing with {agent.name}
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Thanks for scanning their QR code. Drop your vibe below to start the
-          conversation for everyone.
-        </p>
       </div>
       <AgentChat
         agent={agent}

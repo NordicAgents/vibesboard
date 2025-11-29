@@ -12,6 +12,7 @@ import {
   ensureUniqueSlug
 } from '@/lib/agents/db'
 import { upsertAgentSchema } from '@/lib/agents/schema'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -104,8 +105,28 @@ If unsure, ask a clarifying question instead of assuming.`
     }
   ]
 
+  const model = OPENAI_CHAT_MODEL
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+
+  if (isResponsesModel(model)) {
+    const history = initialMessages
+      .map((m: any) => {
+        if (m.role === 'system') {
+          return `System: ${m.content}`
+        }
+        return `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${
+          typeof m.content === 'string' ? m.content : ''
+        }`
+      })
+      .join('\n\n')
+
+    const prompt = history
+    const stream = await streamText({ prompt, model, apiKey })
+    return new StreamingTextResponse(stream)
+  }
+
   const response = await openai.createChatCompletion({
-    model: 'gpt-4o-mini',
+    model,
     stream: true,
     temperature: 0.2,
     messages: initialMessages as any,

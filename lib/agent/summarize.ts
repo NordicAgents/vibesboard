@@ -1,5 +1,6 @@
 import { type Message } from 'ai'
 import { Configuration, OpenAIApi } from 'openai-edge'
+import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -26,8 +27,20 @@ export async function summarizeConversation(
   }))
 
   try {
+    if (isResponsesModel(OPENAI_CHAT_MODEL)) {
+      const prompt =
+        `${SUMMARY_SYSTEM_PROMPT}\n\n` +
+        recent
+          .map(entry => `${entry.role.toUpperCase()}: ${entry.content}`)
+          .join('\n\n')
+
+      const completion = await completeText({ prompt })
+      const trimmed = completion?.trim()
+      return trimmed || null
+    }
+
     const response = await openai.createChatCompletion({
-      model: 'gpt-4o-mini',
+      model: OPENAI_CHAT_MODEL,
       temperature: 0.2,
       max_tokens: 60,
       messages: [
