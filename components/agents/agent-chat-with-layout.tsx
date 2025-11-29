@@ -15,6 +15,7 @@ import {
 } from '@/components/layouts/dashboard-sidebar'
 import { DashboardPanel, DashboardPanelSection } from '@/components/layouts/dashboard-panel'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
+import { ConversationModal } from '@/components/agents/conversation-modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { IconExternalLink, IconFile } from '@/components/ui/icons'
@@ -39,12 +40,19 @@ export function AgentChatWithLayout({
     const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
         ownerSessions[0]?.id ?? null
     )
+    const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
+    const [isModalOpen, setIsModalOpen] = React.useState(false)
 
     const handleSelectSession = (sessionId: string | null) => {
         setActiveSessionId(sessionId)
         if (sessionId) {
             router.push(`/agents/${agent.id}?session=${sessionId}`)
         }
+    }
+
+    const handleOpenConversation = (conversation: VibeAgentConversation) => {
+        setSelectedConversation(conversation)
+        setIsModalOpen(true)
     }
 
     const handleNewChat = () => {
@@ -87,6 +95,7 @@ export function AgentChatWithLayout({
                     <DashboardSidebarItem
                         key={session.id}
                         className="bg-purewhite-bg dark:bg-background"
+                        onClick={() => handleOpenConversation(session)}
                     >
                         <div className="truncate font-medium">
                             {session.summary || session.messages.at(-1)?.content || 'Visitor conversation'}
@@ -115,7 +124,7 @@ export function AgentChatWithLayout({
                     <DashboardSidebarItem
                         key={session.id}
                         active={activeSessionId === session.id}
-                        onClick={() => handleSelectSession(session.id)}
+                        onClick={() => handleOpenConversation(session)}
                     >
                         <div className="truncate">
                             {session.summary || 'Untitled conversation'}
@@ -285,12 +294,19 @@ export function AgentChatWithLayout({
     )
 
     return (
-        <DashboardLayout sidebar={sidebar} rightPanel={rightPanel}>
-            <AgentAskChat
-                agent={agent}
-                ownerId={ownerId}
-                ownerSessions={ownerSessions}
+        <>
+            <DashboardLayout sidebar={sidebar} rightPanel={rightPanel}>
+                <AgentAskChat
+                    agent={agent}
+                    ownerId={ownerId}
+                    ownerSessions={ownerSessions}
+                />
+            </DashboardLayout>
+            <ConversationModal
+                conversation={selectedConversation}
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
             />
-        </DashboardLayout>
+        </>
     )
 }
