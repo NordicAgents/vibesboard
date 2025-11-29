@@ -69,6 +69,9 @@ export async function PATCH(
       ...(typeof payload.allowAnonymous === 'boolean'
         ? { allow_anonymous: payload.allowAnonymous }
         : {}),
+      ...(payload.greetingText !== undefined
+        ? { greeting_text: payload.greetingText }
+        : {}),
       updated_at: new Date().toISOString()
     }
 

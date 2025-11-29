@@ -2,9 +2,10 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { type AgentSharePayload, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
+import { getDisplayTools } from '@/lib/agents/tooling'
 import { formatDate } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
 import {
@@ -14,15 +15,18 @@ import {
 } from '@/components/layouts/dashboard-sidebar'
 import { DashboardPanel, DashboardPanelSection } from '@/components/layouts/dashboard-panel'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
+import { ConversationModal } from '@/components/agents/conversation-modal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { IconExternalLink, IconFile } from '@/components/ui/icons'
+import { IconExternalLink, IconFile, IconRefresh } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 
 interface AgentChatWithLayoutProps {
     agent: VibeAgent
     ownerId: string
     ownerSessions: VibeAgentConversation[]
+    visitorSessions: VibeAgentConversation[]
+    hasUnsyncedConversations: boolean
     share: AgentSharePayload
 }
 
@@ -30,18 +34,50 @@ export function AgentChatWithLayout({
     agent,
     ownerId,
     ownerSessions,
+    visitorSessions,
+    hasUnsyncedConversations,
     share
 }: AgentChatWithLayoutProps) {
     const router = useRouter()
-    const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
-        ownerSessions[0]?.id ?? null
-    )
+    const searchParams = useSearchParams()
+    const [activeSessionId, setActiveSessionId] = React.useState<string | null>(() => {
+        const sessionParam = searchParams.get('session')
+        if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
+            return sessionParam
+        }
+        return ownerSessions[0]?.id ?? null
+    })
+    const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
+    const [isModalOpen, setIsModalOpen] = React.useState(false)
+    const [visitorPage, setVisitorPage] = React.useState(1)
+    const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
+    const [syncingEmbeddings, setSyncingEmbeddings] = React.useState(false)
+
+    // Sync activeSessionId with URL
+    React.useEffect(() => {
+        const sessionParam = searchParams.get('session')
+        if (sessionParam && sessionParam !== activeSessionId) {
+            const found = ownerSessions.find(session => session.id === sessionParam)
+            if (found) {
+                setActiveSessionId(sessionParam)
+            }
+        } else if (!sessionParam && activeSessionId) {
+            setActiveSessionId(null)
+        }
+    }, [searchParams, ownerSessions, activeSessionId])
 
     const handleSelectSession = (sessionId: string | null) => {
         setActiveSessionId(sessionId)
         if (sessionId) {
             router.push(`/agents/${agent.id}?session=${sessionId}`)
+        } else {
+            router.push(`/agents/${agent.id}`)
         }
+    }
+
+    const handleOpenConversation = (conversation: VibeAgentConversation) => {
+        setSelectedConversation(conversation)
+        setIsModalOpen(true)
     }
 
     const handleNewChat = () => {
@@ -49,9 +85,50 @@ export function AgentChatWithLayout({
         router.push(`/agents/${agent.id}`)
     }
 
-    const totalConversations = ownerSessions.length
+    const handleRefreshSummaries = async () => {
+        setRefreshingSummaries(true)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setRefreshingSummaries(false)
+        }
+    }
+
+    const handleSyncEmbeddings = async () => {
+        if (syncingEmbeddings || !hasUnsyncedConversations) {
+            return
+        }
+        setSyncingEmbeddings(true)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/sync-embeddings`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setSyncingEmbeddings(false)
+        }
+    }
+
     const lastConversationAt = ownerSessions[0]?.updatedAt
+    const displayTools = getDisplayTools(agent.tools)
     const [copiedShare, setCopiedShare] = React.useState(false)
+
+    // Pagination for visitor conversations
+    const itemsPerPage = 5
+    const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
+    const startIndex = (visitorPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const paginatedVisitorSessions = visitorSessions.slice(startIndex, endIndex)
+
+    // Reset to page 1 if current page is out of bounds
+    React.useEffect(() => {
+        if (visitorPage > totalVisitorPages && totalVisitorPages > 0) {
+            setVisitorPage(1)
+        }
+    }, [visitorPage, totalVisitorPages])
 
     const handleCopyShare = async () => {
         try {
@@ -70,23 +147,84 @@ export function AgentChatWithLayout({
                 <h3 className="font-switzer text-lg font-bold text-black-primary dark:text-foreground">
                     {agent.name}
                 </h3>
-                <p className="mt-1 font-switzer text-xs text-gray-secondary">
-                    Chat with your agent
-                </p>
             </div>
 
-            {/* Conversations */}
-            <DashboardSidebarSection title="Conversations">
-                <DashboardSidebarItem
-                    active={activeSessionId === null}
-                    onClick={handleNewChat}
-                >
-                    <div className="flex items-center justify-between">
-                        <span>New conversation</span>
-                        <span className="text-xs">+</span>
+            {/* Visitor conversations */}
+            <DashboardSidebarSection
+                title="Visitor conversations"
+                action={
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 w-7 rounded-full p-0"
+                        onClick={handleRefreshSummaries}
+                        disabled={refreshingSummaries}
+                        title="Refresh summaries"
+                        aria-label="Refresh summaries"
+                    >
+                        <IconRefresh className={refreshingSummaries ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    </Button>
+                }
+            >
+                {visitorSessions.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
+                        No visitor chats yet.
                     </div>
-                </DashboardSidebarItem>
+                )}
+                {paginatedVisitorSessions.map((session) => (
+                    <DashboardSidebarItem
+                        key={session.id}
+                        className="bg-purewhite-bg dark:bg-background"
+                        onClick={() => handleOpenConversation(session)}
+                    >
+                        <div className="truncate font-medium">
+                            {session.summary || session.messages.at(-1)?.content || 'Visitor conversation'}
+                        </div>
+                        <div className="text-[11px] text-gray-secondary">
+                            Updated {formatDate(session.updatedAt)}
+                        </div>
+                    </DashboardSidebarItem>
+                ))}
+                {visitorSessions.length > itemsPerPage && (
+                    <div className="flex items-center justify-between gap-2 pt-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
+                            disabled={visitorPage === 1}
+                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-[11px] text-gray-secondary font-switzer">
+                            Page {visitorPage} of {totalVisitorPages}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))}
+                            disabled={visitorPage === totalVisitorPages}
+                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )}
+            </DashboardSidebarSection>
 
+            {/* Conversations */}
+            <DashboardSidebarSection 
+                title="My Chat History"
+                action={
+                    <button
+                        onClick={handleNewChat}
+                        className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
+                        aria-label="New conversation"
+                    >
+                        +
+                    </button>
+                }
+            >
                 {ownerSessions.slice(0, 10).map((session) => (
                     <DashboardSidebarItem
                         key={session.id}
@@ -134,12 +272,6 @@ export function AgentChatWithLayout({
                             <p className="mt-0.5">
                                 {formatDate(lastConversationAt ?? agent.updatedAt)}
                             </p>
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Your conversations
-                            </p>
-                            <p className="mt-0.5">{totalConversations}</p>
                         </div>
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-background px-3 py-2 text-xs dark:bg-muted">
@@ -199,11 +331,11 @@ export function AgentChatWithLayout({
             {/* Tools Section */}
             <DashboardPanelSection
                 title="Tools"
-                description={agent.tools.length > 0 ? `${agent.tools.length} enabled` : 'None enabled'}
+                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
             >
-                {agent.tools.length > 0 && (
+                {displayTools.length > 0 && (
                     <div className="flex flex-wrap gap-2">
-                        {agent.tools.map((tool) => (
+                        {displayTools.map((tool) => (
                             <Badge key={tool.id} variant="secondary" className="font-switzer text-xs">
                                 {tool.name}
                             </Badge>
@@ -234,39 +366,55 @@ export function AgentChatWithLayout({
                 )}
             </DashboardPanelSection>
 
-            {/* Conversations */}
             <DashboardPanelSection
-                title="Conversations"
-                description={totalConversations ? `${totalConversations} total conversations` : 'No conversations yet.'}
+                title="Data sync"
+                description="Rebuild embeddings for Ask AI when you want deeper history search."
             >
-                {totalConversations > 0 && (
-                    <div className="space-y-2">
-                        {ownerSessions.slice(0, 5).map((session) => (
-                            <div
-                                key={session.id}
-                                className="rounded-2xl border border-black-10 bg-beige-bg/30 p-2 text-xs font-switzer text-black-primary transition-colors hover:border-black-25 dark:border-border dark:bg-background/30 dark:text-foreground"
-                            >
-                                <div className="line-clamp-1 font-medium">
-                                    {session.summary || session.messages.at(-1)?.content || 'Conversation'}
-                                </div>
-                                <div className="mt-0.5 text-[11px] text-gray-secondary">
-                                    Updated {formatDate(session.updatedAt)}
-                                </div>
-                            </div>
-                        ))}
+                <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs text-gray-secondary">
+                        <div>
+                            Last sync:{' '}
+                            {agent.lastEmbeddingsSyncAt
+                                ? formatDate(agent.lastEmbeddingsSyncAt)
+                                : 'Never'}
+                        </div>
+                        {!hasUnsyncedConversations && (
+                            <div>No new responses since last sync.</div>
+                        )}
                     </div>
-                )}
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-full px-3 text-[11px]"
+                        disabled={!hasUnsyncedConversations || syncingEmbeddings}
+                        onClick={handleSyncEmbeddings}
+                    >
+                        {syncingEmbeddings
+                            ? 'Syncing...'
+                            : hasUnsyncedConversations
+                                ? 'Sync conversations'
+                                : 'Up to date'}
+                    </Button>
+                </div>
             </DashboardPanelSection>
+
         </DashboardPanel>
     )
 
     return (
-        <DashboardLayout sidebar={sidebar} rightPanel={rightPanel}>
-            <AgentAskChat
-                agent={agent}
-                ownerId={ownerId}
-                ownerSessions={ownerSessions}
+        <>
+            <DashboardLayout sidebar={sidebar} rightPanel={rightPanel}>
+                <AgentAskChat
+                    agent={agent}
+                    ownerId={ownerId}
+                    ownerSessions={ownerSessions}
+                />
+            </DashboardLayout>
+            <ConversationModal
+                conversation={selectedConversation}
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
             />
-        </DashboardLayout>
+        </>
     )
 }

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { type Message } from 'ai'
 import { useCompletion } from 'ai/react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 import { type VibeAgent, type VibeAgentConversation } from '@/lib/types'
 import { nanoid } from '@/lib/utils'
@@ -29,6 +29,7 @@ export function AgentAskChat({
   ownerId,
   ownerSessions
 }: AgentAskChatProps) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [sessions, setSessions] = React.useState(() => sortSessions(ownerSessions))
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
@@ -59,15 +60,15 @@ export function AgentAskChat({
         setInput('')
         setCompletion('')
       }
+    } else if (!param && activeSessionId) {
+      // If session param is removed, reset to new chat state
+      setActiveSessionId(null)
+      sessionIdRef.current = null
+      setMessages([])
+      setInput('')
+      setCompletion('')
     }
-  }, [searchParams, ownerSessions])
-
-  React.useEffect(() => {
-    if (!activeSessionId && ownerSessions.length) {
-      setActiveSessionId(ownerSessions[0].id)
-      setMessages(ownerSessions[0].messages)
-    }
-  }, [ownerSessions, activeSessionId])
+  }, [searchParams, ownerSessions, activeSessionId])
 
   const {
     completion,
@@ -201,6 +202,9 @@ export function AgentAskChat({
     setMessages([])
     setActiveSessionId(null)
     sessionIdRef.current = null
+    // Clear the session query parameter from URL
+    const currentPath = window.location.pathname
+    router.replace(currentPath)
   }
 
   return (

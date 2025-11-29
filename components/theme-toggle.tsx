@@ -9,6 +9,15 @@ import { IconMoon, IconSun } from '@/components/ui/icons'
 export function ThemeToggle() {
   const { setTheme, theme } = useTheme()
   const [_, startTransition] = React.useTransition()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return null
+  }
 
   return (
     <Button

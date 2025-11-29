@@ -3,6 +3,7 @@ import { Configuration, OpenAIApi } from 'openai-edge'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 
 import { auth } from '@/auth'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -23,16 +24,10 @@ export async function POST(req: Request) {
   const json = await req.json()
   const { messages, previewToken } = json
 
-  if (previewToken) {
-    configuration.apiKey = previewToken
-  }
+  const model = OPENAI_CHAT_MODEL
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
 
-  const res = await openai.createChatCompletion({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
+  const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
 
 When a user describes their agent idea, transform it into well-structured instructions that include:
 
@@ -71,6 +66,37 @@ Example output format:
 "You are [role]. Your personality is [traits]. When users ask about [topic], you should [action]. Always maintain a [tone] while ensuring [guardrails]. Use [knowledge sources] to provide accurate information. Never [boundaries]."
 
 Remember: Great agent instructions are specific, actionable, and provide clear boundaries while giving the agent personality and purpose.`
+
+  if (isResponsesModel(model)) {
+    const history = Array.isArray(messages)
+      ? messages
+          .map(
+            (m: any) =>
+              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${
+                typeof m.content === 'string' ? m.content : ''
+              }`
+          )
+          .join('\n\n')
+      : ''
+
+    const prompt = `${systemPrompt}\n\n${
+      history ? `Conversation so far:\n${history}` : ''
+    }`
+
+    const stream = await streamText({ prompt, model, apiKey })
+    return new StreamingTextResponse(stream)
+  }
+
+  if (previewToken) {
+    configuration.apiKey = previewToken
+  }
+
+  const res = await openai.createChatCompletion({
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt
       },
       ...messages
     ],
