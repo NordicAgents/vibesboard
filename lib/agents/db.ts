@@ -22,15 +22,10 @@ export const BUILTIN_AGENT_TOOLS: Record<
     description: string
   }
 > = {
-  'builtin:web_fetch': {
-    id: 'builtin:web_fetch',
-    name: 'Web Fetch',
-    description: 'Fetches the HTML/text content for a given URL.'
-  },
-  'builtin:search': {
-    id: 'builtin:search',
-    name: 'Search',
-    description: 'Performs a simple web search via a configured API.'
+  'builtin:web': {
+    id: 'builtin:web',
+    name: 'Web',
+    description: 'Fetches web page content and performs web searches.'
   },
   'builtin:file_search': {
     id: 'builtin:file_search',

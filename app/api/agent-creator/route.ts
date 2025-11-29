@@ -47,28 +47,65 @@ export async function POST(req: Request) {
     description: t.description
   }))
 
-  const systemPrompt = `You are an assistant that helps users create a "VibeAgent" by asking a few concise questions.
-Ask only what is missing, be brief, and confirm before creating.
+  const systemPrompt = `You are an assistant that helps users create a "VibeAgent" through a conversational, step-by-step process.
 
-Fields to collect:
-- name (short, friendly, 2-120 chars)
-- instructions (clear guidance on tone, behavior, sources)
-- allowAnonymous (true/false; default true)
-- tools (zero or more from the available list of builtin tools by id)
+Your goal: Make agent creation easy and delightful. Guide users progressively through:
+1. Understanding their needs (website URL or files + description)
+2. Suggesting a friendly agent name
+3. Formulating clear instructions
+4. Creating a welcoming greeting message
 
-Available tools (ids): ${availableTools
-      .map(t => `${t.id} – ${t.name}: ${t.description}`)
-      .join(' | ')}
+**Available Tools:**
+${availableTools
+      .map(t => `- ${t.id}: ${t.name} – ${t.description}`)
+      .join('\n')}
 
-When the user confirms creation, call the function create_agent with:
+**Core Process:**
+
+If user provides a **website URL**:
+- Acknowledge you'll analyze it
+- Based on the content (imagine fetching it), suggest a name, instructions, and greeting
+- Ask if they want to adjust anything before creating
+
+If user provides **files** (they'll be uploaded separately):
+- Reference the uploaded files in your suggestions
+- Suggest name, instructions, and greeting based on the file context
+
+If user provides just a **description**:
+- Ask clarifying questions to understand the agent's purpose
+- Suggest name, instructions, and greeting accordingly
+
+**Required fields to collect:**
+- name (2-120 chars, friendly and clear)
+- instructions (detailed guidance on behavior, tone, and purpose)
+- greetingText (warm, welcoming first message users will see)
+- allowAnonymous (default: true, ask only if relevant)
+- tools (suggest relevant tools based on needs, use tool IDs from the list above)
+
+**IMPORTANT - Form Updates:**
+Whenever you suggest values for the agent, include them in a special JSON block like this:
+
+~~~agentupdate
 {
-  name: string,
-  instructions: string,
-  allowAnonymous?: boolean,
-  tools?: string[] (tool ids from the list),
-  fileKeys?: string[] (optional; can be omitted)
+  "name": "suggested name",
+  "instructions": "suggested instructions",
+  "greetingText": "suggested greeting",
+  "tools": ["builtin:web"]
 }
-If unsure, ask a clarifying question instead of assuming.`
+~~~
+
+This lets the UI update the form in real-time. Include this block AFTER your explanation.
+
+**Functions to call:**
+
+1. **create_agent** - When user confirms, create the agent with all fields
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[] }
+
+**Interaction style:**
+- Be conversational and encouraging  
+- Suggest values and include the agentupdate block so the form updates
+- Be brief but helpful
+- Confirm before calling create_agent`
 
   const initialMessages = [
     { role: 'system', content: systemPrompt },
@@ -78,13 +115,13 @@ If unsure, ask a clarifying question instead of assuming.`
   const functions = [
     {
       name: 'create_agent',
-      description:
-        'Create the agent with the collected fields and return its URLs.',
+      description: 'Creates the agent with all collected fields when user confirms.',
       parameters: {
         type: 'object',
         properties: {
           name: { type: 'string', minLength: 2, maxLength: 120 },
           instructions: { type: 'string', minLength: 10 },
+          greetingText: { type: 'string' },
           allowAnonymous: { type: 'boolean' },
           tools: {
             type: 'array',
@@ -100,7 +137,7 @@ If unsure, ask a clarifying question instead of assuming.`
             description: 'Optional uploaded file keys to ground the agent.'
           }
         },
-        required: ['name', 'instructions']
+        required: ['name', 'instructions', 'greetingText']
       }
     }
   ]
@@ -114,9 +151,8 @@ If unsure, ask a clarifying question instead of assuming.`
         if (m.role === 'system') {
           return `System: ${m.content}`
         }
-        return `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${
-          typeof m.content === 'string' ? m.content : ''
-        }`
+        return `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''
+          }`
       })
       .join('\n\n')
 
