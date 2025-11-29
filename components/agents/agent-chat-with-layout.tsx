@@ -24,6 +24,7 @@ interface AgentChatWithLayoutProps {
     agent: VibeAgent
     ownerId: string
     ownerSessions: VibeAgentConversation[]
+    visitorSessions: VibeAgentConversation[]
     share: AgentSharePayload
 }
 
@@ -31,6 +32,7 @@ export function AgentChatWithLayout({
     agent,
     ownerId,
     ownerSessions,
+    visitorSessions,
     share
 }: AgentChatWithLayoutProps) {
     const router = useRouter()
@@ -76,6 +78,28 @@ export function AgentChatWithLayout({
                     Chat with your agent
                 </p>
             </div>
+
+            {/* Visitor conversations */}
+            <DashboardSidebarSection title="Visitor conversations">
+                {visitorSessions.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
+                        No visitor chats yet.
+                    </div>
+                )}
+                {visitorSessions.slice(0, 10).map((session) => (
+                    <DashboardSidebarItem
+                        key={session.id}
+                        className="bg-purewhite-bg dark:bg-background"
+                    >
+                        <div className="truncate font-medium">
+                            {session.summary || session.messages.at(-1)?.content || 'Visitor conversation'}
+                        </div>
+                        <div className="text-[11px] text-gray-secondary">
+                            Updated {formatDate(session.updatedAt)}
+                        </div>
+                    </DashboardSidebarItem>
+                ))}
+            </DashboardSidebarSection>
 
             {/* Conversations */}
             <DashboardSidebarSection title="Conversations">

@@ -44,7 +44,8 @@ export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
 })
 
 export const agentAskRequestSchema = z.object({
-  question: z.string().min(4),
+  // Allow any non-empty question; frontend already trims/blocks empty input
+  question: z.string().min(1),
   contextConversationId: z.string().uuid().optional(),
   sessionId: z.string().uuid().optional()
 })

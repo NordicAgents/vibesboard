@@ -50,6 +50,9 @@ export default async function AgentPageAsChat({
   const ownerConversations = conversations.filter(
     conversation => conversation.userId === session.user.id
   )
+  const visitorConversations = conversations.filter(
+    conversation => conversation.externalId
+  )
 
   const headersList = await headers()
   const rawProto = headersList.get('x-forwarded-proto')
@@ -70,6 +73,7 @@ export default async function AgentPageAsChat({
       agent={agent}
       ownerId={session.user.id}
       ownerSessions={ownerConversations}
+      visitorSessions={visitorConversations}
       share={{ url: shareUrl, qrDataUrl }}
     />
   )
