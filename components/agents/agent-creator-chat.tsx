@@ -10,7 +10,7 @@ import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { cn, nanoid } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
-import { IconPlus, IconLink, IconUpload } from '@/components/ui/icons'
+import { IconPlus, IconLink, IconUpload, IconSidebar, IconX } from '@/components/ui/icons'
 import { Input } from '@/components/ui/input'
 import { AgentBuilderFormPreview, type AgentFormData } from './agent-builder-form-preview'
 import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
@@ -28,6 +28,7 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
   })
   const [isCreating, setIsCreating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(true)
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
@@ -200,15 +201,26 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                     </p>
                     <p className="mt-1 font-switzer text-sm text-gray-secondary">Build an agent via chat</p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleNewChat}
-                    aria-label="New chat"
-                    title="New chat"
-                  >
-                    <IconPlus className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                      aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                      title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                    >
+                      {isPreviewOpen ? <IconX className="h-4 w-4" /> : <IconSidebar className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleNewChat}
+                      aria-label="New chat"
+                      title="New chat"
+                    >
+                      <IconPlus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto pb-36 pt-4">
@@ -225,9 +237,21 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
             <div className="flex flex-1 flex-col items-center justify-center px-4">
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
-                  <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
-                    Build Your Agent
-                  </h1>
+                  <div className="flex items-center justify-center gap-2">
+                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
+                      Build Your Agent
+                    </h1>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                      aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                      title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                      className="ml-2"
+                    >
+                      {isPreviewOpen ? <IconX className="h-4 w-4" /> : <IconSidebar className="h-4 w-4" />}
+                    </Button>
+                  </div>
                   <p className="font-switzer text-lg text-gray-secondary">
                     Tell me about your agent, share a website URL, or upload files
                   </p>
@@ -338,16 +362,33 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
       </div>
 
       {/* Right Side: Form Preview (30%) */}
-      <AgentBuilderFormPreview
-        formData={formData}
-        onFormChange={setFormData}
-        onCreateAgent={handleCreateAgent}
-        onFileUpload={handleFileUpload}
-        isCreating={isCreating}
-        isUploading={isUploading}
-        userId={userId}
-        className="w-[400px] shrink-0"
-      />
+      {isPreviewOpen ? (
+        <div className="transition-all duration-300 ease-in-out">
+          <AgentBuilderFormPreview
+            formData={formData}
+            onFormChange={setFormData}
+            onCreateAgent={handleCreateAgent}
+            onFileUpload={handleFileUpload}
+            isCreating={isCreating}
+            isUploading={isUploading}
+            userId={userId}
+            className="w-[400px] shrink-0"
+          />
+        </div>
+      ) : (
+        <div className="flex items-center justify-center border-l border-black-10 dark:border-border w-12 shrink-0 transition-all duration-300 ease-in-out">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setIsPreviewOpen(true)}
+            aria-label="Show preview"
+            title="Show preview"
+            className="h-full w-full rounded-none"
+          >
+            <IconSidebar className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
