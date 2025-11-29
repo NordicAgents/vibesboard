@@ -7,7 +7,7 @@ import { Database } from '@/lib/db_types'
 
 import { auth } from '@/auth'
 import { nanoid } from '@/lib/utils'
-import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -55,29 +55,33 @@ export async function POST(req: Request) {
       (conversation || '').trim() ||
       'You are a helpful assistant. Answer the user succinctly.'
 
-    const completion = await completeText({ prompt, model, apiKey })
-
-    const title = json.messages[0].content.substring(0, 100)
-    const id = json.id ?? nanoid()
-    const createdAt = Date.now()
-    const path = `/chat/${id}`
-    const payload = {
-      id,
-      title,
-      userId,
-      createdAt,
-      path,
-      messages: [
-        ...messages,
-        {
-          content: completion,
-          role: 'assistant'
+    const stream = await streamText({
+      prompt,
+      model,
+      apiKey,
+      async onDone(completion) {
+        const title = json.messages[0].content.substring(0, 100)
+        const id = json.id ?? nanoid()
+        const createdAt = Date.now()
+        const path = `/chat/${id}`
+        const payload = {
+          id,
+          title,
+          userId,
+          createdAt,
+          path,
+          messages: [
+            ...messages,
+            {
+              content: completion,
+              role: 'assistant'
+            }
+          ]
         }
-      ]
-    }
-    await supabase.from('chats').upsert({ id, payload }).throwOnError()
+        await supabase.from('chats').upsert({ id, payload }).throwOnError()
+      }
+    })
 
-    const stream = stringToStream(completion)
     return new StreamingTextResponse(stream)
   }
 
