@@ -5,10 +5,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 import { type Database } from '@/lib/db_types'
+import { OPENAI_VISION_MODEL } from '@/lib/openai'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
-const VISION_MODEL = process.env.OPENAI_VISION_MODEL ?? 'gpt-4o-mini'
+const VISION_MODEL = OPENAI_VISION_MODEL
 const STORAGE_BUCKET = 'agent-files'
 
 const openai = new OpenAIApi(

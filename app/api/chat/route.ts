@@ -7,6 +7,7 @@ import { Database } from '@/lib/db_types'
 
 import { auth } from '@/auth'
 import { nanoid } from '@/lib/utils'
+import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -35,8 +36,53 @@ export async function POST(req: Request) {
     configuration.apiKey = previewToken
   }
 
+  const model = OPENAI_CHAT_MODEL
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+
+  if (isResponsesModel(model)) {
+    const conversation = Array.isArray(messages)
+      ? messages
+          .map(
+            (m: any) =>
+              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${
+                typeof m.content === 'string' ? m.content : ''
+              }`
+          )
+          .join('\n\n')
+      : ''
+
+    const prompt =
+      (conversation || '').trim() ||
+      'You are a helpful assistant. Answer the user succinctly.'
+
+    const completion = await completeText({ prompt, model, apiKey })
+
+    const title = json.messages[0].content.substring(0, 100)
+    const id = json.id ?? nanoid()
+    const createdAt = Date.now()
+    const path = `/chat/${id}`
+    const payload = {
+      id,
+      title,
+      userId,
+      createdAt,
+      path,
+      messages: [
+        ...messages,
+        {
+          content: completion,
+          role: 'assistant'
+        }
+      ]
+    }
+    await supabase.from('chats').upsert({ id, payload }).throwOnError()
+
+    const stream = stringToStream(completion)
+    return new StreamingTextResponse(stream)
+  }
+
   const res = await openai.createChatCompletion({
-    model: 'gpt-4o-mini',
+    model,
     messages,
     temperature: 0.0,
     stream: true
@@ -68,4 +114,14 @@ export async function POST(req: Request) {
   })
 
   return new StreamingTextResponse(stream)
+}
+
+const stringToStream = (value: string) => {
+  const encoder = new TextEncoder()
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(value))
+      controller.close()
+    }
+  })
 }

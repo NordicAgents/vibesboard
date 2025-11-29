@@ -6,6 +6,7 @@ import { buildAgentSystemPrompt } from './prompts'
 import { type VibeAgent } from '@/lib/types'
 import { buildToolKit, type ToolExecutionContext } from './tools'
 import { runAgentGraph } from './graph'
+import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -42,7 +43,10 @@ export async function runAgentStream({
     fileContext: toolContext?.fileContext ?? context
   })
 
-  if (toolkit.functions.length) {
+  const model = OPENAI_CHAT_MODEL
+  const isResponses = isResponsesModel(model)
+
+  if (toolkit.functions.length && !isResponses) {
     const finalMessages = await runAgentGraph({
       openai,
       agent,
@@ -67,6 +71,30 @@ export async function runAgentStream({
   }
 
   const systemPrompt = buildAgentSystemPrompt(agent, context)
+  if (isResponses) {
+    const conversation = messages
+      .map(
+        message =>
+          `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
+            typeof message.content === 'string' ? message.content : ''
+          }`
+      )
+      .join('\n\n')
+
+    const prompt = `${systemPrompt}\n\n${
+      conversation ? `Conversation so far:\n${conversation}` : ''
+    }`
+
+    const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+    const completion = await completeText({ prompt, model, apiKey })
+
+    if (onCompletion) {
+      await onCompletion(completion)
+    }
+
+    return stringToStream(completion)
+  }
+
   const payload = [
     { role: 'system' as const, content: systemPrompt },
     ...messages.map(message => ({
@@ -78,7 +106,7 @@ export async function runAgentStream({
   ]
 
   const response = await openai.createChatCompletion({
-    model: 'gpt-4o-mini',
+    model,
     stream: true,
     temperature,
     messages: payload as any

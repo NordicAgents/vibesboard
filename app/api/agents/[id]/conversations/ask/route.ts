@@ -15,6 +15,7 @@ import {
 } from '@/lib/agents/conversations'
 import { nanoid } from '@/lib/utils'
 import { summarizeConversation } from '@/lib/agent/summarize'
+import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@/lib/openai'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -145,8 +146,39 @@ Prefer more recent conversations when unsure. Reference conversations by their c
 Conversations:
 ${defaultContext}`
 
+  const model = OPENAI_CHAT_MODEL
+
+  if (isResponsesModel(model)) {
+    const prompt = `${systemPrompt}\n\nUser question:\n${payload.question}`
+    const completion = await completeText({ prompt, model })
+
+    const nextMessages = [
+      ...pendingMessages,
+      {
+        id: nanoid(),
+        role: 'assistant' as const,
+        content: completion
+      }
+    ]
+    const summary = await summarizeConversation(nextMessages)
+    await updateConversationMessages({
+      supabase,
+      conversationId: askConversation.id,
+      messages: nextMessages,
+      summary
+    })
+
+    const stream = stringToStream(completion)
+
+    return new StreamingTextResponse(stream, {
+      headers: {
+        'x-session-id': askConversation.id
+      }
+    })
+  }
+
   const response = await openai.createChatCompletion({
-    model: 'gpt-4o-mini',
+    model,
     stream: true,
     temperature: 0.2,
     messages: [
@@ -178,6 +210,16 @@ ${defaultContext}`
   return new StreamingTextResponse(stream, {
     headers: {
       'x-session-id': askConversation.id
+    }
+  })
+}
+
+const stringToStream = (value: string) => {
+  const encoder = new TextEncoder()
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(value))
+      controller.close()
     }
   })
 }
