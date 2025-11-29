@@ -14,11 +14,11 @@ export default async function SignInPage() {
     redirect('/')
   }
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col items-center justify-center bg-beige-bg py-10">
-      <div className="w-full max-w-md rounded-3xl border border-black-10 bg-purewhite-bg p-8 shadow-lg">
+    <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col items-center justify-center bg-beige-bg dark:bg-background py-10">
+      <div className="w-full max-w-md rounded-3xl border border-black-10 dark:border-border bg-purewhite-bg dark:bg-card p-8 shadow-lg">
         <div className="mb-6 text-center">
-          <h1 className="font-switzer text-3xl font-bold text-black-primary">Welcome back</h1>
-          <p className="mt-2 font-switzer text-sm text-gray-secondary">Sign in to continue to vibesboard</p>
+          <h1 className="font-switzer text-3xl font-bold text-black-primary dark:text-card-foreground">Welcome back</h1>
+          <p className="mt-2 font-switzer text-sm text-gray-secondary dark:text-muted-foreground">Sign in to continue to vibesboard</p>
         </div>
         <LoginForm action="sign-in" />
         <Separator className="my-6" />
