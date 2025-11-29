@@ -76,7 +76,7 @@ export function LoginForm({
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
           <div className="flex flex-col gap-y-1">
-            <Label className="font-switzer text-sm font-medium text-black-primary">Email</Label>
+            <Label className="font-switzer text-sm font-medium text-black-primary dark:text-card-foreground">Email</Label>
             <Input
               name="email"
               type="email"
@@ -90,7 +90,7 @@ export function LoginForm({
             />
           </div>
           <div className="flex flex-col gap-y-1">
-            <Label className="font-switzer text-sm font-medium text-black-primary">Password</Label>
+            <Label className="font-switzer text-sm font-medium text-black-primary dark:text-card-foreground">Password</Label>
             <Input
               name="password"
               type="password"
@@ -110,18 +110,18 @@ export function LoginForm({
             {isLoading && <IconSpinner className="mr-2 animate-spin" />}
             {action === 'sign-in' ? 'Sign In' : 'Sign Up'}
           </Button>
-          <p className="text-center font-switzer text-sm text-gray-secondary">
+          <p className="text-center font-switzer text-sm text-gray-secondary dark:text-muted-foreground">
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="font-medium text-black-primary hover:underline">
+                <Link href="/sign-up" className="font-medium text-black-primary dark:text-card-foreground hover:underline">
                   Sign Up
                 </Link>
               </>
             ) : (
               <>
                 Already have an account?{' '}
-                <Link href="/sign-in" className="font-medium text-black-primary hover:underline">
+                <Link href="/sign-in" className="font-medium text-black-primary dark:text-card-foreground hover:underline">
                   Sign In
                 </Link>
               </>
