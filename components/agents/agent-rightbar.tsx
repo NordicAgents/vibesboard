@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import {
   type AgentSharePayload,
   type VibeAgent,
@@ -20,7 +20,6 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { IconClose, IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
-import { formatDate } from '@/lib/utils'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 
 interface AgentRightbarProps {
@@ -77,10 +76,6 @@ export function AgentRightbar({
 
 
 
-  const topConversations = useMemo(
-    () => conversations.slice(0, 10),
-    [conversations]
-  )
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -203,41 +198,6 @@ export function AgentRightbar({
           </CardContent>
         </Card>
 
-        {/* Conversations */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Conversations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {topConversations.length ? (
-              <div className="space-y-2">
-                {topConversations.map(c => (
-                  <div
-                    key={c.id}
-                    className="rounded-md border p-2 text-sm transition hover:border-primary"
-                  >
-                    <div className="line-clamp-1 font-medium">
-                      {c.summary || c.messages.at(-1)?.content || 'Conversation'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Updated {formatDate(c.updatedAt)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No conversations yet.</p>
-            )}
-            <div className="flex items-center justify-between pt-1">
-              <Button asChild size="sm">
-                <Link href={`/agents/${agent.id}/conversations/new`}>Start chat</Link>
-              </Button>
-              <Button asChild variant="ghost" size="sm">
-                <Link href={`/agents/${agent.id}/conversations`}>View all</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </aside>
   )
