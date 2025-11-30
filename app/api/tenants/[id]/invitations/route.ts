@@ -59,26 +59,28 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
 
     // Check if user is already a member
-    const { data: existingUser } = await supabase
-        .rpc('get_user_by_email', { p_email: email })
-        .single()
-
-    if (existingUser) {
-        // Check if already a member of this tenant
-        const { data: existingMember } = await supabase
-            .from('tenant_users')
-            .select('user_id')
-            .eq('tenant_id', id)
-            .eq('user_id', existingUser.id)
-            .single()
-
-        if (existingMember) {
-            return NextResponse.json(
-                { error: 'User is already a member of this tenant' },
-                { status: 409 }
+    const { data: existingUsers } = await supabase
+        .from('tenant_users')
+        .select(`
+            user_id,
+            auth_user:user_id (
+                email
             )
-        }
+        `)
+        .eq('tenant_id', id)
+
+    // Find if this email is already a member
+    const isExistingMember = existingUsers?.some((member: any) =>
+        member.auth_user?.email === email
+    )
+
+    if (isExistingMember) {
+        return NextResponse.json(
+            { error: 'User is already a member of this tenant' },
+            { status: 409 }
+        )
     }
+
 
     // Check for pending invitation
     const { data: existingInvitation } = await supabase
