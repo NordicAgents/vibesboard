@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     // Check if user is already a member
@@ -158,7 +158,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     const { data, error } = await supabase

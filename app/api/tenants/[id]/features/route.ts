@@ -20,6 +20,9 @@ type RouteParams = {
  */
 export async function PUT(req: Request, { params }: RouteParams) {
     const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
     const session = await auth({ cookieStore })
 
     if (!session?.user) {

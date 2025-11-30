@@ -36,7 +36,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     const { data: tenant, error } = await supabase
@@ -79,7 +79,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const { name, slug, status } = body
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     // Build update object
@@ -137,7 +137,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     // Alternatively, just mark as suspended

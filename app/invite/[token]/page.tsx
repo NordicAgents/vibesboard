@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { InvitationCard } from '@/components/tenants/invitation-card'
+
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -206,12 +206,28 @@ export default function InvitationPage() {
                     </p>
                 </div>
 
-                <InvitationCard
-                    tenantName={invitation.tenant_name}
-                    invitedBy={invitation.invited_by_email}
-                    role={invitation.role}
-                    expiresAt={invitation.expires_at}
-                />
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{invitation.tenant_name}</CardTitle>
+                        <CardDescription>
+                            Invited by {invitation.invited_by_email}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <div className="text-sm font-medium text-muted-foreground">Role</div>
+                                <div className="font-medium capitalize">{invitation.role}</div>
+                            </div>
+                            <div className="space-y-0.5 text-right">
+                                <div className="text-sm font-medium text-muted-foreground">Expires</div>
+                                <div className="font-medium">
+                                    {new Date(invitation.expires_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardContent className="pt-6">

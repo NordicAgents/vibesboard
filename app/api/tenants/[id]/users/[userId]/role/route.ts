@@ -55,7 +55,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     const { data, error } = await supabase
@@ -107,7 +107,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     const { error } = await supabase

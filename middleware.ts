@@ -3,6 +3,21 @@ import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
 
+async function getUserRole(supabase: any, userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .limit(1)
+    .single()
+
+  if (error || !data) {
+    return null
+  }
+
+  return data.role
+}
+
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
@@ -15,19 +30,55 @@ export async function middleware(req: NextRequest) {
     data: { session }
   } = await supabase.auth.getSession()
 
-  // OPTIONAL: this forces users to be logged in to use the chatbot.
-  // If you want to allow anonymous users, simply remove the check below.
-  if (
-    !session &&
-    !req.url.includes('/sign-in') &&
-    !req.url.includes('/sign-up') &&
-    !req.url.includes('/landing') &&
-    req.nextUrl.pathname !== '/'
-  ) {
+  const pathname = req.nextUrl.pathname
+
+  // Allow public access to invitation pages
+  if (pathname.startsWith('/invite/')) {
+    return res
+  }
+
+  // Check if user is authenticated for protected routes
+  const isProtectedRoute = !pathname.includes('/sign-in') &&
+    !pathname.includes('/sign-up') &&
+    !pathname.includes('/landing') &&
+    pathname !== '/'
+
+  if (!session && isProtectedRoute) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/sign-in'
     redirectUrl.searchParams.set(`redirectedFrom`, req.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
+  }
+
+  // Role-based access control
+  if (session?.user?.id) {
+    const userRole = await getUserRole(supabase, session.user.id)
+
+    // Protect /admin/* routes - SUPER_ADMIN only
+    if (pathname.startsWith('/admin')) {
+      if (userRole !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL('/', req.url))
+      }
+    }
+
+    // Protect /settings/* routes - TENANT_ADMIN or SUPER_ADMIN
+    if (pathname.startsWith('/settings')) {
+      if (userRole !== 'TENANT_ADMIN' && userRole !== 'SUPER_ADMIN') {
+        return NextResponse.redirect(new URL('/', req.url))
+      }
+    }
+
+    // Inject active tenant ID in response headers for easy access
+    const { data: activeTenant } = await supabase
+      .from('tenant_users')
+      .select('tenant_id')
+      .eq('user_id', session.user.id)
+      .limit(1)
+      .single()
+
+    if (activeTenant?.tenant_id) {
+      res.headers.set('x-tenant-id', activeTenant.tenant_id)
+    }
   }
 
   return res
