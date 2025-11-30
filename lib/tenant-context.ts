@@ -36,14 +36,40 @@ export async function clearActiveTenantId() {
 /**
  * Get the active tenant with full details
  */
-export async function getActiveTenant(): Promise<Database['public']['Tables']['tenants']['Row'] | null> {
-    const tenantId = await getActiveTenantId()
+export async function getActiveTenant(userId?: string): Promise<string | null> {
+    let tenantId = await getActiveTenantId()
 
-    if (!tenantId) {
-        return null
+    // If no active tenant but userId provided, get first available
+    if (!tenantId && userId) {
+        tenantId = await ensureActiveTenant(userId)
     }
 
-    const supabase = await createServerClient()
+    return tenantId
+}
+
+/**
+ * Get all tenants for a user
+ */
+export async function getUserTenants(userId: string): Promise<Database['public']['Tables']['tenants']['Row'][]> {
+    const supabase = createServerClient()
+
+    const { data, error } = await supabase
+        .from('tenant_users')
+        .select('tenants(*)')
+        .eq('user_id', userId)
+
+    if (error || !data) {
+        return []
+    }
+
+    return data.map(item => item.tenants).filter(Boolean) as Database['public']['Tables']['tenants']['Row'][]
+}
+
+/**
+ * Get full tenant details by ID
+ */
+export async function getTenantById(tenantId: string): Promise<Database['public']['Tables']['tenants']['Row'] | null> {
+    const supabase = createServerClient()
 
     const { data, error } = await supabase
         .from('tenants')

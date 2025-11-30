@@ -7,11 +7,30 @@ import { Sidebar } from '@/components/sidebar'
 import { SidebarList } from '@/components/sidebar-list'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UserMenu } from '@/components/user-menu'
+import { TenantSwitcher } from '@/components/tenants/tenant-switcher'
 import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase/server'
+import { getUserTenants, getActiveTenant } from '@/lib/tenant-context'
+import { Database } from '@/lib/db_types'
+
+type Tenant = Database['public']['Tables']['tenants']['Row']
 
 export async function Header() {
   const cookieStore = await cookies()
   const session = await auth({ cookieStore })
+
+  let userTenants: Tenant[] = []
+  let activeTenantId: string | null = null
+
+  if (session?.user?.id) {
+    try {
+      userTenants = await getUserTenants(session.user.id)
+      activeTenantId = await getActiveTenant(session.user.id)
+    } catch (error) {
+      console.error('Error fetching tenant data:', error)
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-black-10 bg-beige-bg/80 px-4 backdrop-blur-sm dark:border-border dark:bg-background/80">
       <div className="flex items-center gap-3">
@@ -36,6 +55,13 @@ export async function Header() {
         )}
       </div>
       <div className="flex items-center justify-end space-x-2">
+        {session?.user && userTenants.length > 0 && (
+          <TenantSwitcher
+            tenants={userTenants}
+            currentTenantId={activeTenantId}
+            className="mr-2"
+          />
+        )}
         <ThemeToggle />
         {session?.user ? (
           <UserMenu user={session.user} />

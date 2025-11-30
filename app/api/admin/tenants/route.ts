@@ -27,7 +27,7 @@ export async function GET(req: Request) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     // Get pagination parameters
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 
     // Apply status filter if provided
     if (status && ['active', 'trial', 'suspended'].includes(status)) {
-        query = query.eq('status', status)
+        query = query.eq('status', status as 'active' | 'trial' | 'suspended')
     }
 
     const { data, error, count } = await query
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     const createdBy = created_by || session.user.id
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     // Check if slug already exists

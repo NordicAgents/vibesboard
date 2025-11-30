@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
-import { CreateFeatureFlagDialog } from '@/components/tenants/create-feature-flag-dialog'
+import { CreateFeatureFlagDialog } from '@/components/tenants'
 import toast from 'react-hot-toast'
 
 interface FeatureFlag {

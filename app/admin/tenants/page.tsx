@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
-import { CreateTenantDialog } from '@/components/tenants/create-tenant-dialog'
+import { CreateTenantDialog } from '@/components/tenants'
 import { Database } from '@/lib/db_types'
 import toast from 'react-hot-toast'
 
@@ -128,10 +128,12 @@ export default function TenantsPage() {
                         icon={Plus}
                         title="No tenants yet"
                         description="Get started by creating your first tenant"
-                        action={{
-                            label: 'Create Tenant',
-                            onClick: () => setCreateDialogOpen(true),
-                        }}
+                        action={
+                            <Button onClick={() => setCreateDialogOpen(true)}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create Tenant
+                            </Button>
+                        }
                     />
                 }
             />
