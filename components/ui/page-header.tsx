@@ -6,6 +6,7 @@ interface PageHeaderProps {
     description?: string
     breadcrumbs?: React.ReactNode
     actions?: React.ReactNode
+    children?: React.ReactNode
     className?: string
 }
 
@@ -14,6 +15,7 @@ export function PageHeader({
     description,
     breadcrumbs,
     actions,
+    children,
     className
 }: PageHeaderProps) {
     return (
