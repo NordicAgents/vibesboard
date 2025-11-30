@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
+import { getUserActiveTenant } from '@/lib/permissions'
 import { upsertAgentSchema } from '@/lib/agents/schema'
 
 export const runtime = 'nodejs'
@@ -51,6 +52,16 @@ export async function POST(req: Request) {
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
+  // Resolve the tenant the new agent should belong to.
+  // For now, use the user's active tenant (or first available tenant).
+  const tenantId = await getUserActiveTenant(session.user.id)
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: 'No tenant available for this user; ensure tenant membership exists.' },
+      { status: 400 }
+    )
+  }
+
   const slug = await ensureUniqueSlug(
     createAgentSlug(payload.name),
     supabase
@@ -60,6 +71,7 @@ export async function POST(req: Request) {
     .from('vibe_agents')
     .insert({
       user_id: session.user.id,
+      tenant_id: tenantId,
       name: payload.name,
       instructions: payload.instructions,
       file_keys: payload.fileKeys,
