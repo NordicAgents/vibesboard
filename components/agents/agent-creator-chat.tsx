@@ -10,7 +10,7 @@ import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { cn, nanoid } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
-import { IconPlus, IconLink, IconUpload, IconSidebar, IconX } from '@/components/ui/icons'
+import { IconPlus, IconLink, IconUpload, IconSidebar, IconX, IconStop, IconSpinner } from '@/components/ui/icons'
 import { Input } from '@/components/ui/input'
 import { AgentBuilderFormPreview, type AgentFormData } from './agent-builder-form-preview'
 import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
@@ -223,12 +223,18 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto pb-36 pt-4">
+              <div className="flex-1 overflow-y-auto pt-4 pb-48">
                 <ChatList messages={messages.map(msg => ({
                   ...msg,
                   // Remove agentupdate blocks from display
                   content: msg.content.replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '').trim()
                 }))} />
+                {isLoading && (
+                  <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+                    <IconSpinner className="h-4 w-4 animate-spin" />
+                    <span>Thinking...</span>
+                  </div>
+                )}
                 <ChatScrollAnchor trackVisibility={isLoading} />
               </div>
             </>
@@ -309,11 +315,24 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
           )}
         </div>
 
-        {/* Chat Input - Only show at bottom when messages exist */}
+        {/* Chat Input - Sticky at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border">
+          <div className="sticky bottom-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border z-10">
             <div className="mx-auto max-w-4xl">
-              <div className="px-4 py-4">
+              <div className="flex h-10 items-center justify-center">
+                {isLoading ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => stop()}
+                    className="rounded-full bg-purewhite-bg font-switzer text-black-primary border-black-primary hover:bg-black-primary hover:text-white dark:bg-purewhite-bg dark:text-black-primary dark:border-black-primary dark:hover:bg-black-primary dark:hover:text-white"
+                  >
+                    <IconStop className="mr-2 h-4 w-4" />
+                    Stop generating
+                  </Button>
+                ) : null}
+              </div>
+              <div className="space-y-2 px-4 py-2 md:py-4">
                 <PromptForm
                   onSubmit={async (value: string) => {
                     await append({
@@ -327,7 +346,7 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                   isLoading={isLoading}
                 />
                 {/* Action buttons in chat panel */}
-                <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -373,6 +392,7 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
             isUploading={isUploading}
             userId={userId}
             className="w-[400px] shrink-0"
+            onClose={() => setIsPreviewOpen(false)}
           />
         </div>
       ) : (
