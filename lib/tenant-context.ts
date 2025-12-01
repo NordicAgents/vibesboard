@@ -187,7 +187,6 @@ export async function ensureActiveTenant(userId: string): Promise<string | null>
 
     if (tenants && tenants.tenants) {
         const firstTenant = tenants.tenants as Database['public']['Tables']['tenants']['Row']
-        await setActiveTenantId(firstTenant.id)
         return firstTenant.id
     }
 

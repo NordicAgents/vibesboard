@@ -98,12 +98,13 @@ export default function FeatureFlagsPage() {
             <PageHeader
                 title="Feature Flags"
                 description="Manage feature flags that can be toggled per tenant"
-            >
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Feature Flag
-                </Button>
-            </PageHeader>
+                actions={
+                    <Button onClick={() => setIsCreateDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Feature Flag
+                    </Button>
+                }
+            />
 
             <div className="flex items-center gap-4">
                 <div className="relative flex-1 max-w-md">

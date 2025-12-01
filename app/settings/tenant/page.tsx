@@ -193,16 +193,20 @@ export default function TenantSettingsPage() {
                                 <div className="space-y-2">
                                     <Label>Primary Color</Label>
                                     <ColorPicker
-                                        color={primaryColor}
+                                        label="Primary Color"
+                                        value={primaryColor}
                                         onChange={setPrimaryColor}
+                                        id="primary-color"
                                     />
                                 </div>
 
                                 <div className="space-y-2">
                                     <Label>Secondary Color</Label>
                                     <ColorPicker
-                                        color={secondaryColor}
+                                        label="Secondary Color"
+                                        value={secondaryColor}
                                         onChange={setSecondaryColor}
+                                        id="secondary-color"
                                     />
                                 </div>
                             </div>
@@ -213,6 +217,7 @@ export default function TenantSettingsPage() {
                                     logoUrl={logoUrl}
                                     primaryColor={primaryColor}
                                     secondaryColor={secondaryColor}
+                                    tenantName={tenant?.name || 'Tenant'}
                                 />
                             </div>
 
