@@ -9,9 +9,9 @@ import { cn } from '@/lib/utils'
 async function hasSettingsAccess(userId: string) {
     const supabase = createServerClient()
 
-    // Check if user is super admin or tenant admin
+    // Check if user is super admin or tenant admin via tenant_users
     const { data: userRoles } = await supabase
-        .from('user_roles')
+        .from('tenant_users')
         .select('role')
         .eq('user_id', userId)
         .in('role', ['SUPER_ADMIN', 'TENANT_ADMIN'])

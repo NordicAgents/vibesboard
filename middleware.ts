@@ -3,19 +3,29 @@ import { NextResponse } from 'next/server'
 
 import type { NextRequest } from 'next/server'
 
-async function getUserRole(supabase: any, userId: string): Promise<string | null> {
+type GlobalRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
+
+// Derive a user's highest role from tenant_users
+async function getUserRole(
+  supabase: any,
+  userId: string
+): Promise<GlobalRole | null> {
   const { data, error } = await supabase
-    .from('user_roles')
+    .from('tenant_users')
     .select('role')
     .eq('user_id', userId)
-    .limit(1)
-    .single()
 
-  if (error || !data) {
+  if (error || !data || data.length === 0) {
     return null
   }
 
-  return data.role
+  const roles = data.map((row: { role: string }) => row.role)
+
+  if (roles.includes('SUPER_ADMIN')) return 'SUPER_ADMIN'
+  if (roles.includes('TENANT_ADMIN')) return 'TENANT_ADMIN'
+  if (roles.includes('MEMBER')) return 'MEMBER'
+
+  return null
 }
 
 export async function middleware(req: NextRequest) {
@@ -38,7 +48,8 @@ export async function middleware(req: NextRequest) {
   }
 
   // Check if user is authenticated for protected routes
-  const isProtectedRoute = !pathname.includes('/sign-in') &&
+  const isProtectedRoute =
+    !pathname.includes('/sign-in') &&
     !pathname.includes('/sign-up') &&
     !pathname.includes('/landing') &&
     pathname !== '/'
