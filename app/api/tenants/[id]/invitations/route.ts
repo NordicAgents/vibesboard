@@ -58,6 +58,24 @@ export async function POST(req: Request, { params }: RouteParams) {
         cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
+    // Block invitations for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Personal workspaces cannot invite members' },
+            { status: 403 }
+        )
+    }
+
     // Check if user is already a member
     const { data: existingUsers } = await supabase
         .from('tenant_users')
@@ -160,6 +178,21 @@ export async function GET(req: Request, { params }: RouteParams) {
     const supabase = createRouteHandlerClient<Database>({
         cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
+
+    // Block invitation listing for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json({ invitations: [] })
+    }
 
     const { data, error } = await supabase
         .from('invitations')

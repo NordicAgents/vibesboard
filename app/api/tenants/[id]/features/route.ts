@@ -39,6 +39,24 @@ export async function PUT(req: Request, { params }: RouteParams) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
+    // Fetch tenant and block feature changes for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Features cannot be changed for personal workspaces' },
+            { status: 403 }
+        )
+    }
+
     const body = await req.json()
     const { feature_flag_id, is_enabled } = body
 

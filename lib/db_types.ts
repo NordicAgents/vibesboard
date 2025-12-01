@@ -133,6 +133,7 @@ type PublicSchema = GenericSchema & {
         created_by: string
         created_at: string
         updated_at: string
+        is_personal: boolean
       }
       Insert: {
         id?: string
@@ -142,6 +143,7 @@ type PublicSchema = GenericSchema & {
         created_by: string
         created_at?: string
         updated_at?: string
+        is_personal?: boolean
       }
       Update: {
         id?: string
@@ -151,6 +153,7 @@ type PublicSchema = GenericSchema & {
         created_by?: string
         created_at?: string
         updated_at?: string
+        is_personal?: boolean
       }
       Relationships: [
         {
@@ -513,6 +516,12 @@ type PublicSchema = GenericSchema & {
         content: string
         similarity: number
       }[]
+    }
+    create_or_get_personal_tenant: {
+      Args: {
+        p_user_id: string
+      }
+      Returns: string
     }
   }
 }

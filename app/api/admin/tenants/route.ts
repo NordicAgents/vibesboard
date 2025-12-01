@@ -131,7 +131,8 @@ export async function POST(req: Request) {
             name,
             slug,
             status: 'active',
-            created_by: createdBy
+            created_by: createdBy,
+            is_personal: false
         })
         .select('*')
         .single()

@@ -58,6 +58,24 @@ export async function PUT(req: Request, { params }: RouteParams) {
         cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
+    // Block role changes in personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Personal workspaces cannot manage team roles' },
+            { status: 403 }
+        )
+    }
+
     const { data, error } = await supabase
         .from('tenant_users')
         .update({ role })
@@ -109,6 +127,24 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     const supabase = createRouteHandlerClient<Database>({
         cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
+
+    // Block removals in personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Personal workspaces cannot manage team membership' },
+            { status: 403 }
+        )
+    }
 
     const { error } = await supabase
         .from('tenant_users')
