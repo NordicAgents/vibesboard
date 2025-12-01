@@ -19,6 +19,7 @@ interface TenantConfig {
     slug: string
     status: string
     created_at: string
+    is_personal?: boolean
     branding?: {
         logo_url?: string
         primary_color?: string
@@ -146,6 +147,8 @@ export default function TenantSettingsPage() {
         )
     }
 
+    const isPersonal = Boolean(tenant.is_personal)
+
     return (
         <div className="space-y-6">
             <PageHeader
@@ -176,6 +179,7 @@ export default function TenantSettingsPage() {
                                     placeholder="https://example.com/logo.png"
                                     value={logoUrl}
                                     onChange={(e) => setLogoUrl(e.target.value)}
+                                    disabled={isPersonal}
                                 />
                                 {logoUrl && (
                                     <div className="mt-2">
@@ -221,8 +225,13 @@ export default function TenantSettingsPage() {
                                 />
                             </div>
 
-                            <div className="flex justify-end pt-4">
-                                <Button onClick={handleSaveBranding} disabled={isSaving}>
+                            <div className="flex items-center justify-between gap-4 pt-4">
+                                {isPersonal && (
+                                    <p className="text-sm text-muted-foreground">
+                                        This is your personal workspace. Branding changes are disabled.
+                                    </p>
+                                )}
+                                <Button onClick={handleSaveBranding} disabled={isSaving || isPersonal}>
                                     {isSaving ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

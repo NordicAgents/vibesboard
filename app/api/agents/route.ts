@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
 import { getUserActiveTenant } from '@/lib/permissions'
+import { ensurePersonalTenant } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@/lib/agents/schema'
 
 export const runtime = 'nodejs'
@@ -68,7 +69,16 @@ export async function POST(req: Request) {
 
   // Resolve the tenant the new agent should belong to.
   // For now, use the user's active tenant (or first available tenant).
-  const tenantId = await getUserActiveTenant(session.user.id)
+  // If none exists, create/fetch a personal workspace so they can proceed.
+  let tenantId = await getUserActiveTenant(session.user.id)
+  if (!tenantId) {
+    try {
+      tenantId = await ensurePersonalTenant(session.user.id)
+    } catch (error) {
+      console.error('Failed to ensure personal tenant:', error)
+    }
+  }
+
   if (!tenantId) {
     return NextResponse.json(
       { error: 'No tenant available for this user; ensure tenant membership exists.' },

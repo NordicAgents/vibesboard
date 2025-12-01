@@ -190,5 +190,28 @@ export async function ensureActiveTenant(userId: string): Promise<string | null>
         return firstTenant.id
     }
 
-    return null
+    // As a fallback, create or fetch a personal tenant so the user always has one
+    try {
+        return await ensurePersonalTenant(userId)
+    } catch (error) {
+        console.error('Failed to ensure personal tenant:', error)
+        return null
+    }
+}
+
+/**
+ * Create or fetch the user's personal tenant, returning its id.
+ */
+export async function ensurePersonalTenant(userId: string): Promise<string> {
+    const supabase = await createServerClient()
+
+    const { data, error } = await supabase.rpc('create_or_get_personal_tenant', {
+        p_user_id: userId
+    })
+
+    if (error || !data) {
+        throw error || new Error('Unable to create or fetch personal tenant')
+    }
+
+    return data as string
 }

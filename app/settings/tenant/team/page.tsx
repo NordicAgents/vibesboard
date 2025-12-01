@@ -58,6 +58,7 @@ interface PendingInvitation {
 
 export default function TeamManagementPage() {
     const [tenantId, setTenantId] = useState<string | null>(null)
+    const [isPersonal, setIsPersonal] = useState(false)
     const [members, setMembers] = useState<TenantMember[]>([])
     const [invitations, setInvitations] = useState<PendingInvitation[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -74,8 +75,16 @@ export default function TeamManagementPage() {
 
     useEffect(() => {
         if (tenantId) {
-            fetchMembers()
-            fetchInvitations()
+            const loadTenantData = async () => {
+                const personal = await fetchTenantMeta()
+                await fetchMembers()
+                if (!personal) {
+                    fetchInvitations()
+                } else {
+                    setInvitations([])
+                }
+            }
+            loadTenantData()
         }
     }, [tenantId])
 
@@ -90,6 +99,22 @@ export default function TeamManagementPage() {
             console.error('Error fetching active tenant:', error)
             toast.error('Failed to load tenant')
         }
+    }
+
+    const fetchTenantMeta = async () => {
+        if (!tenantId) return false
+        try {
+            const response = await fetch(`/api/tenants/${tenantId}/config`)
+            if (response.ok) {
+                const data = await response.json()
+                const personal = Boolean(data.tenant?.is_personal)
+                setIsPersonal(personal)
+                return personal
+            }
+        } catch (error) {
+            console.error('Error fetching tenant meta:', error)
+        }
+        return false
     }
 
     const fetchMembers = async () => {
@@ -128,6 +153,10 @@ export default function TeamManagementPage() {
         e.preventDefault()
 
         if (!tenantId || !inviteEmail) return
+        if (isPersonal) {
+            toast.error('Personal workspaces cannot invite members')
+            return
+        }
 
         setIsInviting(true)
         try {
@@ -161,6 +190,10 @@ export default function TeamManagementPage() {
 
     const handleChangeRole = async (userId: string, newRole: string) => {
         if (!tenantId) return
+        if (isPersonal) {
+            toast.error('Personal workspaces do not support role changes')
+            return
+        }
 
         try {
             const response = await fetch(`/api/tenants/${tenantId}/users/${userId}/role`, {
@@ -186,6 +219,11 @@ export default function TeamManagementPage() {
         if (!tenantId) return
 
         if (!confirm(`Are you sure you want to remove ${email} from this tenant?`)) {
+            return
+        }
+
+        if (isPersonal) {
+            toast.error('Personal workspaces cannot remove members')
             return
         }
 
@@ -235,10 +273,12 @@ export default function TeamManagementPage() {
                 title="Team Management"
                 description="Manage your team members and invitations"
             >
-                <Button onClick={() => setIsInviteDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Invite Member
-                </Button>
+                {!isPersonal && (
+                    <Button onClick={() => setIsInviteDialogOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Invite Member
+                    </Button>
+                )}
             </PageHeader>
 
             {/* Team Members */}
@@ -246,7 +286,9 @@ export default function TeamManagementPage() {
                 <CardHeader>
                     <CardTitle>Team Members</CardTitle>
                     <CardDescription>
-                        Active members of your tenant
+                        {isPersonal
+                            ? 'Personal workspaces cannot have additional members.'
+                            : 'Active members of your tenant'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -272,38 +314,40 @@ export default function TeamManagementPage() {
                             </TableHeader>
                             <TableBody>
                                 {members.map((member) => (
-                                    <TableRow key={member.user_id}>
-                                        <TableCell>{member.email}</TableCell>
-                                        <TableCell>
-                                            <RoleBadge role={member.role} />
-                                        </TableCell>
+                                <TableRow key={member.user_id}>
+                                    <TableCell>{member.email}</TableCell>
+                                    <TableCell>
+                                        <RoleBadge role={member.role} />
+                                    </TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {new Date(member.joined_at).toLocaleDateString()}
                                         </TableCell>
                                         <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleChangeRole(
-                                                            member.user_id,
-                                                            member.role === 'TENANT_ADMIN' ? 'MEMBER' : 'TENANT_ADMIN'
-                                                        )}
-                                                    >
-                                                        Make {member.role === 'TENANT_ADMIN' ? 'Member' : 'Admin'}
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleRemoveMember(member.user_id, member.email)}
-                                                        className="text-destructive"
-                                                    >
-                                                        Remove
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                            {!isPersonal && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleChangeRole(
+                                                                member.user_id,
+                                                                member.role === 'TENANT_ADMIN' ? 'MEMBER' : 'TENANT_ADMIN'
+                                                            )}
+                                                        >
+                                                            Make {member.role === 'TENANT_ADMIN' ? 'Member' : 'Admin'}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleRemoveMember(member.user_id, member.email)}
+                                                            className="text-destructive"
+                                                        >
+                                                            Remove
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -314,7 +358,7 @@ export default function TeamManagementPage() {
             </Card>
 
             {/* Pending Invitations */}
-            {invitations.length > 0 && (
+            {!isPersonal && invitations.length > 0 && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Pending Invitations</CardTitle>
