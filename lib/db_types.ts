@@ -70,6 +70,7 @@ type PublicSchema = GenericSchema & {
       Row: {
         id: string
         user_id: string
+        tenant_id: string | null
         name: string
         instructions: string
         file_keys: Json
@@ -83,6 +84,7 @@ type PublicSchema = GenericSchema & {
       Insert: {
         id?: string
         user_id: string
+        tenant_id?: string | null
         name: string
         instructions: string
         file_keys?: Json
@@ -96,6 +98,7 @@ type PublicSchema = GenericSchema & {
       Update: {
         id?: string
         user_id?: string
+        tenant_id?: string | null
         name?: string
         instructions?: string
         file_keys?: Json
@@ -110,6 +113,233 @@ type PublicSchema = GenericSchema & {
         {
           foreignKeyName: 'vibe_agents_user_id_fkey'
           columns: ['user_id']
+          referencedRelation: 'users'
+          referencedColumns: ['id']
+        },
+        {
+          foreignKeyName: 'vibe_agents_tenant_id_fkey'
+          columns: ['tenant_id']
+          referencedRelation: 'tenants'
+          referencedColumns: ['id']
+        }
+      ]
+    }
+    tenants: {
+      Row: {
+        id: string
+        name: string
+        slug: string
+        status: 'active' | 'trial' | 'suspended'
+        created_by: string
+        created_at: string
+        updated_at: string
+        is_personal: boolean
+      }
+      Insert: {
+        id?: string
+        name: string
+        slug: string
+        status?: 'active' | 'trial' | 'suspended'
+        created_by: string
+        created_at?: string
+        updated_at?: string
+        is_personal?: boolean
+      }
+      Update: {
+        id?: string
+        name?: string
+        slug?: string
+        status?: 'active' | 'trial' | 'suspended'
+        created_by?: string
+        created_at?: string
+        updated_at?: string
+        is_personal?: boolean
+      }
+      Relationships: [
+        {
+          foreignKeyName: 'tenants_created_by_fkey'
+          columns: ['created_by']
+          referencedRelation: 'users'
+          referencedColumns: ['id']
+        }
+      ]
+    }
+    tenant_branding: {
+      Row: {
+        id: string
+        tenant_id: string
+        logo_url: string | null
+        primary_color: string
+        secondary_color: string
+        created_at: string
+        updated_at: string
+      }
+      Insert: {
+        id?: string
+        tenant_id: string
+        logo_url?: string | null
+        primary_color?: string
+        secondary_color?: string
+        created_at?: string
+        updated_at?: string
+      }
+      Update: {
+        id?: string
+        tenant_id?: string
+        logo_url?: string | null
+        primary_color?: string
+        secondary_color?: string
+        created_at?: string
+        updated_at?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: 'tenant_branding_tenant_id_fkey'
+          columns: ['tenant_id']
+          referencedRelation: 'tenants'
+          referencedColumns: ['id']
+        }
+      ]
+    }
+    feature_flags: {
+      Row: {
+        id: string
+        name: string
+        description: string | null
+        default_value: boolean
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        name: string
+        description?: string | null
+        default_value?: boolean
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        name?: string
+        description?: string | null
+        default_value?: boolean
+        created_at?: string
+      }
+      Relationships: []
+    }
+    tenant_feature_toggles: {
+      Row: {
+        tenant_id: string
+        feature_flag_id: string
+        is_enabled: boolean
+        created_at: string
+        updated_at: string
+      }
+      Insert: {
+        tenant_id: string
+        feature_flag_id: string
+        is_enabled: boolean
+        created_at?: string
+        updated_at?: string
+      }
+      Update: {
+        tenant_id?: string
+        feature_flag_id?: string
+        is_enabled?: boolean
+        created_at?: string
+        updated_at?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: 'tenant_feature_toggles_tenant_id_fkey'
+          columns: ['tenant_id']
+          referencedRelation: 'tenants'
+          referencedColumns: ['id']
+        },
+        {
+          foreignKeyName: 'tenant_feature_toggles_feature_flag_id_fkey'
+          columns: ['feature_flag_id']
+          referencedRelation: 'feature_flags'
+          referencedColumns: ['id']
+        }
+      ]
+    }
+    tenant_users: {
+      Row: {
+        user_id: string
+        tenant_id: string
+        role: 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
+        created_at: string
+      }
+      Insert: {
+        user_id: string
+        tenant_id: string
+        role: 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
+        created_at?: string
+      }
+      Update: {
+        user_id?: string
+        tenant_id?: string
+        role?: 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
+        created_at?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: 'tenant_users_user_id_fkey'
+          columns: ['user_id']
+          referencedRelation: 'users'
+          referencedColumns: ['id']
+        },
+        {
+          foreignKeyName: 'tenant_users_tenant_id_fkey'
+          columns: ['tenant_id']
+          referencedRelation: 'tenants'
+          referencedColumns: ['id']
+        }
+      ]
+    }
+    invitations: {
+      Row: {
+        id: string
+        email: string
+        tenant_id: string
+        token: string
+        role: 'TENANT_ADMIN' | 'MEMBER'
+        status: 'pending' | 'accepted' | 'expired'
+        expires_at: string
+        created_by: string
+        created_at: string
+      }
+      Insert: {
+        id?: string
+        email: string
+        tenant_id: string
+        token: string
+        role: 'TENANT_ADMIN' | 'MEMBER'
+        status?: 'pending' | 'accepted' | 'expired'
+        expires_at: string
+        created_by: string
+        created_at?: string
+      }
+      Update: {
+        id?: string
+        email?: string
+        tenant_id?: string
+        token?: string
+        role?: 'TENANT_ADMIN' | 'MEMBER'
+        status?: 'pending' | 'accepted' | 'expired'
+        expires_at?: string
+        created_by?: string
+        created_at?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: 'invitations_tenant_id_fkey'
+          columns: ['tenant_id']
+          referencedRelation: 'tenants'
+          referencedColumns: ['id']
+        },
+        {
+          foreignKeyName: 'invitations_created_by_fkey'
+          columns: ['created_by']
           referencedRelation: 'users'
           referencedColumns: ['id']
         }
@@ -286,6 +516,12 @@ type PublicSchema = GenericSchema & {
         content: string
         similarity: number
       }[]
+    }
+    create_or_get_personal_tenant: {
+      Args: {
+        p_user_id: string
+      }
+      Returns: string
     }
   }
 }

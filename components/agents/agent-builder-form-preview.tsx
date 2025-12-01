@@ -13,7 +13,7 @@ import {
     CardTitle
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { IconSparkles, IconCheck } from '@/components/ui/icons'
+import { IconSparkles, IconCheck, IconX } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { type AgentToolType } from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
@@ -36,6 +36,7 @@ interface AgentBuilderFormPreviewProps {
     isUploading?: boolean
     userId?: string
     className?: string
+    onClose?: () => void
 }
 
 export function AgentBuilderFormPreview({
@@ -46,7 +47,8 @@ export function AgentBuilderFormPreview({
     isCreating = false,
     isUploading = false,
     userId,
-    className
+    className,
+    onClose
 }: AgentBuilderFormPreviewProps) {
     const [animatedFields, setAnimatedFields] = useState<Set<string>>(new Set())
 
@@ -79,11 +81,25 @@ export function AgentBuilderFormPreview({
             )}
         >
             <div className="mb-6">
-                <div className="flex items-center gap-2">
-                    <IconSparkles className="h-5 w-5 text-primary" />
-                    <h2 className="font-switzer text-lg font-semibold text-black-primary dark:text-foreground">
-                        Agent Builder
-                    </h2>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <IconSparkles className="h-5 w-5 text-primary" />
+                        <h2 className="font-switzer text-lg font-semibold text-black-primary dark:text-foreground">
+                            Agent Builder
+                        </h2>
+                    </div>
+                    {onClose && (
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={onClose}
+                            aria-label="Hide preview"
+                            title="Hide preview"
+                            className="h-8 w-8 p-0"
+                        >
+                            <IconX className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
                 <p className="mt-1 font-switzer text-sm text-gray-secondary">
                     Live preview of your agent
@@ -279,7 +295,7 @@ export function AgentBuilderFormPreview({
                                 Upload documents to ground your agent's knowledge
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-3">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -296,31 +312,55 @@ export function AgentBuilderFormPreview({
                                 className="hidden"
                                 onChange={e => onFileUpload(e.target.files)}
                             />
+                            {/* Create Agent Button */}
+                            <Button
+                                onClick={onCreateAgent}
+                                disabled={!isValid || isCreating}
+                                className="w-full rounded-full font-switzer"
+                                size="lg"
+                            >
+                                {isCreating ? 'Creating Agent...' : 'Create Agent'}
+                            </Button>
+                            {!isValid && (
+                                <p className="text-center text-xs text-muted-foreground">
+                                    {!formData.name
+                                        ? 'Name is required'
+                                        : !formData.instructions
+                                            ? 'Instructions are required'
+                                            : !formData.greetingText
+                                                ? 'Greeting message is required'
+                                                : 'Complete all required fields'}
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 )}
-            </div>
 
-            {/* Create Button */}
-            <div className="mt-6 pt-4 border-t border-black-10 dark:border-border">
-                <Button
-                    onClick={onCreateAgent}
-                    disabled={!isValid || isCreating}
-                    className="w-full rounded-full font-switzer"
-                    size="lg"
-                >
-                    {isCreating ? 'Creating Agent...' : 'Create Agent'}
-                </Button>
-                {!isValid && (
-                    <p className="mt-2 text-center text-xs text-muted-foreground">
-                        {!formData.name
-                            ? 'Name is required'
-                            : !formData.instructions
-                                ? 'Instructions are required'
-                                : !formData.greetingText
-                                    ? 'Greeting message is required'
-                                    : 'Complete all required fields'}
-                    </p>
+                {/* Create Agent Button - shown when file upload is not available */}
+                {(!onFileUpload || !userId) && (
+                    <Card>
+                        <CardContent className="pt-6">
+                            <Button
+                                onClick={onCreateAgent}
+                                disabled={!isValid || isCreating}
+                                className="w-full rounded-full font-switzer"
+                                size="lg"
+                            >
+                                {isCreating ? 'Creating Agent...' : 'Create Agent'}
+                            </Button>
+                            {!isValid && (
+                                <p className="mt-2 text-center text-xs text-muted-foreground">
+                                    {!formData.name
+                                        ? 'Name is required'
+                                        : !formData.instructions
+                                            ? 'Instructions are required'
+                                            : !formData.greetingText
+                                                ? 'Greeting message is required'
+                                                : 'Complete all required fields'}
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
                 )}
             </div>
         </aside>
