@@ -60,8 +60,26 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
+
+    // Block branding changes for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Branding is not configurable for personal workspaces' },
+            { status: 403 }
+        )
+    }
 
     // Build update object
     const updates: any = {}

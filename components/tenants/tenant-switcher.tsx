@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Database } from '@/lib/db_types'
+import toast from 'react-hot-toast'
 
 type Tenant = Database['public']['Tables']['tenants']['Row']
 
@@ -30,11 +31,13 @@ export function TenantSwitcher({
 }: TenantSwitcherProps) {
     const router = useRouter()
     const [open, setOpen] = useState(false)
+    const [isSwitching, setIsSwitching] = useState(false)
 
     const currentTenant = tenants.find(t => t.id === currentTenantId)
 
     const handleTenantSwitch = async (tenantId: string) => {
         try {
+            setIsSwitching(true)
             // Call API to set active tenant
             const response = await fetch('/api/user/active-tenant', {
                 method: 'PUT',
@@ -46,9 +49,14 @@ export function TenantSwitcher({
                 // Refresh the page to reload with new tenant context
                 router.refresh()
                 setOpen(false)
+            } else {
+                toast.error('Failed to switch tenant. Please try again.')
             }
         } catch (error) {
             console.error('Failed to switch tenant:', error)
+            toast.error('Unable to switch tenant right now.')
+        } finally {
+            setIsSwitching(false)
         }
     }
 
@@ -74,7 +82,9 @@ export function TenantSwitcher({
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
+                    aria-label="Switch active tenant"
                     className={cn('justify-between', className)}
+                    disabled={isSwitching}
                 >
                     <div className="flex flex-col items-start">
                         <span className="text-sm font-medium">
@@ -86,7 +96,11 @@ export function TenantSwitcher({
                             </span>
                         )}
                     </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    {isSwitching ? (
+                        <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-70" aria-hidden />
+                    ) : (
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+                    )}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[240px]">

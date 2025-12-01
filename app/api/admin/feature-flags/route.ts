@@ -21,7 +21,7 @@ export async function GET() {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     const { data, error } = await supabase
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     // Check if feature flag already exists

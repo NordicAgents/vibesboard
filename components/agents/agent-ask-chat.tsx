@@ -11,6 +11,7 @@ import { ChatList } from '@/components/chat-list'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { PromptForm } from '@/components/prompt-form'
 import { Button } from '@/components/ui/button'
+import { IconSpinner } from '@/components/ui/icons'
 // The main app sidebar now shows conversations under each agent.
 
 interface AgentAskChatProps {
@@ -230,6 +231,12 @@ export function AgentAskChat({
             </div>
             <div className="flex-1 overflow-y-auto pb-36 pt-20">
               <ChatList messages={pendingMessages} />
+              {isLoading && (
+                <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+                  <IconSpinner className="h-4 w-4 animate-spin" />
+                  <span>Thinking...</span>
+                </div>
+              )}
               <ChatScrollAnchor trackVisibility={isLoading} />
             </div>
           </>

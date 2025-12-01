@@ -12,6 +12,7 @@ import { cookies } from 'next/headers'
 export async function Header() {
   const cookieStore = await cookies()
   const session = await auth({ cookieStore })
+
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-black-10 bg-beige-bg/80 px-4 backdrop-blur-sm dark:border-border dark:bg-background/80">
       <div className="flex items-center gap-3">

@@ -55,30 +55,50 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
-    // Check if user is already a member
-    const { data: existingUser } = await supabase
-        .rpc('get_user_by_email', { p_email: email })
+    // Block invitations for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
         .single()
 
-    if (existingUser) {
-        // Check if already a member of this tenant
-        const { data: existingMember } = await supabase
-            .from('tenant_users')
-            .select('user_id')
-            .eq('tenant_id', id)
-            .eq('user_id', existingUser.id)
-            .single()
-
-        if (existingMember) {
-            return NextResponse.json(
-                { error: 'User is already a member of this tenant' },
-                { status: 409 }
-            )
-        }
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Personal workspaces cannot invite members' },
+            { status: 403 }
+        )
+    }
+
+    // Check if user is already a member
+    const { data: existingUsers } = await supabase
+        .from('tenant_users')
+        .select(`
+            user_id,
+            auth_user:user_id (
+                email
+            )
+        `)
+        .eq('tenant_id', id)
+
+    // Find if this email is already a member
+    const isExistingMember = existingUsers?.some((member: any) =>
+        member.auth_user?.email === email
+    )
+
+    if (isExistingMember) {
+        return NextResponse.json(
+            { error: 'User is already a member of this tenant' },
+            { status: 409 }
+        )
+    }
+
 
     // Check for pending invitation
     const { data: existingInvitation } = await supabase
@@ -156,8 +176,23 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
+
+    // Block invitation listing for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json({ invitations: [] })
+    }
 
     const { data, error } = await supabase
         .from('invitations')

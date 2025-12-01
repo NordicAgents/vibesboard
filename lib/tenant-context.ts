@@ -36,14 +36,40 @@ export async function clearActiveTenantId() {
 /**
  * Get the active tenant with full details
  */
-export async function getActiveTenant(): Promise<Database['public']['Tables']['tenants']['Row'] | null> {
-    const tenantId = await getActiveTenantId()
+export async function getActiveTenant(userId?: string): Promise<string | null> {
+    let tenantId = await getActiveTenantId()
 
-    if (!tenantId) {
-        return null
+    // If no active tenant but userId provided, get first available
+    if (!tenantId && userId) {
+        tenantId = await ensureActiveTenant(userId)
     }
 
-    const supabase = await createServerClient()
+    return tenantId
+}
+
+/**
+ * Get all tenants for a user
+ */
+export async function getUserTenants(userId: string): Promise<Database['public']['Tables']['tenants']['Row'][]> {
+    const supabase = createServerClient()
+
+    const { data, error } = await supabase
+        .from('tenant_users')
+        .select('tenants(*)')
+        .eq('user_id', userId)
+
+    if (error || !data) {
+        return []
+    }
+
+    return data.map(item => item.tenants).filter(Boolean) as Database['public']['Tables']['tenants']['Row'][]
+}
+
+/**
+ * Get full tenant details by ID
+ */
+export async function getTenantById(tenantId: string): Promise<Database['public']['Tables']['tenants']['Row'] | null> {
+    const supabase = createServerClient()
 
     const { data, error } = await supabase
         .from('tenants')
@@ -161,9 +187,31 @@ export async function ensureActiveTenant(userId: string): Promise<string | null>
 
     if (tenants && tenants.tenants) {
         const firstTenant = tenants.tenants as Database['public']['Tables']['tenants']['Row']
-        await setActiveTenantId(firstTenant.id)
         return firstTenant.id
     }
 
-    return null
+    // As a fallback, create or fetch a personal tenant so the user always has one
+    try {
+        return await ensurePersonalTenant(userId)
+    } catch (error) {
+        console.error('Failed to ensure personal tenant:', error)
+        return null
+    }
+}
+
+/**
+ * Create or fetch the user's personal tenant, returning its id.
+ */
+export async function ensurePersonalTenant(userId: string): Promise<string> {
+    const supabase = await createServerClient()
+
+    const { data, error } = await supabase.rpc('create_or_get_personal_tenant', {
+        p_user_id: userId
+    })
+
+    if (error || !data) {
+        throw error || new Error('Unable to create or fetch personal tenant')
+    }
+
+    return data as string
 }

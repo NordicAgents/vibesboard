@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     const { token } = await params
 
     const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
     })
 
     const { data: invitation, error } = await supabase
