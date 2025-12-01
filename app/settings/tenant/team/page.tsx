@@ -38,19 +38,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RoleBadge } from '@/components/tenants/role-badge'
 import { EmptyState } from '@/components/ui/empty-state'
+import { type Role } from '@/lib/permissions'
 import toast from 'react-hot-toast'
 
 interface TenantMember {
     user_id: string
     email: string
-    role: string
+    role: Role
     joined_at: string
 }
 
 interface PendingInvitation {
     id: string
     email: string
-    role: string
+    role: Role
     created_at: string
     expires_at: string
 }
@@ -379,6 +380,7 @@ export default function TeamManagementPage() {
                                     value={inviteEmail}
                                     onChange={(e) => setInviteEmail(e.target.value)}
                                     required
+                                    autoFocus
                                 />
                             </div>
 

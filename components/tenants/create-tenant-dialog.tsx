@@ -141,6 +141,7 @@ export function CreateTenantDialog({
                                 setFormData((prev) => ({ ...prev, name: e.target.value }))
                             }
                             disabled={isSubmitting}
+                            autoFocus
                         />
                         {errors.name && (
                             <p className="text-sm text-destructive">{errors.name}</p>
