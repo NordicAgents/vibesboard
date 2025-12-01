@@ -20,6 +20,9 @@ type RouteParams = {
  */
 export async function PUT(req: Request, { params }: RouteParams) {
     const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
     const session = await auth({ cookieStore })
 
     if (!session?.user) {
@@ -34,6 +37,24 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     if (!isSuperAdminUser && !isTenantAdminUser) {
         return new NextResponse('Forbidden', { status: 403 })
+    }
+
+    // Fetch tenant and block feature changes for personal workspaces
+    const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .select('id, is_personal')
+        .eq('id', id)
+        .single()
+
+    if (tenantError || !tenant) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    if (tenant.is_personal) {
+        return NextResponse.json(
+            { error: 'Features cannot be changed for personal workspaces' },
+            { status: 403 }
+        )
     }
 
     const body = await req.json()

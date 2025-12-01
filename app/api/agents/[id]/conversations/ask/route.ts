@@ -110,8 +110,7 @@ export async function POST(
     const serialized = recentMessages
       .map(
         (message, idx) =>
-          `${message.role === 'assistant' ? 'Agent' : 'User'} ${
-            message.id ?? idx
+          `${message.role === 'assistant' ? 'Agent' : 'User'} ${message.id ?? idx
           }: ${typeof message.content === 'string' ? message.content : ''}`
       )
       .join('\n')
