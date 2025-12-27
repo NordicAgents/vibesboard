@@ -8,25 +8,25 @@ const projects = [
         id: 1,
         title: "Build Agents",
         category: "Creation",
-        image: "https://images.unsplash.com/photo-1677756119517-756a188d2d94?q=80&w=2650&auto=format&fit=crop" // AI chatbot interface and technology
+        image: "/images/landing/updated-landing/Build Agents.png"
     },
     {
         id: 2,
         title: "Share & Vibe",
         category: "Interaction",
-        image: "https://images.unsplash.com/photo-1611746872915-64382b5c76da?q=80&w=2670&auto=format&fit=crop" // Digital communication and messaging
+        image: "/images/landing/updated-landing/share.png"
     },
     {
         id: 3,
         title: "Record Vibes",
         category: "History",
-        image: "https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&w=2670&auto=format&fit=crop" // Chat bubbles and conversation
+        image: "/images/landing/updated-landing/record.png"
     },
     {
         id: 4,
         title: "AI Insights",
         category: "Analysis",
-        image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2670&auto=format&fit=crop" // Analytics and data insights
+        image: "/images/landing/updated-landing/Analysis.png"
     }
 ]
 

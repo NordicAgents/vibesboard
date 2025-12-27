@@ -14,7 +14,7 @@ export function LandingAbout() {
                         <FadeIn delay={0.2}>
                             <div className="relative aspect-square bg-gray-200 rounded-lg overflow-hidden dark:bg-muted">
                                 <img
-                                    src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2301&auto=format&fit=crop"
+                                    src="/images/landing/updated-landing/about.png"
                                     alt="About vibesboard"
                                     className="w-full h-full object-cover"
                                 />
