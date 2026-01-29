@@ -50,9 +50,23 @@ export async function POST(
     ? new Date((agentRow as any).last_embeddings_sync_at)
     : null
 
-  const conversations = (convoRows ?? [])
-    .map(row => mapConversationRow(row as any))
-    .filter(conversation => {
+  const allConversations = (convoRows ?? []).map(row => mapConversationRow(row as any))
+  const visitorConversations = allConversations.filter(conversation =>
+    Boolean(conversation.externalId)
+  )
+
+  const nonVisitorConversationIds = allConversations
+    .filter(conversation => !conversation.externalId)
+    .map(conversation => conversation.id)
+
+  if (nonVisitorConversationIds.length) {
+    await supabase
+      .from('vibe_agent_conversation_chunks')
+      .delete()
+      .in('conversation_id', nonVisitorConversationIds)
+  }
+
+  const conversations = visitorConversations.filter(conversation => {
       if (!lastSync) return true
       return new Date(conversation.updatedAt).getTime() > lastSync.getTime()
     })
