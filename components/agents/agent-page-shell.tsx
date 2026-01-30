@@ -3,6 +3,7 @@
 import * as React from 'react'
 
 import { AgentRightbar } from '@/components/agents/agent-rightbar'
+import { AgentPageShellProvider } from '@/components/agents/agent-page-shell-context'
 import {
   type AgentSharePayload,
   type VibeAgent,
@@ -34,66 +35,68 @@ export function AgentPageShell({
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true)
 
   return (
-    <div className="relative flex-1">
-      {/* Mobile trigger */}
-      <div className="container mx-auto flex justify-end px-4 pt-4 lg:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="secondary" size="sm">
-              Agent Details
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[96vw] sm:w-[520px]">
-            <SheetHeader>
-              <SheetTitle>Agent Details</SheetTitle>
-            </SheetHeader>
-            <div className="mt-4 overflow-y-auto pb-6">
-              <AgentRightbar
-                agent={agent}
-                share={share}
-                conversations={conversations}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
+    <AgentPageShellProvider isSidebarOpen={isSidebarOpen}>
+      <div className="relative flex-1">
+        {/* Mobile trigger */}
+        <div className="container mx-auto flex justify-end px-4 pt-4 lg:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="secondary" size="sm">
+                Agent Details
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[96vw] sm:w-[520px]">
+              <SheetHeader>
+                <SheetTitle>Agent Details</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4 overflow-y-auto pb-6">
+                <AgentRightbar
+                  agent={agent}
+                  share={share}
+                  conversations={conversations}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
 
-      {/* Main area with responsive margin depending on sidebar visibility */}
-      <div
-        className={cn(
-          'transition-[margin] duration-200',
-          isSidebarOpen ? 'lg:mr-[520px]' : 'lg:mr-0'
-        )}
-      >
-        {children}
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden lg:block">
+        {/* Main area with responsive margin depending on sidebar visibility */}
         <div
           className={cn(
-            'fixed top-16 right-0 bottom-0 max-w-[520px] w-[90vw] overflow-y-auto border-l bg-background p-4 shadow-lg transition-transform duration-200',
-            isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
+            'transition-[margin] duration-200',
+            isSidebarOpen ? 'lg:mr-[520px]' : 'lg:mr-0'
           )}
         >
-          <AgentRightbar
-            agent={agent}
-            share={share}
-            conversations={conversations}
-            onClose={() => setIsSidebarOpen(false)}
-          />
+          {children}
         </div>
-        {!isSidebarOpen && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="fixed right-4 top-[calc(4rem+1rem)] shadow-md"
-            onClick={() => setIsSidebarOpen(true)}
+
+        {/* Desktop sidebar */}
+        <div className="hidden lg:block">
+          <div
+            className={cn(
+              'fixed top-16 right-0 bottom-0 max-w-[520px] w-[90vw] overflow-y-auto border-l bg-background p-4 shadow-lg transition-transform duration-200',
+              isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
+            )}
           >
-            Configure Agent
-          </Button>
-        )}
+            <AgentRightbar
+              agent={agent}
+              share={share}
+              conversations={conversations}
+              onClose={() => setIsSidebarOpen(false)}
+            />
+          </div>
+          {!isSidebarOpen && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="fixed right-4 top-[calc(4rem+1rem)] shadow-md"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              Configure Agent
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+    </AgentPageShellProvider>
   )
 }
