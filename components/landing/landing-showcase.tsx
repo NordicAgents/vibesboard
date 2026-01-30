@@ -32,34 +32,35 @@ const projects = [
 
 export function LandingShowcase() {
     return (
-        <section id="works" className="py-20 px-6 bg-beige-bg dark:bg-background">
+        <section id="works" className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 bg-beige-bg dark:bg-background">
             <div className="container mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-start mb-16">
+                <div className="flex flex-col md:flex-row justify-between items-start mb-8 sm:mb-12 lg:mb-16 gap-4 md:gap-8">
                     <FadeIn delay={0.1}>
-                        <h2 className="text-sm font-mono text-gray-secondary mb-4 md:mb-0">[01] HOW IT WORKS</h2>
+                        <h2 className="text-xs sm:text-sm font-mono text-gray-secondary">[01] HOW IT WORKS</h2>
                     </FadeIn>
                     <FadeIn delay={0.2} className="max-w-2xl">
-                        <p className="text-2xl md:text-4xl font-switzer leading-tight dark:text-foreground">
+                        <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-switzer leading-tight dark:text-foreground">
                             Create agents, vibe with people, and get real insights through AI analysis.
                         </p>
                     </FadeIn>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
                     {projects.map((project, index) => (
                         <FadeIn key={project.id} delay={0.2 + (index * 0.1)}>
                             <div className="group cursor-pointer">
-                                <div className="relative aspect-[4/3] overflow-hidden rounded-lg mb-4 bg-gray-100 dark:bg-muted">
+                                <div className="relative aspect-[4/3] overflow-hidden rounded-lg mb-3 sm:mb-4 bg-gray-100 dark:bg-muted">
                                     <img
                                         src={project.image}
                                         alt={project.title}
                                         className="w-full h-full object-cover transition-transform duration-700 ease-custom group-hover:scale-105"
+                                        loading="lazy"
                                     />
                                     <div className="absolute inset-0 bg-black-primary/0 group-hover:bg-black-primary/10 transition-colors duration-500 dark:group-hover:bg-white/10"></div>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-xl font-medium dark:text-foreground">{project.title}</h3>
-                                    <span className="text-sm text-gray-secondary">{project.category}</span>
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
+                                    <h3 className="text-lg sm:text-xl font-medium dark:text-foreground">{project.title}</h3>
+                                    <span className="text-xs sm:text-sm text-gray-secondary">{project.category}</span>
                                 </div>
                             </div>
                         </FadeIn>

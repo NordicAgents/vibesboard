@@ -23,6 +23,7 @@ interface AgentCreatorChatProps {
 export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
   const router = useRouter()
   const [chatId, setChatId] = useState<string>('agent-creator')
+  const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
   const [formData, setFormData] = useState<AgentFormData>({
     allowAnonymous: true
   })
@@ -59,7 +60,8 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                 ...(updates.instructions !== undefined && { instructions: updates.instructions }),
                 ...(updates.greetingText !== undefined && { greetingText: updates.greetingText }),
                 ...(updates.tools !== undefined && { tools: updates.tools }),
-                ...(updates.allowAnonymous !== undefined && { allowAnonymous: updates.allowAnonymous })
+                ...(updates.allowAnonymous !== undefined && { allowAnonymous: updates.allowAnonymous }),
+                ...(updates.fileKeys !== undefined && { fileKeys: updates.fileKeys })
               }))
             } catch (parseError) {
               console.log('Failed to parse agentupdate block:', parseError)
@@ -68,6 +70,32 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
         } catch (error) {
           console.log('Error processing message:', error)
         }
+
+        // Detect an agent creation completion marker from the API.
+        try {
+          const content = message.content
+          const agentCreatedRegex = /~~~agentcreated\s*\n([\s\S]*?)\n~~~/g
+          const matches = content.matchAll(agentCreatedRegex)
+
+          for (const match of matches) {
+            try {
+              const jsonStr = match[1].trim()
+              const created = JSON.parse(jsonStr) as { id?: string }
+
+              if (created?.id && !createdAgentId) {
+                setCreatedAgentId(created.id)
+                toast.success('Agent created successfully!')
+                router.push(`/agents/${created.id}`)
+                router.refresh()
+                break
+              }
+            } catch (parseError) {
+              console.log('Failed to parse agentcreated block:', parseError)
+            }
+          }
+        } catch (error) {
+          console.log('Error processing agentcreated message:', error)
+        }
       }
     })
 
@@ -75,6 +103,7 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
     if (isLoading) stop()
     setInput('')
     setChatId(`agent-creator-${nanoid()}`)
+    setCreatedAgentId(null)
     setFormData({ allowAnonymous: true })
   }
 
@@ -138,6 +167,14 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
       setIsUploading(false)
     }
   }
+
+  const isReadyToCreate =
+    !!formData.name &&
+    formData.name.length >= 2 &&
+    !!formData.instructions &&
+    formData.instructions.length >= 10 &&
+    !!formData.greetingText &&
+    formData.greetingText.length > 0
 
   const handleCreateAgent = async () => {
     if (!formData.name || !formData.instructions || !formData.greetingText) {
@@ -226,8 +263,11 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
               <div className="flex-1 overflow-y-auto pt-4 pb-48">
                 <ChatList messages={messages.map(msg => ({
                   ...msg,
-                  // Remove agentupdate blocks from display
-                  content: msg.content.replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '').trim()
+                  // Remove agentupdate/agentcreated blocks from display
+                  content: msg.content
+                    .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
+                    .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
+                    .trim()
                 }))} />
                 {isLoading && (
                   <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
@@ -333,6 +373,22 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                 ) : null}
               </div>
               <div className="space-y-2 px-4 py-2 md:py-4">
+                {!createdAgentId && isReadyToCreate && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-black-10 bg-beige-bg px-3 py-2 text-xs text-black-primary dark:border-border dark:bg-muted dark:text-foreground">
+                    <p className="font-switzer">
+                      Your agent draft is ready. Say “create it” or click
+                      Create Agent.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={handleCreateAgent}
+                      disabled={isCreating}
+                      className="shrink-0"
+                    >
+                      {isCreating ? 'Creating…' : 'Create Agent'}
+                    </Button>
+                  </div>
+                )}
                 <PromptForm
                   onSubmit={async (value: string) => {
                     await append({
