@@ -47,8 +47,9 @@ export function Sidebar({ children }: SidebarProps) {
 
   React.useEffect(() => {
     if (isMobile === null) return
-    const shouldOpen = pathname === '/' && !isMobile
-    setOpen(prev => (prev === shouldOpen ? prev : shouldOpen))
+    // Keep the sidebar hidden on initial load; only auto-close on mobile or when
+    // navigating away from the home page.
+    if (isMobile || pathname !== '/') setOpen(false)
   }, [pathname, isMobile])
 
   return (

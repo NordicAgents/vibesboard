@@ -227,7 +227,7 @@ export function AgentAskChat({
               <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
                 ASK AI
               </p>
-              <p className="mt-1 font-switzer text-sm text-gray-secondary">Chat with conversations</p>
+              <p className="mt-1 font-switzer text-sm text-gray-secondary">Analyze visitor conversations</p>
             </div>
             <div className="flex-1 overflow-y-auto pb-36 pt-20">
               <ChatList messages={pendingMessages} />
@@ -249,8 +249,35 @@ export function AgentAskChat({
                   ASK AI
                 </h1>
                 <p className="font-switzer text-lg text-gray-secondary">
-                  Chat with conversations
+                  Analyze visitor conversations
                 </p>
+              </div>
+
+              <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:border-border dark:bg-background/30">
+                  <p className="font-switzer text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-secondary">
+                    Overview
+                  </p>
+                  <p className="mt-2 font-switzer text-sm text-black-primary dark:text-foreground">
+                    Quick summary of what’s happening across visitor chats.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:border-border dark:bg-background/30">
+                  <p className="font-switzer text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-secondary">
+                    Analysis
+                  </p>
+                  <p className="mt-2 font-switzer text-sm text-black-primary dark:text-foreground">
+                    What users ask, where they get stuck, and recurring themes.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:border-border dark:bg-background/30">
+                  <p className="font-switzer text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-secondary">
+                    Improvements
+                  </p>
+                  <p className="mt-2 font-switzer text-sm text-black-primary dark:text-foreground">
+                    Concrete changes to scripts, UX, or answers to improve outcomes.
+                  </p>
+                </div>
               </div>
 
               {/* Input centered below header */}
@@ -268,6 +295,7 @@ export function AgentAskChat({
                     input={input}
                     setInput={setInput}
                     isLoading={isLoading}
+                    placeholder="Ask about your visitor conversations…"
                   />
                 </div>
               </div>
@@ -295,6 +323,7 @@ export function AgentAskChat({
                   input={input}
                   setInput={setInput}
                   isLoading={isLoading}
+                  placeholder="Ask about your visitor conversations…"
                 />
               </div>
             </div>

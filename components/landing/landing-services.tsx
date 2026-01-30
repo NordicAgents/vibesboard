@@ -28,32 +28,39 @@ const services = [
 
 export function LandingServices() {
     return (
-        <section id="services" className="py-20 px-6 bg-beige-bg border-t border-black-primary/5 dark:bg-background dark:border-white/5">
+        <section id="services" className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 bg-beige-bg border-t border-black-primary/5 dark:bg-background dark:border-white/5">
             <div className="container mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-start mb-16">
+                <div className="flex flex-col md:flex-row justify-between items-start mb-8 sm:mb-12 lg:mb-16">
                     <FadeIn delay={0.1}>
-                        <h2 className="text-sm font-mono text-gray-secondary mb-4 md:mb-0">[02] CAPABILITIES</h2>
+                        <h2 className="text-xs sm:text-sm font-mono text-gray-secondary">[02] CAPABILITIES</h2>
                     </FadeIn>
                 </div>
 
                 <div className="grid grid-cols-1 gap-0">
                     {services.map((service, index) => (
                         <FadeIn key={service.id} delay={0.1 + (index * 0.1)} direction="left">
-                            <div className="group border-t border-black-primary/10 py-12 transition-colors hover:bg-white/50 cursor-default dark:border-white/10 dark:hover:bg-white/5">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                                    <div className="flex items-baseline gap-8 mb-4 md:mb-0">
-                                        <span className="font-mono text-sm text-gray-secondary">{service.id}</span>
-                                        <h3 className="text-3xl md:text-5xl font-switzer font-medium dark:text-foreground">{service.title}</h3>
+                            <div className="group border-t border-black-primary/10 py-6 sm:py-8 lg:py-12 transition-colors hover:bg-white/50 cursor-default dark:border-white/10 dark:hover:bg-white/5">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+                                    <div className="flex items-baseline gap-4 sm:gap-6 lg:gap-8">
+                                        <span className="font-mono text-xs sm:text-sm text-gray-secondary">{service.id}</span>
+                                        <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-switzer font-medium dark:text-foreground">{service.title}</h3>
                                     </div>
-                                    <div className="flex items-center gap-8">
-                                        <p className="hidden md:block text-gray-secondary max-w-xs text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                    <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 w-full sm:w-auto">
+                                        <p className="flex-1 sm:hidden text-gray-secondary text-xs sm:text-sm opacity-70 group-hover:opacity-100 transition-opacity duration-500">
                                             {service.description}
                                         </p>
-                                        <div className="w-10 h-10 rounded-full border border-black-primary/20 flex items-center justify-center group-hover:bg-black-primary group-hover:text-white transition-all duration-300 dark:border-white/20 dark:group-hover:bg-white dark:group-hover:text-black">
-                                            <ArrowUpRight className="w-5 h-5" />
+                                        <p className="hidden lg:block text-gray-secondary max-w-xs text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                            {service.description}
+                                        </p>
+                                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-black-primary/20 flex items-center justify-center group-hover:bg-black-primary group-hover:text-white transition-all duration-300 dark:border-white/20 dark:group-hover:bg-white dark:group-hover:text-black flex-shrink-0">
+                                            <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5" />
                                         </div>
                                     </div>
                                 </div>
+                                {/* Mobile description below title */}
+                                <p className="sm:hidden mt-2 text-gray-secondary text-sm pl-8 sm:pl-10">
+                                    {service.description}
+                                </p>
                             </div>
                         </FadeIn>
                     ))}
