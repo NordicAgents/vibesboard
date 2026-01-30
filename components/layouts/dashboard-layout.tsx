@@ -8,13 +8,15 @@ interface DashboardLayoutProps {
     sidebar?: ReactNode
     rightPanel?: ReactNode
     className?: string
+    hideRightPanel?: boolean
 }
 
 export function DashboardLayout({
     children,
     sidebar,
     rightPanel,
-    className
+    className,
+    hideRightPanel = false
 }: DashboardLayoutProps) {
     return (
         <div className={cn('flex h-[calc(100vh-4rem)] bg-beige-bg dark:bg-background overflow-hidden', className)}>
@@ -33,9 +35,9 @@ export function DashboardLayout({
             </main>
 
             {/* Right Panel */}
-            {rightPanel && (
+            {rightPanel && !hideRightPanel && (
                 <aside className="hidden w-80 flex-shrink-0 border-l border-black-10 bg-purewhite-bg dark:border-border dark:bg-card xl:block">
-                    <div className="h-full p-4">
+                    <div className="h-full overflow-y-auto p-4">
                         {rightPanel}
                     </div>
                 </aside>
