@@ -1,6 +1,5 @@
 import * as React from 'react'
 import Link from 'next/link'
-import { cookies } from 'next/headers'
 
 import { auth } from '@/auth'
 import { Button } from '@/components/ui/button'
@@ -8,14 +7,11 @@ import { Sidebar } from '@/components/sidebar'
 import { SidebarList } from '@/components/sidebar-list'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UserMenu } from '@/components/user-menu'
-import { isSuperAdmin } from '@/lib/permissions'
+import { cookies } from 'next/headers'
 
 export async function Header() {
   const cookieStore = await cookies()
   const session = await auth({ cookieStore })
-  const isAdmin = session?.user?.id
-    ? await isSuperAdmin(session.user.id)
-    : false
 
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-black-10 bg-beige-bg/80 px-4 backdrop-blur-sm dark:border-border dark:bg-background/80">
@@ -41,11 +37,6 @@ export async function Header() {
         )}
       </div>
       <div className="flex items-center justify-end space-x-2">
-        {session?.user && isAdmin && (
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/admin">Admin</Link>
-          </Button>
-        )}
         <ThemeToggle />
         {session?.user ? (
           <UserMenu user={session.user} />

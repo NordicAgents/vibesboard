@@ -10,11 +10,11 @@ import { getAgentForUser } from '@/lib/agents/server'
 import { agentAskRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
+  listAgentConversations,
   updateConversationMessages
 } from '@/lib/agents/conversations'
 import { nanoid } from '@/lib/utils'
 import { summarizeConversation } from '@/lib/agent/summarize'
-import { buildAskAiConversationContext } from '@/lib/agent/conversation-rag'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 const configuration = new Configuration({
@@ -22,6 +22,11 @@ const configuration = new Configuration({
 })
 
 const openai = new OpenAIApi(configuration)
+
+const MAX_TOTAL_CONTEXT_CHARS = 12000
+const MAX_CONVO_CONTEXT_CHARS = 3500
+const MAX_MESSAGES_PER_CONVO = 20
+const MAX_CONVERSATIONS = 25
 
 export const runtime = 'nodejs'
 
@@ -86,29 +91,59 @@ export async function POST(
   }
   const pendingMessages = [...existingMessages, userMessage]
 
-  const { context } = await buildAskAiConversationContext({
-    supabase,
-    agentId: agent.id,
-    question: payload.question,
-    contextConversationId: payload.contextConversationId
-  })
+  const conversations = await listAgentConversations(supabase, agent.id)
+  const selectedConversations = (payload.contextConversationId
+    ? conversations.filter(conv => conv.id === payload.contextConversationId)
+    : conversations.slice(0, MAX_CONVERSATIONS))
 
-  const systemPrompt = `You help the owner of agent "${agent.name}" analyze visitor conversations.
-Use only the supplied conversation snippets; do not invent details that are not present.
-If the snippets are insufficient, say what is missing and suggest syncing embeddings.
+  const contextBlocks: string[] = []
+  let totalChars = 0
 
-Output format (Markdown, no preamble; exactly these headings, in this order):
-## Overview
-## Analysis
-## Improvements
+  for (const conversation of selectedConversations) {
+    if (totalChars >= MAX_TOTAL_CONTEXT_CHARS) {
+      break
+    }
 
-Rules:
-- Do NOT mention internal IDs (UUIDs, message IDs, conversation IDs, "cid", database identifiers).
-- When referencing a conversation, refer to it by its label (e.g., "Conversation 2") and/or the date/summary shown.
-- Quote short phrases from the snippets when helpful.
+    const recentMessages = (conversation.messages ?? []).slice(
+      -MAX_MESSAGES_PER_CONVO
+    )
+    const serialized = recentMessages
+      .map(
+        (message, idx) =>
+          `${message.role === 'assistant' ? 'Agent' : 'User'} ${message.id ?? idx
+          }: ${typeof message.content === 'string' ? message.content : ''}`
+      )
+      .join('\n')
 
-Conversation snippets:
-${context?.trim() ? context : 'No conversation snippets available.'}`
+    if (!serialized.trim()) {
+      continue
+    }
+
+    let block = `=== Conversation cid:${conversation.id} ===\n${serialized}`
+    if (block.length > MAX_CONVO_CONTEXT_CHARS) {
+      block = block.slice(block.length - MAX_CONVO_CONTEXT_CHARS)
+    }
+
+    if (totalChars + block.length > MAX_TOTAL_CONTEXT_CHARS) {
+      const remaining = MAX_TOTAL_CONTEXT_CHARS - totalChars
+      block = block.slice(block.length - remaining)
+    }
+
+    contextBlocks.push(block)
+    totalChars += block.length
+  }
+
+  const defaultContext =
+    contextBlocks.length > 0
+      ? contextBlocks.join('\n\n')
+      : 'No prior conversations available for context.'
+
+  const systemPrompt = `You help the owner of agent "${agent.name}" analyze past chats.
+Use only the supplied conversation blocks; do not invent details that are not present.
+Prefer more recent conversations when unsure. Reference conversations by their cid.
+
+Conversations:
+${defaultContext}`
 
   const model = OPENAI_CHAT_MODEL
 
