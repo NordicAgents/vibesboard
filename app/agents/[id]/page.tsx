@@ -56,8 +56,10 @@ export default async function AgentPageAsChat({
   const lastSync = agent.lastEmbeddingsSyncAt
     ? new Date(agent.lastEmbeddingsSyncAt)
     : null
-  const hasUnsyncedConversations = conversations.some(conversation =>
-    lastSync ? new Date(conversation.updatedAt).getTime() > lastSync.getTime() : true
+  const hasUnsyncedConversations = visitorConversations.some(conversation =>
+    lastSync
+      ? new Date(conversation.updatedAt).getTime() > lastSync.getTime()
+      : true
   )
 
   const headersList = await headers()

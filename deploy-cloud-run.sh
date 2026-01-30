@@ -4,7 +4,7 @@ set -euo pipefail
 
 # --- Config ---
 # Override via exported env vars; edit defaults as needed
-PROJECT_ID="vibeboard-462909"
+PROJECT_ID="vibesboard"
 REGION="europe-north1"
 SERVICE_NAME="vibeagent"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"

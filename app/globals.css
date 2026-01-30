@@ -79,7 +79,52 @@
     @apply border-border;
   }
 
+  html {
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    /* Prevent horizontal overflow on mobile */
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
+    /* Ensure body takes full height and handles overflow properly */
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+    overflow-x: hidden;
+    /* Improve touch behavior on mobile */
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Ensure inputs are at least 44px tall for touch targets */
+  input, button, select, textarea, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove min-height for inline elements */
+  a[href]:not(.button):not([role="button"]),
+  span,
+  label {
+    min-height: auto;
+    min-width: auto;
+  }
+
+  /* Safe area insets for mobile devices with notches */
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-inset-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-inset-right {
+    padding-right: env(safe-area-inset-right);
   }
 }

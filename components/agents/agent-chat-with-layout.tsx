@@ -14,6 +14,7 @@ import {
   DashboardSidebarItem
 } from '@/components/layouts/dashboard-sidebar'
 import { DashboardPanel, DashboardPanelSection } from '@/components/layouts/dashboard-panel'
+import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationModal } from '@/components/agents/conversation-modal'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +41,8 @@ export function AgentChatWithLayout({
 }: AgentChatWithLayoutProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const agentPageShell = useAgentPageShell()
+    const isPageShellSidebarOpen = agentPageShell?.isSidebarOpen ?? false
     const [activeSessionId, setActiveSessionId] = React.useState<string | null>(() => {
         const sessionParam = searchParams.get('session')
         if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
@@ -240,7 +243,116 @@ export function AgentChatWithLayout({
         </DashboardSidebar>
     )
 
-    const rightPanel = (
+    const [isEditing, setIsEditing] = React.useState(false)
+
+    const rightPanel = isEditing ? (
+        <DashboardPanel title="Configure Agent">
+            {/* Agent card */}
+            <DashboardPanelSection>
+                <div className="space-y-3 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 dark:border-border dark:bg-background/30">
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                            Name
+                        </label>
+                        <input
+                            type="text"
+                            value={agent.name}
+                            className="w-full rounded-xl border border-black-10 bg-background px-3 py-2 text-sm font-switzer text-black-primary focus:outline-none focus:ring-2 focus:ring-black-primary/20 dark:border-border dark:bg-muted dark:text-foreground"
+                            readOnly
+                        />
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                                Allow anonymous chat
+                            </p>
+                            <p className="text-xs text-gray-secondary">
+                                Require sign-in when disabled.
+                            </p>
+                        </div>
+                        <button
+                            className={`relative h-6 w-11 rounded-full transition-colors ${agent.allowAnonymous ? 'bg-black-primary dark:bg-primary' : 'bg-gray-200 dark:bg-muted'}`}
+                            disabled
+                        >
+                            <span
+                                className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition-transform ${agent.allowAnonymous ? 'translate-x-5' : 'translate-x-0'}`}
+                            />
+                        </button>
+                    </div>
+                </div>
+            </DashboardPanelSection>
+
+            {/* Instructions */}
+            <DashboardPanelSection
+                title="Instructions"
+                description="What the assistant follows."
+            >
+                <pre className="whitespace-pre-wrap rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
+                    {agent.instructions}
+                </pre>
+            </DashboardPanelSection>
+
+            {/* Greeting */}
+            <DashboardPanelSection
+                title="Greeting"
+                description="Initial greeting message."
+            >
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
+                    {agent.greetingText ?? 'Hi! How can I help you today?'}
+                </div>
+            </DashboardPanelSection>
+
+            {/* Tools Section */}
+            <DashboardPanelSection
+                title="Tools"
+                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
+            >
+                {displayTools.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {displayTools.map((tool) => (
+                            <span
+                                key={tool.id}
+                                className="rounded-full bg-beige-bg px-2 py-1 font-switzer text-xs text-black-primary dark:bg-muted dark:text-foreground"
+                            >
+                                {tool.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </DashboardPanelSection>
+
+            {/* Files Section */}
+            <DashboardPanelSection
+                title="Reference Files"
+                description={agent.fileKeys.length > 0 ? `${agent.fileKeys.length} uploaded` : 'None uploaded'}
+            >
+                {agent.fileKeys.length > 0 && (
+                    <div className="space-y-2">
+                        {agent.fileKeys.slice(0, 5).map((key) => (
+                            <div
+                                key={key}
+                                className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-2 dark:border-border dark:bg-background/30"
+                            >
+                                <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
+                                <span className="truncate font-switzer text-xs text-black-primary dark:text-foreground">
+                                    {key.split('/').pop()?.replace(/^\d+-/, '') || key}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </DashboardPanelSection>
+
+            <div className="pt-2">
+                <button
+                    onClick={() => setIsEditing(false)}
+                    className="w-full rounded-full bg-black-primary py-2 font-switzer text-sm font-medium text-white transition-colors hover:bg-black-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+                >
+                    Done
+                </button>
+            </div>
+        </DashboardPanel>
+    ) : (
         <DashboardPanel title="Agent Details">
             {/* Overview */}
             <DashboardPanelSection
@@ -294,6 +406,15 @@ export function AgentChatWithLayout({
                     </div>
                 </div>
             </DashboardPanelSection>
+
+            <div className="pt-2">
+                <button
+                    onClick={() => setIsEditing(true)}
+                    className="w-full rounded-full bg-black-primary py-2 font-switzer text-sm font-medium text-white transition-colors hover:bg-black-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+                >
+                    Configure Agent
+                </button>
+            </div>
 
             {/* Share & QR */}
             <DashboardPanelSection
@@ -403,7 +524,11 @@ export function AgentChatWithLayout({
 
     return (
         <>
-            <DashboardLayout sidebar={sidebar} rightPanel={rightPanel}>
+            <DashboardLayout
+              sidebar={sidebar}
+              rightPanel={rightPanel}
+              hideRightPanel={isPageShellSidebarOpen}
+            >
                 <AgentAskChat
                     agent={agent}
                     ownerId={ownerId}
