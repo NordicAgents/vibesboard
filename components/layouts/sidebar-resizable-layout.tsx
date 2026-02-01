@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { useLocalStorage } from '@/lib/hooks/use-local-storage'
+import { useSidebar } from '@/components/sidebar-context'
 import { Button } from '@/components/ui/button'
 import { IconSidebar, IconPlus } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
@@ -27,10 +27,7 @@ export function SidebarResizableLayout({
   sidebar,
   user
 }: SidebarResizableLayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useLocalStorage(
-    'sidebar-is-open',
-    true
-  )
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar()
 
   return (
     <div className="flex flex-1 overflow-hidden h-full">

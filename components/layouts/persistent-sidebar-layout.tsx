@@ -3,6 +3,7 @@ import { ReactNode, Suspense } from 'react'
 import { SidebarResizableLayout } from '@/components/layouts/sidebar-resizable-layout'
 import { auth } from '@/auth'
 import { cookies } from 'next/headers'
+import { SidebarProvider } from '@/components/sidebar-context'
 
 interface PersistentSidebarLayoutProps {
   children: ReactNode
@@ -17,16 +18,18 @@ export async function PersistentSidebarLayout({
   const session = await auth({ cookieStore })
 
   return (
-    <SidebarResizableLayout
-      user={session?.user}
-      sidebar={
-        <Suspense fallback={<div className="flex-1" />}>
-          {/* @ts-ignore */}
-          <SidebarList userId={userId} />
-        </Suspense>
-      }
-    >
-      {children}
-    </SidebarResizableLayout>
+    <SidebarProvider>
+      <SidebarResizableLayout
+        user={session?.user}
+        sidebar={
+          <Suspense fallback={<div className="flex-1" />}>
+            {/* @ts-ignore */}
+            <SidebarList userId={userId} />
+          </Suspense>
+        }
+      >
+        {children}
+      </SidebarResizableLayout>
+    </SidebarProvider>
   )
 }

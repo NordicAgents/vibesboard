@@ -16,11 +16,12 @@ import {
   DashboardSidebarItem
 } from '@/components/layouts/dashboard-sidebar'
 import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
+import { useSidebar } from '@/components/sidebar-context'
 import { AgentRightbar } from '@/components/agents/agent-rightbar'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationModal } from '@/components/agents/conversation-modal'
 import { Button } from '@/components/ui/button'
-import { IconRefresh, IconEdit } from '@/components/ui/icons'
+import { IconRefresh, IconEdit, IconMessage } from '@/components/ui/icons'
 
 interface AgentChatWithLayoutProps {
   agent: VibeAgent
@@ -42,6 +43,7 @@ export function AgentChatWithLayout({
   const router = useRouter()
   const searchParams = useSearchParams()
   const agentPageShell = useAgentPageShell()
+  const { isSidebarOpen } = useSidebar()
 
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     () => {
@@ -119,25 +121,37 @@ export function AgentChatWithLayout({
   const sidebar = (
     <DashboardSidebar>
       {/* Agent Info */}
-      <div className="mb-4 flex items-center justify-between gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
+      <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
         <h3 className="truncate font-switzer text-lg font-bold text-black-primary dark:text-foreground">
           {agent.name}
         </h3>
+      </div>
+
+      {/* Navigation */}
+      <div className="mb-4 grid grid-cols-2 gap-2">
         <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 flex-shrink-0 text-gray-secondary hover:text-black-primary dark:hover:text-foreground"
+          variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+          size="sm"
+          className="justify-start gap-2 px-2"
+          onClick={() => agentPageShell?.setIsSidebarOpen(false)}
+        >
+          <IconMessage className="h-4 w-4" />
+          Ask AI
+        </Button>
+        <Button
+          variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+          size="sm"
+          className="justify-start gap-2 px-2"
           onClick={() => agentPageShell?.setIsSidebarOpen(true)}
-          title="Configure Agent"
         >
           <IconEdit className="h-4 w-4" />
-          <span className="sr-only">Configure Agent</span>
+          Configure
         </Button>
       </div>
 
-      {/* Visitor conversations */}
+      {/* Visitor Chat History */}
       <DashboardSidebarSection
-        title="Visitor conversations"
+        title="Visitor Chat History"
         action={
           <Button
             size="sm"
@@ -236,7 +250,7 @@ export function AgentChatWithLayout({
 
   return (
     <>
-      <DashboardLayout sidebar={sidebar}>
+      <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
         {agentPageShell?.isSidebarOpen ? (
           <div className="h-full overflow-y-auto bg-background p-4">
             <AgentRightbar

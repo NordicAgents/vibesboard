@@ -11,12 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { IconClose, IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
@@ -41,7 +36,9 @@ export function AgentRightbar({
   const [copied, setCopied] = useState(false)
   const [name, setName] = useState(agent.name)
   const [instructions, setInstructions] = useState(agent.instructions)
-  const [greetingText, setGreetingText] = useState(agent.greetingText ?? 'Hi How can i help you today')
+  const [greetingText, setGreetingText] = useState(
+    agent.greetingText ?? 'Hi How can i help you today'
+  )
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
   const [saving, setSaving] = useState(false)
 
@@ -75,9 +72,6 @@ export function AgentRightbar({
     }
   }
 
-
-
-
   return (
     <aside className={className} aria-label="Agent details sidebar">
       <div className="mb-2 flex items-center justify-between">
@@ -85,17 +79,6 @@ export function AgentRightbar({
           <p className="text-xs uppercase text-muted-foreground">Agent</p>
           <h2 className="text-lg font-semibold">{agent.name}</h2>
         </div>
-        {onClose && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            aria-label="Close sidebar"
-            title="Close sidebar"
-          >
-            <IconClose className="h-4 w-4" />
-          </Button>
-        )}
       </div>
       <div className="space-y-5">
         {/* Agent card */}
@@ -118,7 +101,9 @@ export function AgentRightbar({
                 <Button
                   size="sm"
                   onClick={() => updateAgent({ name })}
-                  disabled={saving || name.trim().length === 0 || name === agent.name}
+                  disabled={
+                    saving || name.trim().length === 0 || name === agent.name
+                  }
                 >
                   Save
                 </Button>
@@ -187,10 +172,14 @@ export function AgentRightbar({
             <div className="flex justify-end">
               <Button
                 size="sm"
-                onClick={() => updateAgent({ greetingText: greetingText.trim() || null })}
+                onClick={() =>
+                  updateAgent({ greetingText: greetingText.trim() || null })
+                }
                 disabled={
                   saving ||
-                  greetingText.trim() === (agent.greetingText?.trim() ?? 'Hi How can i help you today')
+                  greetingText.trim() ===
+                    (agent.greetingText?.trim() ??
+                      'Hi How can i help you today')
                 }
               >
                 Save
@@ -201,7 +190,6 @@ export function AgentRightbar({
 
         {/* Tools & files */}
         <ToolsFilesManager agent={agent} onUpdate={() => router.refresh()} />
-
 
         {/* Share & QR */}
         <Card>
@@ -215,7 +203,11 @@ export function AgentRightbar({
                 {copied ? 'Copied' : 'Copy'}
               </Button>
               <Button size="sm" variant="ghost" asChild>
-                <Link href={share.url} target="_blank" rel="noopener noreferrer">
+                <Link
+                  href={share.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <IconExternalLink className="h-4 w-4" />
                 </Link>
               </Button>
@@ -225,7 +217,6 @@ export function AgentRightbar({
             </div>
           </CardContent>
         </Card>
-
       </div>
     </aside>
   )
