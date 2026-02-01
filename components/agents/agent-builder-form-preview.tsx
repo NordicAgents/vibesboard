@@ -6,11 +6,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX } from '@/components/ui/icons'
@@ -19,350 +19,338 @@ import { type AgentToolType } from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
 
 export interface AgentFormData {
-    name?: string
-    instructions?: string
-    greetingText?: string
-    allowAnonymous?: boolean
-    tools?: AgentToolType[]
-    fileKeys?: string[]
+  name?: string
+  instructions?: string
+  greetingText?: string
+  allowAnonymous?: boolean
+  tools?: AgentToolType[]
+  fileKeys?: string[]
 }
 
 interface AgentBuilderFormPreviewProps {
-    formData: AgentFormData
-    onFormChange: (data: AgentFormData) => void
-    onCreateAgent: () => void
-    onFileUpload?: (files: FileList | null) => void
-    isCreating?: boolean
-    isUploading?: boolean
-    userId?: string
-    className?: string
-    onClose?: () => void
+  formData: AgentFormData
+  onFormChange: (data: AgentFormData) => void
+  onCreateAgent: () => void
+  onFileUpload?: (files: FileList | null) => void
+  isCreating?: boolean
+  isUploading?: boolean
+  userId?: string
+  className?: string
+  onClose?: () => void
 }
 
 export function AgentBuilderFormPreview({
-    formData,
-    onFormChange,
-    onCreateAgent,
-    onFileUpload,
-    isCreating = false,
-    isUploading = false,
-    userId,
-    className,
-    onClose
+  formData,
+  onFormChange,
+  onCreateAgent,
+  onFileUpload,
+  isCreating = false,
+  isUploading = false,
+  userId,
+  className,
+  onClose
 }: AgentBuilderFormPreviewProps) {
-    const [animatedFields, setAnimatedFields] = useState<Set<string>>(new Set())
+  const [animatedFields, setAnimatedFields] = useState<Set<string>>(new Set())
 
-    // Animate fields when they get populated by AI
-    useEffect(() => {
-        const newFields = new Set<string>()
-        if (formData.name) newFields.add('name')
-        if (formData.instructions) newFields.add('instructions')
-        if (formData.greetingText) newFields.add('greetingText')
-        if (formData.tools?.length) newFields.add('tools')
+  // Animate fields when they get populated by AI
+  useEffect(() => {
+    const newFields = new Set<string>()
+    if (formData.name) newFields.add('name')
+    if (formData.instructions) newFields.add('instructions')
+    if (formData.greetingText) newFields.add('greetingText')
+    if (formData.tools?.length) newFields.add('tools')
 
-        setAnimatedFields(newFields)
-    }, [formData])
+    setAnimatedFields(newFields)
+  }, [formData])
 
-    const isValid =
-        formData.name &&
-        formData.name.length >= 2 &&
-        formData.instructions &&
-        formData.instructions.length >= 10 &&
-        formData.greetingText &&
-        formData.greetingText.length > 0
+  const isValid =
+    formData.name &&
+    formData.name.length >= 2 &&
+    formData.instructions &&
+    formData.instructions.length >= 10 &&
+    formData.greetingText &&
+    formData.greetingText.length > 0
 
-    const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
+  const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
 
-    return (
-        <aside
-            className={cn(
-                'flex h-full flex-col overflow-y-auto border-l border-black-10 bg-beige-bg/50 p-6 dark:bg-background/50 dark:border-border',
-                className
-            )}
+  return (
+    <aside
+      className={cn(
+        'flex h-full flex-col overflow-y-auto border-l border-black-10 bg-beige-bg/50 p-6 dark:bg-background/50 dark:border-border',
+        className
+      )}
+    >
+      <div className="mb-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <IconSparkles className="h-5 w-5 text-primary" />
+            <h2 className="font-switzer text-lg font-semibold text-black-primary dark:text-foreground">
+              Agent Builder
+            </h2>
+          </div>
+        </div>
+        <p className="mt-1 font-switzer text-sm text-gray-secondary">
+          Live preview of your agent
+        </p>
+      </div>
+
+      <div className="flex-1 space-y-4">
+        {/* Name Field */}
+        <Card
+          className={cn(
+            'transition-all duration-500',
+            animatedFields.has('name') && 'ring-2 ring-primary/20'
+          )}
         >
-            <div className="mb-6">
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <IconSparkles className="h-5 w-5 text-primary" />
-                        <h2 className="font-switzer text-lg font-semibold text-black-primary dark:text-foreground">
-                            Agent Builder
-                        </h2>
-                    </div>
-                    {onClose && (
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={onClose}
-                            aria-label="Hide preview"
-                            title="Hide preview"
-                            className="h-8 w-8 p-0"
-                        >
-                            <IconX className="h-4 w-4" />
-                        </Button>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              Name
+              {formData.name && (
+                <IconCheck className="h-4 w-4 text-green-600" />
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Input
+              value={formData.name || ''}
+              onChange={e =>
+                onFormChange({ ...formData, name: e.target.value })
+              }
+              placeholder="e.g., Support Assistant"
+              className="font-switzer"
+            />
+            {formData.name && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formData.name.length}/120 characters
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Instructions Field */}
+        <Card
+          className={cn(
+            'transition-all duration-500',
+            animatedFields.has('instructions') && 'ring-2 ring-primary/20'
+          )}
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              Instructions
+              {formData.instructions && (
+                <IconCheck className="h-4 w-4 text-green-600" />
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={formData.instructions || ''}
+              onChange={e =>
+                onFormChange({ ...formData, instructions: e.target.value })
+              }
+              placeholder="Describe how the agent should behave..."
+              rows={6}
+              className="font-switzer"
+            />
+            {formData.instructions && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formData.instructions.length} characters
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Greeting Text Field */}
+        <Card
+          className={cn(
+            'transition-all duration-500',
+            animatedFields.has('greetingText') && 'ring-2 ring-primary/20'
+          )}
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              Greeting Message
+              {formData.greetingText && (
+                <IconCheck className="h-4 w-4 text-green-600" />
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Input
+              value={formData.greetingText || ''}
+              onChange={e =>
+                onFormChange({ ...formData, greetingText: e.target.value })
+              }
+              placeholder="e.g., Hi! How can I help you today?"
+              className="font-switzer"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Tools Selection */}
+        <Card
+          className={cn(
+            'transition-all duration-500',
+            animatedFields.has('tools') && 'ring-2 ring-primary/20'
+          )}
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Tools</CardTitle>
+            <CardDescription className="text-xs">
+              AI-suggested tools for your agent
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {toolOptions.map(tool => {
+                const isSelected = formData.tools?.includes(
+                  tool.id as AgentToolType
+                )
+                return (
+                  <Badge
+                    key={tool.id}
+                    variant={isSelected ? 'default' : 'secondary'}
+                    className={cn(
+                      'cursor-pointer transition-all',
+                      isSelected && 'bg-primary text-primary-foreground'
                     )}
-                </div>
-                <p className="mt-1 font-switzer text-sm text-gray-secondary">
-                    Live preview of your agent
+                    onClick={() => {
+                      const currentTools = formData.tools || []
+                      const newTools = isSelected
+                        ? currentTools.filter(t => t !== tool.id)
+                        : [...currentTools, tool.id as AgentToolType]
+                      onFormChange({ ...formData, tools: newTools })
+                    }}
+                  >
+                    {tool.name}
+                  </Badge>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Allow Anonymous */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
+                  Allow anonymous chat
                 </p>
+                <p className="font-switzer text-xs text-gray-secondary">
+                  Users can chat without signing in
+                </p>
+              </div>
+              <Switch
+                checked={formData.allowAnonymous ?? true}
+                onCheckedChange={value =>
+                  onFormChange({ ...formData, allowAnonymous: value })
+                }
+              />
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex-1 space-y-4">
-                {/* Name Field */}
-                <Card
-                    className={cn(
-                        'transition-all duration-500',
-                        animatedFields.has('name') && 'ring-2 ring-primary/20'
-                    )}
-                >
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                            Name
-                            {formData.name && (
-                                <IconCheck className="h-4 w-4 text-green-600" />
-                            )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Input
-                            value={formData.name || ''}
-                            onChange={e =>
-                                onFormChange({ ...formData, name: e.target.value })
-                            }
-                            placeholder="e.g., Support Assistant"
-                            className="font-switzer"
-                        />
-                        {formData.name && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {formData.name.length}/120 characters
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+        {/* Files */}
+        {formData.fileKeys && formData.fileKeys.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">
+                Uploaded Files
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {formData.fileKeys.map(key => (
+                  <li key={key} className="truncate">
+                    📄 {key.split('/').pop()}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
 
-                {/* Instructions Field */}
-                <Card
-                    className={cn(
-                        'transition-all duration-500',
-                        animatedFields.has('instructions') && 'ring-2 ring-primary/20'
-                    )}
-                >
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                            Instructions
-                            {formData.instructions && (
-                                <IconCheck className="h-4 w-4 text-green-600" />
-                            )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Textarea
-                            value={formData.instructions || ''}
-                            onChange={e =>
-                                onFormChange({ ...formData, instructions: e.target.value })
-                            }
-                            placeholder="Describe how the agent should behave..."
-                            rows={6}
-                            className="font-switzer"
-                        />
-                        {formData.instructions && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {formData.instructions.length} characters
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+        {/* File Upload */}
+        {onFileUpload && userId && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Add Files</CardTitle>
+              <CardDescription className="text-xs">
+                Upload documents to ground your agent's knowledge
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  document.getElementById('form-file-upload')?.click()
+                }
+                disabled={isUploading}
+                className="w-full"
+              >
+                {isUploading ? 'Uploading...' : 'Choose Files'}
+              </Button>
+              <input
+                id="form-file-upload"
+                type="file"
+                multiple
+                className="hidden"
+                onChange={e => onFileUpload(e.target.files)}
+              />
+              {/* Create Agent Button */}
+              <Button
+                onClick={onCreateAgent}
+                disabled={!isValid || isCreating}
+                className="w-full rounded-full font-switzer"
+                size="lg"
+              >
+                {isCreating ? 'Creating Agent...' : 'Create Agent'}
+              </Button>
+              {!isValid && (
+                <p className="text-center text-xs text-muted-foreground">
+                  {!formData.name
+                    ? 'Name is required'
+                    : !formData.instructions
+                      ? 'Instructions are required'
+                      : !formData.greetingText
+                        ? 'Greeting message is required'
+                        : 'Complete all required fields'}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                {/* Greeting Text Field */}
-                <Card
-                    className={cn(
-                        'transition-all duration-500',
-                        animatedFields.has('greetingText') && 'ring-2 ring-primary/20'
-                    )}
-                >
-                    <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                            Greeting Message
-                            {formData.greetingText && (
-                                <IconCheck className="h-4 w-4 text-green-600" />
-                            )}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Input
-                            value={formData.greetingText || ''}
-                            onChange={e =>
-                                onFormChange({ ...formData, greetingText: e.target.value })
-                            }
-                            placeholder="e.g., Hi! How can I help you today?"
-                            className="font-switzer"
-                        />
-                    </CardContent>
-                </Card>
-
-                {/* Tools Selection */}
-                <Card
-                    className={cn(
-                        'transition-all duration-500',
-                        animatedFields.has('tools') && 'ring-2 ring-primary/20'
-                    )}
-                >
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">Tools</CardTitle>
-                        <CardDescription className="text-xs">
-                            AI-suggested tools for your agent
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                            {toolOptions.map(tool => {
-                                const isSelected = formData.tools?.includes(
-                                    tool.id as AgentToolType
-                                )
-                                return (
-                                    <Badge
-                                        key={tool.id}
-                                        variant={isSelected ? 'default' : 'secondary'}
-                                        className={cn(
-                                            'cursor-pointer transition-all',
-                                            isSelected && 'bg-primary text-primary-foreground'
-                                        )}
-                                        onClick={() => {
-                                            const currentTools = formData.tools || []
-                                            const newTools = isSelected
-                                                ? currentTools.filter(t => t !== tool.id)
-                                                : [...currentTools, tool.id as AgentToolType]
-                                            onFormChange({ ...formData, tools: newTools })
-                                        }}
-                                    >
-                                        {tool.name}
-                                    </Badge>
-                                )
-                            })}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Allow Anonymous */}
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
-                                    Allow anonymous chat
-                                </p>
-                                <p className="font-switzer text-xs text-gray-secondary">
-                                    Users can chat without signing in
-                                </p>
-                            </div>
-                            <Switch
-                                checked={formData.allowAnonymous ?? true}
-                                onCheckedChange={value =>
-                                    onFormChange({ ...formData, allowAnonymous: value })
-                                }
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Files */}
-                {formData.fileKeys && formData.fileKeys.length > 0 && (
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-medium">
-                                Uploaded Files
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <ul className="space-y-1 text-xs text-muted-foreground">
-                                {formData.fileKeys.map(key => (
-                                    <li key={key} className="truncate">
-                                        📄 {key.split('/').pop()}
-                                    </li>
-                                ))}
-                            </ul>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* File Upload */}
-                {onFileUpload && userId && (
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-medium">
-                                Add Files
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                                Upload documents to ground your agent's knowledge
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => document.getElementById('form-file-upload')?.click()}
-                                disabled={isUploading}
-                                className="w-full"
-                            >
-                                {isUploading ? 'Uploading...' : 'Choose Files'}
-                            </Button>
-                            <input
-                                id="form-file-upload"
-                                type="file"
-                                multiple
-                                className="hidden"
-                                onChange={e => onFileUpload(e.target.files)}
-                            />
-                            {/* Create Agent Button */}
-                            <Button
-                                onClick={onCreateAgent}
-                                disabled={!isValid || isCreating}
-                                className="w-full rounded-full font-switzer"
-                                size="lg"
-                            >
-                                {isCreating ? 'Creating Agent...' : 'Create Agent'}
-                            </Button>
-                            {!isValid && (
-                                <p className="text-center text-xs text-muted-foreground">
-                                    {!formData.name
-                                        ? 'Name is required'
-                                        : !formData.instructions
-                                            ? 'Instructions are required'
-                                            : !formData.greetingText
-                                                ? 'Greeting message is required'
-                                                : 'Complete all required fields'}
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Create Agent Button - shown when file upload is not available */}
-                {(!onFileUpload || !userId) && (
-                    <Card>
-                        <CardContent className="pt-6">
-                            <Button
-                                onClick={onCreateAgent}
-                                disabled={!isValid || isCreating}
-                                className="w-full rounded-full font-switzer"
-                                size="lg"
-                            >
-                                {isCreating ? 'Creating Agent...' : 'Create Agent'}
-                            </Button>
-                            {!isValid && (
-                                <p className="mt-2 text-center text-xs text-muted-foreground">
-                                    {!formData.name
-                                        ? 'Name is required'
-                                        : !formData.instructions
-                                            ? 'Instructions are required'
-                                            : !formData.greetingText
-                                                ? 'Greeting message is required'
-                                                : 'Complete all required fields'}
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
-        </aside>
-    )
+        {/* Create Agent Button - shown when file upload is not available */}
+        {(!onFileUpload || !userId) && (
+          <Card>
+            <CardContent className="pt-6">
+              <Button
+                onClick={onCreateAgent}
+                disabled={!isValid || isCreating}
+                className="w-full rounded-full font-switzer"
+                size="lg"
+              >
+                {isCreating ? 'Creating Agent...' : 'Create Agent'}
+              </Button>
+              {!isValid && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  {!formData.name
+                    ? 'Name is required'
+                    : !formData.instructions
+                      ? 'Instructions are required'
+                      : !formData.greetingText
+                        ? 'Greeting message is required'
+                        : 'Complete all required fields'}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </aside>
+  )
 }
