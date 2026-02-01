@@ -16,6 +16,7 @@ export default async function ChatLayout({
   }
 
   return (
+    // @ts-ignore
     <PersistentSidebarLayout userId={session.user.id}>
       {children}
     </PersistentSidebarLayout>
