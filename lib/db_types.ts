@@ -305,6 +305,7 @@ type PublicSchema = GenericSchema & {
         role: 'TENANT_ADMIN' | 'MEMBER'
         status: 'pending' | 'accepted' | 'expired'
         expires_at: string
+        accepted_at: string | null
         created_by: string
         created_at: string
       }
@@ -316,6 +317,7 @@ type PublicSchema = GenericSchema & {
         role: 'TENANT_ADMIN' | 'MEMBER'
         status?: 'pending' | 'accepted' | 'expired'
         expires_at: string
+        accepted_at?: string | null
         created_by: string
         created_at?: string
       }
@@ -327,6 +329,7 @@ type PublicSchema = GenericSchema & {
         role?: 'TENANT_ADMIN' | 'MEMBER'
         status?: 'pending' | 'accepted' | 'expired'
         expires_at?: string
+        accepted_at?: string | null
         created_by?: string
         created_at?: string
       }
