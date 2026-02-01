@@ -59,7 +59,7 @@ const extractStructuredSections = (value: string) => {
 
 const ChatMarkdown = ({ children }: { children: string }) => (
   <MemoizedReactMarkdown
-    className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0"
+    className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 prose-sm"
     remarkPlugins={[remarkGfm, remarkMath]}
     components={{
       p({ children }) {

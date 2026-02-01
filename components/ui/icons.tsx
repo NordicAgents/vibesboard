@@ -590,5 +590,35 @@ export {
   IconUpload,
   IconX,
   IconSparkles,
-  IconLink
+  IconLink,
+  IconMicrophone,
+  IconImage
+}
+
+function IconMicrophone({ className, ...props }: React.ComponentProps<'svg'>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      className={cn('h-4 w-4', className)}
+      {...props}
+    >
+      <path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z" />
+    </svg>
+  )
+}
+
+function IconImage({ className, ...props }: React.ComponentProps<'svg'>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      className={cn('h-4 w-4', className)}
+      {...props}
+    >
+      <path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM80,96a12,12,0,1,1,12,12A12,12,0,0,1,80,96Zm124.69,82.63a8,8,0,0,1-11.38,1.74l-49.65-33.1L108,172.94a8,8,0,0,1-10,0L66.69,149.63a8,8,0,0,1,11.38-1.74l26,19.49L139,138.06a8,8,0,0,1,8.93,0l55.06,36.71A8,8,0,0,1,204.69,178.63Z" />
+    </svg>
+  )
 }
