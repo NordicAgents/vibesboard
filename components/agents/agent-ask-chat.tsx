@@ -241,7 +241,7 @@ export function AgentAskChat({
               <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
                 ASK AI
               </p>
-              <p className="mt-1 font-switzer text-sm text-gray-secondary">
+              <p className="mt-1 hidden font-switzer text-sm text-gray-secondary sm:block">
                 Analyze visitor conversations
               </p>
             </div>
@@ -264,7 +264,7 @@ export function AgentAskChat({
                 <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
                   ASK AI
                 </h1>
-                <p className="font-switzer text-lg text-gray-secondary">
+                <p className="hidden font-switzer text-lg text-gray-secondary sm:block">
                   Analyze visitor conversations
                 </p>
               </div>

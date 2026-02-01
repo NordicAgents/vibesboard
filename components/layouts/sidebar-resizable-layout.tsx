@@ -4,7 +4,12 @@ import * as React from 'react'
 
 import { useSidebar } from '@/components/sidebar-context'
 import { Button } from '@/components/ui/button'
-import { IconSidebar, IconPlus, IconMenu } from '@/components/ui/icons'
+import {
+  IconSidebar,
+  IconPlus,
+  IconMenu,
+  IconChevronUpDown
+} from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -16,11 +21,47 @@ import Link from 'next/link'
 import { UserMenu } from '@/components/user-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { useState } from 'react'
 
 interface SidebarResizableLayoutProps {
   children: React.ReactNode
   sidebar: React.ReactNode
   user?: any // Pass user prop to render UserMenu in the layout if needed
+}
+
+// Helper component to render DashboardLayout.sidebar from children if it exists
+// This is a bit of a hack to extract the sidebar from the children tree for mobile view
+// In a cleaner implementation, we might pass the secondary sidebar explicitly to this layout
+const MobileSecondarySidebar = ({
+  children
+}: {
+  children: React.ReactNode
+}) => {
+  // Use React.Children.map to find DashboardLayout
+  let sidebarContent: React.ReactNode = null
+
+  // This is a simplified check. In a real app, you might need recursive search or context.
+  // For now, we assume DashboardLayout is a direct child or close to it.
+  React.Children.forEach(children, child => {
+    if (React.isValidElement(child)) {
+      // @ts-ignore - checking for props.sidebar
+      if (child.props && child.props.sidebar) {
+        // @ts-ignore
+        sidebarContent = child.props.sidebar
+      }
+    }
+  })
+
+  return sidebarContent ? (
+    <div className="mt-4 border-t pt-4">{sidebarContent}</div>
+  ) : null
 }
 
 export function SidebarResizableLayout({
@@ -29,6 +70,24 @@ export function SidebarResizableLayout({
   user
 }: SidebarResizableLayoutProps) {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileView, setMobileView] = useState<'agents' | 'current-agent'>(
+    'agents'
+  )
+
+  // Extract secondary sidebar (DashboardSidebar) from children if present
+  // This is needed because DashboardLayout hides it on mobile (lg:block)
+  // We want to show it in the mobile menu
+  let secondarySidebar: React.ReactNode = null
+  React.Children.forEach(children, child => {
+    if (React.isValidElement(child)) {
+      // @ts-ignore
+      if (child.props && child.props.sidebar) {
+        // @ts-ignore
+        secondarySidebar = child.props.sidebar
+      }
+    }
+  })
 
   return (
     <div className="flex flex-1 overflow-hidden h-full">
@@ -154,7 +213,7 @@ export function SidebarResizableLayout({
 
             {/* Mobile Menu Trigger - Visible only on mobile */}
             <div className="lg:hidden">
-              <Sheet>
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-9 w-9">
                     <IconMenu className="h-5 w-5" />
@@ -167,24 +226,69 @@ export function SidebarResizableLayout({
                       <Link
                         href="/"
                         className="font-switzer text-xl font-bold tracking-tight text-black-primary dark:text-white"
+                        onClick={() => setMobileMenuOpen(false)}
                       >
                         vibesboard
                       </Link>
                     </div>
-                    <div className="px-3 py-2">
-                      <Button
-                        asChild
-                        variant="outline"
-                        className="w-full justify-start h-10 px-4 shadow-none border-black-10 hover:bg-black-5 dark:border-white-10 dark:hover:bg-white-5"
-                      >
-                        <Link href="/agents/create-chat">
-                          <IconPlus className="mr-2 h-4 w-4" />
-                          <span>New Agent</span>
-                        </Link>
-                      </Button>
-                    </div>
+
+                    {/* View Switcher (Only if secondary sidebar exists) */}
+                    {secondarySidebar && (
+                      <div className="px-3 py-2">
+                        <div className="flex rounded-lg bg-muted p-1">
+                          <button
+                            onClick={() => setMobileView('agents')}
+                            className={cn(
+                              'flex-1 rounded-md py-1 text-sm font-medium transition-colors',
+                              mobileView === 'agents'
+                                ? 'bg-background shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:bg-background/50'
+                            )}
+                          >
+                            Agents
+                          </button>
+                          <button
+                            onClick={() => setMobileView('current-agent')}
+                            className={cn(
+                              'flex-1 rounded-md py-1 text-sm font-medium transition-colors',
+                              mobileView === 'current-agent'
+                                ? 'bg-background shadow-sm text-foreground'
+                                : 'text-muted-foreground hover:bg-background/50'
+                            )}
+                          >
+                            Current Agent
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex-1 overflow-hidden flex flex-col">
-                      {sidebar}
+                      {/* Show Agents List */}
+                      {(!secondarySidebar || mobileView === 'agents') && (
+                        <>
+                          <div className="px-3 py-2">
+                            <Button
+                              asChild
+                              variant="outline"
+                              className="w-full justify-start h-10 px-4 shadow-none border-black-10 hover:bg-black-5 dark:border-white-10 dark:hover:bg-white-5"
+                            >
+                              <Link
+                                href="/agents/create-chat"
+                                onClick={() => setMobileMenuOpen(false)}
+                              >
+                                <IconPlus className="mr-2 h-4 w-4" />
+                                <span>New Agent</span>
+                              </Link>
+                            </Button>
+                          </div>
+                          {sidebar}
+                        </>
+                      )}
+
+                      {/* Show Current Agent Menu (Secondary Sidebar) */}
+                      {secondarySidebar && mobileView === 'current-agent' && (
+                        <div className="p-3">{secondarySidebar}</div>
+                      )}
                     </div>
                   </div>
                 </SheetContent>
