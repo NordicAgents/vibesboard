@@ -256,8 +256,8 @@ export function AgentCreatorChat({
       )}
     >
       {/* Left Side: Chat Interface (70%) */}
-      <div className="flex flex-1 flex-col">
-        <div className="relative flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="relative flex flex-1 flex-col min-h-0">
           {messages.length > 0 ? (
             <>
               {/* Simple header when messages exist */}
@@ -299,7 +299,7 @@ export function AgentCreatorChat({
                   </div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto pt-4 pb-48">
+              <div className="flex-1 overflow-y-auto pt-4 pb-4">
                 <ChatList
                   messages={messages.map(msg => ({
                     ...msg,
@@ -405,9 +405,9 @@ export function AgentCreatorChat({
           )}
         </div>
 
-        {/* Chat Input - Sticky at bottom when messages exist */}
+        {/* Chat Input - Fixed at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="sticky bottom-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border z-10">
+          <div className="shrink-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border">
             <div className="mx-auto max-w-4xl">
               <div className="flex h-10 items-center justify-center">
                 {isLoading ? (
