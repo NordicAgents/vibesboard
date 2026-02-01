@@ -58,22 +58,25 @@ export async function PATCH(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const updates: Partial<Database['public']['Tables']['vibe_agents']['Update']> =
-    {
-      ...(payload.name ? { name: payload.name } : {}),
-      ...(payload.instructions ? { instructions: payload.instructions } : {}),
-      ...(payload.fileKeys !== undefined
-        ? { file_keys: payload.fileKeys }
-        : {}),
-      ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
-      ...(typeof payload.allowAnonymous === 'boolean'
-        ? { allow_anonymous: payload.allowAnonymous }
-        : {}),
-      ...(payload.greetingText !== undefined
-        ? { greeting_text: payload.greetingText }
-        : {}),
-      updated_at: new Date().toISOString()
-    }
+  const updates: Partial<
+    Database['public']['Tables']['vibe_agents']['Update']
+  > = {
+    ...(payload.name ? { name: payload.name } : {}),
+    ...(payload.instructions ? { instructions: payload.instructions } : {}),
+    ...(payload.fileKeys !== undefined ? { file_keys: payload.fileKeys } : {}),
+    ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
+    ...(typeof payload.allowAnonymous === 'boolean'
+      ? { allow_anonymous: payload.allowAnonymous }
+      : {}),
+    ...(payload.greetingText !== undefined
+      ? { greeting_text: payload.greetingText }
+      : {}),
+    ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
+    ...(payload.maxMessages !== undefined
+      ? { max_messages: payload.maxMessages }
+      : {}),
+    updated_at: new Date().toISOString()
+  }
 
   const { data, error } = await supabase
     .from('vibe_agents')

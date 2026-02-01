@@ -103,21 +103,28 @@ export async function POST(req: Request) {
 
   const slug = await ensureUniqueSlug(createAgentSlug(payload.name), supabase)
 
+  // Build insert payload - mode/max_messages are optional until migration is applied
+  const insertPayload = {
+    user_id: session.user.id,
+    tenant_id: tenantId,
+    name: payload.name,
+    instructions: payload.instructions,
+    file_keys: payload.fileKeys,
+    tools: payload.tools,
+    allow_anonymous: payload.allowAnonymous,
+    agent_url: slug,
+    ...(payload.greetingText !== undefined && {
+      greeting_text: payload.greetingText
+    }),
+    ...(payload.mode !== undefined && { mode: payload.mode }),
+    ...(payload.maxMessages !== undefined && {
+      max_messages: payload.maxMessages
+    })
+  }
+
   const { data, error } = await supabase
     .from('vibe_agents')
-    .insert({
-      user_id: session.user.id,
-      tenant_id: tenantId,
-      name: payload.name,
-      instructions: payload.instructions,
-      file_keys: payload.fileKeys,
-      tools: payload.tools,
-      allow_anonymous: payload.allowAnonymous,
-      agent_url: slug,
-      ...(payload.greetingText !== undefined
-        ? { greeting_text: payload.greetingText }
-        : {})
-    })
+    .insert(insertPayload)
     .select('*')
     .single()
 

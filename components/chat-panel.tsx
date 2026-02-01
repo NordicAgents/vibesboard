@@ -1,23 +1,22 @@
 import { type UseChatHelpers } from 'ai/react'
 
+import { type AgentMode } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { PromptForm } from '@/components/prompt-form'
 import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom'
 import { IconRefresh, IconStop } from '@/components/ui/icons'
+import { ChatCompletionBanner } from '@/components/chat-completion'
 // Footer has been removed for a cleaner UI
 
-export interface ChatPanelProps
-  extends Pick<
-    UseChatHelpers,
-    | 'append'
-    | 'isLoading'
-    | 'reload'
-    | 'messages'
-    | 'stop'
-    | 'input'
-    | 'setInput'
-  > {
+export interface ChatPanelProps extends Pick<
+  UseChatHelpers,
+  'append' | 'isLoading' | 'reload' | 'messages' | 'stop' | 'input' | 'setInput'
+> {
   id?: string
+  isChatComplete?: boolean
+  agentMode?: AgentMode
+  agentName?: string
+  onChatComplete?: () => void
 }
 
 export function ChatPanel({
@@ -28,8 +27,28 @@ export function ChatPanel({
   reload,
   input,
   setInput,
-  messages
+  messages,
+  isChatComplete,
+  agentMode = 'provider',
+  agentName,
+  onChatComplete
 }: ChatPanelProps) {
+  // If chat is complete, show completion UI instead of input
+  if (isChatComplete && !isLoading) {
+    return (
+      <div className="fixed inset-x-0 bottom-0">
+        <div className="mx-auto sm:max-w-2xl sm:px-4">
+          <div className="space-y-4 px-4 py-4">
+            <ChatCompletionBanner
+              mode={agentMode}
+              onComplete={onChatComplete ?? (() => {})}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-x-0 bottom-0">
       <ButtonScrollToBottom />

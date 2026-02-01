@@ -6,16 +6,19 @@ import { useState } from 'react'
 import {
   type AgentSharePayload,
   type VibeAgent,
-  type VibeAgentConversation
+  type VibeAgentConversation,
+  type AgentMode
 } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
+import { cn } from '@/lib/utils'
 
 interface AgentRightbarProps {
   agent: VibeAgent
@@ -42,6 +45,10 @@ export function AgentRightbar({
     agent.greetingText ?? 'Hi How can i help you today'
   )
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
+  const [mode, setMode] = useState<AgentMode>(agent.mode || 'provider')
+  const [maxMessages, setMaxMessages] = useState<number | null>(
+    agent.maxMessages ?? null
+  )
   const [saving, setSaving] = useState(false)
 
   const handleCopy = async () => {
@@ -60,7 +67,9 @@ export function AgentRightbar({
       name,
       instructions,
       greetingText: greetingText.trim() || null,
-      allowAnonymous
+      allowAnonymous,
+      mode,
+      maxMessages
     }
 
     try {
@@ -86,7 +95,9 @@ export function AgentRightbar({
     instructions !== agent.instructions ||
     greetingText.trim() !==
       (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
-    allowAnonymous !== agent.allowAnonymous
+    allowAnonymous !== agent.allowAnonymous ||
+    mode !== (agent.mode || 'provider') ||
+    maxMessages !== (agent.maxMessages ?? null)
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -160,6 +171,66 @@ export function AgentRightbar({
               placeholder="Initial greeting message"
               disabled={saving}
             />
+          </CardContent>
+        </Card>
+
+        {/* Agent Mode */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Agent Mode</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Badge
+                variant={mode !== 'collector' ? 'default' : 'secondary'}
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  mode !== 'collector' && 'bg-primary text-primary-foreground'
+                )}
+                onClick={() => {
+                  setMode('provider')
+                  setMaxMessages(null)
+                }}
+              >
+                Info Provider
+              </Badge>
+              <Badge
+                variant={mode === 'collector' ? 'default' : 'secondary'}
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  mode === 'collector' && 'bg-primary text-primary-foreground'
+                )}
+                onClick={() => {
+                  setMode('collector')
+                  setMaxMessages(5)
+                }}
+              >
+                Info Collector
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {mode === 'collector'
+                ? 'Agent will gather information from users'
+                : 'Agent will provide information to users'}
+            </p>
+            {mode === 'collector' && (
+              <div className="pt-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Max messages before completion
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={maxMessages ?? 5}
+                  onChange={e =>
+                    setMaxMessages(parseInt(e.target.value, 10) || 5)
+                  }
+                  className="mt-1"
+                  disabled={saving}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 

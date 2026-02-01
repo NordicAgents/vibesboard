@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
-import { type AgentToolType } from '@/lib/types'
+import { type AgentToolType, type AgentMode } from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
 
 export interface AgentFormData {
@@ -25,6 +25,8 @@ export interface AgentFormData {
   allowAnonymous?: boolean
   tools?: AgentToolType[]
   fileKeys?: string[]
+  mode?: AgentMode
+  maxMessages?: number | null
 }
 
 interface AgentBuilderFormPreviewProps {
@@ -59,6 +61,7 @@ export function AgentBuilderFormPreview({
     if (formData.instructions) newFields.add('instructions')
     if (formData.greetingText) newFields.add('greetingText')
     if (formData.tools?.length) newFields.add('tools')
+    if (formData.mode) newFields.add('mode')
 
     setAnimatedFields(newFields)
   }, [formData])
@@ -227,6 +230,88 @@ export function AgentBuilderFormPreview({
                 )
               })}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Agent Mode Selection */}
+        <Card
+          className={cn(
+            'transition-all duration-500',
+            animatedFields.has('mode') && 'ring-2 ring-primary/20'
+          )}
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Agent Mode</CardTitle>
+            <CardDescription className="text-xs">
+              Choose how your agent interacts with users
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Badge
+                variant={
+                  formData.mode !== 'collector' ? 'default' : 'secondary'
+                }
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  formData.mode !== 'collector' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() =>
+                  onFormChange({
+                    ...formData,
+                    mode: 'provider',
+                    maxMessages: null
+                  })
+                }
+              >
+                Info Provider
+              </Badge>
+              <Badge
+                variant={
+                  formData.mode === 'collector' ? 'default' : 'secondary'
+                }
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  formData.mode === 'collector' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() =>
+                  onFormChange({
+                    ...formData,
+                    mode: 'collector',
+                    maxMessages: 5
+                  })
+                }
+              >
+                Info Collector
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formData.mode === 'collector'
+                ? 'Agent will gather information from users (e.g., surveys, feedback)'
+                : 'Agent will answer questions and provide information to users'}
+            </p>
+            {formData.mode === 'collector' && (
+              <div className="pt-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Max messages before completion
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={formData.maxMessages ?? 5}
+                  onChange={e =>
+                    onFormChange({
+                      ...formData,
+                      maxMessages: parseInt(e.target.value, 10) || 5
+                    })
+                  }
+                  className="mt-1 font-switzer"
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
