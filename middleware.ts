@@ -52,6 +52,8 @@ export async function middleware(req: NextRequest) {
     !pathname.includes('/sign-in') &&
     !pathname.includes('/sign-up') &&
     !pathname.includes('/landing') &&
+    !pathname.includes('/privacy-policy') &&
+    !pathname.includes('/terms-of-service') &&
     pathname !== '/'
 
   if (!session && isProtectedRoute) {
