@@ -85,16 +85,6 @@ export function AgentPageShell({
               onClose={() => setIsSidebarOpen(false)}
             />
           </div>
-          {!isSidebarOpen && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="fixed right-4 top-[calc(4rem+1rem)] shadow-md"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              Configure Agent
-            </Button>
-          )}
         </div>
       </div>
     </AgentPageShellProvider>
