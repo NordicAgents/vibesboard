@@ -18,6 +18,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { UserMenu } from '@/components/user-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -28,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface SidebarResizableLayoutProps {
   children: React.ReactNode
@@ -75,6 +76,54 @@ export function SidebarResizableLayout({
     'agents'
   )
 
+  // Route-aware auto-collapse for agent creator page
+  const pathname = usePathname()
+  const prevPathnameRef = useRef(pathname)
+  const isSidebarOpenRef = useRef(isSidebarOpen)
+  const autoCollapseStateRef = useRef<{
+    shouldRestore: boolean
+    manuallyChanged: boolean
+  } | null>(null)
+
+  // Keep ref in sync with current state
+  isSidebarOpenRef.current = isSidebarOpen
+
+  // Auto-collapse sidebar when entering create page, restore when leaving
+  useEffect(() => {
+    const wasCreatePage = prevPathnameRef.current === '/agents/create-chat'
+    const isNowCreatePage = pathname === '/agents/create-chat'
+
+    if (!wasCreatePage && isNowCreatePage) {
+      // Entering create page - auto-collapse if sidebar is open
+      if (isSidebarOpenRef.current) {
+        autoCollapseStateRef.current = {
+          shouldRestore: true,
+          manuallyChanged: false
+        }
+        setIsSidebarOpen(false)
+      }
+    } else if (wasCreatePage && !isNowCreatePage) {
+      // Leaving create page - restore if user didn't manually toggle
+      if (
+        autoCollapseStateRef.current?.shouldRestore &&
+        !autoCollapseStateRef.current?.manuallyChanged
+      ) {
+        setIsSidebarOpen(true)
+      }
+      autoCollapseStateRef.current = null
+    }
+
+    prevPathnameRef.current = pathname
+  }, [pathname, setIsSidebarOpen])
+
+  // Manual toggle handler that tracks user interactions
+  const handleManualToggle = (open: boolean) => {
+    if (autoCollapseStateRef.current) {
+      autoCollapseStateRef.current.manuallyChanged = true
+    }
+    setIsSidebarOpen(open)
+  }
+
   // Extract secondary sidebar (DashboardSidebar) from children if present
   // This is needed because DashboardLayout hides it on mobile (lg:block)
   // We want to show it in the mobile menu
@@ -117,7 +166,7 @@ export function SidebarResizableLayout({
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9"
-                        onClick={() => setIsSidebarOpen(true)}
+                        onClick={() => handleManualToggle(true)}
                       >
                         <IconSidebar className="h-5 w-5" />
                         <span className="sr-only">Open Sidebar</span>
@@ -164,7 +213,7 @@ export function SidebarResizableLayout({
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9"
-                        onClick={() => setIsSidebarOpen(false)}
+                        onClick={() => handleManualToggle(false)}
                       >
                         <IconSidebar className="h-5 w-5" />
                         <span className="sr-only">Close Sidebar</span>
