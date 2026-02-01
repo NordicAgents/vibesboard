@@ -97,10 +97,7 @@ export async function POST(
 Use only the supplied conversation snippets; do not invent details that are not present.
 If the snippets are insufficient, say what is missing and suggest syncing embeddings.
 
-Output format (Markdown, no preamble; exactly these headings, in this order):
-## Overview
-## Analysis
-## Improvements
+Answer the user's question directly and concisely based on the visitor conversations.
 
 Rules:
 - Do NOT mention internal IDs (UUIDs, message IDs, conversation IDs, "cid", database identifiers).
