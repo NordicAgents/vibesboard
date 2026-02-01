@@ -2,19 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Bot, Loader2 } from 'lucide-react'
+import { Plus, Bot, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
-  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle
 } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Badge } from '@/components/ui/badge'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -27,11 +24,20 @@ interface Agent {
   tenant_id: string | null
 }
 
+interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
 export default function AgentsPage() {
   const router = useRouter()
   const [agents, setAgents] = useState<Agent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [tenantId, setTenantId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState<Pagination | null>(null)
 
   useEffect(() => {
     fetchActiveTenant()
@@ -39,9 +45,9 @@ export default function AgentsPage() {
 
   useEffect(() => {
     if (tenantId) {
-      fetchAgents()
+      fetchAgents(page)
     }
-  }, [tenantId])
+  }, [tenantId, page])
 
   const fetchActiveTenant = async () => {
     try {
@@ -50,7 +56,6 @@ export default function AgentsPage() {
         const data = await response.json()
         setTenantId(data.tenant_id)
       } else {
-        // Fallback or handle no tenant
         setTenantId(null)
         setIsLoading(false)
       }
@@ -60,16 +65,20 @@ export default function AgentsPage() {
     }
   }
 
-  const fetchAgents = async () => {
+  const fetchAgents = async (currentPage: number) => {
     if (!tenantId) return
 
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/agents?tenant_id=${tenantId}`)
+      const limit = 9
+      const response = await fetch(
+        `/api/agents?tenant_id=${tenantId}&page=${currentPage}&limit=${limit}`
+      )
 
       if (response.ok) {
         const data = await response.json()
         setAgents(data.agents || [])
+        setPagination(data.pagination)
       } else {
         toast.error('Failed to load agents')
       }
@@ -81,9 +90,19 @@ export default function AgentsPage() {
     }
   }
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && (!pagination || newPage <= pagination.totalPages)) {
+      setPage(newPage)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
   return (
     <div className="container py-8 space-y-8">
-      <PageHeader title="Agents" description="Manage your AI agents">
+      <PageHeader
+        title="vibesboard"
+        description="Build Agents for Vibing with People"
+      >
         <Button asChild>
           <Link href="/agents/new">
             <Plus className="mr-2 h-4 w-4" />
@@ -116,24 +135,54 @@ export default function AgentsPage() {
           }
         />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map(agent => (
-            <Link key={agent.id} href={`/agents/${agent.id}`}>
-              <Card className="flex flex-col hover:bg-muted/50 transition-colors h-[200px]">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="line-clamp-1">{agent.name}</CardTitle>
-                    <Bot className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <CardDescription className="line-clamp-3">
-                    {agent.instructions || 'No instructions provided'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1"></CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {agents.map(agent => (
+              <Link key={agent.id} href={`/agents/${agent.id}`}>
+                <Card className="flex flex-col hover:bg-muted/50 transition-colors h-[200px]">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="line-clamp-1">
+                        {agent.name}
+                      </CardTitle>
+                      <Bot className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <CardDescription className="line-clamp-3">
+                      {agent.instructions || 'No instructions provided'}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="flex items-center justify-center space-x-2 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <div className="text-sm font-medium">
+                Page {page} of {pagination.totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page === pagination.totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
