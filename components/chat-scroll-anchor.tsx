@@ -19,9 +19,10 @@ export function ChatScrollAnchor({ trackVisibility }: ChatScrollAnchorProps) {
 
   React.useEffect(() => {
     if (isAtBottom && trackVisibility && !inView) {
-      entry?.target.scrollIntoView({
-        block: 'start'
-      })
+      // Auto-scrolling is disabled to keep the view anchored near the user's question
+      // entry?.target.scrollIntoView({
+      //   block: 'start'
+      // })
     }
   }, [inView, entry, isAtBottom, trackVisibility])
 
