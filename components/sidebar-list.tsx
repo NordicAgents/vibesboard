@@ -36,7 +36,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
             title="Create agent"
             asChild
           >
-            <Link href="/">
+            <Link href="/agents/create-chat">
               <IconPlus className="h-4 w-4" />
             </Link>
           </Button>
