@@ -100,7 +100,10 @@ export async function POST(req: Request, { params }: RouteParams) {
     // Mark invitation as accepted
     const { error: updateError } = await supabase
         .from('invitations')
-        .update({ status: 'accepted' })
+        .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString()
+        })
         .eq('id', invitation.id)
 
     if (updateError) {

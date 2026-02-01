@@ -52,6 +52,7 @@ interface PendingInvitation {
     id: string
     email: string
     role: Role
+    status: 'pending' | 'accepted' | 'expired'
     created_at: string
     expires_at: string
 }
@@ -142,7 +143,11 @@ export default function TeamManagementPage() {
             const response = await fetch(`/api/tenants/${tenantId}/invitations`)
             if (response.ok) {
                 const data = await response.json()
-                setInvitations(data.invitations || [])
+                // Filter only pending invitations
+                const pending = (data.invitations || []).filter(
+                    (inv: PendingInvitation) => inv.status === 'pending'
+                )
+                setInvitations(pending)
             }
         } catch (error) {
             console.error('Error fetching invitations:', error)

@@ -16,6 +16,7 @@ interface Invitation {
     tenant_name: string
     email: string
     role: string
+    status: 'pending' | 'accepted' | 'expired'
     created_at: string
     expires_at: string
     accepted_at: string | null
@@ -59,8 +60,6 @@ export default function InvitationPage() {
                 setInvitation(data.invitation)
             } else if (response.status === 404) {
                 setError('Invitation not found or has expired')
-            } else if (response.status === 410) {
-                setError('This invitation has already been accepted')
             } else {
                 setError('Failed to load invitation')
             }
@@ -143,7 +142,7 @@ export default function InvitationPage() {
     }
 
     const isExpired = new Date(invitation.expires_at) < new Date()
-    const isAccepted = invitation.accepted_at !== null
+    const isAccepted = invitation.status === 'accepted'
 
     if (isAccepted) {
         return (

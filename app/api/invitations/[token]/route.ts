@@ -63,11 +63,9 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
 
     // Check if invitation is already accepted
+    // We return the invitation data even if accepted so the UI can show a friendly message
     if (invitation.status === 'accepted') {
-        return NextResponse.json(
-            { error: 'Invitation has already been accepted' },
-            { status: 410 }
-        )
+        return NextResponse.json({ invitation })
     }
 
     return NextResponse.json({ invitation })
