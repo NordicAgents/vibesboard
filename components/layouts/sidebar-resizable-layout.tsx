@@ -287,7 +287,9 @@ export function SidebarResizableLayout({
 
                       {/* Show Current Agent Menu (Secondary Sidebar) */}
                       {secondarySidebar && mobileView === 'current-agent' && (
-                        <div className="p-3">{secondarySidebar}</div>
+                        <div className="flex-1 overflow-y-auto px-4 py-3">
+                          {secondarySidebar}
+                        </div>
                       )}
                     </div>
                   </div>

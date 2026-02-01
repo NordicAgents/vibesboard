@@ -247,7 +247,7 @@ export function AgentAskChat({
             </div>
             <div className="flex-1 overflow-y-auto pb-36 pt-20">
               <ChatList messages={pendingMessages} />
-              {isLoading && (
+              {isLoading && !completion && (
                 <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
                   <IconSpinner className="h-4 w-4 animate-spin" />
                   <span>Thinking...</span>
@@ -275,7 +275,7 @@ export function AgentAskChat({
                     <Button
                       variant="outline"
                       onClick={() => stop()}
-                      className="rounded-full bg-purewhite-bg font-switzer"
+                      className="rounded-full bg-background font-switzer"
                     >
                       Stop generating
                     </Button>
@@ -305,7 +305,7 @@ export function AgentAskChat({
                 <Button
                   variant="outline"
                   onClick={() => stop()}
-                  className="rounded-full bg-purewhite-bg font-switzer"
+                  className="rounded-full bg-background font-switzer"
                 >
                   Stop generating
                 </Button>
