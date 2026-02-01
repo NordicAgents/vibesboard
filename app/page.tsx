@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { AgentCreatorChat } from '@/components/agents/agent-creator-chat'
+import { getAgents } from '@/app/actions'
 import { LandingHeader } from '@/components/landing/landing-header'
 import { LandingHero } from '@/components/landing/landing-hero'
 import { LandingShowcase } from '@/components/landing/landing-showcase'
@@ -29,5 +29,10 @@ export default async function IndexPage() {
     )
   }
 
-  return <AgentCreatorChat userId={session.user.id} />
+  const agents = await getAgents(session.user.id)
+  if (agents.length > 0) {
+    redirect('/agents')
+  } else {
+    redirect('/agents/create-chat')
+  }
 }
