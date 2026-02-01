@@ -4,7 +4,7 @@ import * as React from 'react'
 
 import { useSidebar } from '@/components/sidebar-context'
 import { Button } from '@/components/ui/button'
-import { IconSidebar, IconPlus } from '@/components/ui/icons'
+import { IconSidebar, IconPlus, IconMenu } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -15,6 +15,7 @@ import {
 import Link from 'next/link'
 import { UserMenu } from '@/components/user-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
 interface SidebarResizableLayoutProps {
   children: React.ReactNode
@@ -145,7 +146,46 @@ export function SidebarResizableLayout({
 
       <div className="relative flex flex-1 flex-col overflow-auto bg-beige-bg dark:bg-background">
         {/* Top bar area */}
-        <div className="absolute left-0 top-0 z-10 w-full flex items-center justify-end p-2 pointer-events-none">
+        <div className="absolute left-0 top-0 z-10 w-full flex items-center justify-between p-2 pointer-events-none lg:justify-end">
+          {/* Mobile Menu Trigger - Visible only on mobile */}
+          <div className="pointer-events-auto lg:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <IconMenu className="h-5 w-5" />
+                  <span className="sr-only">Open Menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] p-0">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between border-b p-4">
+                    <Link
+                      href="/"
+                      className="font-switzer text-xl font-bold tracking-tight text-black-primary dark:text-white"
+                    >
+                      vibesboard
+                    </Link>
+                  </div>
+                  <div className="px-3 py-2">
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full justify-start h-10 px-4 shadow-none border-black-10 hover:bg-black-5 dark:border-white-10 dark:hover:bg-white-5"
+                    >
+                      <Link href="/agents/create-chat">
+                        <IconPlus className="mr-2 h-4 w-4" />
+                        <span>New Agent</span>
+                      </Link>
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-hidden flex flex-col">
+                    {sidebar}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+
           {/* Right Controls (Theme, User) - Pointer events auto */}
           <div className="flex items-center gap-2 pointer-events-auto">
             <ThemeToggle />
