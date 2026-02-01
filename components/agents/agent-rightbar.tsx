@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { IconClose, IconExternalLink } from '@/components/ui/icons'
+import { IconExternalLink } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 
@@ -34,6 +34,8 @@ export function AgentRightbar({
 }: AgentRightbarProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+
+  // Form State
   const [name, setName] = useState(agent.name)
   const [instructions, setInstructions] = useState(agent.instructions)
   const [greetingText, setGreetingText] = useState(
@@ -52,8 +54,15 @@ export function AgentRightbar({
     }
   }
 
-  const updateAgent = async (payload: Partial<VibeAgent>) => {
+  const handleSaveAll = async () => {
     setSaving(true)
+    const payload: Partial<VibeAgent> = {
+      name,
+      instructions,
+      greetingText: greetingText.trim() || null,
+      allowAnonymous
+    }
+
     try {
       const res = await fetch(`/api/agents/${agent.id}`, {
         method: 'PATCH',
@@ -72,6 +81,13 @@ export function AgentRightbar({
     }
   }
 
+  const hasChanges =
+    name !== agent.name ||
+    instructions !== agent.instructions ||
+    greetingText.trim() !==
+      (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
+    allowAnonymous !== agent.allowAnonymous
+
   return (
     <aside className={className} aria-label="Agent details sidebar">
       <div className="mb-2 flex items-center justify-between">
@@ -80,7 +96,7 @@ export function AgentRightbar({
           <h2 className="text-lg font-semibold">{agent.name}</h2>
         </div>
       </div>
-      <div className="space-y-5">
+      <div className="space-y-5 pb-20">
         {/* Agent card */}
         <Card>
           <CardHeader className="pb-3">
@@ -98,15 +114,6 @@ export function AgentRightbar({
                 <p className="truncate text-xs text-muted-foreground">
                   /a/{agent.agentUrl}
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => updateAgent({ name })}
-                  disabled={
-                    saving || name.trim().length === 0 || name === agent.name
-                  }
-                >
-                  Save
-                </Button>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
@@ -119,10 +126,7 @@ export function AgentRightbar({
               <Switch
                 checked={allowAnonymous}
                 disabled={saving}
-                onCheckedChange={value => {
-                  setAllowAnonymous(value)
-                  updateAgent({ allowAnonymous: value })
-                }}
+                onCheckedChange={setAllowAnonymous}
               />
             </div>
           </CardContent>
@@ -141,19 +145,6 @@ export function AgentRightbar({
               placeholder="Explain how the agent should behave, tone, and guardrails."
               disabled={saving}
             />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={() => updateAgent({ instructions })}
-                disabled={
-                  saving ||
-                  instructions.trim().length < 10 ||
-                  instructions === agent.instructions
-                }
-              >
-                Save
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -169,22 +160,6 @@ export function AgentRightbar({
               placeholder="Initial greeting message"
               disabled={saving}
             />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={() =>
-                  updateAgent({ greetingText: greetingText.trim() || null })
-                }
-                disabled={
-                  saving ||
-                  greetingText.trim() ===
-                    (agent.greetingText?.trim() ??
-                      'Hi How can i help you today')
-                }
-              >
-                Save
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -217,6 +192,20 @@ export function AgentRightbar({
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Floating Save Button */}
+      <div className="fixed bottom-6 left-0 right-0 z-20 flex justify-center pointer-events-none lg:left-[300px]">
+        <div className="mx-auto flex items-center gap-2 rounded-full border bg-background p-2 shadow-lg pointer-events-auto">
+          <Button
+            onClick={handleSaveAll}
+            disabled={saving || !hasChanges}
+            className="w-full md:w-auto rounded-full"
+            size="sm"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
     </aside>
   )
