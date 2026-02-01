@@ -91,28 +91,15 @@ export function SidebarResizableLayout({
               </>
             )}
 
-            {/* When OPEN: Show New Agent left, Sidebar Toggle right */}
+            {/* When OPEN: Show vibesboard text left, Sidebar Toggle right */}
             {isSidebarOpen && (
               <>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9"
-                        asChild
-                      >
-                        <Link href="/agents/create-chat">
-                          <IconPlus className="h-5 w-5" />
-                          <span className="sr-only">New Agent</span>
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>New Agent</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
+                <Link
+                  href="/"
+                  className="font-switzer text-xl font-bold tracking-tight text-black-primary dark:text-white dark:hover:text-gray-300 ml-2"
+                >
+                  vibesboard
+                </Link>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -135,8 +122,25 @@ export function SidebarResizableLayout({
 
           {/* Main Sidebar Content - Only visible when open */}
           <div
-            className={cn('flex-1 overflow-hidden', !isSidebarOpen && 'hidden')}
+            className={cn(
+              'flex-1 overflow-hidden flex flex-col',
+              !isSidebarOpen && 'hidden'
+            )}
           >
+            {isSidebarOpen && (
+              <div className="px-3 pb-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start h-10 px-4 shadow-none border-black-10 hover:bg-black-5 dark:border-white-10 dark:hover:bg-white-5"
+                >
+                  <Link href="/agents/create-chat">
+                    <IconPlus className="mr-2 h-4 w-4" />
+                    <span>New Agent</span>
+                  </Link>
+                </Button>
+              </div>
+            )}
             {sidebar}
           </div>
         </div>
