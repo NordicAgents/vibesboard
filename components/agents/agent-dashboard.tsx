@@ -60,30 +60,48 @@ export function AgentDashboard({ agent, share }: AgentDashboardProps) {
     <div className="space-y-6 bg-beige-bg p-6 md:p-8 dark:bg-background">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="font-switzer text-sm uppercase tracking-wider text-gray-secondary">Agent</p>
-          <h1 className="font-switzer text-3xl font-bold text-black-primary dark:text-foreground">{agent.name}</h1>
+          <p className="font-switzer text-sm uppercase tracking-wider text-gray-secondary">
+            Agent
+          </p>
+          <h1 className="font-switzer text-3xl font-bold text-black-primary dark:text-foreground">
+            {agent.name}
+          </h1>
         </div>
         <div className="flex gap-3">
           <Button asChild className="rounded-full font-switzer">
-            <Link href={`/agents/${agent.id}`}>
-              Start chat
-            </Link>
+            <Link href={`/agents/${agent.id}`}>Start chat</Link>
           </Button>
         </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg">
           <CardHeader>
-            <CardTitle className="font-switzer text-2xl font-bold text-black-primary">Shareable link</CardTitle>
-            <CardDescription className="font-switzer text-gray-secondary">Send people to this agent via URL or QR.</CardDescription>
+            <CardTitle className="font-switzer text-2xl font-bold text-black-primary">
+              Shareable link
+            </CardTitle>
+            <CardDescription className="font-switzer text-gray-secondary">
+              Send people to this agent via URL or QR.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 text-sm">
-              <span className="truncate font-switzer text-black-primary">{share.url}</span>
-              <Button size="sm" variant="secondary" onClick={handleCopyLink} className="rounded-full font-switzer">
+              <span className="truncate font-switzer text-black-primary">
+                {share.url}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleCopyLink}
+                className="rounded-full font-switzer"
+              >
                 Copy
               </Button>
-              <Button size="sm" variant="ghost" asChild className="rounded-full">
+              <Button
+                size="sm"
+                variant="ghost"
+                asChild
+                className="rounded-full"
+              >
                 <Link href={share.url} target="_blank">
                   <IconExternalLink className="h-4 w-4" />
                 </Link>
@@ -91,7 +109,9 @@ export function AgentDashboard({ agent, share }: AgentDashboardProps) {
             </div>
             <div className="flex items-center justify-between rounded-2xl border border-black-10 bg-beige-bg/30 p-4">
               <div>
-                <p className="font-switzer text-sm font-medium text-black-primary">Allow anonymous chat</p>
+                <p className="font-switzer text-sm font-medium text-black-primary">
+                  Allow anonymous chat
+                </p>
                 <p className="font-switzer text-xs text-gray-secondary">
                   Toggle to require sign in for public chats.
                 </p>
@@ -114,8 +134,12 @@ export function AgentDashboard({ agent, share }: AgentDashboardProps) {
       </div>
       <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg">
         <CardHeader>
-          <CardTitle className="font-switzer text-2xl font-bold text-black-primary">Instructions</CardTitle>
-          <CardDescription className="font-switzer text-gray-secondary">What the assistant follows.</CardDescription>
+          <CardTitle className="font-switzer text-2xl font-bold text-black-primary">
+            Instructions
+          </CardTitle>
+          <CardDescription className="font-switzer text-gray-secondary">
+            What the assistant follows.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <pre className="whitespace-pre-wrap rounded-2xl bg-beige-bg/30 p-4 font-switzer text-sm text-black-primary">

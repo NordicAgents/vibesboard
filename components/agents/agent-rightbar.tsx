@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { toast } from 'react-hot-toast'
 import {
   type AgentSharePayload,
   type VibeAgent,
@@ -13,11 +14,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { IconExternalLink } from '@/components/ui/icons'
+import { IconExternalLink, IconTrash } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 interface AgentRightbarProps {
@@ -50,6 +68,7 @@ export function AgentRightbar({
     agent.maxMessages ?? null
   )
   const [saving, setSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -58,6 +77,26 @@ export function AgentRightbar({
       setTimeout(() => setCopied(false), 1200)
     } catch {
       // noop
+    }
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to delete agent')
+      }
+
+      toast.success('Agent deleted')
+      router.push('/')
+      router.refresh()
+    } catch (error) {
+      toast.error('Failed to delete agent')
+      setIsDeleting(false)
     }
   }
 
@@ -261,6 +300,54 @@ export function AgentRightbar({
             <div className="flex items-center justify-center">
               <QrCode dataUrl={share.qrDataUrl} size={220} />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-red-600 dark:text-red-400">
+              Danger Zone
+            </CardTitle>
+            <CardDescription className="text-red-600/80 dark:text-red-400/80">
+              Permanently delete this agent and all its data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  className="w-full bg-red-600 hover:bg-red-700"
+                >
+                  <IconTrash className="mr-2 h-4 w-4" />
+                  Delete Agent
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete
+                    your agent "{agent.name}" and remove all associated data
+                    including files and conversations.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={e => {
+                      e.preventDefault()
+                      handleDelete()
+                    }}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Agent'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </div>

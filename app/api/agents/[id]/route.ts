@@ -112,11 +112,38 @@ export async function DELETE(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  await supabase
+  // Get agent to find file keys for cleanup
+  const { data: agent } = await supabase
+    .from('vibe_agents')
+    .select('file_keys')
+    .eq('id', id)
+    .eq('user_id', session.user.id)
+    .maybeSingle()
+
+  // Clean up files from storage if they exist
+  if (
+    agent?.file_keys &&
+    Array.isArray(agent.file_keys) &&
+    agent.file_keys.length > 0
+  ) {
+    const { error: storageError } = await supabase.storage
+      .from('agent-files')
+      .remove(agent.file_keys as string[])
+
+    if (storageError) {
+      console.error('Error deleting agent files:', storageError)
+    }
+  }
+
+  const { error } = await supabase
     .from('vibe_agents')
     .delete()
     .eq('id', id)
     .eq('user_id', session.user.id)
+
+  if (error) {
+    return new NextResponse(error.message, { status: 500 })
+  }
 
   return new NextResponse(null, { status: 204 })
 }
