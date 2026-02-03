@@ -215,6 +215,12 @@ export function AgentCreatorChat({
         name: toolId.replace('builtin:', '')
       }))
 
+      // Explicitly set mode and maxMessages
+      const mode = formData.mode ?? 'provider'
+      // If provider, no limit (null). If collector, use form value or default to 20.
+      const maxMessages =
+        mode === 'provider' ? null : (formData.maxMessages ?? 20)
+
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: {
@@ -226,7 +232,9 @@ export function AgentCreatorChat({
           greetingText: formData.greetingText,
           allowAnonymous: formData.allowAnonymous ?? true,
           fileKeys: formData.fileKeys || [],
-          tools: toolsPayload
+          tools: toolsPayload,
+          mode,
+          maxMessages
         })
       })
 

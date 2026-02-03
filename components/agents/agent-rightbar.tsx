@@ -241,7 +241,7 @@ export function AgentRightbar({
                 )}
                 onClick={() => {
                   setMode('collector')
-                  setMaxMessages(5)
+                  setMaxMessages(20)
                 }}
               >
                 Info Collector
@@ -261,9 +261,9 @@ export function AgentRightbar({
                   type="number"
                   min={1}
                   max={50}
-                  value={maxMessages ?? 5}
+                  value={maxMessages ?? 20}
                   onChange={e =>
-                    setMaxMessages(parseInt(e.target.value, 10) || 5)
+                    setMaxMessages(parseInt(e.target.value, 10) || 20)
                   }
                   className="mt-1"
                   disabled={saving}

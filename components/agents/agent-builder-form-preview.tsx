@@ -280,7 +280,7 @@ export function AgentBuilderFormPreview({
                   onFormChange({
                     ...formData,
                     mode: 'collector',
-                    maxMessages: 5
+                    maxMessages: 20
                   })
                 }
               >
@@ -301,11 +301,11 @@ export function AgentBuilderFormPreview({
                   type="number"
                   min={1}
                   max={50}
-                  value={formData.maxMessages ?? 5}
+                  value={formData.maxMessages ?? 20}
                   onChange={e =>
                     onFormChange({
                       ...formData,
-                      maxMessages: parseInt(e.target.value, 10) || 5
+                      maxMessages: parseInt(e.target.value, 10) || 20
                     })
                   }
                   className="mt-1 font-switzer"
