@@ -11,11 +11,15 @@ import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
 export const runtime = 'nodejs'
 
 export default async function AgentPageAsChat({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const { id } = await params
+  const query = await searchParams
+  const isConfigure = query.configure === 'true'
   const cookieStore = await cookies()
   const session = await auth({ cookieStore })
 
@@ -84,6 +88,7 @@ export default async function AgentPageAsChat({
       visitorSessions={visitorConversations}
       hasUnsyncedConversations={hasUnsyncedConversations}
       share={{ url: shareUrl, qrDataUrl }}
+      isConfigure={isConfigure}
     />
   )
 }

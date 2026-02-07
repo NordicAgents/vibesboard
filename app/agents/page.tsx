@@ -138,7 +138,7 @@ export default function AgentsPage() {
         <>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {agents.map(agent => (
-              <Link key={agent.id} href={`/agents/${agent.id}`}>
+              <Link key={agent.id} href={`/agents/${agent.id}?configure=true`}>
                 <Card className="flex flex-col hover:bg-muted/50 transition-colors h-full">
                   <CardHeader>
                     <div className="flex items-start justify-between">
