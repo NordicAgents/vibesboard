@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapConversationRow } from '@/lib/agents/db'
 import { upsertConversationEmbeddings } from '@/lib/agent/embeddings'
+import { limitConcurrency } from '@/lib/async-utils'
 
 export const runtime = 'nodejs'
 
@@ -72,7 +73,7 @@ export async function POST(
     })
 
   let synced = 0
-  for (const conversation of conversations) {
+  await limitConcurrency(conversations, 5, async (conversation) => {
     await upsertConversationEmbeddings({
       supabase,
       agentId: id,
@@ -80,7 +81,7 @@ export async function POST(
       messages: conversation.messages ?? []
     })
     synced += 1
-  }
+  })
 
   const syncTime = new Date().toISOString()
   await supabase
