@@ -48,6 +48,32 @@ export function buildAgentSystemPrompt(
     ? 'When the question could be answered with the uploaded files, call the file_search tool with a concise query first, then answer using those snippets and cite filenames.'
     : ''
 
+  const webSearchGuidance = agent.tools.some(
+    tool => tool.type === 'builtin:search'
+  )
+    ? `When the user asks for time-sensitive or up-to-date information (e.g., weather, news, prices, schedules, or requests containing "today", "latest", "current"), call the web_search tool first and answer based on the results. Do not guess.`
+    : ''
+
+  const webFetchGuidance = agent.tools.some(
+    tool => tool.type === 'builtin:web_fetch'
+  )
+    ? `When the user provides a specific URL (or you need details from a specific page), call the web_fetch tool with that URL and answer based on the fetched content.`
+    : ''
+
+  const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
+  const quickSuggestionsCountRaw = agent.quickSuggestionsCount ?? 4
+  const quickSuggestionsCount = quickSuggestionsCountRaw === 3 ? 3 : 4
+  const quickSuggestionsGuidance =
+    quickSuggestionsMode !== 'off'
+      ? `Quick Suggestions (mode: "${quickSuggestionsMode}", count: ${quickSuggestionsCount}):
+- After your answer, append a SINGLE-LINE HTML comment marker with ${quickSuggestionsCount} short "next user messages" to help the user reply quickly.
+- Marker format (one line, no code block): <!--SUGGESTIONS:{"suggestions":["...","...","..."]}-->
+- Suggestions must be plain text, <= 80 characters each, and in the same language as the user.
+- NEVER include the suggestions marker in the same message as ${COMPLETION_MARKERS.COLLECTION_COMPLETE} or ${COMPLETION_MARKERS.INFO_COMPLETE}.
+- If quick suggestions mode is "always", you MUST include the marker after every assistant message (except completion messages).
+- If quick suggestions mode is "smart", you SHOULD include the marker at the start of the conversation and whenever you ask the user a question or need them to choose the next step.`
+      : ''
+
   const modeInstructions = getModeInstructions(agent)
 
   return `You are VibeAgent "${agent.name}". Follow the owner's instructions strictly.
@@ -58,7 +84,7 @@ ${modeInstructions}
 
 Tooling:
 ${toolsText}
-${fileSearchGuidance ? `\n${fileSearchGuidance}` : ''}
+${fileSearchGuidance ? `\n${fileSearchGuidance}` : ''}${webSearchGuidance ? `\n${webSearchGuidance}` : ''}${webFetchGuidance ? `\n${webFetchGuidance}` : ''}${quickSuggestionsGuidance ? `\n${quickSuggestionsGuidance}` : ''}
 
 Context:
 ${contextBlock}

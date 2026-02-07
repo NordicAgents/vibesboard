@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { type VibeAgent } from '@/lib/types'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
-import { IconClose, IconCheck } from '@/components/ui/icons'
+import { IconCheck } from '@/components/ui/icons'
 
 interface PublicAgentExperienceProps {
   agent: VibeAgent
@@ -27,12 +27,6 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end">
-        <Button size="sm" variant="ghost" onClick={handleClose} title="Close">
-          <IconClose className="mr-2" /> Close
-        </Button>
-      </div>
-
       <AnimatePresence mode="wait">
         {showThankYou ? (
           <motion.div

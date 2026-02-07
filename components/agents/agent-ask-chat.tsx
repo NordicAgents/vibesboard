@@ -270,23 +270,13 @@ export function AgentAskChat({
               </div>
 
               <div className="w-full">
-                <div className="mb-2 flex h-8 items-center justify-center">
-                  {isLoading && (
-                    <Button
-                      variant="outline"
-                      onClick={() => stop()}
-                      className="rounded-full bg-background font-switzer"
-                    >
-                      Stop generating
-                    </Button>
-                  )}
-                </div>
                 <div className="px-4 py-3">
                   <PromptForm
                     onSubmit={handleSubmit}
                     input={input}
                     setInput={setInput}
                     isLoading={isLoading}
+                    onStop={() => stop()}
                     placeholder="Ask about your visitor conversations…"
                   />
                 </div>
@@ -299,29 +289,15 @@ export function AgentAskChat({
       {/* Chat Input - Only show at bottom when messages exist */}
       {pendingMessages.length > 0 && (
         <div className="sticky bottom-0">
-          <div className="mx-auto max-w-xl px-4 pb-4 pt-2">
-            <div className="mb-2 flex h-8 items-center justify-center">
-              {isLoading ? (
-                <Button
-                  variant="outline"
-                  onClick={() => stop()}
-                  className="rounded-full bg-background font-switzer"
-                >
-                  Stop generating
-                </Button>
-              ) : null}
-            </div>
-            <div className="px-4 py-3">
-              <div className="mx-auto max-w-lg">
-                <PromptForm
-                  onSubmit={handleSubmit}
-                  input={input}
-                  setInput={setInput}
-                  isLoading={isLoading}
-                  placeholder="Ask about your visitor conversations…"
-                />
-              </div>
-            </div>
+          <div className="mx-auto max-w-2xl px-4 pb-4 pt-2">
+            <PromptForm
+              onSubmit={handleSubmit}
+              input={input}
+              setInput={setInput}
+              isLoading={isLoading}
+              onStop={() => stop()}
+              placeholder="Ask about your visitor conversations…"
+            />
           </div>
         </div>
       )}

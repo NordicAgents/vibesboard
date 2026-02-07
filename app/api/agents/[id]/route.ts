@@ -75,6 +75,12 @@ export async function PATCH(
     ...(payload.maxMessages !== undefined
       ? { max_messages: payload.maxMessages }
       : {}),
+    ...(payload.quickSuggestionsMode !== undefined
+      ? { quick_suggestions_mode: payload.quickSuggestionsMode }
+      : {}),
+    ...(payload.quickSuggestionsCount !== undefined
+      ? { quick_suggestions_count: payload.quickSuggestionsCount }
+      : {}),
     updated_at: new Date().toISOString()
   }
 

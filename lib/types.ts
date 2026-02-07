@@ -18,6 +18,8 @@ export type AgentToolType =
 
 export type AgentMode = 'provider' | 'collector'
 
+export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
+
 export interface VibeAgentTool {
   id: string
   type: AgentToolType
@@ -38,6 +40,8 @@ export interface VibeAgent {
   greetingText?: string | null
   mode: AgentMode
   maxMessages?: number | null
+  quickSuggestionsMode?: QuickSuggestionsMode
+  quickSuggestionsCount?: number | null
   lastEmbeddingsSyncAt?: string | null
   createdAt: string
   updatedAt: string

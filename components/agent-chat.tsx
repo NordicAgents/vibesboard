@@ -15,7 +15,8 @@ import { nanoid } from '@/lib/utils'
 const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
   INFO_COMPLETE: '[INFO_COMPLETE]',
-  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/
+  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/,
+  SUGGESTIONS_REGEX: /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
 }
 
 interface AgentChatProps {
@@ -35,6 +36,7 @@ export function AgentChat({
   className,
   onChatComplete
 }: AgentChatProps) {
+  const [chatPanelHeight, setChatPanelHeight] = useState(200)
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
   )
@@ -45,6 +47,9 @@ export function AgentChat({
     agent.maxMessages ?? null
   )
   const [isChatComplete, setIsChatComplete] = useState(false)
+
+  const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
+  const quickSuggestionsCount = agent.quickSuggestionsCount === 3 ? 3 : 4
 
   const chatKey = useMemo(
     () => initialConversationId ?? nanoid(),
@@ -137,7 +142,7 @@ export function AgentChat({
     }
   })
 
-  // Clean completion markers from messages for display
+    // Clean completion markers from messages for display
   const messages = useMemo(() => {
     return rawMessages.map(m => {
       if (m.role === 'assistant' && m.content) {
@@ -145,6 +150,7 @@ export function AgentChat({
           .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
           .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
           .replace(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX, '')
+          .replace(COMPLETION_MARKERS.SUGGESTIONS_REGEX, '')
           .trim()
         if (cleanedContent !== m.content) {
           return { ...m, content: cleanedContent }
@@ -153,6 +159,76 @@ export function AgentChat({
       return m
     })
   }, [rawMessages])
+
+  const quickSuggestions = useMemo(() => {
+    if (quickSuggestionsMode === 'off') return []
+    if (isLoading || isChatComplete) return []
+    if (input.trim().length) return []
+
+    const lastAssistant = [...rawMessages]
+      .reverse()
+      .find(m => m.role === 'assistant' && typeof m.content === 'string')
+
+    const content = lastAssistant?.content ?? ''
+    const match = content.match(/<!--SUGGESTIONS:(\{[\s\S]*?\})-->/)
+    if (!match) return []
+
+    let parsed: unknown = null
+    try {
+      parsed = JSON.parse(match[1])
+    } catch {
+      return []
+    }
+
+    const suggestionsRaw = Array.isArray((parsed as any)?.suggestions)
+      ? ((parsed as any).suggestions as unknown[])
+      : []
+
+    const seen = new Set<string>()
+    const suggestions: string[] = []
+    for (const entry of suggestionsRaw) {
+      if (typeof entry !== 'string') continue
+      const value = entry.trim()
+      if (!value) continue
+      if (value.length > 80) continue
+      if (seen.has(value)) continue
+      seen.add(value)
+      suggestions.push(value)
+      if (suggestions.length >= quickSuggestionsCount) break
+    }
+
+    if (suggestions.length < 3) return []
+
+    if (quickSuggestionsMode === 'always') {
+      return suggestions
+    }
+
+    const userMessageCount = rawMessages.filter(m => m.role === 'user').length
+    const isStart = userMessageCount <= 1
+
+    const cleanedAssistantContent = content
+      .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
+      .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
+      .replace(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX, '')
+      .replace(COMPLETION_MARKERS.SUGGESTIONS_REGEX, '')
+      .trim()
+
+    const assistantAskedQuestion = /\?/.test(cleanedAssistantContent)
+
+    if (agentMode === 'collector' || isStart || assistantAskedQuestion) {
+      return suggestions
+    }
+
+    return []
+  }, [
+    quickSuggestionsMode,
+    quickSuggestionsCount,
+    rawMessages,
+    agentMode,
+    isLoading,
+    isChatComplete,
+    input
+  ])
 
   // Check for completion whenever messages change (use rawMessages to detect markers)
   useEffect(() => {
@@ -167,7 +243,10 @@ export function AgentChat({
 
   return (
     <div className={cn('flex flex-1 flex-col', className)}>
-      <div className="flex-1 pb-36 pt-4">
+      <div
+        className="flex-1 pt-4"
+        style={{ paddingBottom: chatPanelHeight + 24 }}
+      >
         {messages.length ? (
           <>
             <ChatList messages={messages} />
@@ -190,6 +269,8 @@ export function AgentChat({
         agentMode={agentMode}
         agentName={agent.name}
         onChatComplete={handleChatComplete}
+        quickSuggestions={quickSuggestions}
+        onHeightChange={setChatPanelHeight}
       />
     </div>
   )

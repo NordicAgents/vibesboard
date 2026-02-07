@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react'
 import Textarea from 'react-textarea-autosize'
 import type { UseChatHelpers } from 'ai/react'
@@ -11,9 +13,8 @@ import {
 } from '@/components/ui/tooltip'
 import {
   IconArrowUp,
-  IconPlus,
-  IconMicrophone,
-  IconImage
+  IconRefresh,
+  IconStop
 } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,9 @@ export interface PromptProps extends Pick<
   onSubmit: (value: string) => Promise<void>
   isLoading: boolean
   placeholder?: string
+  onStop?: () => void
+  canRegenerate?: boolean
+  onRegenerate?: () => void
 }
 
 export function PromptForm({
@@ -31,7 +35,10 @@ export function PromptForm({
   input,
   setInput,
   isLoading,
-  placeholder = 'Send a message.'
+  placeholder = 'Send a message.',
+  onStop,
+  canRegenerate,
+  onRegenerate
 }: PromptProps) {
   const { formRef, onKeyDown } = useEnterSubmit()
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
@@ -41,6 +48,9 @@ export function PromptForm({
       inputRef.current.focus()
     }
   }, [])
+
+  const showStop = Boolean(isLoading && onStop)
+  const showRegenerate = Boolean(!isLoading && canRegenerate && onRegenerate)
 
   return (
     <form
@@ -68,6 +78,42 @@ export function PromptForm({
         />
         <div className="flex items-center justify-end pt-2">
           <div className="flex items-center gap-2">
+            {showStop && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onStop?.()}
+                    className="h-8 w-8 rounded-full"
+                    aria-label="Stop generating"
+                  >
+                    <IconStop className="h-4 w-4" />
+                    <span className="sr-only">Stop generating</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Stop generating</TooltipContent>
+              </Tooltip>
+            )}
+            {showRegenerate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onRegenerate?.()}
+                    className="h-8 w-8 rounded-full"
+                    aria-label="Regenerate response"
+                  >
+                    <IconRefresh className="h-4 w-4" />
+                    <span className="sr-only">Regenerate response</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Regenerate response</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
