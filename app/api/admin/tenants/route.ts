@@ -152,8 +152,18 @@ export async function POST(req: Request) {
         })
 
     if (brandingError) {
-        // TODO: Consider rolling back tenant creation
         console.error('Failed to create tenant branding:', brandingError)
+
+        // Rollback: delete the tenant if branding creation fails
+        await supabase
+            .from('tenants')
+            .delete()
+            .eq('id', tenant.id)
+
+        return NextResponse.json(
+            { error: 'Failed to create tenant branding, rolled back tenant creation' },
+            { status: 500 }
+        )
     }
 
     return NextResponse.json({ tenant }, { status: 201 })
