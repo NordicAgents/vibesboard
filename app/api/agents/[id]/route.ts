@@ -58,22 +58,25 @@ export async function PATCH(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const updates: Partial<Database['public']['Tables']['vibe_agents']['Update']> =
-    {
-      ...(payload.name ? { name: payload.name } : {}),
-      ...(payload.instructions ? { instructions: payload.instructions } : {}),
-      ...(payload.fileKeys !== undefined
-        ? { file_keys: payload.fileKeys }
-        : {}),
-      ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
-      ...(typeof payload.allowAnonymous === 'boolean'
-        ? { allow_anonymous: payload.allowAnonymous }
-        : {}),
-      ...(payload.greetingText !== undefined
-        ? { greeting_text: payload.greetingText }
-        : {}),
-      updated_at: new Date().toISOString()
-    }
+  const updates: Partial<
+    Database['public']['Tables']['vibe_agents']['Update']
+  > = {
+    ...(payload.name ? { name: payload.name } : {}),
+    ...(payload.instructions ? { instructions: payload.instructions } : {}),
+    ...(payload.fileKeys !== undefined ? { file_keys: payload.fileKeys } : {}),
+    ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
+    ...(typeof payload.allowAnonymous === 'boolean'
+      ? { allow_anonymous: payload.allowAnonymous }
+      : {}),
+    ...(payload.greetingText !== undefined
+      ? { greeting_text: payload.greetingText }
+      : {}),
+    ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
+    ...(payload.maxMessages !== undefined
+      ? { max_messages: payload.maxMessages }
+      : {}),
+    updated_at: new Date().toISOString()
+  }
 
   const { data, error } = await supabase
     .from('vibe_agents')
@@ -109,11 +112,38 @@ export async function DELETE(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  await supabase
+  // Get agent to find file keys for cleanup
+  const { data: agent } = await supabase
+    .from('vibe_agents')
+    .select('file_keys')
+    .eq('id', id)
+    .eq('user_id', session.user.id)
+    .maybeSingle()
+
+  // Clean up files from storage if they exist
+  if (
+    agent?.file_keys &&
+    Array.isArray(agent.file_keys) &&
+    agent.file_keys.length > 0
+  ) {
+    const { error: storageError } = await supabase.storage
+      .from('agent-files')
+      .remove(agent.file_keys as string[])
+
+    if (storageError) {
+      console.error('Error deleting agent files:', storageError)
+    }
+  }
+
+  const { error } = await supabase
     .from('vibe_agents')
     .delete()
     .eq('id', id)
     .eq('user_id', session.user.id)
+
+  if (error) {
+    return new NextResponse(error.message, { status: 500 })
+  }
 
   return new NextResponse(null, { status: 204 })
 }

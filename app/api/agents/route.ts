@@ -21,34 +21,46 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const tenantId = searchParams.get('tenant_id')
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '9')
+  const from = (page - 1) * limit
+  const to = from + limit - 1
 
   const supabase = createRouteHandlerClient<Database>({
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
+  // Start building the query
   let query = supabase
     .from('vibe_agents')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
 
   if (tenantId) {
     // If tenant_id is provided, filter by it
-    // Note: We assume RLS or middleware ensures the user has access to this tenant
-    // But we can also add a check here if needed
     query = query.eq('tenant_id', tenantId)
   } else {
     // Fallback: show agents created by the user (legacy behavior)
     query = query.eq('user_id', session.user.id)
   }
 
-  const { data, error } = await query
+  // Apply pagination
+  query = query.range(from, to)
+
+  const { data, count, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   return NextResponse.json({
-    agents: (data ?? []).map(mapAgentRow)
+    agents: (data ?? []).map(mapAgentRow),
+    pagination: {
+      page,
+      limit,
+      total: count ?? 0,
+      totalPages: Math.ceil((count ?? 0) / limit)
+    }
   })
 }
 
@@ -81,31 +93,38 @@ export async function POST(req: Request) {
 
   if (!tenantId) {
     return NextResponse.json(
-      { error: 'No tenant available for this user; ensure tenant membership exists.' },
+      {
+        error:
+          'No tenant available for this user; ensure tenant membership exists.'
+      },
       { status: 400 }
     )
   }
 
-  const slug = await ensureUniqueSlug(
-    createAgentSlug(payload.name),
-    supabase
-  )
+  const slug = await ensureUniqueSlug(createAgentSlug(payload.name), supabase)
+
+  // Build insert payload - mode/max_messages are optional until migration is applied
+  const insertPayload = {
+    user_id: session.user.id,
+    tenant_id: tenantId,
+    name: payload.name,
+    instructions: payload.instructions,
+    file_keys: payload.fileKeys,
+    tools: payload.tools,
+    allow_anonymous: payload.allowAnonymous,
+    agent_url: slug,
+    ...(payload.greetingText !== undefined && {
+      greeting_text: payload.greetingText
+    }),
+    ...(payload.mode !== undefined && { mode: payload.mode }),
+    ...(payload.maxMessages !== undefined && {
+      max_messages: payload.maxMessages
+    })
+  }
 
   const { data, error } = await supabase
     .from('vibe_agents')
-    .insert({
-      user_id: session.user.id,
-      tenant_id: tenantId,
-      name: payload.name,
-      instructions: payload.instructions,
-      file_keys: payload.fileKeys,
-      tools: payload.tools,
-      allow_anonymous: payload.allowAnonymous,
-      agent_url: slug,
-      ...(payload.greetingText !== undefined
-        ? { greeting_text: payload.greetingText }
-        : {})
-    })
+    .insert(insertPayload)
     .select('*')
     .single()
 

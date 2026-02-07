@@ -12,6 +12,10 @@ import { fetchAgentFileContext } from '@/lib/agent/rag'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
 import { nanoid } from '@/lib/utils'
+import {
+  stripCompletionMarkers,
+  wrapStreamWithCompletionDetection
+} from '@/lib/agent/completion'
 
 export const runtime = 'nodejs'
 
@@ -52,6 +56,11 @@ export async function POST(
     initialMessages: normalizedMessages
   })
 
+  // Count user messages for max messages check
+  const userMessageCount = normalizedMessages.filter(
+    m => m.role === 'user'
+  ).length
+
   const context = await fetchAgentFileContext({
     supabase,
     fileKeys: agent.fileKeys
@@ -65,12 +74,14 @@ export async function POST(
       fileContext: context
     },
     onCompletion: async completion => {
+      // Strip completion markers before saving
+      const cleanedCompletion = stripCompletionMarkers(completion)
       const nextMessages = [
         ...normalizedMessages,
         {
           id: nanoid(),
           role: 'assistant' as const,
-          content: completion
+          content: cleanedCompletion
         }
       ]
       await updateConversationMessages({
@@ -82,9 +93,18 @@ export async function POST(
     }
   })
 
-  return new StreamingTextResponse(stream, {
+  // Wrap stream with completion detection
+  const transformedStream = wrapStreamWithCompletionDetection(
+    stream,
+    agent.maxMessages,
+    userMessageCount
+  )
+
+  return new StreamingTextResponse(transformedStream, {
     headers: {
-      'x-conversation-id': conversation.id
+      'x-conversation-id': conversation.id,
+      'x-agent-mode': agent.mode,
+      'x-max-messages': String(agent.maxMessages ?? '')
     }
   })
 }

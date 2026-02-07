@@ -14,7 +14,8 @@ export const metadata: Metadata = {
     default: 'vibesboard agent',
     template: `%s - vibesboard -conversation agent builder`
   },
-  description: 'An AI-powered conversation agent builder to collect responses from users.',
+  description:
+    'An AI-powered conversation agent builder to collect responses from users.',
   icons: {
     icon: '/logo_1.png',
     shortcut: '/logo_1.png',
@@ -31,12 +32,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  viewportFit: 'cover',
+  viewportFit: 'cover'
 }
 
 interface RootLayoutProps {
   children: React.ReactNode
 }
+
+import { AppHeaderController } from '@/components/app-header-controller'
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
@@ -53,9 +56,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <Toaster />
         <Providers attribute="class" defaultTheme="system" enableSystem>
           <div className="flex min-h-screen flex-col">
-            {/* @ts-ignore */}
-            <Header />
-            <main className="flex flex-1 flex-col bg-beige-bg dark:bg-background">{children}</main>
+            <AppHeaderController>
+              {/* @ts-ignore */}
+              <Header />
+            </AppHeaderController>
+            <main className="flex flex-1 flex-col bg-beige-bg dark:bg-background">
+              {children}
+            </main>
           </div>
           <TailwindIndicator />
         </Providers>

@@ -64,13 +64,5 @@ export default async function AgentSectionLayout({
   const shareUrl = `${origin}/a/${agent.agentUrl}`
   const qrDataUrl = await getQrDataUrl(shareUrl)
 
-  return (
-    <AgentPageShell
-      agent={agent}
-      share={{ url: shareUrl, qrDataUrl }}
-      conversations={conversations}
-    >
-      {children}
-    </AgentPageShell>
-  )
+  return <AgentPageShell>{children}</AgentPageShell>
 }

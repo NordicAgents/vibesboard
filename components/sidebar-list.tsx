@@ -29,17 +29,6 @@ export async function SidebarList({ userId }: SidebarListProps) {
       <div className="space-y-2 pb-4">
         <div className="flex items-center justify-between px-4 text-xs font-semibold tracking-wide text-muted-foreground">
           <span>Agents</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Create agent"
-            title="Create agent"
-            asChild
-          >
-            <Link href="/agents/create-chat">
-              <IconPlus className="h-4 w-4" />
-            </Link>
-          </Button>
         </div>
         {agents?.length ? (
           <div className="space-y-1 px-2">

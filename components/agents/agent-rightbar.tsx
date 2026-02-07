@@ -3,24 +3,40 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { toast } from 'react-hot-toast'
 import {
   type AgentSharePayload,
   type VibeAgent,
-  type VibeAgentConversation
+  type VibeAgentConversation,
+  type AgentMode
 } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle
+  CardTitle,
+  CardDescription
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { IconClose, IconExternalLink } from '@/components/ui/icons'
+import { IconExternalLink, IconTrash } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog'
+import { cn } from '@/lib/utils'
 
 interface AgentRightbarProps {
   agent: VibeAgent
@@ -39,11 +55,20 @@ export function AgentRightbar({
 }: AgentRightbarProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+
+  // Form State
   const [name, setName] = useState(agent.name)
   const [instructions, setInstructions] = useState(agent.instructions)
-  const [greetingText, setGreetingText] = useState(agent.greetingText ?? 'Hi How can i help you today')
+  const [greetingText, setGreetingText] = useState(
+    agent.greetingText ?? 'Hi How can i help you today'
+  )
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
+  const [mode, setMode] = useState<AgentMode>(agent.mode || 'provider')
+  const [maxMessages, setMaxMessages] = useState<number | null>(
+    agent.maxMessages ?? null
+  )
   const [saving, setSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleCopy = async () => {
     try {
@@ -55,8 +80,37 @@ export function AgentRightbar({
     }
   }
 
-  const updateAgent = async (payload: Partial<VibeAgent>) => {
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to delete agent')
+      }
+
+      toast.success('Agent deleted')
+      router.push('/')
+      router.refresh()
+    } catch (error) {
+      toast.error('Failed to delete agent')
+      setIsDeleting(false)
+    }
+  }
+
+  const handleSaveAll = async () => {
     setSaving(true)
+    const payload: Partial<VibeAgent> = {
+      name,
+      instructions,
+      greetingText: greetingText.trim() || null,
+      allowAnonymous,
+      mode,
+      maxMessages
+    }
+
     try {
       const res = await fetch(`/api/agents/${agent.id}`, {
         method: 'PATCH',
@@ -75,8 +129,14 @@ export function AgentRightbar({
     }
   }
 
-
-
+  const hasChanges =
+    name !== agent.name ||
+    instructions !== agent.instructions ||
+    greetingText.trim() !==
+      (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
+    allowAnonymous !== agent.allowAnonymous ||
+    mode !== (agent.mode || 'provider') ||
+    maxMessages !== (agent.maxMessages ?? null)
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -85,19 +145,8 @@ export function AgentRightbar({
           <p className="text-xs uppercase text-muted-foreground">Agent</p>
           <h2 className="text-lg font-semibold">{agent.name}</h2>
         </div>
-        {onClose && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            aria-label="Close sidebar"
-            title="Close sidebar"
-          >
-            <IconClose className="h-4 w-4" />
-          </Button>
-        )}
       </div>
-      <div className="space-y-5">
+      <div className="space-y-5 pb-20">
         {/* Agent card */}
         <Card>
           <CardHeader className="pb-3">
@@ -115,13 +164,6 @@ export function AgentRightbar({
                 <p className="truncate text-xs text-muted-foreground">
                   /a/{agent.agentUrl}
                 </p>
-                <Button
-                  size="sm"
-                  onClick={() => updateAgent({ name })}
-                  disabled={saving || name.trim().length === 0 || name === agent.name}
-                >
-                  Save
-                </Button>
               </div>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
@@ -134,10 +176,7 @@ export function AgentRightbar({
               <Switch
                 checked={allowAnonymous}
                 disabled={saving}
-                onCheckedChange={value => {
-                  setAllowAnonymous(value)
-                  updateAgent({ allowAnonymous: value })
-                }}
+                onCheckedChange={setAllowAnonymous}
               />
             </div>
           </CardContent>
@@ -156,19 +195,6 @@ export function AgentRightbar({
               placeholder="Explain how the agent should behave, tone, and guardrails."
               disabled={saving}
             />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={() => updateAgent({ instructions })}
-                disabled={
-                  saving ||
-                  instructions.trim().length < 10 ||
-                  instructions === agent.instructions
-                }
-              >
-                Save
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -184,24 +210,71 @@ export function AgentRightbar({
               placeholder="Initial greeting message"
               disabled={saving}
             />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                onClick={() => updateAgent({ greetingText: greetingText.trim() || null })}
-                disabled={
-                  saving ||
-                  greetingText.trim() === (agent.greetingText?.trim() ?? 'Hi How can i help you today')
-                }
+          </CardContent>
+        </Card>
+
+        {/* Agent Mode */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Agent Mode</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Badge
+                variant={mode !== 'collector' ? 'default' : 'secondary'}
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  mode !== 'collector' && 'bg-primary text-primary-foreground'
+                )}
+                onClick={() => {
+                  setMode('provider')
+                  setMaxMessages(null)
+                }}
               >
-                Save
-              </Button>
+                Info Provider
+              </Badge>
+              <Badge
+                variant={mode === 'collector' ? 'default' : 'secondary'}
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  mode === 'collector' && 'bg-primary text-primary-foreground'
+                )}
+                onClick={() => {
+                  setMode('collector')
+                  setMaxMessages(20)
+                }}
+              >
+                Info Collector
+              </Badge>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {mode === 'collector'
+                ? 'Agent will gather information from users'
+                : 'Agent will provide information to users'}
+            </p>
+            {mode === 'collector' && (
+              <div className="pt-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Max messages before completion
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={maxMessages ?? 20}
+                  onChange={e =>
+                    setMaxMessages(parseInt(e.target.value, 10) || 20)
+                  }
+                  className="mt-1"
+                  disabled={saving}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Tools & files */}
         <ToolsFilesManager agent={agent} onUpdate={() => router.refresh()} />
-
 
         {/* Share & QR */}
         <Card>
@@ -215,7 +288,11 @@ export function AgentRightbar({
                 {copied ? 'Copied' : 'Copy'}
               </Button>
               <Button size="sm" variant="ghost" asChild>
-                <Link href={share.url} target="_blank" rel="noopener noreferrer">
+                <Link
+                  href={share.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   <IconExternalLink className="h-4 w-4" />
                 </Link>
               </Button>
@@ -226,6 +303,67 @@ export function AgentRightbar({
           </CardContent>
         </Card>
 
+        {/* Danger Zone */}
+        <Card className="border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-red-600 dark:text-red-400">
+              Danger Zone
+            </CardTitle>
+            <CardDescription className="text-red-600/80 dark:text-red-400/80">
+              Permanently delete this agent and all its data.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  className="w-full bg-red-600 hover:bg-red-700"
+                >
+                  <IconTrash className="mr-2 h-4 w-4" />
+                  Delete Agent
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete
+                    your agent "{agent.name}" and remove all associated data
+                    including files and conversations.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={e => {
+                      e.preventDefault()
+                      handleDelete()
+                    }}
+                    className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Agent'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Floating Save Button */}
+      <div className="fixed bottom-6 left-0 right-0 z-20 flex justify-center pointer-events-none lg:left-[300px]">
+        <div className="mx-auto flex items-center gap-2 rounded-full border bg-background p-2 shadow-lg pointer-events-auto">
+          <Button
+            onClick={handleSaveAll}
+            disabled={saving || !hasChanges}
+            className="w-full md:w-auto rounded-full"
+            size="sm"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
     </aside>
   )
