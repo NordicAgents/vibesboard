@@ -142,7 +142,7 @@ export function AgentChat({
     }
   })
 
-    // Clean completion markers from messages for display
+  // Clean completion markers from messages for display
   const messages = useMemo(() => {
     return rawMessages.map(m => {
       if (m.role === 'assistant' && m.content) {
@@ -249,7 +249,7 @@ export function AgentChat({
       >
         {messages.length ? (
           <>
-            <ChatList messages={messages} />
+            <ChatList messages={messages} isLoading={isLoading} />
             <ChatScrollAnchor trackVisibility={isLoading} />
           </>
         ) : (

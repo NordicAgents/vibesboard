@@ -57,7 +57,7 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
       >
         {messages.length ? (
           <>
-            <ChatList messages={messages} />
+            <ChatList messages={messages} isLoading={isLoading} />
             <ChatScrollAnchor trackVisibility={isLoading} />
           </>
         ) : (
