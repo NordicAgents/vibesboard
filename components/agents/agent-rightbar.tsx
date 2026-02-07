@@ -8,7 +8,8 @@ import {
   type AgentSharePayload,
   type VibeAgent,
   type VibeAgentConversation,
-  type AgentMode
+  type AgentMode,
+  type QuickSuggestionsMode
 } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,6 +68,11 @@ export function AgentRightbar({
   const [maxMessages, setMaxMessages] = useState<number | null>(
     agent.maxMessages ?? null
   )
+  const [quickSuggestionsMode, setQuickSuggestionsMode] =
+    useState<QuickSuggestionsMode>(agent.quickSuggestionsMode ?? 'off')
+  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<3 | 4>(
+    agent.quickSuggestionsCount === 3 ? 3 : 4
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -108,7 +114,9 @@ export function AgentRightbar({
       greetingText: greetingText.trim() || null,
       allowAnonymous,
       mode,
-      maxMessages
+      maxMessages,
+      quickSuggestionsMode,
+      quickSuggestionsCount
     }
 
     try {
@@ -136,7 +144,9 @@ export function AgentRightbar({
       (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
     allowAnonymous !== agent.allowAnonymous ||
     mode !== (agent.mode || 'provider') ||
-    maxMessages !== (agent.maxMessages ?? null)
+    maxMessages !== (agent.maxMessages ?? null) ||
+    quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
+    quickSuggestionsCount !== (agent.quickSuggestionsCount === 3 ? 3 : 4)
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -268,6 +278,96 @@ export function AgentRightbar({
                   className="mt-1"
                   disabled={saving}
                 />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Suggestions */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quick Suggestions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Badge
+                variant={quickSuggestionsMode === 'off' ? 'default' : 'secondary'}
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  quickSuggestionsMode === 'off' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() => setQuickSuggestionsMode('off')}
+              >
+                Off
+              </Badge>
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
+                }
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  quickSuggestionsMode === 'smart' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() => setQuickSuggestionsMode('smart')}
+              >
+                Smart (Wisely)
+              </Badge>
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'always' ? 'default' : 'secondary'
+                }
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  quickSuggestionsMode === 'always' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() => setQuickSuggestionsMode('always')}
+              >
+                Always
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {quickSuggestionsMode === 'off'
+                ? 'No suggestions will be shown.'
+                : quickSuggestionsMode === 'always'
+                  ? 'Suggestions appear after every agent reply.'
+                  : 'Suggestions appear when helpful (start + questions).'}
+            </p>
+            {quickSuggestionsMode !== 'off' && (
+              <div className="pt-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Suggestions count
+                </label>
+                <div className="mt-2 flex gap-2">
+                  <Badge
+                    variant={
+                      quickSuggestionsCount === 3 ? 'default' : 'secondary'
+                    }
+                    className={cn(
+                      'cursor-pointer transition-all px-4 py-1',
+                      quickSuggestionsCount === 3 &&
+                        'bg-primary text-primary-foreground'
+                    )}
+                    onClick={() => setQuickSuggestionsCount(3)}
+                  >
+                    3
+                  </Badge>
+                  <Badge
+                    variant={
+                      quickSuggestionsCount === 4 ? 'default' : 'secondary'
+                    }
+                    className={cn(
+                      'cursor-pointer transition-all px-4 py-1',
+                      quickSuggestionsCount === 4 &&
+                        'bg-primary text-primary-foreground'
+                    )}
+                    onClick={() => setQuickSuggestionsCount(4)}
+                  >
+                    4
+                  </Badge>
+                </div>
               </div>
             )}
           </CardContent>

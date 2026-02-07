@@ -49,12 +49,13 @@ export function AgentChatWithLayout({
   const { isSidebarOpen } = useSidebar()
   const setSecondarySidebar = useSecondarySidebarSetter()
 
-  // Set initial sidebar state based on configure parameter
+  const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
+
+  // Sync sidebar (Configure vs Ask AI) with the URL
   React.useEffect(() => {
-    if (isConfigure && agentPageShell) {
-      agentPageShell.setIsSidebarOpen(true)
-    }
-  }, [isConfigure, agentPageShell])
+    if (!setAgentSidebarOpen) return
+    setAgentSidebarOpen(Boolean(isConfigure))
+  }, [isConfigure, setAgentSidebarOpen])
 
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     () => {
@@ -155,7 +156,13 @@ export function AgentChatWithLayout({
           size="sm"
           className="justify-start gap-2 px-2"
           data-mobile-menu-close="true"
-          onClick={() => agentPageShell?.setIsSidebarOpen(false)}
+          onClick={() => {
+            setAgentSidebarOpen?.(false)
+            const params = new URLSearchParams(searchParams.toString())
+            params.delete('configure')
+            const query = params.toString()
+            router.push(query ? `/agents/${agent.id}?${query}` : `/agents/${agent.id}`)
+          }}
         >
           <IconMessage className="h-4 w-4" />
           Ask AI
@@ -165,7 +172,12 @@ export function AgentChatWithLayout({
           size="sm"
           className="justify-start gap-2 px-2"
           data-mobile-menu-close="true"
-          onClick={() => agentPageShell?.setIsSidebarOpen(true)}
+          onClick={() => {
+            setAgentSidebarOpen?.(true)
+            const params = new URLSearchParams(searchParams.toString())
+            params.set('configure', 'true')
+            router.push(`/agents/${agent.id}?${params.toString()}`)
+          }}
         >
           <IconEdit className="h-4 w-4" />
           Configure

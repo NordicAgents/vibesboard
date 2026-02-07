@@ -27,6 +27,8 @@ export interface AgentFormData {
   fileKeys?: string[]
   mode?: AgentMode
   maxMessages?: number | null
+  quickSuggestionsMode?: 'off' | 'smart' | 'always'
+  quickSuggestionsCount?: 3 | 4
 }
 
 interface AgentBuilderFormPreviewProps {
@@ -62,6 +64,7 @@ export function AgentBuilderFormPreview({
     if (formData.greetingText) newFields.add('greetingText')
     if (formData.tools?.length) newFields.add('tools')
     if (formData.mode) newFields.add('mode')
+    if (formData.quickSuggestionsMode) newFields.add('quickSuggestions')
 
     setAnimatedFields(newFields)
   }, [formData])
@@ -75,6 +78,8 @@ export function AgentBuilderFormPreview({
     formData.greetingText.length > 0
 
   const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
+  const quickSuggestionsMode = formData.quickSuggestionsMode ?? 'smart'
+  const quickSuggestionsCount = formData.quickSuggestionsCount ?? 4
 
   return (
     <aside
@@ -312,6 +317,131 @@ export function AgentBuilderFormPreview({
                 />
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Suggestions */}
+        <Card
+          className={cn(
+            'transition-all duration-500',
+            animatedFields.has('quickSuggestions') && 'ring-2 ring-primary/20'
+          )}
+        >
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">
+              Quick suggestions
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Show 3–4 suggestion chips to help users reply faster
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Badge
+                variant={quickSuggestionsMode === 'off' ? 'default' : 'secondary'}
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  quickSuggestionsMode === 'off' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() =>
+                  onFormChange({
+                    ...formData,
+                    quickSuggestionsMode: 'off'
+                  })
+                }
+              >
+                Off
+              </Badge>
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
+                }
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  quickSuggestionsMode === 'smart' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() =>
+                  onFormChange({
+                    ...formData,
+                    quickSuggestionsMode: 'smart',
+                    quickSuggestionsCount: quickSuggestionsCount === 3 ? 3 : 4
+                  })
+                }
+              >
+                Smart (Wisely)
+              </Badge>
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'always' ? 'default' : 'secondary'
+                }
+                className={cn(
+                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  quickSuggestionsMode === 'always' &&
+                    'bg-primary text-primary-foreground'
+                )}
+                onClick={() =>
+                  onFormChange({
+                    ...formData,
+                    quickSuggestionsMode: 'always',
+                    quickSuggestionsCount: quickSuggestionsCount === 3 ? 3 : 4
+                  })
+                }
+              >
+                Always
+              </Badge>
+            </div>
+
+            {quickSuggestionsMode !== 'off' && (
+              <div className="flex items-center justify-between pt-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Suggestions count
+                </label>
+                <div className="flex gap-2">
+                  <Badge
+                    variant={quickSuggestionsCount === 3 ? 'default' : 'secondary'}
+                    className={cn(
+                      'cursor-pointer transition-all px-4 py-1',
+                      quickSuggestionsCount === 3 &&
+                        'bg-primary text-primary-foreground'
+                    )}
+                    onClick={() =>
+                      onFormChange({
+                        ...formData,
+                        quickSuggestionsCount: 3
+                      })
+                    }
+                  >
+                    3
+                  </Badge>
+                  <Badge
+                    variant={quickSuggestionsCount === 4 ? 'default' : 'secondary'}
+                    className={cn(
+                      'cursor-pointer transition-all px-4 py-1',
+                      quickSuggestionsCount === 4 &&
+                        'bg-primary text-primary-foreground'
+                    )}
+                    onClick={() =>
+                      onFormChange({
+                        ...formData,
+                        quickSuggestionsCount: 4
+                      })
+                    }
+                  >
+                    4
+                  </Badge>
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              {quickSuggestionsMode === 'off'
+                ? 'No suggestions will be shown.'
+                : quickSuggestionsMode === 'always'
+                  ? 'Suggestions appear after every agent reply.'
+                  : 'Suggestions appear when helpful (start + questions).'}
+            </p>
           </CardContent>
         </Card>
 

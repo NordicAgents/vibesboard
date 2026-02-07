@@ -106,6 +106,10 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - greetingText (warm, welcoming first message users will see)
 - allowAnonymous (default: true, ask only if relevant)
 - tools (suggest relevant tools based on needs, use tool IDs from the list above)
+- quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
+- quickSuggestionsCount (default: 4; options: 3 | 4)
+- mode (default: "provider"; options: "provider" | "collector")
+- maxMessages (collector only; default: 20)
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -115,7 +119,11 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "name": "suggested name",
   "instructions": "suggested instructions",
   "greetingText": "suggested greeting",
-  "tools": ["builtin:search"]
+  "tools": ["builtin:search"],
+  "quickSuggestionsMode": "smart",
+  "quickSuggestionsCount": 4,
+  "mode": "provider",
+  "maxMessages": null
 }
 ~~~
 
@@ -124,7 +132,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 **Functions to call:**
 
 1. **create_agent** - ONLY when user explicitly says "create it" or similar
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[] }
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 3 | 4 }
 
 **Interaction style:**
 - Be conversational and encouraging
@@ -149,6 +157,28 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         instructions: { type: 'string', minLength: 10 },
         greetingText: { type: 'string' },
         allowAnonymous: { type: 'boolean' },
+        mode: {
+          type: 'string',
+          enum: ['provider', 'collector'],
+          description: 'Agent mode: provider or collector.'
+        },
+        maxMessages: {
+          type: 'number',
+          description:
+            'Maximum user messages before completion (collector only).',
+          minimum: 1,
+          maximum: 50
+        },
+        quickSuggestionsMode: {
+          type: 'string',
+          enum: ['off', 'smart', 'always'],
+          description: 'Quick suggestions mode: off, smart, or always.'
+        },
+        quickSuggestionsCount: {
+          type: 'number',
+          enum: [3, 4],
+          description: 'Number of quick suggestions to show (3 or 4).'
+        },
         tools: {
           type: 'array',
           items: {
@@ -186,6 +216,10 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     instructions: z.string().min(10),
     greetingText: z.string().min(1),
     allowAnonymous: z.boolean().optional(),
+    mode: z.enum(['provider', 'collector']).optional(),
+    maxMessages: z.number().int().min(1).max(50).nullable().optional(),
+    quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
+    quickSuggestionsCount: z.number().int().min(3).max(4).optional(),
     tools: z.array(z.string()).optional(),
     fileKeys: z.array(z.string()).optional()
   })
@@ -236,13 +270,21 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         description: BUILTIN_AGENT_TOOLS[toolId].description
       }))
 
+      const mode = parsed.data.mode ?? 'provider'
+      const maxMessages =
+        mode === 'provider' ? null : (parsed.data.maxMessages ?? 20)
+
       const payload = upsertAgentSchema.parse({
         name: parsed.data.name,
         instructions: parsed.data.instructions,
         greetingText: parsed.data.greetingText,
         allowAnonymous: parsed.data.allowAnonymous ?? true,
         fileKeys: parsed.data.fileKeys ?? [],
-        tools: toolsPayload
+        tools: toolsPayload,
+        mode,
+        maxMessages,
+        quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
+        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4
       })
 
       // Resolve the tenant the new agent should belong to.
@@ -275,6 +317,10 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           tools: payload.tools,
           allow_anonymous: payload.allowAnonymous,
           agent_url: slug,
+          mode: (payload as any).mode,
+          max_messages: (payload as any).maxMessages,
+          quick_suggestions_mode: (payload as any).quickSuggestionsMode,
+          quick_suggestions_count: (payload as any).quickSuggestionsCount,
           ...(payload.greetingText !== undefined
             ? { greeting_text: payload.greetingText }
             : {})
@@ -294,7 +340,11 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           greetingText: payload.greetingText ?? '',
           tools: sanitizedToolIds,
           allowAnonymous: payload.allowAnonymous,
-          fileKeys: payload.fileKeys
+          fileKeys: payload.fileKeys,
+          mode: (payload as any).mode,
+          maxMessages: (payload as any).maxMessages,
+          quickSuggestionsMode: (payload as any).quickSuggestionsMode,
+          quickSuggestionsCount: (payload as any).quickSuggestionsCount
         },
         null,
         2

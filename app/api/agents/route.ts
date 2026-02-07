@@ -119,6 +119,12 @@ export async function POST(req: Request) {
     ...(payload.mode !== undefined && { mode: payload.mode }),
     ...(payload.maxMessages !== undefined && {
       max_messages: payload.maxMessages
+    }),
+    ...(payload.quickSuggestionsMode !== undefined && {
+      quick_suggestions_mode: payload.quickSuggestionsMode
+    }),
+    ...(payload.quickSuggestionsCount !== undefined && {
+      quick_suggestions_count: payload.quickSuggestionsCount
     })
   }
 

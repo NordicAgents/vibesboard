@@ -41,7 +41,9 @@ export function AgentCreatorChat({
   const [chatId, setChatId] = useState<string>(initialChatId || 'agent-creator')
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
   const [formData, setFormData] = useState<AgentFormData>({
-    allowAnonymous: true
+    allowAnonymous: true,
+    quickSuggestionsMode: 'smart',
+    quickSuggestionsCount: 4
   })
   const [isCreating, setIsCreating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -85,6 +87,16 @@ export function AgentCreatorChat({
                 }),
                 ...(updates.fileKeys !== undefined && {
                   fileKeys: updates.fileKeys
+                }),
+                ...(updates.mode !== undefined && { mode: updates.mode }),
+                ...(updates.maxMessages !== undefined && {
+                  maxMessages: updates.maxMessages
+                }),
+                ...(updates.quickSuggestionsMode !== undefined && {
+                  quickSuggestionsMode: updates.quickSuggestionsMode
+                }),
+                ...(updates.quickSuggestionsCount !== undefined && {
+                  quickSuggestionsCount: updates.quickSuggestionsCount
                 })
               }))
             } catch (parseError) {
@@ -128,7 +140,11 @@ export function AgentCreatorChat({
     setInput('')
     setChatId(`agent-creator-${nanoid()}`)
     setCreatedAgentId(null)
-    setFormData({ allowAnonymous: true })
+    setFormData({
+      allowAnonymous: true,
+      quickSuggestionsMode: 'smart',
+      quickSuggestionsCount: 4
+    })
   }
 
   const handleAddWebsiteUrl = () => {
@@ -234,7 +250,9 @@ export function AgentCreatorChat({
           fileKeys: formData.fileKeys || [],
           tools: toolsPayload,
           mode,
-          maxMessages
+          maxMessages,
+          quickSuggestionsMode: formData.quickSuggestionsMode ?? 'smart',
+          quickSuggestionsCount: formData.quickSuggestionsCount ?? 4
         })
       })
 

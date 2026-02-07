@@ -6,6 +6,8 @@ export type CompletionReason =
   | 'max_messages'
   | null
 
+const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
+
 /**
  * Detects completion markers in text and returns the reason
  */
@@ -26,6 +28,7 @@ export function stripCompletionMarkers(text: string): string {
   return text
     .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
     .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
+    .replace(SUGGESTIONS_MARKER_REGEX, '')
     .trim()
 }
 

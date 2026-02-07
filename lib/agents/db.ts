@@ -121,6 +121,8 @@ export const mapAgentRow = (row: AgentRow): VibeAgent => ({
   greetingText: (row as any).greeting_text ?? null,
   mode: (row as any).mode ?? 'provider',
   maxMessages: (row as any).max_messages ?? null,
+  quickSuggestionsMode: (row as any).quick_suggestions_mode ?? 'off',
+  quickSuggestionsCount: (row as any).quick_suggestions_count ?? 4,
   lastEmbeddingsSyncAt: (row as any).last_embeddings_sync_at ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at
