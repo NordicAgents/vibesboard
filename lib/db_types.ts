@@ -78,6 +78,11 @@ type PublicSchema = GenericSchema & {
         tools: Json
         allow_anonymous: boolean
         greeting_text: string | null
+        quick_suggestions_mode: 'off' | 'smart' | 'always'
+        quick_suggestions_count: number
+        mode: 'provider' | 'collector'
+        max_messages: number | null
+        last_embeddings_sync_at: string | null
         created_at: string
         updated_at: string
       }
@@ -92,6 +97,11 @@ type PublicSchema = GenericSchema & {
         tools?: Json
         allow_anonymous?: boolean
         greeting_text?: string | null
+        quick_suggestions_mode?: 'off' | 'smart' | 'always'
+        quick_suggestions_count?: number
+        mode?: 'provider' | 'collector'
+        max_messages?: number | null
+        last_embeddings_sync_at?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -106,6 +116,11 @@ type PublicSchema = GenericSchema & {
         tools?: Json
         allow_anonymous?: boolean
         greeting_text?: string | null
+        quick_suggestions_mode?: 'off' | 'smart' | 'always'
+        quick_suggestions_count?: number
+        mode?: 'provider' | 'collector'
+        max_messages?: number | null
+        last_embeddings_sync_at?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -356,6 +371,8 @@ type PublicSchema = GenericSchema & {
         external_id: string | null
         messages: Json
         summary: string | null
+        closed_at: string | null
+        summary_generated_at: string | null
         created_at: string
         updated_at: string
       }
@@ -366,6 +383,8 @@ type PublicSchema = GenericSchema & {
         external_id?: string | null
         messages?: Json
         summary?: string | null
+        closed_at?: string | null
+        summary_generated_at?: string | null
         created_at?: string
         updated_at?: string
       }
@@ -376,6 +395,8 @@ type PublicSchema = GenericSchema & {
         external_id?: string | null
         messages?: Json
         summary?: string | null
+        closed_at?: string | null
+        summary_generated_at?: string | null
         created_at?: string
         updated_at?: string
       }
