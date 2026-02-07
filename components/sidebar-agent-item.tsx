@@ -19,7 +19,7 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
 
   return (
     <Link
-      href={path}
+      href={`${path}?configure=true`}
       className={cn(
         buttonVariants({ variant: 'ghost' }),
         'group flex w-full items-center justify-start gap-2 pl-2 pr-3 text-left',

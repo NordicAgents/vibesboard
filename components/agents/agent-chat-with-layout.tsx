@@ -30,6 +30,7 @@ interface AgentChatWithLayoutProps {
   visitorSessions: VibeAgentConversation[]
   hasUnsyncedConversations: boolean
   share: AgentSharePayload
+  isConfigure?: boolean
 }
 
 export function AgentChatWithLayout({
@@ -38,12 +39,20 @@ export function AgentChatWithLayout({
   ownerSessions,
   visitorSessions,
   hasUnsyncedConversations,
-  share
+  share,
+  isConfigure
 }: AgentChatWithLayoutProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const agentPageShell = useAgentPageShell()
   const { isSidebarOpen } = useSidebar()
+
+  // Set initial sidebar state based on configure parameter
+  React.useEffect(() => {
+    if (isConfigure && agentPageShell) {
+      agentPageShell.setIsSidebarOpen(true)
+    }
+  }, [isConfigure, agentPageShell])
 
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     () => {
