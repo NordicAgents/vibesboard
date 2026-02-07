@@ -10,6 +10,7 @@ import { summarizeConversation } from '@/lib/agent/summarize'
 export const runtime = 'nodejs'
 
 const MAX_REFRESH = 20
+const CONCURRENCY = 5
 
 export async function POST(
   _req: Request,
@@ -57,25 +58,40 @@ export async function POST(
   }
 
   let updatedCount = 0
-  for (const row of convoRows) {
-    const conversation = mapConversationRow(row as any)
-    const summary = await summarizeConversation(conversation.messages)
-    if (!summary) {
-      continue
-    }
-    const now = new Date().toISOString()
-    const { error: updateError } = await supabase
-      .from('vibe_agent_conversations')
-      .update({
-        summary,
-        summary_generated_at: now,
-        updated_at: now
-      } as any)
-      .eq('id', conversation.id)
 
-    if (!updateError) {
-      updatedCount += 1
-    }
+  // Process in chunks to limit concurrency
+  for (let i = 0; i < convoRows.length; i += CONCURRENCY) {
+    const chunk = convoRows.slice(i, i + CONCURRENCY)
+
+    const results = await Promise.all(
+      chunk.map(async (row) => {
+        try {
+          const conversation = mapConversationRow(row as any)
+          const summary = await summarizeConversation(conversation.messages)
+
+          if (!summary) {
+            return false
+          }
+
+          const now = new Date().toISOString()
+          const { error: updateError } = await supabase
+            .from('vibe_agent_conversations')
+            .update({
+              summary,
+              summary_generated_at: now,
+              updated_at: now
+            } as any)
+            .eq('id', conversation.id)
+
+          return !updateError
+        } catch (err) {
+          console.error('Error processing conversation summary:', err)
+          return false
+        }
+      })
+    )
+
+    updatedCount += results.filter(Boolean).length
   }
 
   return NextResponse.json({ updated: updatedCount })
