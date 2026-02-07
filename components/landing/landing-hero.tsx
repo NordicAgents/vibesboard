@@ -4,16 +4,19 @@ import { FadeIn } from './fade-in'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export function LandingHero() {
     return (
         <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden pt-16 sm:pt-20">
             {/* Background Image with Overlay */}
             <div className="absolute inset-0 z-0">
-                <img
+                <Image
                     src="/images/landing/hero-bg.png"
                     alt="Hero background"
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    priority
                 />
                 <div className="absolute inset-0 bg-black/40"></div>
             </div>
