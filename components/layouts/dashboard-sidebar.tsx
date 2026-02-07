@@ -102,6 +102,7 @@ export function DashboardSidebarItem({
     return (
         <button
             onClick={onClick}
+            data-mobile-menu-close="true"
             className={cn(
                 'rounded-2xl px-3 py-2 text-left font-switzer text-sm transition-colors',
                 active
