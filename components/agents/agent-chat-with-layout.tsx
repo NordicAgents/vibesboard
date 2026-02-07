@@ -10,6 +10,7 @@ import {
 } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
+import { useSecondarySidebarSetter } from '@/components/layouts/secondary-sidebar-context'
 import {
   DashboardSidebar,
   DashboardSidebarSection,
@@ -46,6 +47,7 @@ export function AgentChatWithLayout({
   const searchParams = useSearchParams()
   const agentPageShell = useAgentPageShell()
   const { isSidebarOpen } = useSidebar()
+  const setSecondarySidebar = useSecondarySidebarSetter()
 
   // Set initial sidebar state based on configure parameter
   React.useEffect(() => {
@@ -82,26 +84,32 @@ export function AgentChatWithLayout({
     }
   }, [searchParams, ownerSessions, activeSessionId])
 
-  const handleSelectSession = (sessionId: string | null) => {
-    setActiveSessionId(sessionId)
-    if (sessionId) {
-      router.push(`/agents/${agent.id}?session=${sessionId}`)
-    } else {
+  const handleSelectSession = React.useCallback(
+    (sessionId: string | null) => {
+      setActiveSessionId(sessionId)
+      if (sessionId) {
+        router.push(`/agents/${agent.id}?session=${sessionId}`)
+        return
+      }
       router.push(`/agents/${agent.id}`)
-    }
-  }
+    },
+    [agent.id, router]
+  )
 
-  const handleOpenConversation = (conversation: VibeAgentConversation) => {
-    setSelectedConversation(conversation)
-    setIsModalOpen(true)
-  }
+  const handleOpenConversation = React.useCallback(
+    (conversation: VibeAgentConversation) => {
+      setSelectedConversation(conversation)
+      setIsModalOpen(true)
+    },
+    []
+  )
 
-  const handleNewChat = () => {
+  const handleNewChat = React.useCallback(() => {
     setActiveSessionId(null)
     router.push(`/agents/${agent.id}`)
-  }
+  }, [agent.id, router])
 
-  const handleRefreshSummaries = async () => {
+  const handleRefreshSummaries = React.useCallback(async () => {
     setRefreshingSummaries(true)
     try {
       await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
@@ -111,14 +119,17 @@ export function AgentChatWithLayout({
     } finally {
       setRefreshingSummaries(false)
     }
-  }
+  }, [agent.id, router])
 
   // Pagination for visitor conversations
   const itemsPerPage = 5
   const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
   const startIndex = (visitorPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const paginatedVisitorSessions = visitorSessions.slice(startIndex, endIndex)
+  const paginatedVisitorSessions = React.useMemo(
+    () => visitorSessions.slice(startIndex, endIndex),
+    [visitorSessions, startIndex, endIndex]
+  )
 
   // Reset to page 1 if current page is out of bounds
   React.useEffect(() => {
@@ -127,8 +138,9 @@ export function AgentChatWithLayout({
     }
   }, [visitorPage, totalVisitorPages])
 
-  const sidebar = (
-    <DashboardSidebar>
+  const sidebar = React.useMemo(
+    () => (
+      <DashboardSidebar>
       {/* Agent Info */}
       <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
         <h3 className="truncate font-switzer text-lg font-bold text-black-primary dark:text-foreground">
@@ -142,6 +154,7 @@ export function AgentChatWithLayout({
           variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
           size="sm"
           className="justify-start gap-2 px-2"
+          data-mobile-menu-close="true"
           onClick={() => agentPageShell?.setIsSidebarOpen(false)}
         >
           <IconMessage className="h-4 w-4" />
@@ -151,6 +164,7 @@ export function AgentChatWithLayout({
           variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
           size="sm"
           className="justify-start gap-2 px-2"
+          data-mobile-menu-close="true"
           onClick={() => agentPageShell?.setIsSidebarOpen(true)}
         >
           <IconEdit className="h-4 w-4" />
@@ -235,6 +249,7 @@ export function AgentChatWithLayout({
         action={
           <button
             onClick={handleNewChat}
+            data-mobile-menu-close="true"
             className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
             aria-label="New conversation"
           >
@@ -254,8 +269,32 @@ export function AgentChatWithLayout({
           </DashboardSidebarItem>
         ))}
       </DashboardSidebarSection>
-    </DashboardSidebar>
+      </DashboardSidebar>
+    ),
+    [
+      activeSessionId,
+      agent.name,
+      agentPageShell?.isSidebarOpen,
+      agentPageShell?.setIsSidebarOpen,
+      handleNewChat,
+      handleOpenConversation,
+      handleRefreshSummaries,
+      handleSelectSession,
+      ownerSessions,
+      paginatedVisitorSessions,
+      refreshingSummaries,
+      totalVisitorPages,
+      visitorPage,
+      visitorSessions.length
+    ]
   )
+
+  React.useEffect(() => {
+    setSecondarySidebar(sidebar)
+    return () => {
+      setSecondarySidebar(null)
+    }
+  }, [setSecondarySidebar, sidebar])
 
   return (
     <>

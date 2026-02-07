@@ -3,13 +3,9 @@
 import * as React from 'react'
 
 import { useSidebar } from '@/components/sidebar-context'
+import { SecondarySidebarSetterProvider } from '@/components/layouts/secondary-sidebar-context'
 import { Button } from '@/components/ui/button'
-import {
-  IconSidebar,
-  IconPlus,
-  IconMenu,
-  IconChevronUpDown
-} from '@/components/ui/icons'
+import { IconSidebar, IconPlus, IconMenu } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -22,47 +18,12 @@ import { usePathname } from 'next/navigation'
 import { UserMenu } from '@/components/user-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { useState, useRef, useEffect } from 'react'
+import { useEffect } from 'react'
 
 interface SidebarResizableLayoutProps {
   children: React.ReactNode
   sidebar: React.ReactNode
   user?: any // Pass user prop to render UserMenu in the layout if needed
-}
-
-// Helper component to render DashboardLayout.sidebar from children if it exists
-// This is a bit of a hack to extract the sidebar from the children tree for mobile view
-// In a cleaner implementation, we might pass the secondary sidebar explicitly to this layout
-const MobileSecondarySidebar = ({
-  children
-}: {
-  children: React.ReactNode
-}) => {
-  // Use React.Children.map to find DashboardLayout
-  let sidebarContent: React.ReactNode = null
-
-  // This is a simplified check. In a real app, you might need recursive search or context.
-  // For now, we assume DashboardLayout is a direct child or close to it.
-  React.Children.forEach(children, child => {
-    if (React.isValidElement(child)) {
-      // @ts-ignore - checking for props.sidebar
-      if (child.props && child.props.sidebar) {
-        // @ts-ignore
-        sidebarContent = child.props.sidebar
-      }
-    }
-  })
-
-  return sidebarContent ? (
-    <div className="mt-4 border-t pt-4">{sidebarContent}</div>
-  ) : null
 }
 
 export function SidebarResizableLayout({
@@ -71,16 +32,20 @@ export function SidebarResizableLayout({
   user
 }: SidebarResizableLayoutProps) {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [mobileView, setMobileView] = useState<'agents' | 'current-agent'>(
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const [mobileView, setMobileView] = React.useState<
+    'agents' | 'current-agent'
+  >(
     'agents'
   )
+  const [secondarySidebar, setSecondarySidebar] =
+    React.useState<React.ReactNode | null>(null)
 
   // Route-aware auto-collapse for agent creator page
   const pathname = usePathname()
-  const prevPathnameRef = useRef(pathname)
-  const isSidebarOpenRef = useRef(isSidebarOpen)
-  const autoCollapseStateRef = useRef<{
+  const prevPathnameRef = React.useRef(pathname)
+  const isSidebarOpenRef = React.useRef(isSidebarOpen)
+  const autoCollapseStateRef = React.useRef<{
     shouldRestore: boolean
     manuallyChanged: boolean
   } | null>(null)
@@ -92,6 +57,14 @@ export function SidebarResizableLayout({
   useEffect(() => {
     const wasCreatePage = prevPathnameRef.current === '/agents/create-chat'
     const isNowCreatePage = pathname === '/agents/create-chat'
+    const isCompactViewport =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(max-width: 1024px)').matches
+
+    const isAgentDetailPage =
+      pathname.startsWith('/agents/') &&
+      pathname !== '/agents/create-chat' &&
+      pathname !== '/agents/new'
 
     if (!wasCreatePage && isNowCreatePage) {
       // Entering create page - auto-collapse if sidebar is open
@@ -108,9 +81,16 @@ export function SidebarResizableLayout({
         autoCollapseStateRef.current?.shouldRestore &&
         !autoCollapseStateRef.current?.manuallyChanged
       ) {
-        setIsSidebarOpen(true)
+        if (!isCompactViewport) {
+          setIsSidebarOpen(true)
+        }
       }
       autoCollapseStateRef.current = null
+    }
+
+    // Auto-collapse primary sidebar on smaller viewports in agent pages
+    if (isAgentDetailPage && isCompactViewport && isSidebarOpenRef.current) {
+      setIsSidebarOpen(false)
     }
 
     prevPathnameRef.current = pathname
@@ -124,22 +104,66 @@ export function SidebarResizableLayout({
     setIsSidebarOpen(open)
   }
 
-  // Extract secondary sidebar (DashboardSidebar) from children if present
-  // This is needed because DashboardLayout hides it on mobile (lg:block)
-  // We want to show it in the mobile menu
-  let secondarySidebar: React.ReactNode = null
-  React.Children.forEach(children, child => {
-    if (React.isValidElement(child)) {
-      // @ts-ignore
-      if (child.props && child.props.sidebar) {
-        // @ts-ignore
-        secondarySidebar = child.props.sidebar
-      }
+  // Prefer showing the "Current Agent" view when available
+  useEffect(() => {
+    if (!secondarySidebar) {
+      setMobileView('agents')
+      return
     }
-  })
+
+    const isAgentDetailPage =
+      pathname.startsWith('/agents/') &&
+      pathname !== '/agents/create-chat' &&
+      pathname !== '/agents/new'
+
+    if (isAgentDetailPage) {
+      setMobileView(prev => (prev === 'agents' ? 'current-agent' : prev))
+    }
+  }, [pathname, secondarySidebar])
+
+  const handlePrimarySidebarNavigate = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (typeof window === 'undefined') return
+
+      const target = e.target as HTMLElement | null
+      const link = target?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!link) return
+
+      const href = link.getAttribute('href') ?? ''
+      if (!href.startsWith('/agents/')) return
+
+      if (window.matchMedia('(max-width: 1024px)').matches && isSidebarOpen) {
+        setIsSidebarOpen(false)
+      }
+    },
+    [isSidebarOpen, setIsSidebarOpen]
+  )
+
+  const handleMobileAgentsNavigate = React.useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      const link = target?.closest?.('a[href]')
+      if (!link) return
+      setMobileMenuOpen(false)
+    },
+    []
+  )
+
+  const handleMobileCurrentAgentAction = React.useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      const shouldClose = target?.closest?.(
+        'a[href], [data-mobile-menu-close="true"]'
+      )
+      if (!shouldClose) return
+      setMobileMenuOpen(false)
+    },
+    []
+  )
 
   return (
-    <div className="flex flex-1 overflow-hidden h-full">
+    <SecondarySidebarSetterProvider setSecondarySidebar={setSecondarySidebar}>
+      <div className="flex flex-1 overflow-hidden h-full">
       <aside
         className={cn(
           'hidden flex-col border-r border-black-10 bg-purewhite-bg transition-[width] duration-300 ease-in-out dark:border-border dark:bg-card lg:flex',
@@ -247,7 +271,7 @@ export function SidebarResizableLayout({
                 </Button>
               </div>
             )}
-            {sidebar}
+            <div onClick={handlePrimarySidebarNavigate}>{sidebar}</div>
           </div>
         </div>
       </aside>
@@ -330,13 +354,18 @@ export function SidebarResizableLayout({
                               </Link>
                             </Button>
                           </div>
-                          {sidebar}
+                          <div onClick={handleMobileAgentsNavigate}>
+                            {sidebar}
+                          </div>
                         </>
                       )}
 
                       {/* Show Current Agent Menu (Secondary Sidebar) */}
                       {secondarySidebar && mobileView === 'current-agent' && (
-                        <div className="flex-1 overflow-y-auto px-4 py-3">
+                        <div
+                          className="flex-1 overflow-y-auto px-4 py-3"
+                          onClick={handleMobileCurrentAgentAction}
+                        >
                           {secondarySidebar}
                         </div>
                       )}
@@ -350,6 +379,7 @@ export function SidebarResizableLayout({
 
         {children}
       </div>
-    </div>
+      </div>
+    </SecondarySidebarSetterProvider>
   )
 }
