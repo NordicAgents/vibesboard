@@ -33,6 +33,7 @@ export async function GET(req: Request) {
       }
     ],
     allowAnonymous: true,
+    mode: 'provider',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }

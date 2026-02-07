@@ -2,6 +2,7 @@
 import { type Session } from '@supabase/auth-helpers-nextjs'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
+import { Settings } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -36,11 +37,12 @@ export function UserMenu({ user }: UserMenuProps) {
     <div className="flex items-center justify-between">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="pl-0">
-            <span>{user?.user_metadata.name ?? user?.email ?? 'Account'}</span>
+          <Button variant="ghost" size="icon" className="h-9 w-9">
+            <Settings className="h-5 w-5" />
+            <span className="sr-only">User Settings</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent sideOffset={8} align="start" className="w-[180px]">
+        <DropdownMenuContent sideOffset={8} align="end" className="w-[180px]">
           <DropdownMenuItem className="flex-col items-start">
             <div className="text-xs font-medium">
               {user?.user_metadata.name}
