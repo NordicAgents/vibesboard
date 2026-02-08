@@ -2,6 +2,7 @@
 import { type Session } from '@supabase/auth-helpers-nextjs'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Settings } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import {
 
 export interface UserMenuProps {
   user: Session['user']
+  isAdmin?: boolean
 }
 
 function getUserInitials(name: string) {
@@ -22,7 +24,7 @@ function getUserInitials(name: string) {
   return lastName ? `${firstName[0]}${lastName[0]}` : firstName.slice(0, 2)
 }
 
-export function UserMenu({ user }: UserMenuProps) {
+export function UserMenu({ user, isAdmin }: UserMenuProps) {
   const router = useRouter()
 
   // Create a Supabase client configured to use cookies
@@ -52,7 +54,17 @@ export function UserMenu({ user }: UserMenuProps) {
             </div>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={signOut} className="text-xs">
+          {isAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href="/admin" className="text-xs cursor-pointer">
+                Super Admin
+              </Link>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            onClick={signOut}
+            className="text-xs cursor-pointer"
+          >
             Log Out
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -23,32 +23,35 @@ export async function Header() {
         {session?.user && (
           <div className="flex items-center gap-2 rounded-2xl bg-purewhite-bg px-2 py-1.5 shadow-sm dark:bg-gray-800 dark:shadow-none">
             <Sidebar>
-              <React.Suspense fallback={<div className="flex-1 overflow-auto" />}>
+              <React.Suspense
+                fallback={<div className="flex-1 overflow-auto" />}
+              >
                 {/* @ts-ignore */}
                 <SidebarList userId={session?.user?.id} />
               </React.Suspense>
             </Sidebar>
             <div className="h-5 w-px bg-black-10 dark:bg-gray-600" />
-            <Link href="/" className="px-2 font-switzer text-base font-bold tracking-tight text-black-primary transition-colors hover:text-gray-secondary dark:text-white dark:hover:text-gray-300">
+            <Link
+              href="/"
+              className="px-2 font-switzer text-base font-bold tracking-tight text-black-primary transition-colors hover:text-gray-secondary dark:text-white dark:hover:text-gray-300"
+            >
               vibesboard
             </Link>
           </div>
         )}
         {!session?.user && (
-          <Link href="/" className="font-switzer text-xl font-bold tracking-tight text-black-primary dark:text-white dark:hover:text-gray-300">
+          <Link
+            href="/"
+            className="font-switzer text-xl font-bold tracking-tight text-black-primary dark:text-white dark:hover:text-gray-300"
+          >
             vibesboard
           </Link>
         )}
       </div>
       <div className="flex items-center justify-end space-x-2">
-        {session?.user && isAdmin && (
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/admin">Admin</Link>
-          </Button>
-        )}
         <ThemeToggle />
         {session?.user ? (
-          <UserMenu user={session.user} />
+          <UserMenu user={session.user} isAdmin={isAdmin} />
         ) : (
           <Button variant="link" asChild className="-ml-2">
             <Link href="/sign-in">Login</Link>
