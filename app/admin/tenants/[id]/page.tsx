@@ -48,7 +48,7 @@ export default function TenantDetailPage({ params }: PageProps) {
 
             const data = await response.json()
             setTenant(data.tenant)
-            setBranding(data.branding)
+            setBranding(data.branding ?? null)
         } catch (error) {
             console.error('Error fetching tenant:', error)
             toast.error('Failed to load tenant details')

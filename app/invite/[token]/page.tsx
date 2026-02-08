@@ -225,6 +225,10 @@ export default function InvitationPage() {
                                 </div>
                             </div>
                         </div>
+                        <div className="rounded-lg border p-4">
+                            <div className="text-sm font-medium text-muted-foreground">Invited Email</div>
+                            <div className="font-medium">{invitation.email}</div>
+                        </div>
                     </CardContent>
                 </Card>
 

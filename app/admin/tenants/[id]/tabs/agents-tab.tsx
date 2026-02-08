@@ -4,11 +4,9 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Database } from '@/lib/db_types'
+import { type VibeAgent } from '@/lib/types'
 import { Bot, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
-
-type VibeAgent = Database['public']['Tables']['vibe_agents']['Row']
 
 interface TenantAgentsTabProps {
     tenantId: string
@@ -79,7 +77,7 @@ export function TenantAgentsTab({ tenantId }: TenantAgentsTabProps) {
                         {agents.map((agent) => (
                             <Link
                                 key={agent.id}
-                                href={`/agents/${agent.id}`}
+                                href={`/admin/agents/${agent.id}`}
                                 className="group rounded-lg border p-4 transition-colors hover:bg-muted"
                             >
                                 <div className="flex items-start justify-between">
@@ -90,7 +88,7 @@ export function TenantAgentsTab({ tenantId }: TenantAgentsTabProps) {
                                     <ExternalLink className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
                                 </div>
                                 <p className="mt-2 text-sm text-muted-foreground">
-                                    Created {new Date(agent.created_at).toLocaleDateString()}
+                                    Created {new Date(agent.createdAt).toLocaleDateString()}
                                 </p>
                             </Link>
                         ))}

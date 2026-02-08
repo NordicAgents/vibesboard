@@ -25,19 +25,19 @@ interface TenantConfig {
         primary_color?: string
         secondary_color?: string
     }
-    features?: Record<string, boolean>
 }
 
-interface FeatureFlag {
+interface TenantFeatureStatus {
     id: string
     name: string
     description: string | null
-    default_value: boolean
+    isEnabled: boolean
+    isOverridden: boolean
 }
 
 export default function TenantSettingsPage() {
     const [tenant, setTenant] = useState<TenantConfig | null>(null)
-    const [features, setFeatures] = useState<FeatureFlag[]>([])
+    const [features, setFeatures] = useState<TenantFeatureStatus[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
@@ -48,7 +48,6 @@ export default function TenantSettingsPage() {
 
     useEffect(() => {
         fetchTenantData()
-        fetchFeatures()
     }, [])
 
     const fetchTenantData = async () => {
@@ -73,6 +72,7 @@ export default function TenantSettingsPage() {
             if (configResponse.ok) {
                 const config = await configResponse.json()
                 setTenant(config.tenant)
+                setFeatures(config.tenant?.features || config.features || [])
 
                 // Set branding values
                 if (config.tenant.branding) {
@@ -86,18 +86,6 @@ export default function TenantSettingsPage() {
             toast.error('Failed to load tenant')
         } finally {
             setIsLoading(false)
-        }
-    }
-
-    const fetchFeatures = async () => {
-        try {
-            const response = await fetch('/api/admin/feature-flags')
-            if (response.ok) {
-                const data = await response.json()
-                setFeatures(data.flags || [])
-            }
-        } catch (error) {
-            console.error('Error fetching features:', error)
         }
     }
 
@@ -260,7 +248,6 @@ export default function TenantSettingsPage() {
                             ) : (
                                 <div className="space-y-4">
                                     {features.map((feature) => {
-                                        const isEnabled = tenant.features?.[feature.name] ?? feature.default_value
                                         return (
                                             <div
                                                 key={feature.id}
@@ -274,8 +261,8 @@ export default function TenantSettingsPage() {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <Badge variant={isEnabled ? 'default' : 'secondary'}>
-                                                    {isEnabled ? 'Enabled' : 'Disabled'}
+                                                <Badge variant={feature.isEnabled ? 'default' : 'secondary'}>
+                                                    {feature.isEnabled ? 'Enabled' : 'Disabled'}
                                                 </Badge>
                                             </div>
                                         )

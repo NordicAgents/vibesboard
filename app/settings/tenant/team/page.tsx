@@ -43,9 +43,9 @@ import toast from 'react-hot-toast'
 
 interface TenantMember {
     user_id: string
-    email: string
+    email: string | null
     role: Role
-    joined_at: string
+    created_at: string
 }
 
 interface PendingInvitation {
@@ -220,10 +220,10 @@ export default function TeamManagementPage() {
         }
     }
 
-    const handleRemoveMember = async (userId: string, email: string) => {
+    const handleRemoveMember = async (userId: string, email: string | null) => {
         if (!tenantId) return
 
-        if (!confirm(`Are you sure you want to remove ${email} from this tenant?`)) {
+        if (!confirm(`Are you sure you want to remove ${email || userId} from this tenant?`)) {
             return
         }
 
@@ -320,12 +320,12 @@ export default function TeamManagementPage() {
                             <TableBody>
                                 {members.map((member) => (
                                 <TableRow key={member.user_id}>
-                                    <TableCell>{member.email}</TableCell>
+                                    <TableCell>{member.email || member.user_id}</TableCell>
                                     <TableCell>
                                         <RoleBadge role={member.role} />
                                     </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {new Date(member.joined_at).toLocaleDateString()}
+                                            {new Date(member.created_at).toLocaleDateString()}
                                         </TableCell>
                                         <TableCell>
                                             {!isPersonal && (

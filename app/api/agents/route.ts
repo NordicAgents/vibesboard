@@ -5,9 +5,10 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
-import { getUserActiveTenant } from '@/lib/permissions'
+import { getUserActiveTenant, isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
 import { ensurePersonalTenant } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@/lib/agents/schema'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -26,9 +27,22 @@ export async function GET(req: Request) {
   const from = (page - 1) * limit
   const to = from + limit - 1
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
+  const isSuperAdminUser = tenantId
+    ? await isSuperAdmin(session.user.id)
+    : false
+
+  if (tenantId && !isSuperAdminUser) {
+    const isMember = await isMemberOfTenant(session.user.id, tenantId)
+    if (!isMember) {
+      return new NextResponse('Forbidden', { status: 403 })
+    }
+  }
+
+  const supabase = isSuperAdminUser
+    ? getServiceSupabaseClient()
+    : createRouteHandlerClient<Database>({
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+      })
 
   // Start building the query
   let query = supabase

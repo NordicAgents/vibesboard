@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isMemberOfTenant } from '@/lib/permissions'
+import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
 import { getTenantFeatures } from '@/lib/features'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -28,18 +27,16 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const { id } = await params
 
-    // Check if user is member of tenant
+    const isSuperAdminUser = await isSuperAdmin(session.user.id)
     const isMember = await isMemberOfTenant(session.user.id, id)
-    if (!isMember) {
+    if (!isSuperAdminUser && !isMember) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+    const supabaseAdmin = getServiceSupabaseClient()
 
     // Get tenant details
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantError } = await supabaseAdmin
         .from('tenants')
         .select('*')
         .eq('id', id)
@@ -53,18 +50,22 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
 
     // Get branding
-    const { data: branding } = await supabase
+    const { data: branding } = await supabaseAdmin
         .from('tenant_branding')
         .select('*')
         .eq('tenant_id', id)
-        .single()
+        .maybeSingle()
 
     // Get features
     const features = await getTenantFeatures(id)
 
     return NextResponse.json({
-        tenant,
-        branding,
+        tenant: {
+            ...tenant,
+            branding: branding ?? null,
+            features
+        },
+        branding: branding ?? null,
         features
     })
 }
