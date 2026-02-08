@@ -3,8 +3,6 @@ import 'server-only'
 import { isFeatureEnabled } from '@/lib/features'
 import { type FeatureFlagName } from '@/lib/feature-flags'
 
-export { FeatureGate } from './feature-gate-client'
-
 interface ServerFeatureGateProps {
   feature: FeatureFlagName
   tenantId: string
@@ -26,4 +24,3 @@ export async function ServerFeatureGate({
 
   return <>{fallback}</>
 }
-
