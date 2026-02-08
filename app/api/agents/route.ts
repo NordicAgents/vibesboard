@@ -5,8 +5,8 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
-import { getUserActiveTenant, isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
-import { ensurePersonalTenant } from '@/lib/tenant-context'
+import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
+import { getActiveTenant } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@/lib/agents/schema'
 import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
@@ -94,16 +94,8 @@ export async function POST(req: Request) {
   })
 
   // Resolve the tenant the new agent should belong to.
-  // For now, use the user's active tenant (or first available tenant).
-  // If none exists, create/fetch a personal workspace so they can proceed.
-  let tenantId = await getUserActiveTenant(session.user.id)
-  if (!tenantId) {
-    try {
-      tenantId = await ensurePersonalTenant(session.user.id)
-    } catch (error) {
-      console.error('Failed to ensure personal tenant:', error)
-    }
-  }
+  // Use the active tenant cookie, falling back to a deterministic default.
+  const tenantId = await getActiveTenant(session.user.id)
 
   if (!tenantId) {
     return NextResponse.json(

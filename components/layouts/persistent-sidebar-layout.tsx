@@ -4,6 +4,7 @@ import { SidebarResizableLayout } from '@/components/layouts/sidebar-resizable-l
 import { auth } from '@/auth'
 import { cookies } from 'next/headers'
 import { SidebarProvider } from '@/components/sidebar-context'
+import { hasTenantAdminAccess, isSuperAdmin } from '@/lib/permissions'
 
 interface PersistentSidebarLayoutProps {
   children: ReactNode
@@ -16,11 +17,19 @@ export async function PersistentSidebarLayout({
 }: PersistentSidebarLayoutProps) {
   const cookieStore = await cookies()
   const session = await auth({ cookieStore })
+  const [isSuperAdminUser, canManageTenant] = session?.user?.id
+    ? await Promise.all([
+        isSuperAdmin(session.user.id),
+        hasTenantAdminAccess(session.user.id)
+      ])
+    : [false, false]
 
   return (
     <SidebarProvider>
       <SidebarResizableLayout
         user={session?.user}
+        isSuperAdmin={isSuperAdminUser}
+        canManageTenant={canManageTenant}
         sidebar={
           <Suspense fallback={<div className="flex-1" />}>
             {/* @ts-ignore */}

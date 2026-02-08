@@ -92,3 +92,16 @@ export async function isMemberOfTenant(
 
     return !error && !!data
 }
+
+export async function hasTenantAdminAccess(userId: string): Promise<boolean> {
+    const supabase = await createServerClient()
+
+    const { count, error } = await supabase
+        .from('tenant_users')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .in('role', ['TENANT_ADMIN', 'SUPER_ADMIN'])
+
+    if (error) return false
+    return (count ?? 0) > 0
+}

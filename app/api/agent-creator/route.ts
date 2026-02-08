@@ -13,8 +13,7 @@ import {
   ensureUniqueSlug
 } from '@/lib/agents/db'
 import { upsertAgentSchema } from '@/lib/agents/schema'
-import { getUserActiveTenant } from '@/lib/permissions'
-import { ensurePersonalTenant } from '@/lib/tenant-context'
+import { getActiveTenant } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
 
 export const runtime = 'nodejs'
@@ -288,14 +287,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
       })
 
       // Resolve the tenant the new agent should belong to.
-      let tenantId = await getUserActiveTenant(session.user.id)
-      if (!tenantId) {
-        try {
-          tenantId = await ensurePersonalTenant(session.user.id)
-        } catch (error) {
-          console.error('Failed to ensure personal tenant:', error)
-        }
-      }
+      const tenantId = await getActiveTenant(session.user.id)
 
       if (!tenantId) {
         return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'

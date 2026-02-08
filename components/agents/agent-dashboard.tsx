@@ -22,14 +22,19 @@ import { ToolsFilesDisplay } from '@/components/agents/tools-files-display'
 interface AgentDashboardProps {
   agent: VibeAgent
   share: AgentSharePayload
+  canEdit: boolean
 }
 
-export function AgentDashboard({ agent, share }: AgentDashboardProps) {
+export function AgentDashboard({ agent, share, canEdit }: AgentDashboardProps) {
   const router = useRouter()
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
   const [isSaving, setIsSaving] = useState(false)
 
   const updateAgent = async (payload: Partial<VibeAgent>) => {
+    if (!canEdit) {
+      toast.error('Read-only: you do not have permission to edit this agent')
+      return
+    }
     setIsSaving(true)
     try {
       const res = await fetch(`/api/agents/${agent.id}`, {
@@ -118,7 +123,7 @@ export function AgentDashboard({ agent, share }: AgentDashboardProps) {
               </div>
               <Switch
                 checked={allowAnonymous}
-                disabled={isSaving}
+                disabled={isSaving || !canEdit}
                 onCheckedChange={value => {
                   setAllowAnonymous(value)
                   updateAgent({ allowAnonymous: value })

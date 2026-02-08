@@ -136,6 +136,9 @@ export default function TenantSettingsPage() {
     }
 
     const isPersonal = Boolean(tenant.is_personal)
+    const customBrandingEnabled =
+        features.find((f) => f.name === 'CUSTOM_BRANDING')?.isEnabled ?? true
+    const brandingLocked = isPersonal || !customBrandingEnabled
 
     return (
         <div className="space-y-6">
@@ -160,6 +163,11 @@ export default function TenantSettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            {!customBrandingEnabled && (
+                                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                                    Custom branding is disabled for this workspace. Contact a super admin to enable it.
+                                </div>
+                            )}
                             <div className="space-y-2">
                                 <Label htmlFor="logo">Logo URL</Label>
                                 <Input
@@ -167,7 +175,7 @@ export default function TenantSettingsPage() {
                                     placeholder="https://example.com/logo.png"
                                     value={logoUrl}
                                     onChange={(e) => setLogoUrl(e.target.value)}
-                                    disabled={isPersonal}
+                                    disabled={brandingLocked}
                                 />
                                 {logoUrl && (
                                     <div className="mt-2">
@@ -189,6 +197,7 @@ export default function TenantSettingsPage() {
                                         value={primaryColor}
                                         onChange={setPrimaryColor}
                                         id="primary-color"
+                                        disabled={brandingLocked}
                                     />
                                 </div>
 
@@ -199,6 +208,7 @@ export default function TenantSettingsPage() {
                                         value={secondaryColor}
                                         onChange={setSecondaryColor}
                                         id="secondary-color"
+                                        disabled={brandingLocked}
                                     />
                                 </div>
                             </div>
@@ -219,7 +229,7 @@ export default function TenantSettingsPage() {
                                         This is your personal workspace. Branding changes are disabled.
                                     </p>
                                 )}
-                                <Button onClick={handleSaveBranding} disabled={isSaving || isPersonal}>
+                                <Button onClick={handleSaveBranding} disabled={isSaving || brandingLocked}>
                                     {isSaving ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

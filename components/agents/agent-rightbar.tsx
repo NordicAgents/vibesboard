@@ -45,6 +45,7 @@ interface AgentRightbarProps {
   conversations?: VibeAgentConversation[]
   className?: string
   onClose?: () => void
+  canEdit: boolean
 }
 
 export function AgentRightbar({
@@ -52,7 +53,8 @@ export function AgentRightbar({
   share,
   conversations = [],
   className,
-  onClose
+  onClose,
+  canEdit
 }: AgentRightbarProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -154,6 +156,11 @@ export function AgentRightbar({
         <div>
           <p className="text-xs uppercase text-muted-foreground">Agent</p>
           <h2 className="text-lg font-semibold">{agent.name}</h2>
+          {!canEdit && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Read-only (ask a tenant admin to edit).
+            </p>
+          )}
         </div>
       </div>
       <div className="space-y-5 pb-20">
@@ -166,7 +173,7 @@ export function AgentRightbar({
             <div className="space-y-2">
               <Input
                 value={name}
-                disabled={saving}
+                disabled={saving || !canEdit}
                 onChange={e => setName(e.target.value)}
                 placeholder="Agent name"
               />
@@ -185,7 +192,7 @@ export function AgentRightbar({
               </div>
               <Switch
                 checked={allowAnonymous}
-                disabled={saving}
+                disabled={saving || !canEdit}
                 onCheckedChange={setAllowAnonymous}
               />
             </div>
@@ -203,7 +210,7 @@ export function AgentRightbar({
               onChange={e => setInstructions(e.target.value)}
               rows={6}
               placeholder="Explain how the agent should behave, tone, and guardrails."
-              disabled={saving}
+              disabled={saving || !canEdit}
             />
           </CardContent>
         </Card>
@@ -218,7 +225,7 @@ export function AgentRightbar({
               value={greetingText}
               onChange={e => setGreetingText(e.target.value)}
               placeholder="Initial greeting message"
-              disabled={saving}
+              disabled={saving || !canEdit}
             />
           </CardContent>
         </Card>
@@ -234,9 +241,11 @@ export function AgentRightbar({
                 variant={mode !== 'collector' ? 'default' : 'secondary'}
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
-                  mode !== 'collector' && 'bg-primary text-primary-foreground'
+                  mode !== 'collector' && 'bg-primary text-primary-foreground',
+                  !canEdit && 'cursor-not-allowed opacity-60'
                 )}
                 onClick={() => {
+                  if (!canEdit) return
                   setMode('provider')
                   setMaxMessages(null)
                 }}
@@ -247,9 +256,11 @@ export function AgentRightbar({
                 variant={mode === 'collector' ? 'default' : 'secondary'}
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
-                  mode === 'collector' && 'bg-primary text-primary-foreground'
+                  mode === 'collector' && 'bg-primary text-primary-foreground',
+                  !canEdit && 'cursor-not-allowed opacity-60'
                 )}
                 onClick={() => {
+                  if (!canEdit) return
                   setMode('collector')
                   setMaxMessages(20)
                 }}
@@ -276,7 +287,7 @@ export function AgentRightbar({
                     setMaxMessages(parseInt(e.target.value, 10) || 20)
                   }
                   className="mt-1"
-                  disabled={saving}
+                  disabled={saving || !canEdit}
                 />
               </div>
             )}
@@ -295,9 +306,13 @@ export function AgentRightbar({
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
                   quickSuggestionsMode === 'off' &&
-                    'bg-primary text-primary-foreground'
+                    'bg-primary text-primary-foreground',
+                  !canEdit && 'cursor-not-allowed opacity-60'
                 )}
-                onClick={() => setQuickSuggestionsMode('off')}
+                onClick={() => {
+                  if (!canEdit) return
+                  setQuickSuggestionsMode('off')
+                }}
               >
                 Off
               </Badge>
@@ -308,9 +323,13 @@ export function AgentRightbar({
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
                   quickSuggestionsMode === 'smart' &&
-                    'bg-primary text-primary-foreground'
+                    'bg-primary text-primary-foreground',
+                  !canEdit && 'cursor-not-allowed opacity-60'
                 )}
-                onClick={() => setQuickSuggestionsMode('smart')}
+                onClick={() => {
+                  if (!canEdit) return
+                  setQuickSuggestionsMode('smart')
+                }}
               >
                 Smart (Wisely)
               </Badge>
@@ -321,9 +340,13 @@ export function AgentRightbar({
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
                   quickSuggestionsMode === 'always' &&
-                    'bg-primary text-primary-foreground'
+                    'bg-primary text-primary-foreground',
+                  !canEdit && 'cursor-not-allowed opacity-60'
                 )}
-                onClick={() => setQuickSuggestionsMode('always')}
+                onClick={() => {
+                  if (!canEdit) return
+                  setQuickSuggestionsMode('always')
+                }}
               >
                 Always
               </Badge>
@@ -348,9 +371,13 @@ export function AgentRightbar({
                     className={cn(
                       'cursor-pointer transition-all px-4 py-1',
                       quickSuggestionsCount === 3 &&
-                        'bg-primary text-primary-foreground'
+                        'bg-primary text-primary-foreground',
+                      !canEdit && 'cursor-not-allowed opacity-60'
                     )}
-                    onClick={() => setQuickSuggestionsCount(3)}
+                    onClick={() => {
+                      if (!canEdit) return
+                      setQuickSuggestionsCount(3)
+                    }}
                   >
                     3
                   </Badge>
@@ -361,9 +388,13 @@ export function AgentRightbar({
                     className={cn(
                       'cursor-pointer transition-all px-4 py-1',
                       quickSuggestionsCount === 4 &&
-                        'bg-primary text-primary-foreground'
+                        'bg-primary text-primary-foreground',
+                      !canEdit && 'cursor-not-allowed opacity-60'
                     )}
-                    onClick={() => setQuickSuggestionsCount(4)}
+                    onClick={() => {
+                      if (!canEdit) return
+                      setQuickSuggestionsCount(4)
+                    }}
                   >
                     4
                   </Badge>
@@ -374,7 +405,11 @@ export function AgentRightbar({
         </Card>
 
         {/* Tools & files */}
-        <ToolsFilesManager agent={agent} onUpdate={() => router.refresh()} />
+        <ToolsFilesManager
+          agent={agent}
+          onUpdate={() => router.refresh()}
+          canEdit={canEdit}
+        />
 
         {/* Share & QR */}
         <Card>
@@ -419,6 +454,7 @@ export function AgentRightbar({
                 <Button
                   variant="destructive"
                   className="w-full bg-red-600 hover:bg-red-700"
+                  disabled={!canEdit}
                 >
                   <IconTrash className="mr-2 h-4 w-4" />
                   Delete Agent
@@ -441,7 +477,7 @@ export function AgentRightbar({
                       handleDelete()
                     }}
                     className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-                    disabled={isDeleting}
+                    disabled={isDeleting || !canEdit}
                   >
                     {isDeleting ? 'Deleting...' : 'Delete Agent'}
                   </AlertDialogAction>
@@ -457,7 +493,7 @@ export function AgentRightbar({
         <div className="mx-auto flex items-center gap-2 rounded-full border bg-background p-2 shadow-lg pointer-events-auto">
           <Button
             onClick={handleSaveAll}
-            disabled={saving || !hasChanges}
+            disabled={saving || !hasChanges || !canEdit}
             className="w-full md:w-auto rounded-full"
             size="sm"
           >

@@ -32,6 +32,7 @@ interface AgentChatWithLayoutProps {
   hasUnsyncedConversations: boolean
   share: AgentSharePayload
   isConfigure?: boolean
+  canEdit: boolean
 }
 
 export function AgentChatWithLayout({
@@ -41,7 +42,8 @@ export function AgentChatWithLayout({
   visitorSessions,
   hasUnsyncedConversations,
   share,
-  isConfigure
+  isConfigure,
+  canEdit
 }: AgentChatWithLayoutProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -54,8 +56,8 @@ export function AgentChatWithLayout({
   // Sync sidebar (Configure vs Ask AI) with the URL
   React.useEffect(() => {
     if (!setAgentSidebarOpen) return
-    setAgentSidebarOpen(Boolean(isConfigure))
-  }, [isConfigure, setAgentSidebarOpen])
+    setAgentSidebarOpen(Boolean(isConfigure) && canEdit)
+  }, [isConfigure, setAgentSidebarOpen, canEdit])
 
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     () => {
@@ -88,13 +90,21 @@ export function AgentChatWithLayout({
   const handleSelectSession = React.useCallback(
     (sessionId: string | null) => {
       setActiveSessionId(sessionId)
+      if (!canEdit) {
+        if (sessionId) {
+          router.push(`/agents/${agent.id}/conversations/${sessionId}`)
+          return
+        }
+        router.push(`/agents/${agent.id}/conversations/new`)
+        return
+      }
       if (sessionId) {
         router.push(`/agents/${agent.id}?session=${sessionId}`)
         return
       }
       router.push(`/agents/${agent.id}`)
     },
-    [agent.id, router]
+    [agent.id, router, canEdit]
   )
 
   const handleOpenConversation = React.useCallback(
@@ -107,8 +117,12 @@ export function AgentChatWithLayout({
 
   const handleNewChat = React.useCallback(() => {
     setActiveSessionId(null)
+    if (!canEdit) {
+      router.push(`/agents/${agent.id}/conversations/new`)
+      return
+    }
     router.push(`/agents/${agent.id}`)
-  }, [agent.id, router])
+  }, [agent.id, router, canEdit])
 
   const handleRefreshSummaries = React.useCallback(async () => {
     setRefreshingSummaries(true)
@@ -149,14 +163,26 @@ export function AgentChatWithLayout({
         </h3>
       </div>
 
+      {!canEdit && (
+        <div className="mb-4 rounded-2xl border border-dashed border-black-10 bg-muted/30 px-4 py-3 text-sm text-gray-secondary dark:border-border">
+          Read-only (ask a tenant admin to edit)
+        </div>
+      )}
+
       {/* Navigation */}
-      <div className="mb-4 grid grid-cols-2 gap-2">
+      <div
+        className={`mb-4 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}
+      >
         <Button
           variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
           size="sm"
           className="justify-start gap-2 px-2"
           data-mobile-menu-close="true"
           onClick={() => {
+            if (!canEdit) {
+              router.push(`/agents/${agent.id}/conversations/new`)
+              return
+            }
             setAgentSidebarOpen?.(false)
             const params = new URLSearchParams(searchParams.toString())
             params.delete('configure')
@@ -165,95 +191,101 @@ export function AgentChatWithLayout({
           }}
         >
           <IconMessage className="h-4 w-4" />
-          Ask AI
+          {canEdit ? 'Ask AI' : 'Chat'}
         </Button>
-        <Button
-          variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
-          size="sm"
-          className="justify-start gap-2 px-2"
-          data-mobile-menu-close="true"
-          onClick={() => {
-            setAgentSidebarOpen?.(true)
-            const params = new URLSearchParams(searchParams.toString())
-            params.set('configure', 'true')
-            router.push(`/agents/${agent.id}?${params.toString()}`)
-          }}
-        >
-          <IconEdit className="h-4 w-4" />
-          Configure
-        </Button>
+        {canEdit && (
+          <Button
+            variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+            size="sm"
+            className="justify-start gap-2 px-2"
+            data-mobile-menu-close="true"
+            onClick={() => {
+              setAgentSidebarOpen?.(true)
+              const params = new URLSearchParams(searchParams.toString())
+              params.set('configure', 'true')
+              router.push(`/agents/${agent.id}?${params.toString()}`)
+            }}
+          >
+            <IconEdit className="h-4 w-4" />
+            Configure
+          </Button>
+        )}
       </div>
 
       {/* Visitor Chat History */}
-      <DashboardSidebarSection
-        title="Visitor Chat History"
-        action={
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-7 w-7 rounded-full p-0"
-            onClick={handleRefreshSummaries}
-            disabled={refreshingSummaries}
-            title="Refresh summaries"
-            aria-label="Refresh summaries"
-          >
-            <IconRefresh
-              className={
-                refreshingSummaries ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'
-              }
-            />
-          </Button>
-        }
-      >
-        {visitorSessions.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
-            No visitor chats yet.
-          </div>
-        )}
-        {paginatedVisitorSessions.map(session => (
-          <DashboardSidebarItem
-            key={session.id}
-            className="bg-purewhite-bg dark:bg-background"
-            onClick={() => handleOpenConversation(session)}
-          >
-            <div className="truncate font-medium">
-              {session.summary ||
-                session.messages.at(-1)?.content ||
-                'Visitor conversation'}
-            </div>
-            <div className="text-[11px] text-gray-secondary">
-              Updated {formatDate(session.updatedAt)}
-            </div>
-          </DashboardSidebarItem>
-        ))}
-        {visitorSessions.length > itemsPerPage && (
-          <div className="flex items-center justify-between gap-2 pt-2">
+      {canEdit && (
+        <DashboardSidebarSection
+          title="Visitor Chat History"
+          action={
             <Button
-              variant="ghost"
               size="sm"
-              onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
-              disabled={visitorPage === 1}
-              className="h-7 rounded-full px-3 text-[11px] font-switzer"
+              variant="secondary"
+              className="h-7 w-7 rounded-full p-0"
+              onClick={handleRefreshSummaries}
+              disabled={refreshingSummaries}
+              title="Refresh summaries"
+              aria-label="Refresh summaries"
             >
-              Previous
+              <IconRefresh
+                className={
+                  refreshingSummaries
+                    ? 'h-3.5 w-3.5 animate-spin'
+                    : 'h-3.5 w-3.5'
+                }
+              />
             </Button>
-            <span className="text-[11px] text-gray-secondary font-switzer">
-              Page {visitorPage} of {totalVisitorPages}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))
-              }
-              disabled={visitorPage === totalVisitorPages}
-              className="h-7 rounded-full px-3 text-[11px] font-switzer"
+          }
+        >
+          {visitorSessions.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
+              No visitor chats yet.
+            </div>
+          )}
+          {paginatedVisitorSessions.map(session => (
+            <DashboardSidebarItem
+              key={session.id}
+              className="bg-purewhite-bg dark:bg-background"
+              onClick={() => handleOpenConversation(session)}
             >
-              Next
-            </Button>
-          </div>
-        )}
-      </DashboardSidebarSection>
+              <div className="truncate font-medium">
+                {session.summary ||
+                  session.messages.at(-1)?.content ||
+                  'Visitor conversation'}
+              </div>
+              <div className="text-[11px] text-gray-secondary">
+                Updated {formatDate(session.updatedAt)}
+              </div>
+            </DashboardSidebarItem>
+          ))}
+          {visitorSessions.length > itemsPerPage && (
+            <div className="flex items-center justify-between gap-2 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
+                disabled={visitorPage === 1}
+                className="h-7 rounded-full px-3 text-[11px] font-switzer"
+              >
+                Previous
+              </Button>
+              <span className="text-[11px] text-gray-secondary font-switzer">
+                Page {visitorPage} of {totalVisitorPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))
+                }
+                disabled={visitorPage === totalVisitorPages}
+                className="h-7 rounded-full px-3 text-[11px] font-switzer"
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </DashboardSidebarSection>
+      )}
 
       {/* Conversations */}
       <DashboardSidebarSection
@@ -288,6 +320,7 @@ export function AgentChatWithLayout({
       agent.name,
       agentPageShell?.isSidebarOpen,
       agentPageShell?.setIsSidebarOpen,
+      canEdit,
       handleNewChat,
       handleOpenConversation,
       handleRefreshSummaries,
@@ -311,7 +344,7 @@ export function AgentChatWithLayout({
   return (
     <>
       <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
-        {agentPageShell?.isSidebarOpen ? (
+        {agentPageShell?.isSidebarOpen && canEdit ? (
           <div className="h-full overflow-y-auto bg-background p-4">
             <AgentRightbar
               agent={agent}
@@ -319,14 +352,39 @@ export function AgentChatWithLayout({
               conversations={visitorSessions}
               className="mx-auto w-full max-w-5xl"
               onClose={() => agentPageShell.setIsSidebarOpen(false)}
+              canEdit={canEdit}
             />
           </div>
         ) : (
-          <AgentAskChat
-            agent={agent}
-            ownerId={ownerId}
-            ownerSessions={ownerSessions}
-          />
+          canEdit ? (
+            <AgentAskChat
+              agent={agent}
+              ownerId={ownerId}
+              ownerSessions={ownerSessions}
+            />
+          ) : (
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+              <div className="rounded-2xl border bg-muted/30 p-6">
+                <h1 className="text-xl font-semibold">Read-only access</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Analytics and configuration are available to the agent owner and tenant admins.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    onClick={() => {
+                      if (activeSessionId) {
+                        router.push(`/agents/${agent.id}/conversations/${activeSessionId}`)
+                        return
+                      }
+                      router.push(`/agents/${agent.id}/conversations/new`)
+                    }}
+                  >
+                    Open chat
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )
         )}
       </DashboardLayout>
       <ConversationModal

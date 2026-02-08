@@ -6,6 +6,8 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapConversationRow } from '@/lib/agents/db'
 import { summarizeConversation } from '@/lib/agent/summarize'
+import { canEditAgent } from '@/lib/agents/permissions'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -27,16 +29,27 @@ export async function POST(
 
   const { data: agentRow } = await supabase
     .from('vibe_agents')
-    .select('id, user_id')
+    .select('id, user_id, tenant_id')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!agentRow) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const { data: convoRow, error: convoError } = await supabase
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agentRow.user_id,
+    tenantId: agentRow.tenant_id
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const supabaseAdmin = getServiceSupabaseClient()
+
+  const { data: convoRow, error: convoError } = await supabaseAdmin
     .from('vibe_agent_conversations')
     .select('*')
     .eq('id', cid)
@@ -60,7 +73,7 @@ export async function POST(
   }
 
   const closedAt = new Date().toISOString()
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from('vibe_agent_conversations')
     .update({
       closed_at: closedAt,

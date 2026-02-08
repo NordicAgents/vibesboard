@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { ingestFileForAgent } from '@/lib/agent/file-search'
 import { type Database } from '@/lib/db_types'
+import { canEditAgent } from '@/lib/agents/permissions'
 
 export const runtime = 'nodejs'
 
@@ -38,13 +39,22 @@ export async function POST(
 
   const { data: agent } = await supabase
     .from('vibe_agents')
-    .select('id,user_id,file_keys')
+    .select('id,user_id,tenant_id,file_keys')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })
+  }
+
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agent.user_id,
+    tenantId: agent.tenant_id
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
   }
 
   const fileKeys = Array.isArray(agent.file_keys) ? agent.file_keys : []

@@ -8,14 +8,17 @@ import { Sidebar } from '@/components/sidebar'
 import { SidebarList } from '@/components/sidebar-list'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UserMenu } from '@/components/user-menu'
-import { isSuperAdmin } from '@/lib/permissions'
+import { hasTenantAdminAccess, isSuperAdmin } from '@/lib/permissions'
 
 export async function Header() {
   const cookieStore = await cookies()
   const session = await auth({ cookieStore })
-  const isAdmin = session?.user?.id
-    ? await isSuperAdmin(session.user.id)
-    : false
+  const [isSuperAdminUser, canManageTenant] = session?.user?.id
+    ? await Promise.all([
+        isSuperAdmin(session.user.id),
+        hasTenantAdminAccess(session.user.id)
+      ])
+    : [false, false]
 
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-black-10 bg-beige-bg/80 px-4 backdrop-blur-sm dark:border-border dark:bg-background/80">
@@ -51,7 +54,11 @@ export async function Header() {
       <div className="flex items-center justify-end space-x-2">
         <ThemeToggle />
         {session?.user ? (
-          <UserMenu user={session.user} isAdmin={isAdmin} />
+          <UserMenu
+            user={session.user}
+            isSuperAdmin={isSuperAdminUser}
+            canManageTenant={canManageTenant}
+          />
         ) : (
           <Button variant="link" asChild className="-ml-2">
             <Link href="/sign-in">Login</Link>

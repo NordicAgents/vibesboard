@@ -9,10 +9,12 @@ import { IconSpinner } from '@/components/ui/icons'
 
 interface GoogleLoginButtonProps extends ButtonProps {
   text?: string
+  redirectedFrom?: string
 }
 
 export function GoogleLoginButton({
   text = 'Login with Google',
+  redirectedFrom,
   className,
   ...props
 }: GoogleLoginButtonProps) {
@@ -29,9 +31,12 @@ export function GoogleLoginButton({
       variant="outline"
       onClick={async () => {
         setIsLoading(true)
+        const redirectTo = redirectedFrom
+          ? `${location.origin}/api/auth/callback?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+          : `${location.origin}/api/auth/callback`
         await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: `${location.origin}/api/auth/callback` }
+          options: { redirectTo }
         })
       }}
       disabled={isLoading}
@@ -43,4 +48,3 @@ export function GoogleLoginButton({
     </Button>
   )
 }
-

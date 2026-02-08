@@ -16,7 +16,8 @@ import {
 
 export interface UserMenuProps {
   user: Session['user']
-  isAdmin?: boolean
+  isSuperAdmin?: boolean
+  canManageTenant?: boolean
 }
 
 function getUserInitials(name: string) {
@@ -24,7 +25,7 @@ function getUserInitials(name: string) {
   return lastName ? `${firstName[0]}${lastName[0]}` : firstName.slice(0, 2)
 }
 
-export function UserMenu({ user, isAdmin }: UserMenuProps) {
+export function UserMenu({ user, isSuperAdmin, canManageTenant }: UserMenuProps) {
   const router = useRouter()
 
   // Create a Supabase client configured to use cookies
@@ -54,7 +55,14 @@ export function UserMenu({ user, isAdmin }: UserMenuProps) {
             </div>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {isAdmin && (
+          {canManageTenant && (
+            <DropdownMenuItem asChild>
+              <Link href="/settings/tenant" className="text-xs cursor-pointer">
+                Tenant Settings
+              </Link>
+            </DropdownMenuItem>
+          )}
+          {isSuperAdmin && (
             <DropdownMenuItem asChild>
               <Link href="/admin" className="text-xs cursor-pointer">
                 Super Admin
