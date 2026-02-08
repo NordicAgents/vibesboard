@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert'
-import { validateFeatureFlagName } from './validations.ts'
+import { validateFeatureFlagName, validateEmail } from './validations.ts'
 
 describe('validateFeatureFlagName', () => {
     test('should return true for valid UPPER_SNAKE_CASE names', () => {
@@ -50,5 +50,51 @@ describe('validateFeatureFlagName', () => {
         assert.strictEqual(validateFeatureFlagName(null), false)
         // @ts-ignore
         assert.strictEqual(validateFeatureFlagName(undefined), false)
+    })
+})
+
+describe('validateEmail', () => {
+    test('should return true for standard valid emails', () => {
+        assert.strictEqual(validateEmail('test@example.com'), true)
+        assert.strictEqual(validateEmail('user.name@domain.co'), true)
+        assert.strictEqual(validateEmail('user_name@domain.org'), true)
+    })
+
+    test('should return true for emails with subdomains', () => {
+        assert.strictEqual(validateEmail('user@mail.example.com'), true)
+        assert.strictEqual(validateEmail('user@sub.domain.co.uk'), true)
+    })
+
+    test('should return true for emails with special characters', () => {
+        assert.strictEqual(validateEmail('user+tag@example.com'), true)
+        assert.strictEqual(validateEmail('user-name@example.com'), true)
+        assert.strictEqual(validateEmail('123user@example.com'), true)
+    })
+
+    test('should return false for emails without domain extension', () => {
+        assert.strictEqual(validateEmail('user@example'), false)
+        assert.strictEqual(validateEmail('user@localhost'), false)
+    })
+
+    test('should return false for emails without @ symbol', () => {
+        assert.strictEqual(validateEmail('userexample.com'), false)
+        assert.strictEqual(validateEmail('user.example.com'), false)
+    })
+
+    test('should return false for emails with spaces', () => {
+        assert.strictEqual(validateEmail('user @example.com'), false)
+        assert.strictEqual(validateEmail('user@ example.com'), false)
+        assert.strictEqual(validateEmail('user@example .com'), false)
+    })
+
+    test('should return false for empty strings', () => {
+        assert.strictEqual(validateEmail(''), false)
+    })
+
+    test('should return false for null or undefined inputs', () => {
+        // @ts-ignore
+        assert.strictEqual(validateEmail(null), false)
+        // @ts-ignore
+        assert.strictEqual(validateEmail(undefined), false)
     })
 })
