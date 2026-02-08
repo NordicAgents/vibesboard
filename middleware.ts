@@ -5,27 +5,28 @@ import type { NextRequest } from 'next/server'
 
 type GlobalRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 
-// Derive a user's highest role from tenant_users
-async function getUserRole(
+// Derive a user's highest role and an active tenant from tenant_users
+async function getUserPermissions(
   supabase: any,
   userId: string
-): Promise<GlobalRole | null> {
+): Promise<{ role: GlobalRole | null; tenantId: string | null }> {
   const { data, error } = await supabase
     .from('tenant_users')
-    .select('role')
+    .select('role, tenant_id')
     .eq('user_id', userId)
 
   if (error || !data || data.length === 0) {
-    return null
+    return { role: null, tenantId: null }
   }
 
   const roles = data.map((row: { role: string }) => row.role)
+  const tenantId = data[0].tenant_id
 
-  if (roles.includes('SUPER_ADMIN')) return 'SUPER_ADMIN'
-  if (roles.includes('TENANT_ADMIN')) return 'TENANT_ADMIN'
-  if (roles.includes('MEMBER')) return 'MEMBER'
+  if (roles.includes('SUPER_ADMIN')) return { role: 'SUPER_ADMIN', tenantId }
+  if (roles.includes('TENANT_ADMIN')) return { role: 'TENANT_ADMIN', tenantId }
+  if (roles.includes('MEMBER')) return { role: 'MEMBER', tenantId }
 
-  return null
+  return { role: null, tenantId }
 }
 
 export async function middleware(req: NextRequest) {
@@ -65,7 +66,10 @@ export async function middleware(req: NextRequest) {
 
   // Role-based access control
   if (session?.user?.id) {
-    const userRole = await getUserRole(supabase, session.user.id)
+    const { role: userRole, tenantId } = await getUserPermissions(
+      supabase,
+      session.user.id
+    )
 
     // Protect /admin/* routes - SUPER_ADMIN only
     if (pathname.startsWith('/admin')) {
@@ -82,15 +86,8 @@ export async function middleware(req: NextRequest) {
     }
 
     // Inject active tenant ID in response headers for easy access
-    const { data: activeTenant } = await supabase
-      .from('tenant_users')
-      .select('tenant_id')
-      .eq('user_id', session.user.id)
-      .limit(1)
-      .single()
-
-    if (activeTenant?.tenant_id) {
-      res.headers.set('x-tenant-id', activeTenant.tenant_id)
+    if (tenantId) {
+      res.headers.set('x-tenant-id', tenantId)
     }
   }
 
