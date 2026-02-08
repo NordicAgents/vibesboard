@@ -2,6 +2,7 @@ import 'server-only'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies, headers } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getSafeRedirectPath } from '@/lib/redirects'
 
 export async function GET(request: Request) {
   // The `/auth/callback` route is required for the server-side auth flow implemented
@@ -34,5 +35,9 @@ export async function GET(request: Request) {
       : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
 
   // URL to redirect to after sign in process completes
-  return NextResponse.redirect(origin)
+  const safePath = getSafeRedirectPath(
+    requestUrl.searchParams.get('redirectedFrom') ??
+      requestUrl.searchParams.get('next')
+  )
+  return NextResponse.redirect(safePath ? `${origin}${safePath}` : origin)
 }

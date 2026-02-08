@@ -7,6 +7,8 @@ import { type Database } from '@/lib/db_types'
 import { mapConversationRow } from '@/lib/agents/db'
 import { upsertConversationEmbeddings } from '@/lib/agent/embeddings'
 import { limitConcurrency } from '@/lib/async-utils'
+import { canEditAgent } from '@/lib/agents/permissions'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -28,16 +30,27 @@ export async function POST(
 
   const { data: agentRow } = await supabase
     .from('vibe_agents')
-    .select('*')
+    .select('id, user_id, tenant_id, last_embeddings_sync_at')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!agentRow) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const { data: convoRows, error } = await supabase
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agentRow.user_id,
+    tenantId: agentRow.tenant_id
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const supabaseAdmin = getServiceSupabaseClient()
+
+  const { data: convoRows, error } = await supabaseAdmin
     .from('vibe_agent_conversations')
     .select('*')
     .eq('agent_id', id)
@@ -61,7 +74,7 @@ export async function POST(
     .map(conversation => conversation.id)
 
   if (nonVisitorConversationIds.length) {
-    await supabase
+    await supabaseAdmin
       .from('vibe_agent_conversation_chunks')
       .delete()
       .in('conversation_id', nonVisitorConversationIds)
@@ -75,7 +88,7 @@ export async function POST(
   let synced = 0
   await limitConcurrency(conversations, 5, async (conversation) => {
     await upsertConversationEmbeddings({
-      supabase,
+      supabase: supabaseAdmin,
       agentId: id,
       conversationId: conversation.id,
       messages: conversation.messages ?? []
@@ -84,7 +97,7 @@ export async function POST(
   })
 
   const syncTime = new Date().toISOString()
-  await supabase
+  await supabaseAdmin
     .from('vibe_agents')
     .update({ last_embeddings_sync_at: syncTime } as any)
     .eq('id', id)

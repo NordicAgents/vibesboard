@@ -9,9 +9,10 @@ interface ColorPickerProps {
     value: string
     onChange: (color: string) => void
     id?: string
+    disabled?: boolean
 }
 
-export function ColorPicker({ label, value, onChange, id }: ColorPickerProps) {
+export function ColorPicker({ label, value, onChange, id, disabled }: ColorPickerProps) {
     const [color, setColor] = useState(value)
 
     const handleChange = (newColor: string) => {
@@ -28,7 +29,8 @@ export function ColorPicker({ label, value, onChange, id }: ColorPickerProps) {
                         type="color"
                         value={color}
                         onChange={(e) => handleChange(e.target.value)}
-                        className="h-10 w-20 cursor-pointer rounded border border-input"
+                        disabled={disabled}
+                        className="h-10 w-20 cursor-pointer rounded border border-input disabled:cursor-not-allowed disabled:opacity-50"
                         id={id}
                     />
                 </div>
@@ -39,6 +41,7 @@ export function ColorPicker({ label, value, onChange, id }: ColorPickerProps) {
                     placeholder="#000000"
                     pattern="^#[0-9A-Fa-f]{6}$"
                     className="flex-1 font-mono"
+                    disabled={disabled}
                 />
             </div>
         </div>

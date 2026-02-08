@@ -13,11 +13,13 @@ import { useRouter } from 'next/navigation'
 
 interface LoginFormProps extends React.ComponentPropsWithoutRef<'div'> {
   action: 'sign-in' | 'sign-up'
+  redirectedFrom?: string
 }
 
 export function LoginForm({
   className,
   action = 'sign-in',
+  redirectedFrom,
   ...props
 }: LoginFormProps) {
   const [isLoading, setIsLoading] = React.useState(false)
@@ -44,10 +46,13 @@ export function LoginForm({
 
   const signUp = async () => {
     const { email, password } = formState
+    const emailRedirectTo = redirectedFrom
+      ? `${location.origin}/api/auth/callback?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+      : `${location.origin}/api/auth/callback`
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${location.origin}/api/auth/callback` }
+      options: { emailRedirectTo }
     })
 
     if (!error && !data.session)
@@ -114,14 +119,28 @@ export function LoginForm({
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="font-medium text-black-primary dark:text-card-foreground hover:underline">
+                <Link
+                  href={
+                    redirectedFrom
+                      ? `/sign-up?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+                      : '/sign-up'
+                  }
+                  className="font-medium text-black-primary dark:text-card-foreground hover:underline"
+                >
                   Sign Up
                 </Link>
               </>
             ) : (
               <>
                 Already have an account?{' '}
-                <Link href="/sign-in" className="font-medium text-black-primary dark:text-card-foreground hover:underline">
+                <Link
+                  href={
+                    redirectedFrom
+                      ? `/sign-in?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+                      : '/sign-in'
+                  }
+                  className="font-medium text-black-primary dark:text-card-foreground hover:underline"
+                >
                   Sign In
                 </Link>
               </>

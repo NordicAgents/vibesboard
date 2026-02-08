@@ -6,6 +6,7 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow } from '@/lib/agents/db'
 import { patchAgentSchema } from '@/lib/agents/schema'
+import { canEditAgent } from '@/lib/agents/permissions'
 
 export const runtime = 'nodejs'
 
@@ -29,7 +30,6 @@ export async function GET(
     .from('vibe_agents')
     .select('*')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!data) {
@@ -57,6 +57,26 @@ export async function PATCH(
   const supabase = createRouteHandlerClient<Database>({
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
+
+  const { data: agentRow } = await supabase
+    .from('vibe_agents')
+    .select('id, user_id, tenant_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!agentRow) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agentRow.user_id,
+    tenantId: agentRow.tenant_id
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 
   const updates: Partial<
     Database['public']['Tables']['vibe_agents']['Update']
@@ -88,7 +108,6 @@ export async function PATCH(
     .from('vibe_agents')
     .update(updates)
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .select('*')
     .single()
 
@@ -121,14 +140,27 @@ export async function DELETE(
   // Get agent to find file keys for cleanup
   const { data: agent } = await supabase
     .from('vibe_agents')
-    .select('file_keys')
+    .select('file_keys, user_id, tenant_id')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   // Clean up files from storage if they exist
+  if (!agent) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agent.user_id,
+    tenantId: agent.tenant_id
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
   if (
-    agent?.file_keys &&
+    agent.file_keys &&
     Array.isArray(agent.file_keys) &&
     agent.file_keys.length > 0
   ) {
@@ -145,7 +177,6 @@ export async function DELETE(
     .from('vibe_agents')
     .delete()
     .eq('id', id)
-    .eq('user_id', session.user.id)
 
   if (error) {
     return new NextResponse(error.message, { status: 500 })

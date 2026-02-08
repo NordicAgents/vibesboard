@@ -33,7 +33,6 @@ export default async function AgentSectionLayout({
     .from('vibe_agents')
     .select('*')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!data) {

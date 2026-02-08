@@ -23,6 +23,8 @@ export async function GET(req: Request) {
         if (!tenantId) {
             return NextResponse.json({ error: 'No tenant found' }, { status: 404 })
         }
+        // Persist the resolved tenant so server actions/layouts and the client agree.
+        await setActiveTenantId(tenantId)
         return NextResponse.json({ tenant_id: tenantId })
     } catch (error) {
         console.error('Error getting active tenant:', error)

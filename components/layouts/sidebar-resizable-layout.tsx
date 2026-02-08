@@ -24,12 +24,16 @@ interface SidebarResizableLayoutProps {
   children: React.ReactNode
   sidebar: React.ReactNode
   user?: any // Pass user prop to render UserMenu in the layout if needed
+  isSuperAdmin?: boolean
+  canManageTenant?: boolean
 }
 
 export function SidebarResizableLayout({
   children,
   sidebar,
-  user
+  user,
+  isSuperAdmin,
+  canManageTenant
 }: SidebarResizableLayoutProps) {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar()
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
@@ -282,7 +286,13 @@ export function SidebarResizableLayout({
           {/* Right Controls (Theme, User, Menu) - Pointer events auto */}
           <div className="flex items-center gap-2 pointer-events-auto">
             <ThemeToggle />
-            {user && <UserMenu user={user} />}
+            {user && (
+              <UserMenu
+                user={user}
+                isSuperAdmin={isSuperAdmin}
+                canManageTenant={canManageTenant}
+              />
+            )}
 
             {/* Mobile Menu Trigger - Visible only on mobile */}
             <div className="lg:hidden">

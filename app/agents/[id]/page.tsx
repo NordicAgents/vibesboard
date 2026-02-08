@@ -7,6 +7,8 @@ import { type Database } from '@/lib/db_types'
 import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
+import { canEditAgent } from '@/lib/agents/permissions'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -35,16 +37,23 @@ export default async function AgentPageAsChat({
     .from('vibe_agents')
     .select('*')
     .eq('id', id)
-    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!agentRow) {
     notFound()
   }
 
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agentRow.user_id,
+    tenantId: agentRow.tenant_id
+  })
+
   const agent = mapAgentRow(agentRow)
 
-  const { data: convoRows } = await supabase
+  const conversationClient = canEdit ? getServiceSupabaseClient() : supabase
+
+  const { data: convoRows } = await conversationClient
     .from('vibe_agent_conversations')
     .select('*')
     .eq('agent_id', agent.id)
@@ -54,17 +63,19 @@ export default async function AgentPageAsChat({
   const ownerConversations = conversations.filter(
     conversation => conversation.userId === session.user.id
   )
-  const visitorConversations = conversations.filter(
-    conversation => conversation.externalId
-  )
+  const visitorConversations = canEdit
+    ? conversations.filter(conversation => conversation.externalId)
+    : []
   const lastSync = agent.lastEmbeddingsSyncAt
     ? new Date(agent.lastEmbeddingsSyncAt)
     : null
-  const hasUnsyncedConversations = visitorConversations.some(conversation =>
-    lastSync
-      ? new Date(conversation.updatedAt).getTime() > lastSync.getTime()
-      : true
-  )
+  const hasUnsyncedConversations = canEdit
+    ? visitorConversations.some(conversation =>
+        lastSync
+          ? new Date(conversation.updatedAt).getTime() > lastSync.getTime()
+          : true
+      )
+    : false
 
   const headersList = await headers()
   const rawProto = headersList.get('x-forwarded-proto')
@@ -88,7 +99,8 @@ export default async function AgentPageAsChat({
       visitorSessions={visitorConversations}
       hasUnsyncedConversations={hasUnsyncedConversations}
       share={{ url: shareUrl, qrDataUrl }}
-      isConfigure={isConfigure}
+      isConfigure={canEdit ? isConfigure : false}
+      canEdit={canEdit}
     />
   )
 }

@@ -88,7 +88,7 @@ export default function InvitationPage() {
             if (response.ok) {
                 toast.success('Invitation accepted successfully!')
                 setTimeout(() => {
-                    router.push('/')
+                    router.push('/agents')
                 }, 1500)
             } else {
                 const data = await response.json()

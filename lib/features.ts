@@ -1,12 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { Database } from '@/lib/db_types'
-
-export type FeatureFlagName =
-    | 'BETA_ANALYTICS'
-    | 'ADVANCED_TOOLS'
-    | 'CUSTOM_BRANDING'
-    | 'API_ACCESS'
-    | 'TEAM_COLLABORATION'
+import { type FeatureFlagName } from '@/lib/feature-flags'
 
 /**
  * Check if a feature is enabled for a specific tenant

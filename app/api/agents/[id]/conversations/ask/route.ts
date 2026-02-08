@@ -6,7 +6,7 @@ import { OpenAIStream, StreamingTextResponse } from 'ai'
 
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
-import { getAgentForUser } from '@/lib/agents/server'
+import { mapAgentRow } from '@/lib/agents/db'
 import { agentAskRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
@@ -16,6 +16,8 @@ import { nanoid } from '@/lib/utils'
 import { summarizeConversation } from '@/lib/agent/summarize'
 import { buildAskAiConversationContext } from '@/lib/agent/conversation-rag'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
+import { canEditAgent } from '@/lib/agents/permissions'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -48,11 +50,28 @@ export async function POST(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const agent = await getAgentForUser(supabase, id, session.user.id)
+  const { data: agentRow } = await supabase
+    .from('vibe_agents')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
 
-  if (!agent) {
+  if (!agentRow) {
     return new NextResponse('Agent not found', { status: 404 })
   }
+
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agentRow.user_id,
+    tenantId: agentRow.tenant_id
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const agent = mapAgentRow(agentRow)
+  const supabaseAdmin = getServiceSupabaseClient()
 
   let json: Record<string, unknown> | null = null
   try {
@@ -87,13 +106,13 @@ export async function POST(
   const pendingMessages = [...existingMessages, userMessage]
 
   const { context } = await buildAskAiConversationContext({
-    supabase,
+    supabase: supabaseAdmin,
     agentId: agent.id,
     question: payload.question,
     contextConversationId: payload.contextConversationId
   })
 
-  const systemPrompt = `You help the owner of agent "${agent.name}" analyze visitor conversations.
+  const systemPrompt = `You help the editor of agent "${agent.name}" analyze visitor conversations.
 Use only the supplied conversation snippets; do not invent details that are not present.
 If the snippets are insufficient, say what is missing and suggest syncing embeddings.
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { auth } from '@/auth'
 import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
+import { isFeatureEnabled } from '@/lib/features'
 import { validateEmail } from '@/lib/validations'
 import { randomBytes } from 'crypto'
 import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
@@ -73,6 +74,16 @@ export async function POST(req: Request, { params }: RouteParams) {
             { error: 'Personal workspaces cannot invite members' },
             { status: 403 }
         )
+    }
+
+    if (!isSuperAdminUser) {
+        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
+        if (!teamEnabled) {
+            return NextResponse.json(
+                { error: 'Team collaboration is disabled for this workspace' },
+                { status: 403 }
+            )
+        }
     }
 
     // Check if user is already a member (by email lookup via auth admin API)
@@ -251,6 +262,16 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     if (tenant.is_personal) {
         return NextResponse.json({ invitations: [] })
+    }
+
+    if (!isSuperAdminUser) {
+        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
+        if (!teamEnabled) {
+            return NextResponse.json(
+                { error: 'Team collaboration is disabled for this workspace' },
+                { status: 403 }
+            )
+        }
     }
 
     const { data, error } = await supabaseAdmin
