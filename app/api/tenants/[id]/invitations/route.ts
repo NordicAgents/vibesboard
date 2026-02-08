@@ -6,6 +6,7 @@ import { type Database } from '@/lib/db_types'
 import { isTenantAdmin } from '@/lib/permissions'
 import { validateEmail } from '@/lib/validations'
 import { randomBytes } from 'crypto'
+import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -145,9 +146,38 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
-    // TODO: Send invitation email via Supabase Auth
-    // This would require configuring email templates in Supabase
-    // For now, return the invitation with the token
+    // Send invitation email via Supabase Auth
+    try {
+        const supabaseAdmin = getServiceSupabaseClient()
+        const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`
+
+        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: inviteUrl
+        })
+
+        if (inviteError) {
+            console.error('Error sending invitation email:', inviteError)
+
+            // If user already exists, try sending a magic link instead
+            // Status 422 is returned when user is already registered
+            if (inviteError.status === 422 || inviteError.message?.includes('already registered')) {
+                console.log('User already registered, sending magic link')
+                const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
+                    email,
+                    options: {
+                        emailRedirectTo: inviteUrl
+                    }
+                })
+
+                if (otpError) {
+                    console.error('Error sending magic link:', otpError)
+                }
+            }
+        }
+    } catch (emailError) {
+        // Log error but don't fail the request since the invitation was created
+        console.error('Failed to send invitation email:', emailError)
+    }
 
     return NextResponse.json({
         invitation,
