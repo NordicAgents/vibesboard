@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isTenantAdmin } from '@/lib/permissions'
+import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
 import { validateEmail } from '@/lib/validations'
 import { randomBytes } from 'crypto'
 import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
@@ -30,9 +28,9 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     const { id } = await params
 
-    // Check if user is tenant admin
+    const isSuperAdminUser = await isSuperAdmin(session.user.id)
     const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
-    if (!isTenantAdminUser) {
+    if (!isSuperAdminUser && !isTenantAdminUser) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
@@ -47,6 +45,8 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase()
+
     // Validate role
     if (!role || !['TENANT_ADMIN', 'MEMBER'].includes(role)) {
         return NextResponse.json(
@@ -55,12 +55,10 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+    const supabaseAdmin = getServiceSupabaseClient()
 
     // Block invitations for personal workspaces
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantError } = await supabaseAdmin
         .from('tenants')
         .select('id, is_personal')
         .eq('id', id)
@@ -77,40 +75,48 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
-    // Check if user is already a member
-    const { data: existingUsers } = await supabase
+    // Check if user is already a member (by email lookup via auth admin API)
+    const { data: tenantUsers, error: tenantUsersError } = await supabaseAdmin
         .from('tenant_users')
-        .select(`
-            user_id,
-            auth_user:user_id (
-                email
-            )
-        `)
+        .select('user_id')
         .eq('tenant_id', id)
 
-    // Find if this email is already a member
-    const isExistingMember = existingUsers?.some((member: any) =>
-        member.auth_user?.email === email
-    )
-
-    if (isExistingMember) {
+    if (tenantUsersError) {
         return NextResponse.json(
-            { error: 'User is already a member of this tenant' },
-            { status: 409 }
+            { error: tenantUsersError.message },
+            { status: 500 }
         )
     }
 
+    for (const member of tenantUsers ?? []) {
+        const { data, error } = await supabaseAdmin.auth.admin.getUserById(member.user_id)
+        if (error) continue
+        const memberEmail = data.user?.email?.trim().toLowerCase()
+        if (memberEmail && memberEmail === normalizedEmail) {
+            return NextResponse.json(
+                { error: 'User is already a member of this tenant' },
+                { status: 409 }
+            )
+        }
+    }
 
     // Check for pending invitation
-    const { data: existingInvitation } = await supabase
+    const { data: pendingInvites, error: pendingInvitesError } = await supabaseAdmin
         .from('invitations')
         .select('id')
         .eq('tenant_id', id)
-        .eq('email', email)
+        .ilike('email', normalizedEmail)
         .eq('status', 'pending')
-        .single()
+        .limit(1)
 
-    if (existingInvitation) {
+    if (pendingInvitesError) {
+        return NextResponse.json(
+            { error: pendingInvitesError.message },
+            { status: 500 }
+        )
+    }
+
+    if (pendingInvites && pendingInvites.length > 0) {
         return NextResponse.json(
             { error: 'Invitation already sent to this email' },
             { status: 409 }
@@ -125,10 +131,10 @@ export async function POST(req: Request, { params }: RouteParams) {
     expiresAt.setDate(expiresAt.getDate() + 7)
 
     // Create invitation
-    const { data: invitation, error } = await supabase
+    const { data: invitation, error } = await supabaseAdmin
         .from('invitations')
         .insert({
-            email,
+            email: normalizedEmail,
             tenant_id: id,
             token,
             role,
@@ -148,10 +154,22 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // Send invitation email via Supabase Auth
     try {
-        const supabaseAdmin = getServiceSupabaseClient()
-        const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`
+        const forwardedProto = req.headers
+            .get('x-forwarded-proto')
+            ?.split(',')[0]
+            ?.trim()
+        const forwardedHost = (req.headers.get('x-forwarded-host') ?? req.headers.get('host'))
+            ?.split(',')[0]
+            ?.trim()
 
-        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        const origin =
+            forwardedProto && forwardedHost
+                ? `${forwardedProto}://${forwardedHost}`
+                : process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+
+        const inviteUrl = `${origin}/invite/${token}`
+
+        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, {
             redirectTo: inviteUrl
         })
 
@@ -163,7 +181,7 @@ export async function POST(req: Request, { params }: RouteParams) {
             if (inviteError.status === 422 || inviteError.message?.includes('already registered')) {
                 console.log('User already registered, sending magic link')
                 const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
-                    email,
+                    email: normalizedEmail,
                     options: {
                         emailRedirectTo: inviteUrl
                     }
@@ -179,9 +197,22 @@ export async function POST(req: Request, { params }: RouteParams) {
         console.error('Failed to send invitation email:', emailError)
     }
 
+    const forwardedProto = req.headers
+        .get('x-forwarded-proto')
+        ?.split(',')[0]
+        ?.trim()
+    const forwardedHost = (req.headers.get('x-forwarded-host') ?? req.headers.get('host'))
+        ?.split(',')[0]
+        ?.trim()
+
+    const origin =
+        forwardedProto && forwardedHost
+            ? `${forwardedProto}://${forwardedHost}`
+            : process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
+
     return NextResponse.json({
         invitation,
-        inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`
+        inviteUrl: `${origin}/invite/${token}`
     }, { status: 201 })
 }
 
@@ -199,18 +230,16 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const { id } = await params
 
-    // Check if user is tenant admin
+    const isSuperAdminUser = await isSuperAdmin(session.user.id)
     const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
-    if (!isTenantAdminUser) {
+    if (!isSuperAdminUser && !isTenantAdminUser) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+    const supabaseAdmin = getServiceSupabaseClient()
 
     // Block invitation listing for personal workspaces
-    const { data: tenant, error: tenantError } = await supabase
+    const { data: tenant, error: tenantError } = await supabaseAdmin
         .from('tenants')
         .select('id, is_personal')
         .eq('id', id)
@@ -224,7 +253,7 @@ export async function GET(req: Request, { params }: RouteParams) {
         return NextResponse.json({ invitations: [] })
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
         .from('invitations')
         .select('*')
         .eq('tenant_id', id)

@@ -42,7 +42,7 @@ export async function GET() {
         )
     }
 
-    return NextResponse.json({ feature_flags: data })
+    return NextResponse.json({ flags: data })
 }
 
 /**
@@ -109,5 +109,5 @@ export async function POST(req: Request) {
         )
     }
 
-    return NextResponse.json({ feature_flag: flag }, { status: 201 })
+    return NextResponse.json({ flag }, { status: 201 })
 }

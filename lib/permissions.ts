@@ -1,5 +1,6 @@
-import { createServerClient } from '@/lib/supabase/server'
-import { Database } from '@/lib/db_types'
+import { createServerClient } from './supabase/server'
+import { Database } from './db_types'
+import { isSuperAdminWithClient } from './permissions-core'
 
 export type Role = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 
@@ -21,16 +22,8 @@ export async function getUserRole(
 }
 
 export async function isSuperAdmin(userId: string): Promise<boolean> {
-    const supabase = await createServerClient()
-
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'SUPER_ADMIN')
-        .single()
-
-    return !error && !!data
+    const supabase = createServerClient()
+    return isSuperAdminWithClient(supabase, userId)
 }
 
 export async function isTenantAdmin(

@@ -55,8 +55,23 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const tenants = (data ?? []).map((tenant: any) => {
+        const rel = tenant?.tenant_users
+        const userCount =
+            Array.isArray(rel)
+                ? (rel[0]?.count ?? 0)
+                : typeof rel?.count === 'number'
+                  ? rel.count
+                  : 0
+
+        return {
+            ...tenant,
+            user_count: userCount
+        }
+    })
+
     return NextResponse.json({
-        tenants: data,
+        tenants,
         pagination: {
             page,
             limit,
