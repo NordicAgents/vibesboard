@@ -132,180 +132,71 @@ export async function GET(request: NextRequest) {
 
 /**
  * Handle webhook events (POST request)
- * Receives incoming messages from WhatsApp users and sends responses
- *
- * Expected headers:
- * - x-hub-signature-256: HMAC-SHA256 signature (format: sha256=...)
- *
- * Returns:
- * - 200: Webhook processed successfully
- * - 401: If signature verification fails
- * - 400: If payload is invalid
- * - 500: If internal error occurs
+ * Receives incoming messages and sends acknowledgment
  */
 export async function POST(request: NextRequest) {
-  const webhookSecret = process.env.VERIFY_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
-  if (!webhookSecret) {
-    console.error("❌ VERIFY_TOKEN not configured");
-    return NextResponse.json(
-      { error: "Webhook secret not configured" },
-      { status: 500 }
-    );
-  }
-
-  if (!phoneNumberId || !accessToken) {
-    console.error("❌ WhatsApp configuration missing");
-    return NextResponse.json(
-      { error: "WhatsApp configuration not found" },
-      { status: 500 }
-    );
-  }
-
   try {
-    // Get raw request body as text for signature verification
-    const rawBody = await request.text();
+    const body = await request.json();
 
-    console.log("📨 Incoming webhook request received");
+    console.log("📨 Incoming message received");
 
-    // Get signature from headers
-    const signature = request.headers.get("x-hub-signature-256");
+    // Extract message from nested structure
+    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    if (!signature) {
-      console.warn("❌ Missing signature header (x-hub-signature-256)");
-      return NextResponse.json(
-        { error: "Missing signature header" },
-        { status: 401 }
-      );
+    if (!message) {
+      return NextResponse.json({ success: true }, { status: 200 });
     }
 
-    // Verify webhook signature - TODO
-    // const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
+    const senderPhone = message.from;
+    const messageType = message.type;
 
-    // if (!isValid) {
-    //   console.warn("❌ Webhook signature verification failed");
-    //   return NextResponse.json(
-    //     { error: "Invalid webhook signature" },
-    //     { status: 401 }
-    //   );
-    // }
+    console.log(`📱 Message from ${senderPhone} (type: ${messageType})`);
 
-    // console.log("✅ Webhook signature verified");
+    // Extract message text based on type
+    let messageText = "";
+    if (message.type === "text") {
+      messageText = message.text.body;
+    } else if (message.type === "interactive") {
+      messageText = message.interactive?.button_reply?.title ||
+                   message.interactive?.list_reply?.id ||
+                   "Interactive message";
+    } else if (message.type === "audio") {
+      messageText = "🎤 Voice message";
+    } else if (message.type === "image") {
+      messageText = "🖼️ Image";
+    } else if (message.type === "document") {
+      messageText = "📄 Document";
+    } else {
+      messageText = `${messageType} message`;
+    }
 
-    // Parse and validate payload
-    const body = JSON.parse(rawBody);
-    const validatedPayload = WebhookPayloadSchema.parse(body);
-
-    console.log("✅ Webhook payload validated", {
-      object: validatedPayload.object,
-      entryCount: validatedPayload.entry.length,
-    });
-
-    // Process webhook events
-    console.log("📥 Processing incoming messages...");
-
-    for (const entry of validatedPayload.entry) {
-      if (entry.changes) {
-        for (const change of entry.changes as any[]) {
-          const changeValue = change;
-
-          // Handle incoming messages
-          if (changeValue.value?.messages) {
-            for (const message of changeValue.value.messages) {
-              const senderPhone = message.from;
-              const messageType = message.type;
-
-              console.log(`📱 Message from ${senderPhone} (type: ${messageType})`);
-
-              let messageText = "";
-
-              // Extract text from different message types
-              if (message.type === "text") {
-                messageText = message.text.body;
-                console.log(`   Text: ${messageText}`);
-              } else if (message.type === "interactive") {
-                if (message.interactive.type === "button_reply") {
-                  messageText = message.interactive.button_reply.title;
-                  console.log(`   Button: ${messageText}`);
-                } else if (message.interactive.type === "list_reply") {
-                  messageText = message.interactive.list_reply.id;
-                  console.log(`   List: ${messageText}`);
-                }
-              } else if (message.type === "audio") {
-                messageText = "🎤 Voice message received";
-                console.log(`   Audio: ${messageText}`);
-              } else if (message.type === "image") {
-                messageText = "🖼️ Image received";
-                console.log(`   Image: ${messageText}`);
-              } else if (message.type === "document") {
-                messageText = "📄 Document received";
-                console.log(`   Document: ${messageText}`);
-              }
-
-              // Send response message
-              if (messageText) {
-                try {
-                  console.log(`📤 Sending response to ${senderPhone}...`);
-
-                  await sendWhatsAppMessage({
-                    to: senderPhone,
-                    response: {
-                      type: "text",
-                      text: `👋 Thanks for your message!\n\nYou said: "${messageText}"\n\nI received it and I'm processing your request...`,
-                    },
-                    phoneNumberId,
-                    accessToken,
-                  });
-
-                  console.log(`✅ Response sent to ${senderPhone}`);
-                } catch (error) {
-                  console.error(`❌ Failed to send response to ${senderPhone}:`, error);
-                }
-              }
-            }
-          }
-
-          // Handle status updates
-          if (changeValue.value?.statuses) {
-            for (const status of changeValue.value.statuses) {
-              console.log(
-                `📊 Status update for message ${status.id}: ${status.status}`
-              );
-            }
-          }
-        }
+    // Send acknowledgment
+    if (phoneNumberId && accessToken) {
+      try {
+        console.log(`📤 Sending acknowledgment to ${senderPhone}...`);
+        await sendWhatsAppMessage({
+          to: senderPhone,
+          response: {
+            type: "text",
+            text: `✅ Message received!\n\nYou said: "${messageText}"`,
+          },
+          phoneNumberId,
+          accessToken,
+        });
+        console.log(`✅ Acknowledgment sent`);
+      } catch (error) {
+        console.error(`⚠️ Could not send acknowledgment:`, error);
       }
     }
 
-    // Return success response
-    return NextResponse.json(
-      { success: true, message: "Webhook processed successfully" },
-      { status: 200 }
-    );
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      console.error("❌ Invalid JSON payload:", error);
-      return NextResponse.json(
-        { error: "Invalid JSON in request body" },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof z.ZodError) {
-      console.error("❌ Payload validation error:", error.errors);
-      return NextResponse.json(
-        { error: "Invalid payload format", details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    console.error("❌ Webhook processing error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("❌ Error:", error);
+    // Always return 200 to acknowledge receipt
+    return NextResponse.json({ success: true }, { status: 200 });
   }
 }
 
