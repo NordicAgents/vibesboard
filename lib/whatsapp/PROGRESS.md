@@ -1,14 +1,14 @@
 # WhatsApp Agent Integration - Progress Tracker
 
 **Last Updated:** 2026-02-11
-**Status:** Phase 2 Complete - Agent Runtime Integration Ready ✅
+**Status:** Phase 3 Complete - UI Integrated | Security Review Complete ⚠️
 
 ---
 
-## 📊 Overall Progress: 90%
+## 📊 Overall Progress: 95%
 
 ```
-████████████████████████████████░░ 90%
+██████████████████████████████████░ 95%
 
 ✅ Database Schema        [100%]
 ✅ Backend Libraries      [100%]
@@ -16,7 +16,8 @@
 ✅ Connection Management  [100%]
 ✅ Webhook Integration    [100%]
 ✅ Agent Runtime Flow     [100%]
-⏳ UI Components          [0%]
+✅ UI Components          [100%]
+⚠️  Security Hardening    [20%]
 ⏳ Testing                [0%]
 ```
 
@@ -435,9 +436,157 @@
 
 ---
 
-## ⚠️ Known Issues / Technical Debt
+## ⚠️ Security Review Findings (2026-02-11)
 
-None currently - fresh implementation ✅
+**Comprehensive security and architecture audit completed.**
+
+### **🔴 CRITICAL Issues (BLOCKING)**
+
+#### **1. API Route Client Misconfiguration**
+**Status:** 🔴 BLOCKING
+**Files:** `app/api/agents/[id]/whatsapp/connections/route.ts:2`, `app/api/agents/[id]/whatsapp/connections/[connectionId]/route.ts:2`
+**Issue:** Trying to import `createClient` which doesn't exist
+**Current Code:**
+```typescript
+import { createClient } from "@/lib/supabase/server";
+const supabase = await createClient();
+```
+**Expected:**
+```typescript
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+const supabase = createRouteHandlerClient<Database>({ cookies });
+```
+**Impact:** **Entire WhatsApp connection management UI is non-functional**. Users cannot create, manage, or delete connections.
+**Priority:** Must fix before any testing
+
+---
+
+#### **2. Webhook Signature Verification Disabled**
+**Status:** 🔴 CRITICAL
+**File:** `app/api/webhooks/route.ts`
+**Issue:** HMAC-SHA256 signature verification intentionally disabled
+**Impact:**
+- Anyone can send fake webhook requests
+- No verification requests come from WhatsApp/Facebook
+- Vulnerable to spam, DoS, API credit drain
+- Attackers can impersonate users
+
+**Current:** Always returns 200 OK (line 237)
+**Required:** Verify `x-hub-signature-256` header before processing
+**Priority:** Must enable before production deployment
+
+---
+
+### **🟠 HIGH Priority Security Concerns**
+
+#### **3. No Rate Limiting**
+- No limits on connection creation per user
+- No limits on messages per connection
+- No limits on intro message sends
+- Can exhaust WhatsApp API quota
+- Can drain OpenAI credits
+- Database bloat from spam
+
+**Recommendation:** Implement:
+- Connections per user per hour
+- Messages per connection per minute
+- Intro sends per connection per day
+
+---
+
+#### **4. Phone Number Enumeration Vulnerability**
+**File:** `lib/whatsapp/connections.ts:94`
+**Issue:** Error messages reveal if phone numbers are connected
+**Current:** `throw new Error(\`Phone number ${params.phone_number} is already connected\`)`
+**Should be:** `throw new Error('Unable to create connection')`
+**Impact:** Privacy leak, attackers can enumerate connected numbers
+
+---
+
+#### **5. Fire-and-Forget Without Monitoring**
+**File:** `app/api/webhooks/route.ts:222`
+**Issue:** `handleWhatsAppMessage()` called async but errors only logged
+**Problems:**
+- Silent failures
+- No tracking/alerting
+- No retry mechanism
+- User gets 200 OK even if processing fails
+- Lost messages
+
+**Recommendation:**
+- Add error tracking (Sentry, Datadog, etc.)
+- Implement retry queue
+- Store webhook payloads before processing
+
+---
+
+### **🟡 MEDIUM Priority Issues**
+
+#### **6. Database CHECK Constraint Too Strict**
+**File:** `supabase/migrations/20260209000000_whatsapp_agent_connections.sql:45`
+**Issue:** `(status = 'expired' AND expires_at <= NOW())`
+**Problem:** Can't set status to 'expired' programmatically until exact expiry moment
+**Fix:** Change to `(status = 'expired' AND expires_at IS NOT NULL)`
+
+---
+
+#### **7. Type Definition Inconsistency**
+**File:** `lib/whatsapp/intro-message.ts:5`
+**Issue:** Redefines `Agent` interface instead of importing from `types.ts`
+**Impact:** Type drift, maintenance burden
+**Fix:** Centralize all type definitions
+
+---
+
+#### **8. RLS Bypass in Library Functions**
+**Files:** `lib/whatsapp/connections.ts`, `lib/whatsapp/conversation-manager.ts`
+**Issue:** Use service role client (bypasses Row Level Security)
+**Impact:** `user_id` validation depends on API route layer
+**Note:** Acceptable for webhook but creates security boundary concern
+**Recommendation:** Add explicit `user_id` validation in critical operations
+
+---
+
+### **✅ Positive Security Findings**
+
+Despite issues, several **excellent** security practices are in place:
+
+1. ✅ **E.164 Phone Validation** - Proper international format enforcement
+2. ✅ **Zod Schema Validation** - All API inputs validated
+3. ✅ **RLS Policies Defined** - Proper database-level access control
+4. ✅ **Unique Constraints** - Prevents duplicate phone-agent connections
+5. ✅ **Cascade Deletes** - Proper foreign key relationships
+6. ✅ **Audit Timestamps** - Full created_at/updated_at tracking
+7. ✅ **Normalized Phone Storage** - Efficient searching with separate normalized field
+8. ✅ **Status Lifecycle** - Clear state machine for connection management
+
+---
+
+### **📋 Security Hardening Roadmap**
+
+**IMMEDIATE (Before Testing):**
+- [ ] Fix API route Supabase client imports
+- [ ] Re-enable webhook signature verification
+- [ ] Add rate limiting to webhook endpoint
+
+**HIGH PRIORITY (Before Production):**
+- [ ] Implement error tracking and monitoring
+- [ ] Add retry mechanism for failed messages
+- [ ] Sanitize error messages (prevent enumeration)
+- [ ] Add user_id validation in conversation cleanup
+
+**MEDIUM PRIORITY:**
+- [ ] Fix database CHECK constraint
+- [ ] Centralize type definitions
+- [ ] Add WhatsApp token expiry monitoring
+- [ ] Implement dead letter queue
+
+**NICE TO HAVE:**
+- [ ] Webhook payload archiving
+- [ ] Admin monitoring dashboard
+- [ ] Bulk connection operations
+- [ ] Connection analytics
 
 ---
 
@@ -467,11 +616,28 @@ None currently - fresh implementation ✅
 
 **Last Contributor:** Claude (via id_ed25519_github2)
 **Branch:** dev
-**Commit:** 1caf94e
+**Latest Commits:**
+- `1caf94e` - Phase 1: Database & Backend Infrastructure
+- `9cc2057` - Bug fixes (database function, null handling)
+- `3429411` - Phase 2: Webhook & Agent Runtime Integration
+- `fa5aa89` - Progress documentation update
+- `dcd1863` - Phase 3: WhatsApp Connection Management UI
+- `f36dd52` - Fix: Correct Supabase client import in library modules
 
-**Ready for Review:** Backend infrastructure (Milestone 1) ✅
-**Blocked On:** None
-**Help Needed:** None currently
+**Ready for Review:**
+- ✅ Backend infrastructure (Phase 1)
+- ✅ Webhook & agent runtime (Phase 2)
+- ✅ UI components (Phase 3)
+- ⚠️  Security review complete with findings documented
+
+**Blocked On:**
+- 🔴 Critical API route client fix (must resolve before testing)
+- 🔴 Webhook signature verification re-enablement
+
+**Help Needed:**
+- Decision on error tracking service (Sentry vs Datadog vs other)
+- Production WhatsApp Business API credentials
+- Rate limiting thresholds (connections/hour, messages/min)
 
 ---
 
