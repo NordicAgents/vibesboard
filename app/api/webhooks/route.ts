@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * Handle webhook events (POST request)
- * Receives incoming messages and sends acknowledgment
+ * Receives incoming WhatsApp messages and routes to agents
  */
 export async function POST(request: NextRequest) {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -141,61 +141,100 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log("📨 Incoming message received");
+    console.log("📨 Incoming WhatsApp webhook");
 
     // Extract message from nested structure
     const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) {
+      // No message in payload (might be status update, etc.)
       return NextResponse.json({ success: true }, { status: 200 });
     }
 
     const senderPhone = message.from;
+    const messageId = message.id;
     const messageType = message.type;
 
-    console.log(`📱 Message from ${senderPhone} (type: ${messageType})`);
+    console.log(`📱 Message from ${senderPhone} (type: ${messageType}, id: ${messageId})`);
 
     // Extract message text based on type
     let messageText = "";
     if (message.type === "text") {
       messageText = message.text.body;
     } else if (message.type === "interactive") {
-      messageText = message.interactive?.button_reply?.title ||
-                   message.interactive?.list_reply?.id ||
-                   "Interactive message";
+      // Handle button/list responses
+      messageText =
+        message.interactive?.button_reply?.title ||
+        message.interactive?.list_reply?.title ||
+        message.interactive?.list_reply?.id ||
+        "Interactive response";
     } else if (message.type === "audio") {
-      messageText = "🎤 Voice message";
+      messageText = "[Voice message received - not supported yet]";
     } else if (message.type === "image") {
-      messageText = "🖼️ Image";
+      messageText = "[Image received - not supported yet]";
     } else if (message.type === "document") {
-      messageText = "📄 Document";
+      messageText = "[Document received - not supported yet]";
     } else {
-      messageText = `${messageType} message`;
+      messageText = `[${messageType} message - not supported yet]`;
     }
 
-    // Send acknowledgment
-    if (phoneNumberId && accessToken) {
-      try {
-        console.log(`📤 Sending acknowledgment to ${senderPhone}...`);
-        await sendWhatsAppMessage({
-          to: senderPhone,
-          response: {
-            type: "text",
-            text: `✅ Message received!\n\nYou said: "${messageText}"`,
-          },
-          phoneNumberId,
-          accessToken,
-        });
-        console.log(`✅ Acknowledgment sent`);
-      } catch (error) {
-        console.error(`⚠️ Could not send acknowledgment:`, error);
+    console.log(`💬 Message text: "${messageText}"`);
+
+    // Find active connection for this phone number
+    const { findActiveConnection } = await import("@/lib/whatsapp/connections");
+    const connection = await findActiveConnection(senderPhone);
+
+    if (!connection) {
+      console.log(`⚠️ No active connection found for ${senderPhone}`);
+
+      // Optionally send a message saying no agent is connected
+      if (phoneNumberId && accessToken) {
+        try {
+          await sendWhatsAppMessage({
+            to: senderPhone,
+            response: {
+              type: "text",
+              text: "Sorry, this number is not connected to any agent. Please contact support.",
+            },
+            phoneNumberId,
+            accessToken,
+          });
+        } catch (error) {
+          console.error("Failed to send 'not connected' message:", error);
+        }
       }
+
+      return NextResponse.json({ success: true }, { status: 200 });
     }
 
+    console.log(`🤖 Found agent: ${connection.agent.name} (mode: ${connection.agent.mode})`);
+
+    // Validate WhatsApp credentials
+    if (!phoneNumberId || !accessToken) {
+      console.error("❌ WhatsApp credentials not configured");
+      return NextResponse.json({ success: true }, { status: 200 });
+    }
+
+    // Process message through agent handler (async, don't await)
+    const { handleWhatsAppMessage } = await import("@/lib/whatsapp/agent-handler");
+
+    // Fire and forget - process in background
+    handleWhatsAppMessage(
+      connection,
+      messageText,
+      messageId,
+      phoneNumberId,
+      accessToken
+    ).catch((error) => {
+      console.error("❌ Error in handleWhatsAppMessage:", error);
+    });
+
+    // Immediately return 200 to WhatsApp to acknowledge receipt
+    console.log("✅ Message queued for processing");
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("❌ Error:", error);
-    // Always return 200 to acknowledge receipt
+    console.error("❌ Webhook error:", error);
+    // Always return 200 to acknowledge receipt to WhatsApp
     return NextResponse.json({ success: true }, { status: 200 });
   }
 }
