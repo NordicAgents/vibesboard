@@ -1,5 +1,5 @@
 import { type Message } from "ai";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 import { nanoid } from "nanoid";
 import type { VibeAgentConversation } from "@/lib/types";
 import { mapConversationRow } from "@/lib/agents/db";
@@ -13,7 +13,7 @@ export async function ensureWhatsAppConversation(
   phoneNumber: string,
   initialMessages: Message[] = []
 ): Promise<VibeAgentConversation> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   // Try to find existing open conversation
   const { data: existing } = await supabase
@@ -58,7 +58,7 @@ export async function addMessageToConversation(
   message: Message,
   whatsappMessageId?: string
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   // Get current conversation
   const { data: conversation } = await supabase
@@ -110,7 +110,7 @@ export async function addMessageToConversation(
 export async function closeWhatsAppConversation(
   conversationId: string
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { error } = await supabase
     .from("vibe_agent_conversations")
@@ -131,7 +131,7 @@ export async function closeWhatsAppConversation(
 export async function getConversationMessages(
   conversationId: string
 ): Promise<Message[]> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from("vibe_agent_conversations")

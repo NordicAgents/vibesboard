@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@/lib/supabase/server";
 import type {
   WhatsAppAgentConnection,
   WhatsAppConnectionWithAgent,
@@ -29,7 +29,7 @@ export function validatePhoneNumber(phone: string): boolean {
 export async function findActiveConnection(
   phoneNumber: string
 ): Promise<WhatsAppConnectionWithAgent | null> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
   const normalized = normalizePhoneNumber(phoneNumber);
 
   const { data, error } = await supabase
@@ -64,7 +64,7 @@ export async function findActiveConnection(
 export async function findConnectionById(
   connectionId: string
 ): Promise<WhatsAppAgentConnection | null> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from("whatsapp_agent_connections")
@@ -87,7 +87,7 @@ export async function createConnection(
   params: CreateConnectionParams,
   userId: string
 ): Promise<WhatsAppAgentConnection | null> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   // Validate phone number
   if (!validatePhoneNumber(params.phone_number)) {
@@ -138,7 +138,7 @@ export async function updateConnection(
   connectionId: string,
   params: UpdateConnectionParams
 ): Promise<WhatsAppAgentConnection | null> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from("whatsapp_agent_connections")
@@ -193,7 +193,7 @@ export async function disconnectConnection(
 export async function incrementConversationCount(
   connectionId: string
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   await supabase.rpc("increment_connection_conversations", {
     connection_id: connectionId,
@@ -207,7 +207,7 @@ export async function listAgentConnections(
   agentId: string,
   status?: string
 ): Promise<WhatsAppAgentConnection[]> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   let query = supabase
     .from("whatsapp_agent_connections")
@@ -233,7 +233,7 @@ export async function listAgentConnections(
  * Reset connection (close all conversations, reset stats)
  */
 export async function resetConnection(connectionId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   // Close all active conversations for this connection
   await supabase
@@ -257,7 +257,7 @@ export async function resetConnection(connectionId: string): Promise<void> {
  * Expire old connections (run via cron)
  */
 export async function expireOldConnections(): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data, error } = await supabase
     .from("whatsapp_agent_connections")
