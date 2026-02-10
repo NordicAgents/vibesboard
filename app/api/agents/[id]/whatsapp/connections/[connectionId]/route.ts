@@ -133,12 +133,20 @@ export async function PATCH(
       case "reconnect": {
         const validated = ReconnectSchema.parse(body);
 
-        const updated = await updateConnection(connectionId, {
-          status: "active",
-          connected_at: new Date(),
-          disconnected_at: undefined,
-          disconnection_reason: undefined,
-        });
+        // Update connection to active and clear disconnection fields
+        await supabase
+          .from("whatsapp_agent_connections")
+          .update({
+            status: "active",
+            connected_at: new Date().toISOString(),
+            disconnected_at: null,
+            disconnection_reason: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", connectionId);
+
+        // Get updated connection
+        const updated = await findConnectionById(connectionId);
 
         // Optionally resend intro
         if (validated.sendIntroMessage) {
