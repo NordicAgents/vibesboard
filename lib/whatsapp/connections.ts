@@ -242,11 +242,15 @@ export async function resetConnection(connectionId: string): Promise<void> {
     .eq("whatsapp_connection_id", connectionId)
     .is("closed_at", null);
 
-  // Reset connection stats
-  await updateConnection(connectionId, {
-    total_conversations: 0,
-    last_message_received_at: undefined,
-  });
+  // Reset connection stats (set last_message_received_at to null explicitly)
+  await supabase
+    .from("whatsapp_agent_connections")
+    .update({
+      total_conversations: 0,
+      last_message_received_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", connectionId);
 }
 
 /**
