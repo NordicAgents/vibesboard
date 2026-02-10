@@ -1,22 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase/server'
 import {
   findConnectionById,
   disconnectConnection,
   updateConnection,
-  resetConnection,
-} from "@/lib/whatsapp/connections";
-import { resendIntroductionMessage } from "@/lib/whatsapp/intro-message";
-import { z } from "zod";
+  resetConnection
+} from '@/lib/whatsapp/connections'
+import { resendIntroductionMessage } from '@/lib/whatsapp/intro-message'
+import { z } from 'zod'
 
 const DisconnectSchema = z.object({
-  conversationAction: z.enum(["keep", "archive", "delete"]).default("keep"),
-  reason: z.string().optional(),
-});
+  conversationAction: z.enum(['keep', 'archive', 'delete']).default('keep'),
+  reason: z.string().optional()
+})
 
 const ReconnectSchema = z.object({
-  sendIntroMessage: z.boolean().default(true),
-});
+  sendIntroMessage: z.boolean().default(true)
+})
 
 /**
  * GET /api/agents/[id]/whatsapp/connections/[connectionId]
@@ -27,39 +27,45 @@ export async function GET(
   { params }: { params: Promise<{ id: string; connectionId: string }> }
 ) {
   try {
-    const supabase = await createClient();
-    const { id: agentId, connectionId } = await params;
+    const supabase = createServerClient()
+    const { id: agentId, connectionId } = await params
 
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { user }
+    } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const connection = await findConnectionById(connectionId);
+    const connection = await findConnectionById(connectionId)
 
     if (!connection || connection.agent_id !== agentId) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Connection not found' },
+        { status: 404 }
+      )
     }
 
     // Verify ownership
     const { data: agent } = await supabase
-      .from("vibe_agents")
-      .select("id")
-      .eq("id", agentId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .from('vibe_agents')
+      .select('id')
+      .eq('id', agentId)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
     if (!agent) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    return NextResponse.json({ connection });
+    return NextResponse.json({ connection })
   } catch (error) {
-    console.error("Error fetching connection:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Error fetching connection:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -72,130 +78,139 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; connectionId: string }> }
 ) {
   try {
-    const supabase = await createClient();
-    const { id: agentId, connectionId } = await params;
+    const supabase = createServerClient()
+    const { id: agentId, connectionId } = await params
 
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { user }
+    } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify ownership
     const { data: agent } = await supabase
-      .from("vibe_agents")
-      .select("*")
-      .eq("id", agentId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .from('vibe_agents')
+      .select('*')
+      .eq('id', agentId)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
     if (!agent) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const connection = await findConnectionById(connectionId);
+    const connection = await findConnectionById(connectionId)
 
     if (!connection || connection.agent_id !== agentId) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Connection not found' },
+        { status: 404 }
+      )
     }
 
-    const body = await request.json();
-    const action = body.action as string;
+    const body = await request.json()
+    const action = body.action as string
 
     // Handle different actions
     switch (action) {
-      case "disconnect": {
-        const validated = DisconnectSchema.parse(body);
+      case 'disconnect': {
+        const validated = DisconnectSchema.parse(body)
 
         // Handle conversation cleanup
-        if (validated.conversationAction === "delete") {
+        if (validated.conversationAction === 'delete') {
           await supabase
-            .from("vibe_agent_conversations")
+            .from('vibe_agent_conversations')
             .delete()
-            .eq("whatsapp_connection_id", connectionId);
-        } else if (validated.conversationAction === "archive") {
+            .eq('whatsapp_connection_id', connectionId)
+        } else if (validated.conversationAction === 'archive') {
           await supabase
-            .from("vibe_agent_conversations")
+            .from('vibe_agent_conversations')
             .update({ closed_at: new Date().toISOString() })
-            .eq("whatsapp_connection_id", connectionId);
+            .eq('whatsapp_connection_id', connectionId)
         }
 
-        const updated = await disconnectConnection(connectionId, validated.reason);
+        const updated = await disconnectConnection(
+          connectionId,
+          validated.reason
+        )
 
         return NextResponse.json({
           connection: updated,
-          message: "Connection disconnected successfully",
-        });
+          message: 'Connection disconnected successfully'
+        })
       }
 
-      case "reconnect": {
-        const validated = ReconnectSchema.parse(body);
+      case 'reconnect': {
+        const validated = ReconnectSchema.parse(body)
 
         // Update connection to active and clear disconnection fields
         await supabase
-          .from("whatsapp_agent_connections")
+          .from('whatsapp_agent_connections')
           .update({
-            status: "active",
+            status: 'active',
             connected_at: new Date().toISOString(),
             disconnected_at: null,
             disconnection_reason: null,
-            updated_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           })
-          .eq("id", connectionId);
+          .eq('id', connectionId)
 
         // Get updated connection
-        const updated = await findConnectionById(connectionId);
+        const updated = await findConnectionById(connectionId)
 
         // Optionally resend intro
         if (validated.sendIntroMessage) {
-          await resendIntroductionMessage(connectionId, agent);
+          await resendIntroductionMessage(connectionId, agent)
         }
 
         return NextResponse.json({
           connection: updated,
-          message: "Connection reconnected successfully",
-        });
+          message: 'Connection reconnected successfully'
+        })
       }
 
-      case "reset": {
-        await resetConnection(connectionId);
+      case 'reset': {
+        await resetConnection(connectionId)
 
         return NextResponse.json({
-          message: "Connection reset successfully. All conversations closed.",
-        });
+          message: 'Connection reset successfully. All conversations closed.'
+        })
       }
 
-      case "resend_intro": {
-        const sent = await resendIntroductionMessage(connectionId, agent);
+      case 'resend_intro': {
+        const sent = await resendIntroductionMessage(connectionId, agent)
 
         if (!sent) {
           return NextResponse.json(
-            { error: "Failed to send introduction message" },
+            { error: 'Failed to send introduction message' },
             { status: 500 }
-          );
+          )
         }
 
         return NextResponse.json({
-          message: "Introduction message resent successfully",
-        });
+          message: 'Introduction message resent successfully'
+        })
       }
 
       default:
-        return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
   } catch (error) {
-    console.error("Error updating connection:", error);
+    console.error('Error updating connection:', error)
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: 'Validation error', details: error.errors },
         { status: 400 }
-      );
+      )
     }
 
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -208,46 +223,52 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; connectionId: string }> }
 ) {
   try {
-    const supabase = await createClient();
-    const { id: agentId, connectionId } = await params;
+    const supabase = createServerClient()
+    const { id: agentId, connectionId } = await params
 
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { user }
+    } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify ownership
     const { data: agent } = await supabase
-      .from("vibe_agents")
-      .select("id")
-      .eq("id", agentId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .from('vibe_agents')
+      .select('id')
+      .eq('id', agentId)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
     if (!agent) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const connection = await findConnectionById(connectionId);
+    const connection = await findConnectionById(connectionId)
 
     if (!connection || connection.agent_id !== agentId) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Connection not found' },
+        { status: 404 }
+      )
     }
 
     // Delete connection (cascades to conversations if configured)
     await supabase
-      .from("whatsapp_agent_connections")
+      .from('whatsapp_agent_connections')
       .delete()
-      .eq("id", connectionId);
+      .eq('id', connectionId)
 
     return NextResponse.json({
-      message: "Connection deleted successfully",
-    });
+      message: 'Connection deleted successfully'
+    })
   } catch (error) {
-    console.error("Error deleting connection:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Error deleting connection:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
