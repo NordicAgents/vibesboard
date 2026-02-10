@@ -1,21 +1,21 @@
 # WhatsApp Agent Integration - Progress Tracker
 
-**Last Updated:** 2026-02-09
-**Status:** Phase 1 Complete - Backend Infrastructure Ready ✅
+**Last Updated:** 2026-02-11
+**Status:** Phase 2 Complete - Agent Runtime Integration Ready ✅
 
 ---
 
-## 📊 Overall Progress: 60%
+## 📊 Overall Progress: 90%
 
 ```
-████████████████████░░░░░░░░░░░░ 60%
+████████████████████████████████░░ 90%
 
 ✅ Database Schema        [100%]
 ✅ Backend Libraries      [100%]
 ✅ API Endpoints          [100%]
 ✅ Connection Management  [100%]
-⏳ Webhook Integration    [0%]
-⏳ Agent Runtime Flow     [0%]
+✅ Webhook Integration    [100%]
+✅ Agent Runtime Flow     [100%]
 ⏳ UI Components          [0%]
 ⏳ Testing                [0%]
 ```
@@ -173,63 +173,70 @@
 - [x] Committed all files with descriptive message
 - [x] Pushed to GitHub via `id_ed25519_github2`
 - [x] Commit: `1caf94e` - "feat: Add WhatsApp agent connection system"
+- [x] Commit: `9cc2057` - "fix: Add missing database function and fix null handling"
+- [x] Commit: `3429411` - "feat: Implement Phase 2 - WhatsApp agent runtime integration"
 
 ---
 
-## 🚧 In Progress
+### **Phase 2: Webhook Integration & Agent Runtime** ✅
 
-### **Phase 2: Webhook Integration & Agent Runtime**
+#### 2.1 Webhook Router ✅
+- [x] Updated `/app/api/webhooks/route.ts` POST handler
+  - [x] Import `findActiveConnection()`
+  - [x] Route incoming messages to correct agent
+  - [x] Handle "no connection found" case
+  - [x] Extract message text from all types (text, interactive, audio, image, document)
+  - [x] Update connection `last_message_received_at`
+  - [x] Increment conversation counter
+  - [x] Fire-and-forget async processing
+  - [x] Always return 200 OK to prevent webhook retries
 
-#### 2.1 Webhook Router ⏳ (Next Task)
-- [ ] Update `/app/api/webhooks/route.ts` POST handler
-  - [ ] Import `findActiveConnection()`
-  - [ ] Route incoming messages to correct agent
-  - [ ] Handle "no connection found" case
-  - [ ] Extract message text from all types
-  - [ ] Update connection `last_message_received_at`
-  - [ ] Increment conversation counter
-
-#### 2.2 Conversation Management ⏳
-- [ ] `findActiveConversation()` - Get open convo for connection
-- [ ] `createConversation()` - Start new WhatsApp conversation
+#### 2.2 Conversation Management ✅
+- [x] `ensureWhatsAppConversation()` - Get or create open conversation
   - Set `channel = 'whatsapp'`
   - Set `whatsapp_connection_id`
   - Set `external_id = phone_number`
-  - Initialize empty messages array
-- [ ] Store WhatsApp message IDs in conversation
+  - Initialize messages array
+- [x] `addMessageToConversation()` - Append messages to conversation
+- [x] `closeWhatsAppConversation()` - Mark conversation as complete
+- [x] `getConversationMessages()` - Retrieve full message history
+- [x] Store WhatsApp message IDs in `whatsapp_message_ids` array
 
-#### 2.3 VibeAgent Runtime Integration ⏳
-- [ ] Load agent configuration by agent_id
-- [ ] Build messages array with history
-- [ ] Call agent runtime (existing system)
-- [ ] Parse streaming response
-- [ ] Extract completion markers
-- [ ] Extract quick suggestions
-- [ ] Handle `[COLLECTION_COMPLETE]` / `[INFO_COMPLETE]`
-- [ ] Close conversation on completion
+#### 2.3 VibeAgent Runtime Integration ✅
+- [x] Load agent configuration by agent_id (via `findActiveConnection`)
+- [x] Build messages array with full conversation history
+- [x] Call agent runtime via `runAgentStream()`
+- [x] Consume streaming response to completion
+- [x] Extract completion markers (`[COLLECTION_COMPLETE]`, `[INFO_COMPLETE]`)
+- [x] Extract quick suggestions from `<!--SUGGESTIONS:...-->` markers
+- [x] Handle max messages threshold
+- [x] Close conversation on completion
+- [x] Save all messages to database
 
-#### 2.4 Response Formatting ⏳
-- [ ] `formatForWhatsApp()` function
-  - [ ] Check suggestion mode (off/smart/always)
-  - [ ] Format as buttons (3 or fewer)
-  - [ ] Format as list (4-10 suggestions)
-  - [ ] No suggestions on completion
-- [ ] Parse HTML completion markers
-- [ ] Parse suggestion markers
-- [ ] Strip markers from display text
+#### 2.4 Response Formatting ✅
+- [x] `formatResponseForWhatsApp()` function
+  - [x] Check suggestion mode (off/smart/always)
+  - [x] Format as buttons (1-3 suggestions)
+  - [x] Format as list (4-10 suggestions)
+  - [x] No suggestions on completion
+- [x] `hasCompletionMarker()` - Detect completion
+- [x] `extractQuickSuggestions()` - Parse suggestion markers
+- [x] `stripMarkers()` - Clean display text
+- [x] `formatCompletionMessage()` - Generate goodbye messages
 
-#### 2.5 Message Flow ⏳
-- [ ] Send formatted response via WhatsApp API
-- [ ] Store assistant message in conversation
-- [ ] Update conversation.messages array
-- [ ] Set conversation.closed_at if complete
-- [ ] Handle errors gracefully (always return 200 OK)
+#### 2.5 Message Flow ✅
+- [x] Send formatted response via WhatsApp API
+- [x] Store assistant message in conversation
+- [x] Update conversation.messages array
+- [x] Set conversation.closed_at if complete
+- [x] Handle errors gracefully (always return 200 OK)
+- [x] Comprehensive logging for debugging
 
-**Target Files:**
-- `/app/api/webhooks/route.ts` (modify POST)
-- `/lib/whatsapp/agent-handler.ts` (new)
-- `/lib/whatsapp/response-formatter.ts` (new)
-- `/lib/whatsapp/conversation-manager.ts` (new)
+**Completed Files:**
+- `/app/api/webhooks/route.ts` (modified POST handler) ✅
+- `/lib/whatsapp/agent-handler.ts` (new - 181 lines) ✅
+- `/lib/whatsapp/response-formatter.ts` (new - 117 lines) ✅
+- `/lib/whatsapp/conversation-manager.ts` (new - 166 lines) ✅
 
 ---
 
@@ -330,12 +337,15 @@
 
 ---
 
-### **Milestone 2: Message Routing** (Target: Next Session)
-- ⏳ Webhook integration
-- ⏳ Agent runtime connection
-- ⏳ Response formatting
+### **Milestone 2: Message Routing** ✅
+- ✅ Webhook integration
+- ✅ Agent runtime connection
+- ✅ Response formatting
+- ✅ Conversation management
+- ✅ Completion detection
 
-**Estimated:** 4-6 hours
+**Completed:** 2026-02-11
+**Actual Time:** ~4 hours
 
 ---
 
@@ -361,12 +371,18 @@
 ## 📈 Key Metrics
 
 ### **Code Statistics:**
-- **Files Created:** 7
-- **Lines of Code:** ~1,416
-- **Functions:** 15+
+- **Files Created:** 10
+- **Lines of Code:** ~2,947
+- **Functions:** 30+
 - **API Endpoints:** 5
 - **Database Tables:** 1 (+ 1 updated)
 - **TypeScript Types:** 7
+- **Database Functions:** 1 (`increment_connection_conversations`)
+
+### **Phase 2 Additions:**
+- **New Modules:** 3 (conversation-manager, response-formatter, agent-handler)
+- **Lines Added:** 531
+- **Commits:** 3 (1caf94e, 9cc2057, 3429411)
 
 ### **Test Coverage:**
 - **Unit Tests:** 0% (pending)
@@ -378,24 +394,28 @@
 - **API Docs:** ✅ Complete
 - **Code Comments:** ✅ Complete
 - **Examples:** ✅ Complete
+- **Progress Tracker:** ✅ Updated
 
 ---
 
 ## 🚀 Next Immediate Steps
 
-1. **Update Webhook Handler** (Priority 1)
-   - File: `/app/api/webhooks/route.ts`
-   - Replace simple echo with connection routing
-   - Integrate with existing VibeAgent runtime
+1. **Test with Real Agent** (Priority 1)
+   - Create test agent via UI
+   - Connect phone number (+919400293288)
+   - Send WhatsApp messages
+   - Verify agent responses
+   - Test completion flow
 
-2. **Test Connection Flow** (Priority 2)
-   - Create test connection via API
-   - Send test message
-   - Verify agent response
-
-3. **Build UI Components** (Priority 3)
+2. **Build UI Components** (Priority 2)
    - Agent settings WhatsApp tab
-   - Connection management
+   - Connection management modals
+   - Status indicators
+
+3. **Production Deployment** (Priority 3)
+   - Deploy to production environment
+   - Configure WhatsApp Business API
+   - Monitor and optimize performance
 
 ---
 
