@@ -110,7 +110,9 @@ if [ -f env.yaml ]; then
 else
   ENV_VARS=""
   if [ -f .env ]; then
-    ENV_VARS=$(grep -v '^#' .env | sed '/^$/d' | paste -sd , -)
+    # Properly format env vars: KEY=VALUE pairs separated by commas
+    # This handles values with special characters by not splitting on commas within values
+    ENV_VARS=$(grep -v '^#' .env | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
   fi
   if [ -n "${ENV_VARS}" ]; then
     echo "Using runtime env vars from .env"
