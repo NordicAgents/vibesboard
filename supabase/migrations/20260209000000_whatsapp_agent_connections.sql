@@ -152,3 +152,15 @@ COMMENT ON COLUMN whatsapp_agent_connections.status IS
 
 COMMENT ON COLUMN whatsapp_agent_connections.custom_intro_message IS
   'Optional custom introduction message. If null, uses agent greeting text.';
+
+-- Function to increment conversation count and update last message timestamp
+CREATE OR REPLACE FUNCTION increment_connection_conversations(connection_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE whatsapp_agent_connections
+  SET total_conversations = total_conversations + 1,
+      last_message_received_at = NOW(),
+      updated_at = NOW()
+  WHERE id = connection_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
