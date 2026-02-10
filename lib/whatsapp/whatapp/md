@@ -1,0 +1,710 @@
+📋 WhatsApp Agent Connection System - Implementation Plan
+
+  🎯 Overview
+
+  Create a system where:
+  1. Agent creators can manually add phone numbers to their agents
+  2. Phone numbers are mapped to specific agents with connection status
+  tracking
+  3. When connected, agent sends an introduction message to the phone
+  number
+  4. Incoming WhatsApp messages are routed to the correct agent
+  5. Creators can disconnect or reset phone number connections
+
+  ---
+  🗄️ Database Schema Design
+
+  Table: whatsapp_agent_connections
+
+  CREATE TABLE whatsapp_agent_connections (
+    -- Primary identification
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Relationships
+    agent_id UUID NOT NULL REFERENCES vibe_agents(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id), -- Connection creator
+
+    -- WhatsApp details
+    phone_number TEXT NOT NULL, -- E.164 format: +919400293288
+    phone_number_normalized TEXT NOT NULL, -- Searchable: 919400293288
+
+    -- Connection status
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK (status IN ('pending', 'active', 'disconnected', 'expired')),
+
+    -- Metadata
+    intro_message_sent_at TIMESTAMPTZ,
+    intro_message_id TEXT, -- WhatsApp message ID
+    last_message_received_at TIMESTAMPTZ,
+    total_conversations INTEGER DEFAULT 0,
+
+    -- Lifecycle
+    connected_at TIMESTAMPTZ,
+    disconnected_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ, -- Optional: auto-expire connections
+
+    -- Audit
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Constraints
+    UNIQUE(agent_id, phone_number_normalized), -- One agent per phone
+    CHECK (
+      (status = 'active' AND connected_at IS NOT NULL) OR
+      (status = 'disconnected' AND disconnected_at IS NOT NULL) OR
+      (status = 'expired' AND expires_at <= NOW()) OR
+      (status = 'pending')
+    )
+  );
+
+  -- Indexes
+  CREATE INDEX idx_whatsapp_connections_agent
+    ON whatsapp_agent_connections(agent_id, status);
+
+  CREATE INDEX idx_whatsapp_connections_phone
+    ON whatsapp_agent_connections(phone_number_normalized, status);
+
+  CREATE INDEX idx_whatsapp_connections_active
+    ON whatsapp_agent_connections(status, agent_id)
+    WHERE status = 'active';
+
+  Update: vibe_agent_conversations
+
+  ALTER TABLE vibe_agent_conversations
+    ADD COLUMN channel TEXT DEFAULT 'web'
+      CHECK (channel IN ('web', 'whatsapp')),
+    ADD COLUMN whatsapp_connection_id UUID
+      REFERENCES whatsapp_agent_connections(id) ON DELETE SET NULL,
+    ADD COLUMN whatsapp_phone_number TEXT,
+    ADD COLUMN whatsapp_message_ids TEXT[] DEFAULT '{}';
+
+  CREATE INDEX idx_conversations_whatsapp
+    ON vibe_agent_conversations(whatsapp_connection_id, closed_at);
+
+  ---
+  🔄 User Flow
+
+  Flow Diagram:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ 1. Agent Creator Dashboard                              │
+  │    - Creates agent with name, instructions, mode, etc.  │
+  │    - Agent ID: abc-123                                   │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 2. WhatsApp Phone Number Management (NEW UI)            │
+  │    - Click "Connect WhatsApp Number"                     │
+  │    - Input: +919400293288                                │
+  │    - Click "Connect"                                     │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 3. Backend Processing                                    │
+  │    - Validate phone number format                        │
+  │    - Check if already connected to another agent         │
+  │    - Create connection record (status: pending)          │
+  │    - Send introduction message via WhatsApp API          │
+  │    - Update status: active, intro_message_sent_at        │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 4. WhatsApp User Receives Introduction                   │
+  │    "Hi! I'm [Agent Name]. [Agent Greeting]               │
+  │     You can message me anytime to [Agent Purpose]."      │
+  │    [Button: Get Started] [Button: Learn More]            │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 5. User Replies on WhatsApp                              │
+  │    "Hello, I need help"                                   │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 6. Webhook Receives Message                              │
+  │    POST /api/webhooks                                     │
+  │    - Extract: from=919400293288, text="Hello..."         │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 7. Agent Routing                                          │
+  │    - Query: whatsapp_agent_connections                    │
+  │      WHERE phone_number_normalized = '919400293288'       │
+  │        AND status = 'active'                              │
+  │    - Found: agent_id = abc-123                            │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 8. Load/Create Conversation                              │
+  │    - Query: vibe_agent_conversations                      │
+  │      WHERE whatsapp_connection_id = [connection_id]       │
+  │        AND closed_at IS NULL                              │
+  │    - If not found: Create new conversation                │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 9. VibeAgent Processing                                   │
+  │    - Load agent config (instructions, mode, tools, etc.) │
+  │    - Append user message to conversation.messages        │
+  │    - Call agent runtime (OpenAI API)                      │
+  │    - Get streaming response with completion markers      │
+  └─────────────────┬───────────────────────────────────────┘
+                    │
+                    ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │ 10. Format & Send WhatsApp Response                       │
+  │     - Parse completion markers & suggestions              │
+  │     - Format as WhatsApp message (text/buttons/list)     │
+  │     - Send via WhatsApp API                               │
+  │     - Store message in conversation                       │
+  │     - Update connection.last_message_received_at          │
+  └─────────────────────────────────────────────────────────┘
+
+  ---
+  🎨 UI Components
+
+  1. Agent Settings - WhatsApp Tab
+
+  Location: /agents/[id]?tab=whatsapp
+
+  // Component: AgentWhatsAppSettings.tsx
+
+  Interface:
+  ┌─────────────────────────────────────────────────────────┐
+  │ WhatsApp Phone Numbers                                   │
+  │                                                           │
+  │ ┌───────────────────────────────────────────────────┐   │
+  │ │ Connected Numbers (2)                              │   │
+  │ │                                                     │   │
+  │ │ +91 9400293288                    ● Active          │   │
+  │ │   Connected: 2 hours ago                            │   │
+  │ │   Last message: 5 minutes ago                       │   │
+  │ │   Total conversations: 3                            │   │
+  │ │   [View Conversations] [Disconnect]                 │   │
+  │ │                                                     │   │
+  │ │ +1 234 567 8900                   ○ Pending         │   │
+  │ │   Intro message sent: Just now                      │   │
+  │ │   Waiting for first reply...                        │   │
+  │ │   [Resend Intro] [Cancel]                           │   │
+  │ └───────────────────────────────────────────────────┘   │
+  │                                                           │
+  │ ┌───────────────────────────────────────────────────┐   │
+  │ │ Disconnected Numbers (1)                           │   │
+  │ │                                                     │   │
+  │ │ +44 7700 900000                   ⊗ Disconnected    │   │
+  │ │   Disconnected: 2 days ago                          │   │
+  │ │   Total conversations: 15                           │   │
+  │ │   [Reconnect] [Delete]                              │   │
+  │ └───────────────────────────────────────────────────┘   │
+  │                                                           │
+  │ [+ Add Phone Number]                                     │
+  └─────────────────────────────────────────────────────────┘
+
+  2. Add Phone Number Modal
+
+  // Component: AddWhatsAppNumberModal.tsx
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ Connect WhatsApp Number                            [X]  │
+  ├─────────────────────────────────────────────────────────┤
+  │                                                           │
+  │ Phone Number *                                           │
+  │ ┌───────────────────────────────────────────────────┐   │
+  │ │ +91 9400293288                                     │   │
+  │ └───────────────────────────────────────────────────┘   │
+  │ Must include country code (e.g., +1, +91, +44)          │
+  │                                                           │
+  │ Custom Introduction Message (Optional)                   │
+  │ ┌───────────────────────────────────────────────────┐   │
+  │ │ Hi! I'm your feedback assistant. You can          │   │
+  │ │ message me anytime to share your thoughts.        │   │
+  │ └───────────────────────────────────────────────────┘   │
+  │ Leave blank to use agent's default greeting             │
+  │                                                           │
+  │ ☑ Send introduction message immediately                  │
+  │ ☐ Set expiry date (optional)                             │
+  │                                                           │
+  │            [Cancel]  [Connect Number]                    │
+  └─────────────────────────────────────────────────────────┘
+
+  3. Disconnect Confirmation Modal
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ Disconnect WhatsApp Number                         [X]  │
+  ├─────────────────────────────────────────────────────────┤
+  │                                                           │
+  │ Are you sure you want to disconnect +91 9400293288?     │
+  │                                                           │
+  │ • All active conversations will be closed                │
+  │ • The user won't receive messages from this agent        │
+  │ • You can reconnect this number later                    │
+  │                                                           │
+  │ ⚠ Pending messages (if any) will not be delivered       │
+  │                                                           │
+  │ What happens to conversation history?                    │
+  │ ○ Keep all conversations (recommended)                   │
+  │ ○ Archive conversations                                  │
+  │ ○ Delete all conversations (cannot be undone)            │
+  │                                                           │
+  │            [Cancel]  [Disconnect]                        │
+  └─────────────────────────────────────────────────────────┘
+
+  ---
+  🛠️ API Endpoints
+
+  1. Connect Phone Number
+
+  POST /api/agents/[agentId]/whatsapp/connections
+
+  Request Body:
+  {
+    phoneNumber: "+919400293288",
+    customIntroMessage?: string,
+    sendIntroImmediately: boolean,
+    expiresAt?: Date
+  }
+
+  Response:
+  {
+    connection: {
+      id: "conn-uuid",
+      agentId: "agent-uuid",
+      phoneNumber: "+919400293288",
+      status: "pending",
+      introMessageSentAt: null,
+      createdAt: "2026-02-09T00:00:00Z"
+    },
+    introMessageQueued: true
+  }
+
+  Errors:
+  - 400: Invalid phone number format
+  - 409: Phone already connected to another agent
+  - 403: Unauthorized (not agent owner)
+
+  2. List Connections
+
+  GET /api/agents/[agentId]/whatsapp/connections?status=active
+
+  Response:
+  {
+    connections: [
+      {
+        id: "conn-uuid",
+        phoneNumber: "+919400293288",
+        status: "active",
+        totalConversations: 5,
+        lastMessageReceivedAt: "2026-02-09T05:00:00Z",
+        connectedAt: "2026-02-08T12:00:00Z",
+        introMessageSentAt: "2026-02-08T12:01:00Z"
+      }
+    ],
+    pagination: { total: 1, page: 1, pageSize: 20 }
+  }
+
+  3. Disconnect Phone Number
+
+  POST
+  /api/agents/[agentId]/whatsapp/connections/[connectionId]/disconnect
+
+  Request Body:
+  {
+    conversationAction: "keep" | "archive" | "delete"
+  }
+
+  Response:
+  {
+    connection: {
+      id: "conn-uuid",
+      status: "disconnected",
+      disconnectedAt: "2026-02-09T06:00:00Z"
+    },
+    conversationsAffected: 3
+  }
+
+  4. Reset/Reconnect
+
+  POST /api/agents/[agentId]/whatsapp/connections/[connectionId]/reconnect
+
+  Request Body:
+  {
+    sendIntroMessage: boolean
+  }
+
+  Response:
+  {
+    connection: {
+      id: "conn-uuid",
+      status: "active",
+      connectedAt: "2026-02-09T06:30:00Z"
+    }
+  }
+
+  ---
+  📨 Introduction Message System
+
+  Message Template:
+
+  // lib/whatsapp/intro-message.ts
+
+  export function buildIntroMessage(agent: Agent, customMessage?: string):
+   string {
+    if (customMessage) {
+      return customMessage;
+    }
+
+    const greeting = agent.greeting_text || "Hi! How can I help you 
+  today?";
+
+    const purpose = agent.mode === 'collector'
+      ? "I'd love to collect your feedback"
+      : "I'm here to answer your questions";
+
+    return `👋 Hi! I'm **${agent.name}**.
+
+  ${greeting}
+
+  ${purpose}. Feel free to message me anytime!`;
+  }
+
+  export function buildIntroButtons(agent: Agent): WhatsAppButton[] {
+    if (agent.mode === 'collector') {
+      return [
+        { id: "start", title: "Get Started" },
+        { id: "learn_more", title: "Learn More" }
+      ];
+    }
+
+    return [
+      { id: "ask_question", title: "Ask Question" },
+      { id: "learn_more", title: "Learn More" }
+    ];
+  }
+
+  Sending Logic:
+
+  // When connection is created
+  async function sendIntroductionMessage(
+    connection: WhatsAppAgentConnection,
+    agent: Agent
+  ) {
+    const message = buildIntroMessage(agent,
+  connection.customIntroMessage);
+    const buttons = buildIntroButtons(agent);
+
+    try {
+      const result = await sendWhatsAppMessage({
+        to: connection.phoneNumber,
+        response: {
+          type: "buttons",
+          text: message,
+          buttons: buttons.map(b => b.title)
+        },
+        phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+        accessToken: process.env.WHATSAPP_ACCESS_TOKEN!
+      });
+
+      // Update connection
+      await updateConnection(connection.id, {
+        introMessageSentAt: new Date(),
+        introMessageId: result.messages[0].id,
+        status: 'active',
+        connectedAt: new Date()
+      });
+
+      console.log(`✅ Intro message sent to ${connection.phoneNumber}`);
+    } catch (error) {
+      console.error(`❌ Failed to send intro to 
+  ${connection.phoneNumber}:`, error);
+
+      // Mark connection as failed
+      await updateConnection(connection.id, {
+        status: 'pending',
+        // Could add error_message field to store reason
+      });
+    }
+  }
+
+  ---
+  🔀 Webhook Router
+
+  Updated Webhook Handler:
+
+  // app/api/webhooks/route.ts - POST handler
+
+  export async function POST(request: NextRequest) {
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+
+    try {
+      const body = await request.json();
+      console.log("📨 Incoming message received");
+
+      // Extract message
+      const message =
+  body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      if (!message) {
+        return NextResponse.json({ success: true }, { status: 200 });
+      }
+
+      const senderPhone = message.from; // e.g., "919400293288"
+      const messageType = message.type;
+
+      // 1. FIND AGENT CONNECTION
+      const connection = await findActiveConnection(senderPhone);
+
+      if (!connection) {
+        console.warn(`⚠️ No active agent for phone: ${senderPhone}`);
+        // Could send: "No agent connected to this number"
+        return NextResponse.json({ success: true }, { status: 200 });
+      }
+
+      console.log(`🎯 Routed to agent: ${connection.agent_id}`);
+
+      // 2. EXTRACT MESSAGE TEXT
+      let messageText = extractMessageText(message);
+
+      // 3. FIND OR CREATE CONVERSATION
+      let conversation = await findActiveConversation(connection.id);
+
+      if (!conversation) {
+        conversation = await createConversation({
+          agent_id: connection.agent_id,
+          whatsapp_connection_id: connection.id,
+          whatsapp_phone_number: senderPhone,
+          channel: 'whatsapp',
+          external_id: senderPhone,
+          messages: []
+        });
+
+        // Increment connection counter
+        await incrementConversationCount(connection.id);
+      }
+
+      // 4. LOAD AGENT CONFIG
+      const agent = await loadAgent(connection.agent_id);
+
+      // 5. APPEND USER MESSAGE
+      const userMessage = {
+        id: nanoid(),
+        role: 'user' as const,
+        content: messageText
+      };
+
+      conversation.messages.push(userMessage);
+
+      // 6. CALL AGENT RUNTIME
+      const response = await callAgentRuntime({
+        agent,
+        messages: conversation.messages,
+        conversationId: conversation.id
+      });
+
+      // 7. PARSE RESPONSE
+      const {
+        cleanText,
+        suggestions,
+        isComplete,
+        completionReason
+      } = parseAgentResponse(response);
+
+      // 8. FORMAT FOR WHATSAPP
+      const whatsappMessage = formatForWhatsApp({
+        text: cleanText,
+        suggestions,
+        agent,
+        isComplete
+      });
+
+      // 9. SEND RESPONSE
+      const sentMessage = await sendWhatsAppMessage({
+        to: senderPhone,
+        response: whatsappMessage,
+        phoneNumberId,
+        accessToken
+      });
+
+      // 10. STORE ASSISTANT MESSAGE
+      conversation.messages.push({
+        id: nanoid(),
+        role: 'assistant',
+        content: cleanText
+      });
+
+      await updateConversation(conversation.id, {
+        messages: conversation.messages,
+        closed_at: isComplete ? new Date() : null
+      });
+
+      // 11. UPDATE CONNECTION
+      await updateConnection(connection.id, {
+        last_message_received_at: new Date()
+      });
+
+      console.log(`✅ Response sent via agent ${agent.name}`);
+
+      return NextResponse.json({ success: true }, { status: 200 });
+
+    } catch (error) {
+      console.error("❌ Error:", error);
+      return NextResponse.json({ success: true }, { status: 200 });
+    }
+  }
+
+  ---
+  🔧 Helper Functions
+
+  1. Find Active Connection
+
+  // lib/whatsapp/connections.ts
+
+  export async function findActiveConnection(
+    phoneNumber: string
+  ): Promise<WhatsAppAgentConnection | null> {
+    const normalized = normalizePhoneNumber(phoneNumber);
+
+    const { data, error } = await supabase
+      .from('whatsapp_agent_connections')
+      .select('*, vibe_agents(*)')
+      .eq('phone_number_normalized', normalized)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error finding connection:', error);
+      return null;
+    }
+
+    return data;
+  }
+
+  function normalizePhoneNumber(phone: string): string {
+    // Remove all non-digits
+    return phone.replace(/\D/g, '');
+  }
+
+  2. Find Active Conversation
+
+  export async function findActiveConversation(
+    connectionId: string
+  ): Promise<Conversation | null> {
+    const { data } = await supabase
+      .from('vibe_agent_conversations')
+      .select('*')
+      .eq('whatsapp_connection_id', connectionId)
+      .is('closed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data;
+  }
+
+  3. Format for WhatsApp
+
+  export function formatForWhatsApp({
+    text,
+    suggestions,
+    agent,
+    isComplete
+  }: FormatOptions): BotResponse {
+    // No suggestions if completed
+    if (isComplete || !suggestions || suggestions.length === 0) {
+      return { type: 'text', text };
+    }
+
+    // Check suggestion mode
+    if (agent.quick_suggestions_mode === 'off') {
+      return { type: 'text', text };
+    }
+
+    // Use buttons if 3 or fewer suggestions
+    if (suggestions.length <= 3) {
+      return {
+        type: 'buttons',
+        text,
+        buttons: suggestions.slice(0, 3)
+      };
+    }
+
+    // Use list for 4-10 suggestions
+    return {
+      type: 'list',
+      text,
+      options: suggestions.slice(0, 10).map((s, i) => ({
+        id: String(i + 1),
+        title: s.substring(0, 24),
+        description: ''
+      }))
+    };
+  }
+
+  ---
+  🎛️ Connection Management Functions
+
+  Reset Connection
+
+  export async function resetConnection(connectionId: string) {
+    // Close all active conversations
+    await supabase
+      .from('vibe_agent_conversations')
+      .update({ closed_at: new Date() })
+      .eq('whatsapp_connection_id', connectionId)
+      .is('closed_at', null);
+
+    // Reset connection stats
+    await supabase
+      .from('whatsapp_agent_connections')
+      .update({
+        total_conversations: 0,
+        last_message_received_at: null,
+        updated_at: new Date()
+      })
+      .eq('id', connectionId);
+  }
+
+  Auto-Expire Connections
+
+  // Run via cron job or scheduled task
+  export async function expireOldConnections() {
+    const { data } = await supabase
+      .from('whatsapp_agent_connections')
+      .update({ status: 'expired' })
+      .eq('status', 'active')
+      .lt('expires_at', new Date())
+      .select();
+
+    console.log(`⏰ Expired ${data?.length} connections`);
+  }
+
+  ---
+  📊 Status Flow
+
+  pending → active → disconnected
+     ↓         ↓
+     └─────→ expired
+
+  pending:      Created, intro not sent or failed
+  active:       Intro sent, accepting messages
+  disconnected: Manually disconnected by creator
+  expired:      Auto-expired based on expires_at
+
+  ---
+  ✅ Implementation Checklist
+
+  Now let me start implementing. Which would you like first:
+
+  1. Database schema + migrations (Foundation)
+  2. API endpoints (Backend logic)
+  3. UI components (Agent settings page)
+  4. Webhook router integration (Message handling)
+
+  Let me know and I'll build it! 🚀
