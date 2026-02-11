@@ -1,6 +1,17 @@
 import type { VibeAgent } from '@/lib/types'
 import type { BotResponse } from './message-types'
 
+const WHATSAPP_LIMITS = {
+  interactiveBodyText: 1024,
+  buttonTitle: 20,
+  listRowTitle: 24,
+  listRowDescription: 72
+} as const
+
+function normalizeLabel(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 /**
  * Extract quick suggestions from agent response
  */
@@ -82,23 +93,44 @@ export function formatResponseForWhatsApp(
     }
   }
 
-  // WhatsApp supports up to 3 buttons
-  if (suggestions.length <= 3) {
+  // Interactive messages have stricter text limits; fall back to plain text if too long.
+  if (cleanText.length > WHATSAPP_LIMITS.interactiveBodyText) {
     return {
-      type: 'buttons',
-      text: cleanText,
-      buttons: suggestions.slice(0, 3)
+      type: 'text',
+      text: cleanText
     }
   }
 
-  // If more than 3 suggestions, use list (WhatsApp supports up to 10)
+  const normalizedSuggestions = suggestions
+    .map(normalizeLabel)
+    .filter(Boolean)
+    .slice(0, 10)
+
+  // WhatsApp supports up to 3 reply buttons, with a very short title limit.
+  const canUseButtons =
+    normalizedSuggestions.length > 0 &&
+    normalizedSuggestions.length <= 3 &&
+    normalizedSuggestions.every(s => s.length <= WHATSAPP_LIMITS.buttonTitle)
+
+  if (canUseButtons) {
+    return {
+      type: 'buttons',
+      text: cleanText,
+      buttons: normalizedSuggestions
+    }
+  }
+
+  // Otherwise use a list (more forgiving + supports descriptions).
   return {
     type: 'list',
     text: cleanText,
-    options: suggestions.slice(0, 10).map((suggestion, index) => ({
+    options: normalizedSuggestions.map((suggestion, index) => ({
       id: `suggestion_${index}`,
-      title: suggestion.substring(0, 24), // WhatsApp title limit
-      description: undefined
+      title: suggestion.substring(0, WHATSAPP_LIMITS.listRowTitle),
+      description:
+        suggestion.length > WHATSAPP_LIMITS.listRowTitle
+          ? suggestion.substring(0, WHATSAPP_LIMITS.listRowDescription)
+          : undefined
     }))
   }
 }
