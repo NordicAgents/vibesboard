@@ -1,14 +1,13 @@
 'use client'
 
 import * as React from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { type UseChatHelpers } from 'ai/react'
 
 import { type AgentMode } from '@/lib/types'
 import { PromptForm } from '@/components/prompt-form'
-import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom'
 import { ChatCompletionBanner } from '@/components/chat-completion'
 import { QuickSuggestions } from '@/components/quick-suggestions'
-// Footer has been removed for a cleaner UI
 
 export interface ChatPanelProps extends Pick<
   UseChatHelpers,
@@ -20,7 +19,6 @@ export interface ChatPanelProps extends Pick<
   agentName?: string
   onChatComplete?: () => void
   quickSuggestions?: string[]
-  onHeightChange?: (height: number) => void
 }
 
 export function ChatPanel({
@@ -36,41 +34,8 @@ export function ChatPanel({
   agentMode = 'provider',
   agentName,
   onChatComplete,
-  quickSuggestions = [],
-  onHeightChange
+  quickSuggestions = []
 }: ChatPanelProps) {
-  const panelRef = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    if (!onHeightChange) return
-    const node = panelRef.current
-    if (!node) return
-
-    let frameId: number | null = null
-    const reportHeight = () => {
-      if (frameId != null) {
-        cancelAnimationFrame(frameId)
-      }
-      frameId = requestAnimationFrame(() => {
-        onHeightChange(node.getBoundingClientRect().height)
-      })
-    }
-
-    reportHeight()
-
-    const observer = new ResizeObserver(reportHeight)
-    observer.observe(node)
-    window.addEventListener('resize', reportHeight, { passive: true })
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', reportHeight)
-      if (frameId != null) {
-        cancelAnimationFrame(frameId)
-      }
-    }
-  }, [onHeightChange])
-
   const canRegenerate = React.useMemo(() => {
     if (isLoading || isChatComplete) return false
     const hasUser = messages?.some(m => m.role === 'user')
@@ -78,58 +43,78 @@ export function ChatPanel({
     return Boolean(hasUser && hasAssistant)
   }, [isLoading, isChatComplete, messages])
 
-  // If chat is complete, show completion UI instead of input
-  if (isChatComplete && !isLoading) {
-    return (
-      <div ref={panelRef} className="fixed inset-x-0 bottom-0">
-        <div className="mx-auto sm:max-w-2xl sm:px-4">
-          <div className="space-y-4 px-4 py-4">
-            <ChatCompletionBanner
-              mode={agentMode}
-              onComplete={onChatComplete ?? (() => {})}
-            />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div ref={panelRef} className="fixed inset-x-0 bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
-      <ButtonScrollToBottom />
-      <div className="mx-auto sm:max-w-2xl sm:px-4">
-        <div className="space-y-4 px-4 py-2 md:py-4">
-          <QuickSuggestions
-            suggestions={quickSuggestions}
-            disabled={isLoading || Boolean(isChatComplete)}
-            onSelect={async value => {
-              const trimmed = value.trim()
-              if (!trimmed) return
-              setInput('')
-              await append({
-                id,
-                content: trimmed,
-                role: 'user'
-              })
-            }}
-          />
-          <PromptForm
-            onSubmit={async value => {
-              await append({
-                id,
-                content: value,
-                role: 'user'
-              })
-            }}
-            input={input}
-            setInput={setInput}
-            isLoading={isLoading}
-            onStop={() => stop()}
-            canRegenerate={canRegenerate}
-            onRegenerate={() => reload()}
-          />
-          {/* Footer removed */}
-        </div>
+    <div className="shrink-0 border-t border-border/50 bg-background/80 backdrop-blur-sm">
+      <div className="px-4 pb-4 pt-3 sm:px-5">
+        <AnimatePresence mode="wait">
+          {isChatComplete && !isLoading ? (
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <ChatCompletionBanner
+                mode={agentMode}
+                onComplete={onChatComplete ?? (() => {})}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="input"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="space-y-2"
+            >
+              {/* Quick suggestions */}
+              <AnimatePresence>
+                {quickSuggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <QuickSuggestions
+                      suggestions={quickSuggestions}
+                      disabled={isLoading || Boolean(isChatComplete)}
+                      onSelect={async value => {
+                        const trimmed = value.trim()
+                        if (!trimmed) return
+                        setInput('')
+                        await append({
+                          id,
+                          content: trimmed,
+                          role: 'user'
+                        })
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Input form */}
+              <PromptForm
+                onSubmit={async value => {
+                  await append({
+                    id,
+                    content: value,
+                    role: 'user'
+                  })
+                }}
+                input={input}
+                setInput={setInput}
+                isLoading={isLoading}
+                onStop={() => stop()}
+                canRegenerate={canRegenerate}
+                onRegenerate={() => reload()}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )

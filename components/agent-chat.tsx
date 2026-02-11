@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat, type Message } from 'ai/react'
 
 import { type AgentMode, type VibeAgent } from '@/lib/types'
@@ -26,6 +26,8 @@ interface AgentChatProps {
   initialMessages?: Message[]
   className?: string
   onChatComplete?: () => void
+  agentAvatarGradient?: string
+  agentAvatarInitial?: string
 }
 
 export function AgentChat({
@@ -34,9 +36,10 @@ export function AgentChat({
   conversationId: initialConversationId,
   initialMessages,
   className,
-  onChatComplete
+  onChatComplete,
+  agentAvatarGradient = 'from-violet-400 to-purple-500',
+  agentAvatarInitial = 'A'
 }: AgentChatProps) {
-  const [chatPanelHeight, setChatPanelHeight] = useState(200)
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
   )
@@ -47,6 +50,7 @@ export function AgentChat({
     agent.maxMessages ?? null
   )
   const [isChatComplete, setIsChatComplete] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
   const quickSuggestionsCount = agent.quickSuggestionsCount === 3 ? 3 : 4
@@ -60,7 +64,7 @@ export function AgentChat({
       {
         id: nanoid(),
         role: 'assistant',
-        content: agent.greetingText || 'Hi How can i help you today'
+        content: agent.greetingText || 'Hi! How can I help you today?'
       }
     ],
     [chatKey, agent.greetingText]
@@ -76,16 +80,13 @@ export function AgentChat({
   // Check for completion signals in messages
   const checkForCompletion = useCallback(
     (messagesArr: Message[]) => {
-      // Count user messages
       const userMessageCount = messagesArr.filter(m => m.role === 'user').length
 
-      // Check max messages threshold
       if (maxMessages && userMessageCount >= maxMessages) {
         setIsChatComplete(true)
         return
       }
 
-      // Check last assistant message for completion markers
       const lastAssistantMessage = [...messagesArr]
         .reverse()
         .find(m => m.role === 'assistant')
@@ -124,14 +125,12 @@ export function AgentChat({
       if (headerId) {
         setConversationId(headerId)
       }
-      // Get agent mode from header
       const modeHeader = response.headers.get(
         'x-agent-mode'
       ) as AgentMode | null
       if (modeHeader) {
         setAgentMode(modeHeader)
       }
-      // Get max messages from header
       const maxMsgsHeader = response.headers.get('x-max-messages')
       if (maxMsgsHeader) {
         setMaxMessages(parseInt(maxMsgsHeader, 10) || null)
@@ -230,32 +229,56 @@ export function AgentChat({
     input
   ])
 
-  // Check for completion whenever messages change (use rawMessages to detect markers)
+  // Check for completion whenever messages change
   useEffect(() => {
     if (!isLoading && rawMessages.length > 0) {
       checkForCompletion(rawMessages)
     }
   }, [rawMessages, isLoading, checkForCompletion])
 
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  }, [messages.length, isLoading])
+
   const handleChatComplete = useCallback(() => {
     onChatComplete?.()
   }, [onChatComplete])
 
   return (
-    <div className={cn('flex flex-1 flex-col', className)}>
+    <div
+      className={cn('flex flex-1 flex-col min-h-0 overflow-hidden', className)}
+    >
+      {/* Scrollable messages area */}
       <div
-        className="flex-1 pt-4"
-        style={{ paddingBottom: chatPanelHeight + 24 }}
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overscroll-contain"
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'hsl(var(--border)) transparent'
+        }}
       >
         {messages.length ? (
           <>
-            <ChatList messages={messages} isLoading={isLoading} />
+            <ChatList
+              messages={messages}
+              isLoading={isLoading}
+              agentAvatarGradient={agentAvatarGradient}
+              agentAvatarInitial={agentAvatarInitial}
+            />
             <ChatScrollAnchor trackVisibility={isLoading} />
           </>
         ) : (
           <EmptyScreen setInput={setInput} />
         )}
       </div>
+
+      {/* Sticky input panel */}
       <ChatPanel
         id={conversationId}
         isLoading={isLoading}
@@ -270,7 +293,6 @@ export function AgentChat({
         agentName={agent.name}
         onChatComplete={handleChatComplete}
         quickSuggestions={quickSuggestions}
-        onHeightChange={setChatPanelHeight}
       />
     </div>
   )
