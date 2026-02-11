@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { type Database } from '@/lib/db_types'
 import {
   findConnectionById,
   disconnectConnection,
@@ -27,8 +29,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string; connectionId: string }> }
 ) {
   try {
-    const supabase = createServerClient()
     const { id: agentId, connectionId } = await params
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     const {
       data: { user }
@@ -78,8 +83,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; connectionId: string }> }
 ) {
   try {
-    const supabase = createServerClient()
     const { id: agentId, connectionId } = await params
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     const {
       data: { user }
@@ -223,8 +231,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; connectionId: string }> }
 ) {
   try {
-    const supabase = createServerClient()
     const { id: agentId, connectionId } = await params
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     const {
       data: { user }
