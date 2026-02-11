@@ -9,10 +9,12 @@ export function AppHeaderController({
 }) {
   const pathname = usePathname()
 
-  // Hide header on app pages (agents, chat)
-  // We check if the path starts with /agents or /chat
+  // Hide header on app pages (agents, chat, public agent pages)
+  // We check if the path starts with /agents, /chat, or /a
   const isAppPage =
-    pathname?.startsWith('/agents') || pathname?.startsWith('/chat')
+    pathname?.startsWith('/agents') ||
+    pathname?.startsWith('/chat') ||
+    pathname?.startsWith('/a')
 
   if (isAppPage) {
     return null
