@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { type Database } from '@/lib/db_types'
 import {
   createConnection,
   listAgentConnections
@@ -28,8 +30,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerClient()
     const { id: agentId } = await params
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     // Check authentication
     const {
@@ -122,8 +127,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerClient()
     const { id: agentId } = await params
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({
+      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     // Check authentication
     const {
