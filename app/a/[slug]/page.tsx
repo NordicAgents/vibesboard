@@ -32,12 +32,14 @@ export default async function PublicAgentPage({
   const agent = mapAgentRow(data)
 
   return (
-    <div className="container mx-auto flex-1 px-4 py-6">
+    <div className="flex flex-1 flex-col items-stretch justify-center overflow-hidden px-3 py-3 sm:items-center sm:px-6 sm:py-8">
       {agent.allowAnonymous ? (
         <PublicAgentExperience agent={agent} />
       ) : (
-        <div className="rounded-lg border p-8 text-center">
-          <h1 className="text-2xl font-semibold">{agent.name}</h1>
+        <div className="mx-auto w-full max-w-lg rounded-2xl border border-border/50 p-8 text-center shadow-lg">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {agent.name}
+          </h1>
           <p className="mt-2 text-muted-foreground">
             This agent requires an invitation or authenticated session. Please
             contact the owner for access.
