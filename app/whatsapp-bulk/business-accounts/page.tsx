@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, RefreshCw, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, RefreshCw, Trash2, CheckCircle2, AlertCircle, HelpCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { DataTable, Column } from '@/components/ui/data-table'
@@ -50,6 +50,7 @@ export default function BusinessAccountsPage() {
   const [disconnectDialogOpen, setDisconnectDialogOpen] = React.useState(false)
   const [selectedAccount, setSelectedAccount] = React.useState<WhatsAppBusinessAccount | null>(null)
   const [syncing, setSyncing] = React.useState<string | null>(null)
+  const [showHelp, setShowHelp] = React.useState(false)
 
   // Form state for connect dialog
   const [formData, setFormData] = React.useState({
@@ -296,7 +297,7 @@ export default function BusinessAccountsPage() {
 
       {/* Connect Account Dialog */}
       <Dialog open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleConnectAccount}>
             <DialogHeader>
               <DialogTitle>Connect WhatsApp Business Account</DialogTitle>
@@ -304,7 +305,133 @@ export default function BusinessAccountsPage() {
                 Enter your Meta WhatsApp Business credentials. You can find these in your Meta for Developers dashboard.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+
+            {/* Help Guide Section */}
+            <div className="my-4 rounded-lg border bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900">
+              <button
+                type="button"
+                onClick={() => setShowHelp(!showHelp)}
+                className="flex w-full items-center justify-between p-3 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <span className="font-medium text-blue-900 dark:text-blue-100">
+                    How to get these credentials?
+                  </span>
+                </div>
+                {showHelp ? (
+                  <ChevronUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                )}
+              </button>
+
+              {showHelp && (
+                <div className="border-t border-blue-200 dark:border-blue-900 p-4 space-y-4 text-sm">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      Step 1: Create Meta Business Account
+                    </h4>
+                    <p className="text-blue-800 dark:text-blue-200">
+                      Visit{' '}
+                      <a
+                        href="https://business.facebook.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline inline-flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-300"
+                      >
+                        business.facebook.com
+                        <ExternalLink className="h-3 w-3" />
+                      </a>{' '}
+                      and create or select your existing business account.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      Step 2: Create WhatsApp Business App
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200 ml-2">
+                      <li>
+                        Go to{' '}
+                        <a
+                          href="https://developers.facebook.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline inline-flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-300"
+                        >
+                          developers.facebook.com
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </li>
+                      <li>Click "My Apps" → "Create App"</li>
+                      <li>Select "Business" → "WhatsApp"</li>
+                      <li>Complete the app setup</li>
+                    </ol>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      Step 3: Get Phone Number ID & Business Account ID
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200 ml-2">
+                      <li>In your app dashboard, go to "WhatsApp" → "API Setup"</li>
+                      <li>
+                        Find <strong>"Phone Number ID"</strong> - a 15-digit number (e.g., 123456789012345)
+                      </li>
+                      <li>
+                        Find <strong>"WhatsApp Business Account ID"</strong> - another 15-digit number
+                      </li>
+                      <li>Copy both IDs (you'll paste them in the form below)</li>
+                    </ol>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      Step 4: Generate Permanent Access Token
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200 ml-2">
+                      <li>In the same "API Setup" page, find "Access Token"</li>
+                      <li>Click "Generate Access Token"</li>
+                      <li>
+                        Select or create a <strong>System User</strong>
+                      </li>
+                      <li>
+                        Grant these permissions:
+                        <ul className="list-disc list-inside ml-4 mt-1">
+                          <li>whatsapp_business_messaging</li>
+                          <li>whatsapp_business_management</li>
+                        </ul>
+                      </li>
+                      <li>
+                        <strong>Important:</strong> Copy the token immediately - it's shown only once!
+                      </li>
+                      <li>Token format: starts with "EAA" (e.g., EAAxxxxxxxxxx)</li>
+                    </ol>
+                  </div>
+
+                  <div className="rounded-md bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-900 p-3">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      <strong>Security Note:</strong> Your access token will be encrypted with AES-256 before storage and never displayed again. Only the Phone Number ID and Business Account ID are stored in plain text.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <a
+                      href="https://developers.facebook.com/docs/whatsapp/business-management-api/get-started"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium inline-flex items-center gap-1"
+                    >
+                      View detailed Meta documentation
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="phoneNumberId">Phone Number ID *</Label>
                 <Input
