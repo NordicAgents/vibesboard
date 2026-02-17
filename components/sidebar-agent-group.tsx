@@ -14,6 +14,28 @@ interface SidebarAgentGroupProps {
   conversations: VibeAgentConversation[]
 }
 
+const UUID_PATTERN =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
+
+const toConversationLabel = (value?: string | null) => {
+  const cleaned = (value ?? '')
+    .replace(UUID_PATTERN, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!cleaned) return 'Conversation'
+  if (cleaned.length <= 90) return cleaned
+
+  const truncated = cleaned.slice(0, 90)
+  const lastWordBoundary = truncated.lastIndexOf(' ')
+
+  if (lastWordBoundary > 48) {
+    return `${truncated.slice(0, lastWordBoundary)}…`
+  }
+
+  return `${truncated}…`
+}
+
 export function SidebarAgentGroup({
   agent,
   conversations
@@ -32,7 +54,9 @@ export function SidebarAgentGroup({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={expanded ? 'Collapse conversations' : 'Expand conversations'}
+            aria-label={
+              expanded ? 'Collapse conversations' : 'Expand conversations'
+            }
             className="absolute right-2 top-1/2 -translate-y-1/2"
             onClick={e => {
               e.preventDefault()
@@ -48,10 +72,9 @@ export function SidebarAgentGroup({
       {expanded && items.length ? (
         <div className="ml-6 space-y-1">
           {items.map(session => {
-            const label =
-              session.summary ||
-              session.messages.at(-1)?.content?.slice(0, 80) ||
-              'Conversation'
+            const label = toConversationLabel(
+              session.summary || session.messages.at(-1)?.content
+            )
             return (
               <Link
                 key={session.id}
@@ -68,4 +91,3 @@ export function SidebarAgentGroup({
     </div>
   )
 }
-

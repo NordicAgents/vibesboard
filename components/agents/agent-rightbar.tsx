@@ -164,7 +164,18 @@ export function AgentRightbar({
           )}
         </div>
       </div>
-      <div className="space-y-5 pb-20">
+      <div className="sticky top-0 z-20 mb-4 flex justify-end border-b bg-background/95 pb-3 pt-1 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+        <Button
+          onClick={handleSaveAll}
+          disabled={saving || !hasChanges || !canEdit}
+          className="rounded-full"
+          size="sm"
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
+
+      <div className="space-y-5 pb-8">
         {/* Agent card */}
         <Card>
           <CardHeader className="pb-3">
@@ -222,10 +233,11 @@ export function AgentRightbar({
             <CardTitle className="text-base">Greeting</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Input
+            <Textarea
               value={greetingText}
               onChange={e => setGreetingText(e.target.value)}
               placeholder="Initial greeting message"
+              rows={3}
               disabled={saving || !canEdit}
             />
           </CardContent>
@@ -303,7 +315,9 @@ export function AgentRightbar({
           <CardContent className="space-y-3">
             <div className="flex gap-2">
               <Badge
-                variant={quickSuggestionsMode === 'off' ? 'default' : 'secondary'}
+                variant={
+                  quickSuggestionsMode === 'off' ? 'default' : 'secondary'
+                }
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
                   quickSuggestionsMode === 'off' &&
@@ -490,20 +504,6 @@ export function AgentRightbar({
             </AlertDialog>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Floating Save Button */}
-      <div className="fixed bottom-6 left-0 right-0 z-20 flex justify-center pointer-events-none lg:left-[300px]">
-        <div className="mx-auto flex items-center gap-2 rounded-full border bg-background p-2 shadow-lg pointer-events-auto">
-          <Button
-            onClick={handleSaveAll}
-            disabled={saving || !hasChanges || !canEdit}
-            className="w-full md:w-auto rounded-full"
-            size="sm"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
       </div>
     </aside>
   )
