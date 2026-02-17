@@ -24,6 +24,27 @@ import { ConversationModal } from '@/components/agents/conversation-modal'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconEdit, IconMessage } from '@/components/ui/icons'
 
+const UUID_PATTERN =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
+
+const toConversationLabel = (value?: string | null) => {
+  const cleaned = (value ?? '')
+    .replace(UUID_PATTERN, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!cleaned) return 'Visitor conversation'
+  if (cleaned.length <= 110) return cleaned
+
+  const truncated = cleaned.slice(0, 110)
+  const lastWordBoundary = truncated.lastIndexOf(' ')
+  if (lastWordBoundary > 60) {
+    return `${truncated.slice(0, lastWordBoundary)}…`
+  }
+
+  return `${truncated}…`
+}
+
 interface AgentChatWithLayoutProps {
   agent: VibeAgent
   ownerId: string
@@ -156,163 +177,171 @@ export function AgentChatWithLayout({
   const sidebar = React.useMemo(
     () => (
       <DashboardSidebar>
-      {/* Agent Info */}
-      <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
-        <h3 className="truncate font-switzer text-lg font-bold text-black-primary dark:text-foreground">
-          {agent.name}
-        </h3>
-      </div>
-
-      {!canEdit && (
-        <div className="mb-4 rounded-2xl border border-dashed border-black-10 bg-muted/30 px-4 py-3 text-sm text-gray-secondary dark:border-border">
-          Read-only (ask a tenant admin to edit)
+        {/* Agent Info */}
+        <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
+          <h3 className="truncate font-switzer text-lg font-bold text-black-primary dark:text-foreground">
+            {agent.name}
+          </h3>
         </div>
-      )}
 
-      {/* Navigation */}
-      <div
-        className={`mb-4 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}
-      >
-        <Button
-          variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
-          size="sm"
-          className="justify-start gap-2 px-2"
-          data-mobile-menu-close="true"
-          onClick={() => {
-            if (!canEdit) {
-              router.push(`/agents/${agent.id}/conversations/new`)
-              return
-            }
-            setAgentSidebarOpen?.(false)
-            const params = new URLSearchParams(searchParams.toString())
-            params.delete('configure')
-            const query = params.toString()
-            router.push(query ? `/agents/${agent.id}?${query}` : `/agents/${agent.id}`)
-          }}
+        {!canEdit && (
+          <div className="mb-4 rounded-2xl border border-dashed border-black-10 bg-muted/30 px-4 py-3 text-sm text-gray-secondary dark:border-border">
+            Read-only (ask a tenant admin to edit)
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div
+          className={`mb-4 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}
         >
-          <IconMessage className="h-4 w-4" />
-          {canEdit ? 'Ask AI' : 'Chat'}
-        </Button>
-        {canEdit && (
           <Button
-            variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+            variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
             size="sm"
             className="justify-start gap-2 px-2"
             data-mobile-menu-close="true"
             onClick={() => {
-              setAgentSidebarOpen?.(true)
+              if (!canEdit) {
+                router.push(`/agents/${agent.id}/conversations/new`)
+                return
+              }
+              setAgentSidebarOpen?.(false)
               const params = new URLSearchParams(searchParams.toString())
-              params.set('configure', 'true')
-              router.push(`/agents/${agent.id}?${params.toString()}`)
+              params.delete('configure')
+              const query = params.toString()
+              router.push(
+                query ? `/agents/${agent.id}?${query}` : `/agents/${agent.id}`
+              )
             }}
           >
-            <IconEdit className="h-4 w-4" />
-            Configure
+            <IconMessage className="h-4 w-4" />
+            {canEdit ? 'Ask AI' : 'Chat'}
           </Button>
-        )}
-      </div>
-
-      {/* Visitor Chat History */}
-      {canEdit && (
-        <DashboardSidebarSection
-          title="Visitor Chat History"
-          action={
+          {canEdit && (
             <Button
+              variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
               size="sm"
-              variant="secondary"
-              className="h-7 w-7 rounded-full p-0"
-              onClick={handleRefreshSummaries}
-              disabled={refreshingSummaries}
-              title="Refresh summaries"
-              aria-label="Refresh summaries"
+              className="justify-start gap-2 px-2"
+              data-mobile-menu-close="true"
+              onClick={() => {
+                setAgentSidebarOpen?.(true)
+                const params = new URLSearchParams(searchParams.toString())
+                params.set('configure', 'true')
+                router.push(`/agents/${agent.id}?${params.toString()}`)
+              }}
             >
-              <IconRefresh
-                className={
-                  refreshingSummaries
-                    ? 'h-3.5 w-3.5 animate-spin'
-                    : 'h-3.5 w-3.5'
-                }
-              />
+              <IconEdit className="h-4 w-4" />
+              Configure
             </Button>
+          )}
+        </div>
+
+        {/* Visitor Chat History */}
+        {canEdit && (
+          <DashboardSidebarSection
+            title="Visitor Chat History"
+            action={
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 w-7 rounded-full p-0"
+                onClick={handleRefreshSummaries}
+                disabled={refreshingSummaries}
+                title="Refresh summaries"
+                aria-label="Refresh summaries"
+              >
+                <IconRefresh
+                  className={
+                    refreshingSummaries
+                      ? 'h-3.5 w-3.5 animate-spin'
+                      : 'h-3.5 w-3.5'
+                  }
+                />
+              </Button>
+            }
+          >
+            {visitorSessions.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
+                No visitor chats yet.
+              </div>
+            )}
+            {paginatedVisitorSessions.map(session => {
+              const label = toConversationLabel(
+                session.summary || session.messages.at(-1)?.content
+              )
+
+              return (
+                <DashboardSidebarItem
+                  key={session.id}
+                  className="bg-purewhite-bg dark:bg-background"
+                  onClick={() => handleOpenConversation(session)}
+                >
+                  <div className="truncate font-medium" title={label}>
+                    {label}
+                  </div>
+                  <div className="text-[11px] text-gray-secondary">
+                    Updated {formatDate(session.updatedAt)}
+                  </div>
+                </DashboardSidebarItem>
+              )
+            })}
+            {visitorSessions.length > itemsPerPage && (
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
+                  disabled={visitorPage === 1}
+                  className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                >
+                  Previous
+                </Button>
+                <span className="text-[11px] text-gray-secondary font-switzer">
+                  Page {visitorPage} of {totalVisitorPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setVisitorPage(prev =>
+                      Math.min(totalVisitorPages, prev + 1)
+                    )
+                  }
+                  disabled={visitorPage === totalVisitorPages}
+                  className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </DashboardSidebarSection>
+        )}
+
+        {/* Conversations */}
+        <DashboardSidebarSection
+          title="My Chat History"
+          action={
+            <button
+              onClick={handleNewChat}
+              data-mobile-menu-close="true"
+              className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
+              aria-label="New conversation"
+            >
+              +
+            </button>
           }
         >
-          {visitorSessions.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
-              No visitor chats yet.
-            </div>
-          )}
-          {paginatedVisitorSessions.map(session => (
+          {ownerSessions.slice(0, 10).map(session => (
             <DashboardSidebarItem
               key={session.id}
-              className="bg-purewhite-bg dark:bg-background"
-              onClick={() => handleOpenConversation(session)}
+              active={activeSessionId === session.id}
+              onClick={() => handleSelectSession(session.id)}
             >
-              <div className="truncate font-medium">
-                {session.summary ||
-                  session.messages.at(-1)?.content ||
-                  'Visitor conversation'}
-              </div>
-              <div className="text-[11px] text-gray-secondary">
-                Updated {formatDate(session.updatedAt)}
+              <div className="truncate">
+                {session.summary || 'Untitled conversation'}
               </div>
             </DashboardSidebarItem>
           ))}
-          {visitorSessions.length > itemsPerPage && (
-            <div className="flex items-center justify-between gap-2 pt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
-                disabled={visitorPage === 1}
-                className="h-7 rounded-full px-3 text-[11px] font-switzer"
-              >
-                Previous
-              </Button>
-              <span className="text-[11px] text-gray-secondary font-switzer">
-                Page {visitorPage} of {totalVisitorPages}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))
-                }
-                disabled={visitorPage === totalVisitorPages}
-                className="h-7 rounded-full px-3 text-[11px] font-switzer"
-              >
-                Next
-              </Button>
-            </div>
-          )}
         </DashboardSidebarSection>
-      )}
-
-      {/* Conversations */}
-      <DashboardSidebarSection
-        title="My Chat History"
-        action={
-          <button
-            onClick={handleNewChat}
-            data-mobile-menu-close="true"
-            className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
-            aria-label="New conversation"
-          >
-            +
-          </button>
-        }
-      >
-        {ownerSessions.slice(0, 10).map(session => (
-          <DashboardSidebarItem
-            key={session.id}
-            active={activeSessionId === session.id}
-            onClick={() => handleSelectSession(session.id)}
-          >
-            <div className="truncate">
-              {session.summary || 'Untitled conversation'}
-            </div>
-          </DashboardSidebarItem>
-        ))}
-      </DashboardSidebarSection>
       </DashboardSidebar>
     ),
     [
@@ -355,36 +384,37 @@ export function AgentChatWithLayout({
               canEdit={canEdit}
             />
           </div>
+        ) : canEdit ? (
+          <AgentAskChat
+            agent={agent}
+            ownerId={ownerId}
+            ownerSessions={ownerSessions}
+          />
         ) : (
-          canEdit ? (
-            <AgentAskChat
-              agent={agent}
-              ownerId={ownerId}
-              ownerSessions={ownerSessions}
-            />
-          ) : (
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-              <div className="rounded-2xl border bg-muted/30 p-6">
-                <h1 className="text-xl font-semibold">Read-only access</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Analytics and configuration are available to the agent owner and tenant admins.
-                </p>
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    onClick={() => {
-                      if (activeSessionId) {
-                        router.push(`/agents/${agent.id}/conversations/${activeSessionId}`)
-                        return
-                      }
-                      router.push(`/agents/${agent.id}/conversations/new`)
-                    }}
-                  >
-                    Open chat
-                  </Button>
-                </div>
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+            <div className="rounded-2xl border bg-muted/30 p-6">
+              <h1 className="text-xl font-semibold">Read-only access</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Analytics and configuration are available to the agent owner and
+                tenant admins.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  onClick={() => {
+                    if (activeSessionId) {
+                      router.push(
+                        `/agents/${agent.id}/conversations/${activeSessionId}`
+                      )
+                      return
+                    }
+                    router.push(`/agents/${agent.id}/conversations/new`)
+                  }}
+                >
+                  Open chat
+                </Button>
               </div>
             </div>
-          )
+          </div>
         )}
       </DashboardLayout>
       <ConversationModal
