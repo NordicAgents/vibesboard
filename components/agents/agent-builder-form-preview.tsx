@@ -184,12 +184,13 @@ export function AgentBuilderFormPreview({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Input
+            <Textarea
               value={formData.greetingText || ''}
               onChange={e =>
                 onFormChange({ ...formData, greetingText: e.target.value })
               }
               placeholder="e.g., Hi! How can I help you today?"
+              rows={3}
               className="font-switzer"
             />
           </CardContent>
@@ -338,7 +339,9 @@ export function AgentBuilderFormPreview({
           <CardContent className="space-y-3">
             <div className="flex gap-2">
               <Badge
-                variant={quickSuggestionsMode === 'off' ? 'default' : 'secondary'}
+                variant={
+                  quickSuggestionsMode === 'off' ? 'default' : 'secondary'
+                }
                 className={cn(
                   'cursor-pointer transition-all flex-1 justify-center py-2',
                   quickSuggestionsMode === 'off' &&
@@ -400,7 +403,9 @@ export function AgentBuilderFormPreview({
                 </label>
                 <div className="flex gap-2">
                   <Badge
-                    variant={quickSuggestionsCount === 3 ? 'default' : 'secondary'}
+                    variant={
+                      quickSuggestionsCount === 3 ? 'default' : 'secondary'
+                    }
                     className={cn(
                       'cursor-pointer transition-all px-4 py-1',
                       quickSuggestionsCount === 3 &&
@@ -416,7 +421,9 @@ export function AgentBuilderFormPreview({
                     3
                   </Badge>
                   <Badge
-                    variant={quickSuggestionsCount === 4 ? 'default' : 'secondary'}
+                    variant={
+                      quickSuggestionsCount === 4 ? 'default' : 'secondary'
+                    }
                     className={cn(
                       'cursor-pointer transition-all px-4 py-1',
                       quickSuggestionsCount === 4 &&
