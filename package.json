@@ -10,7 +10,6 @@
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test lib/**/*.test.ts",
     "format:write": "prettier --write \"{app,lib,components}/**/*.{ts,tsx,mdx}\" --cache",
     "format:check": "prettier --check \"{app,lib,components}**/*.{ts,tsx,mdx}\" --cache"
   },

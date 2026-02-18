@@ -17,19 +17,13 @@ export const agentToolSchema = z.object({
   config: z.record(z.any()).optional()
 })
 
-export const agentModeSchema = z.enum(['provider', 'collector'])
-
 export const upsertAgentSchema = z.object({
   name: z.string().min(2).max(120),
   instructions: z.string().min(10),
   fileKeys: z.array(z.string()).default([]),
   tools: z.array(agentToolSchema).default([]),
   allowAnonymous: z.boolean().default(true),
-  greetingText: z.string().nullable().optional(),
-  mode: agentModeSchema.default('provider'),
-  maxMessages: z.number().int().min(1).max(50).nullable().optional(),
-  quickSuggestionsMode: z.enum(['off', 'smart', 'always']).default('smart'),
-  quickSuggestionsCount: z.number().int().min(3).max(4).default(4)
+  greetingText: z.string().nullable().optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()

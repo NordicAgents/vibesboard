@@ -28,7 +28,6 @@ export interface ChatProps extends React.ComponentProps<'div'> {
 }
 
 export function Chat({ id, initialMessages, className }: ChatProps) {
-  const [chatPanelHeight, setChatPanelHeight] = useState(200)
   const [previewToken, setPreviewToken] = useLocalStorage<string | null>(
     'ai-token',
     null
@@ -51,13 +50,10 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
     })
   return (
     <>
-      <div
-        className={cn('pt-4 md:pt-10', className)}
-        style={{ paddingBottom: chatPanelHeight + 24 }}
-      >
+      <div className={cn('pb-[200px] pt-4 md:pt-10', className)}>
         {messages.length ? (
           <>
-            <ChatList messages={messages} isLoading={isLoading} />
+            <ChatList messages={messages} />
             <ChatScrollAnchor trackVisibility={isLoading} />
           </>
         ) : (
@@ -73,7 +69,6 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
         messages={messages}
         input={input}
         setInput={setInput}
-        onHeightChange={setChatPanelHeight}
       />
 
       <Dialog open={previewTokenDialog} onOpenChange={setPreviewTokenDialog}>

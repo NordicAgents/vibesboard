@@ -45,7 +45,10 @@ export function LandingServices() {
                                         <span className="font-mono text-xs sm:text-sm text-gray-secondary">{service.id}</span>
                                         <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-switzer font-medium dark:text-foreground">{service.title}</h3>
                                     </div>
-                                    <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 w-full sm:w-auto justify-end">
+                                    <div className="flex items-center gap-4 sm:gap-6 lg:gap-8 w-full sm:w-auto">
+                                        <p className="flex-1 sm:hidden text-gray-secondary text-xs sm:text-sm opacity-70 group-hover:opacity-100 transition-opacity duration-500">
+                                            {service.description}
+                                        </p>
                                         <p className="hidden lg:block text-gray-secondary max-w-xs text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                                             {service.description}
                                         </p>
@@ -55,7 +58,7 @@ export function LandingServices() {
                                     </div>
                                 </div>
                                 {/* Mobile description below title */}
-                                <p className="lg:hidden mt-2 text-gray-secondary text-sm pl-8 sm:pl-10">
+                                <p className="sm:hidden mt-2 text-gray-secondary text-sm pl-8 sm:pl-10">
                                     {service.description}
                                 </p>
                             </div>

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
-import { isSuperAdmin } from '@/lib/permissions'
+import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
 import { toggleFeature } from '@/lib/features'
 
 export const runtime = 'nodejs'
@@ -16,7 +16,7 @@ type RouteParams = {
 
 /**
  * PUT /api/tenants/[id]/features
- * Toggle features for a tenant (SUPER_ADMIN only)
+ * Toggle features for a tenant (SUPER_ADMIN or TENANT_ADMIN)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
     const cookieStore = await cookies()
@@ -31,9 +31,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     const { id } = await params
 
-    // SUPER_ADMIN only
+    // Check if user is super admin or tenant admin
     const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
+    const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
+
+    if (!isSuperAdminUser && !isTenantAdminUser) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 

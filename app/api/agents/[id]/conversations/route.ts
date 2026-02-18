@@ -4,7 +4,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
-import { getAgentForMember } from '@/lib/agents/server'
+import { getAgentForUser } from '@/lib/agents/server'
 import { listAgentConversations } from '@/lib/agents/conversations'
 
 export const runtime = 'nodejs'
@@ -25,7 +25,7 @@ export async function GET(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const agent = await getAgentForMember(supabase, id)
+  const agent = await getAgentForUser(supabase, id, session.user.id)
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })

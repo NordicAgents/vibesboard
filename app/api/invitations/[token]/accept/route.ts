@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
-import { setActiveTenantId } from '@/lib/tenant-context'
+import { type Database } from '@/lib/db_types'
 
 export const runtime = 'nodejs'
 
@@ -26,10 +26,12 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     const { token } = await params
 
-    const supabaseAdmin = getServiceSupabaseClient()
+    const supabase = createRouteHandlerClient<Database>({
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     // Get invitation
-    const { data: invitation, error: inviteError } = await supabaseAdmin
+    const { data: invitation, error: inviteError } = await supabase
         .from('invitations')
         .select('*')
         .eq('token', token)
@@ -61,18 +63,11 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
-    if (invitation.status !== 'pending') {
-        return NextResponse.json(
-            { error: 'Invitation is no longer valid' },
-            { status: 410 }
-        )
-    }
-
     // Verify email matches (optional - could also allow accepting with different email)
     // For now, we'll allow any authenticated user to accept
 
     // Check if user is already a member
-    const { data: existingMember } = await supabaseAdmin
+    const { data: existingMember } = await supabase
         .from('tenant_users')
         .select('user_id')
         .eq('tenant_id', invitation.tenant_id)
@@ -87,7 +82,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     // Create tenant_users record
-    const { error: memberError } = await supabaseAdmin
+    const { error: memberError } = await supabase
         .from('tenant_users')
         .insert({
             user_id: session.user.id,
@@ -103,21 +98,15 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     // Mark invitation as accepted
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabase
         .from('invitations')
-        .update({
-            status: 'accepted',
-            accepted_at: new Date().toISOString()
-        })
+        .update({ status: 'accepted' })
         .eq('id', invitation.id)
 
     if (updateError) {
         // Log error but don't fail the request since user was already added
         console.error('Failed to mark invitation as accepted:', updateError)
     }
-
-    // Set active tenant for the new member
-    await setActiveTenantId(invitation.tenant_id)
 
     return NextResponse.json({
         success: true,

@@ -21,19 +21,6 @@ export async function getAgentForUser(
   return data ? mapAgentRow(data) : null
 }
 
-export async function getAgentForMember(
-  supabase: Client,
-  id: string
-): Promise<VibeAgent | null> {
-  const { data } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  return data ? mapAgentRow(data) : null
-}
-
 export async function getAgentBySlug(
   supabase: Client,
   slug: string

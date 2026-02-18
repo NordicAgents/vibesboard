@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 
 /**
  * GET /api/admin/feature-flags
- * List all feature flags (SUPER_ADMIN only)
+ * List all feature flags (authenticated users can read)
  */
 export async function GET() {
     const cookieStore = await cookies()
@@ -18,12 +18,6 @@ export async function GET() {
 
     if (!session?.user) {
         return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
     }
 
     const supabase = createRouteHandlerClient<Database>({
@@ -42,7 +36,7 @@ export async function GET() {
         )
     }
 
-    return NextResponse.json({ flags: data })
+    return NextResponse.json({ feature_flags: data })
 }
 
 /**
@@ -109,5 +103,5 @@ export async function POST(req: Request) {
         )
     }
 
-    return NextResponse.json({ flag }, { status: 201 })
+    return NextResponse.json({ feature_flag: flag }, { status: 201 })
 }

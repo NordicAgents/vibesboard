@@ -16,10 +16,6 @@ export type AgentToolType =
   | 'builtin:search'
   | 'builtin:file_search'
 
-export type AgentMode = 'provider' | 'collector'
-
-export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
-
 export interface VibeAgentTool {
   id: string
   type: AgentToolType
@@ -38,10 +34,6 @@ export interface VibeAgent {
   tools: VibeAgentTool[]
   allowAnonymous: boolean
   greetingText?: string | null
-  mode: AgentMode
-  maxMessages?: number | null
-  quickSuggestionsMode?: QuickSuggestionsMode
-  quickSuggestionsCount?: number | null
   lastEmbeddingsSyncAt?: string | null
   createdAt: string
   updatedAt: string
@@ -68,6 +60,6 @@ export interface AgentSharePayload {
 export type ServerActionResult<Result> = Promise<
   | Result
   | {
-      error: string
-    }
+    error: string
+  }
 >

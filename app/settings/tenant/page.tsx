@@ -25,19 +25,19 @@ interface TenantConfig {
         primary_color?: string
         secondary_color?: string
     }
+    features?: Record<string, boolean>
 }
 
-interface TenantFeatureStatus {
+interface FeatureFlag {
     id: string
     name: string
     description: string | null
-    isEnabled: boolean
-    isOverridden: boolean
+    default_value: boolean
 }
 
 export default function TenantSettingsPage() {
     const [tenant, setTenant] = useState<TenantConfig | null>(null)
-    const [features, setFeatures] = useState<TenantFeatureStatus[]>([])
+    const [features, setFeatures] = useState<FeatureFlag[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
@@ -48,6 +48,7 @@ export default function TenantSettingsPage() {
 
     useEffect(() => {
         fetchTenantData()
+        fetchFeatures()
     }, [])
 
     const fetchTenantData = async () => {
@@ -72,7 +73,6 @@ export default function TenantSettingsPage() {
             if (configResponse.ok) {
                 const config = await configResponse.json()
                 setTenant(config.tenant)
-                setFeatures(config.tenant?.features || config.features || [])
 
                 // Set branding values
                 if (config.tenant.branding) {
@@ -86,6 +86,18 @@ export default function TenantSettingsPage() {
             toast.error('Failed to load tenant')
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const fetchFeatures = async () => {
+        try {
+            const response = await fetch('/api/admin/feature-flags')
+            if (response.ok) {
+                const data = await response.json()
+                setFeatures(data.flags || [])
+            }
+        } catch (error) {
+            console.error('Error fetching features:', error)
         }
     }
 
@@ -136,9 +148,6 @@ export default function TenantSettingsPage() {
     }
 
     const isPersonal = Boolean(tenant.is_personal)
-    const customBrandingEnabled =
-        features.find((f) => f.name === 'CUSTOM_BRANDING')?.isEnabled ?? true
-    const brandingLocked = isPersonal || !customBrandingEnabled
 
     return (
         <div className="space-y-6">
@@ -163,11 +172,6 @@ export default function TenantSettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            {!customBrandingEnabled && (
-                                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                                    Custom branding is disabled for this workspace. Contact a super admin to enable it.
-                                </div>
-                            )}
                             <div className="space-y-2">
                                 <Label htmlFor="logo">Logo URL</Label>
                                 <Input
@@ -175,7 +179,7 @@ export default function TenantSettingsPage() {
                                     placeholder="https://example.com/logo.png"
                                     value={logoUrl}
                                     onChange={(e) => setLogoUrl(e.target.value)}
-                                    disabled={brandingLocked}
+                                    disabled={isPersonal}
                                 />
                                 {logoUrl && (
                                     <div className="mt-2">
@@ -197,7 +201,6 @@ export default function TenantSettingsPage() {
                                         value={primaryColor}
                                         onChange={setPrimaryColor}
                                         id="primary-color"
-                                        disabled={brandingLocked}
                                     />
                                 </div>
 
@@ -208,7 +211,6 @@ export default function TenantSettingsPage() {
                                         value={secondaryColor}
                                         onChange={setSecondaryColor}
                                         id="secondary-color"
-                                        disabled={brandingLocked}
                                     />
                                 </div>
                             </div>
@@ -229,7 +231,7 @@ export default function TenantSettingsPage() {
                                         This is your personal workspace. Branding changes are disabled.
                                     </p>
                                 )}
-                                <Button onClick={handleSaveBranding} disabled={isSaving || brandingLocked}>
+                                <Button onClick={handleSaveBranding} disabled={isSaving || isPersonal}>
                                     {isSaving ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -258,6 +260,7 @@ export default function TenantSettingsPage() {
                             ) : (
                                 <div className="space-y-4">
                                     {features.map((feature) => {
+                                        const isEnabled = tenant.features?.[feature.name] ?? feature.default_value
                                         return (
                                             <div
                                                 key={feature.id}
@@ -271,8 +274,8 @@ export default function TenantSettingsPage() {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <Badge variant={feature.isEnabled ? 'default' : 'secondary'}>
-                                                    {feature.isEnabled ? 'Enabled' : 'Disabled'}
+                                                <Badge variant={isEnabled ? 'default' : 'secondary'}>
+                                                    {isEnabled ? 'Enabled' : 'Disabled'}
                                                 </Badge>
                                             </div>
                                         )

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
-import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
+import { type Database } from '@/lib/db_types'
+import { isSuperAdmin, isTenantAdmin, isMemberOfTenant } from '@/lib/permissions'
 
 export const runtime = 'nodejs'
 
@@ -26,18 +27,20 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const { id } = await params
 
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
+    // Check if user is member of tenant
     const isMember = await isMemberOfTenant(session.user.id, id)
-    if (!isSuperAdminUser && !isMember) {
+    if (!isMember) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
-    const supabaseAdmin = getServiceSupabaseClient()
+    const supabase = createRouteHandlerClient<Database>({
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
     // Get tenant users with user details from auth.users
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
         .from('tenant_users')
-        .select('user_id, tenant_id, role, created_at')
+        .select('user_id, role, created_at')
         .eq('tenant_id', id)
         .order('created_at', { ascending: false })
 
@@ -48,29 +51,9 @@ export async function GET(req: Request, { params }: RouteParams) {
         )
     }
 
-    const emailCache = new Map<string, Promise<string | null>>()
-    const getEmail = (userId: string) => {
-        const existing = emailCache.get(userId)
-        if (existing) return existing
-
-        const promise = supabaseAdmin.auth.admin
-            .getUserById(userId)
-            .then(({ data, error }) => {
-                if (error) return null
-                return data.user?.email ?? null
-            })
-            .catch(() => null)
-
-        emailCache.set(userId, promise)
-        return promise
-    }
-
-    const users = await Promise.all(
-        (data ?? []).map(async (row) => ({
-            ...row,
-            email: await getEmail(row.user_id)
-        }))
-    )
-
-    return NextResponse.json({ users })
+    // Get user details for each user_id
+    // Note: In a real implementation, you'd want to fetch user emails from auth.users
+    // This requires admin API access to Supabase auth
+    // For now, we'll return the user_ids
+    return NextResponse.json({ users: data })
 }

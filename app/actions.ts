@@ -8,7 +8,6 @@ import { redirect } from 'next/navigation'
 
 import { type Chat, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
 import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
-import { getActiveTenant } from '@/lib/tenant-context'
 
 export async function getChats(userId?: string | null) {
   if (!userId) {
@@ -120,24 +119,15 @@ export async function getAgents(userId?: string | null) {
   }
 
   try {
-    const activeTenantId = await getActiveTenant(userId)
     const cookieStore = await cookies()
     const supabase = createServerActionClient<Database>({
       cookies: () => cookieStore as unknown as ReturnType<typeof cookies> as unknown as ReturnType<typeof cookies>
     })
-
-    let query = supabase
+    const { data } = await supabase
       .from('vibe_agents')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
-
-    if (activeTenantId) {
-      query = query.eq('tenant_id', activeTenantId)
-    } else {
-      query = query.eq('user_id', userId)
-    }
-
-    const { data } = await query
 
     return (data ?? []).map(mapAgentRow) as VibeAgent[]
   } catch (error) {
@@ -151,23 +141,10 @@ export async function getAgentConversations(userId?: string | null) {
   }
 
   try {
-    const activeTenantId = await getActiveTenant(userId)
     const cookieStore = await cookies()
     const supabase = createServerActionClient<Database>({
       cookies: () => cookieStore as unknown as ReturnType<typeof cookies> as unknown as ReturnType<typeof cookies>
     })
-
-    if (activeTenantId) {
-      const { data } = await supabase
-        .from('vibe_agent_conversations')
-        .select('*, vibe_agents!inner(tenant_id)')
-        .eq('user_id', userId)
-        .eq('vibe_agents.tenant_id', activeTenantId)
-        .order('updated_at', { ascending: false })
-
-      return (data ?? []).map(row => mapConversationRow(row as any)) as VibeAgentConversation[]
-    }
-
     const { data } = await supabase
       .from('vibe_agent_conversations')
       .select('*')

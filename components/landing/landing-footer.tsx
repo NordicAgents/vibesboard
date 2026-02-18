@@ -38,8 +38,8 @@ export function LandingFooter() {
                     <div className="flex flex-col sm:flex-row justify-between items-center pt-6 sm:pt-8 border-t border-white/10 text-xs sm:text-sm text-gray-secondary gap-4 sm:gap-0">
                         <p className="text-center sm:text-left">© 2025 vibesboard. All rights reserved.</p>
                         <div className="flex gap-4 sm:gap-8">
-                            <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
-                            <Link href="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link>
+                            <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
+                            <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>
                         </div>
                     </div>
                 </FadeIn>

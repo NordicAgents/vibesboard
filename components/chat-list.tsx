@@ -2,14 +2,12 @@ import { type Message } from 'ai'
 
 import { Separator } from '@/components/ui/separator'
 import { ChatMessage } from '@/components/chat-message'
-import { IconSpinner } from '@/components/ui/icons'
 
-export interface ChatListProps {
+export interface ChatList {
   messages: Message[]
-  isLoading?: boolean
 }
 
-export function ChatList({ messages, isLoading }: ChatListProps) {
+export function ChatList({ messages }: ChatList) {
   if (!messages.length) {
     return null
   }
@@ -24,14 +22,6 @@ export function ChatList({ messages, isLoading }: ChatListProps) {
           )}
         </div>
       ))}
-      {isLoading && (
-        <div className="flex items-center justify-center py-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <IconSpinner className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Generating reply...</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

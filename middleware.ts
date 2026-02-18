@@ -5,28 +5,27 @@ import type { NextRequest } from 'next/server'
 
 type GlobalRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 
-// Derive a user's highest role and an active tenant from tenant_users
-async function getUserPermissions(
+// Derive a user's highest role from tenant_users
+async function getUserRole(
   supabase: any,
   userId: string
-): Promise<{ role: GlobalRole | null; tenantId: string | null }> {
+): Promise<GlobalRole | null> {
   const { data, error } = await supabase
     .from('tenant_users')
-    .select('role, tenant_id')
+    .select('role')
     .eq('user_id', userId)
 
   if (error || !data || data.length === 0) {
-    return { role: null, tenantId: null }
+    return null
   }
 
   const roles = data.map((row: { role: string }) => row.role)
-  const tenantId = data[0].tenant_id
 
-  if (roles.includes('SUPER_ADMIN')) return { role: 'SUPER_ADMIN', tenantId }
-  if (roles.includes('TENANT_ADMIN')) return { role: 'TENANT_ADMIN', tenantId }
-  if (roles.includes('MEMBER')) return { role: 'MEMBER', tenantId }
+  if (roles.includes('SUPER_ADMIN')) return 'SUPER_ADMIN'
+  if (roles.includes('TENANT_ADMIN')) return 'TENANT_ADMIN'
+  if (roles.includes('MEMBER')) return 'MEMBER'
 
-  return { role: null, tenantId }
+  return null
 }
 
 export async function middleware(req: NextRequest) {
@@ -53,8 +52,6 @@ export async function middleware(req: NextRequest) {
     !pathname.includes('/sign-in') &&
     !pathname.includes('/sign-up') &&
     !pathname.includes('/landing') &&
-    !pathname.includes('/privacy-policy') &&
-    !pathname.includes('/terms-of-service') &&
     pathname !== '/'
 
   if (!session && isProtectedRoute) {
@@ -66,10 +63,7 @@ export async function middleware(req: NextRequest) {
 
   // Role-based access control
   if (session?.user?.id) {
-    const { role: userRole, tenantId } = await getUserPermissions(
-      supabase,
-      session.user.id
-    )
+    const userRole = await getUserRole(supabase, session.user.id)
 
     // Protect /admin/* routes - SUPER_ADMIN only
     if (pathname.startsWith('/admin')) {
@@ -86,8 +80,15 @@ export async function middleware(req: NextRequest) {
     }
 
     // Inject active tenant ID in response headers for easy access
-    if (tenantId) {
-      res.headers.set('x-tenant-id', tenantId)
+    const { data: activeTenant } = await supabase
+      .from('tenant_users')
+      .select('tenant_id')
+      .eq('user_id', session.user.id)
+      .limit(1)
+      .single()
+
+    if (activeTenant?.tenant_id) {
+      res.headers.set('x-tenant-id', activeTenant.tenant_id)
     }
   }
 

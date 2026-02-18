@@ -16,7 +16,6 @@ interface Invitation {
     tenant_name: string
     email: string
     role: string
-    status: 'pending' | 'accepted' | 'expired'
     created_at: string
     expires_at: string
     accepted_at: string | null
@@ -60,6 +59,8 @@ export default function InvitationPage() {
                 setInvitation(data.invitation)
             } else if (response.status === 404) {
                 setError('Invitation not found or has expired')
+            } else if (response.status === 410) {
+                setError('This invitation has already been accepted')
             } else {
                 setError('Failed to load invitation')
             }
@@ -88,7 +89,7 @@ export default function InvitationPage() {
             if (response.ok) {
                 toast.success('Invitation accepted successfully!')
                 setTimeout(() => {
-                    router.push('/agents')
+                    router.push('/')
                 }, 1500)
             } else {
                 const data = await response.json()
@@ -142,7 +143,7 @@ export default function InvitationPage() {
     }
 
     const isExpired = new Date(invitation.expires_at) < new Date()
-    const isAccepted = invitation.status === 'accepted'
+    const isAccepted = invitation.accepted_at !== null
 
     if (isAccepted) {
         return (
@@ -224,10 +225,6 @@ export default function InvitationPage() {
                                     {new Date(invitation.expires_at).toLocaleDateString()}
                                 </div>
                             </div>
-                        </div>
-                        <div className="rounded-lg border p-4">
-                            <div className="text-sm font-medium text-muted-foreground">Invited Email</div>
-                            <div className="font-medium">{invitation.email}</div>
                         </div>
                     </CardContent>
                 </Card>

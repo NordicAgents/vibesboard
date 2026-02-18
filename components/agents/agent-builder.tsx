@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
-import {
-  type AgentToolType,
-  type QuickSuggestionsMode,
-  type VibeAgentTool
-} from '@/lib/types'
+import { type AgentToolType, type VibeAgentTool } from '@/lib/types'
 import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { AgentBuilderHelper } from './agent-builder-helper'
 import { Button } from '@/components/ui/button'
@@ -38,9 +34,6 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   const [instructions, setInstructions] = useState('')
   const [allowAnonymous, setAllowAnonymous] = useState(true)
   const [selectedTools, setSelectedTools] = useState<AgentToolType[]>([])
-  const [quickSuggestionsMode, setQuickSuggestionsMode] =
-    useState<QuickSuggestionsMode>('smart')
-  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<3 | 4>(4)
   const [fileKeys, setFileKeys] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -123,9 +116,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           instructions,
           allowAnonymous,
           fileKeys,
-          tools: toolsPayload,
-          quickSuggestionsMode,
-          quickSuggestionsCount
+          tools: toolsPayload
         })
       })
 
@@ -260,81 +251,6 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
             </CardContent>
           </Card>
         )}
-
-        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:bg-card dark:border-border">
-          <CardHeader>
-            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">
-              Quick suggestions
-            </CardTitle>
-            <CardDescription className="font-switzer text-gray-secondary">
-              Show 3–4 clickable suggestions to help users reply faster.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Badge
-                variant={
-                  quickSuggestionsMode === 'off' ? 'default' : 'secondary'
-                }
-                className="cursor-pointer"
-                onClick={() => setQuickSuggestionsMode('off')}
-              >
-                Off
-              </Badge>
-              <Badge
-                variant={
-                  quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
-                }
-                className="cursor-pointer"
-                onClick={() => setQuickSuggestionsMode('smart')}
-              >
-                Smart (Wisely)
-              </Badge>
-              <Badge
-                variant={
-                  quickSuggestionsMode === 'always' ? 'default' : 'secondary'
-                }
-                className="cursor-pointer"
-                onClick={() => setQuickSuggestionsMode('always')}
-              >
-                Always
-              </Badge>
-            </div>
-
-            {quickSuggestionsMode !== 'off' && (
-              <div className="flex items-center justify-between rounded-2xl border border-black-10 bg-beige-bg/30 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-background/30 dark:border-border">
-                <div>
-                  <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
-                    Suggestions count
-                  </p>
-                  <p className="font-switzer text-xs text-gray-secondary">
-                    Choose how many chips to show.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 3 ? 'default' : 'secondary'
-                    }
-                    className="cursor-pointer"
-                    onClick={() => setQuickSuggestionsCount(3)}
-                  >
-                    3
-                  </Badge>
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 4 ? 'default' : 'secondary'
-                    }
-                    className="cursor-pointer"
-                    onClick={() => setQuickSuggestionsCount(4)}
-                  >
-                    4
-                  </Badge>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         <Button type="submit" disabled={isSubmitting || isUploading} className="w-full rounded-full font-switzer sm:w-auto">
           {isSubmitting ? 'Creating...' : 'Create agent'}

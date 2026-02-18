@@ -10,40 +10,22 @@ import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { cn, nanoid } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
-import {
-  IconPlus,
-  IconLink,
-  IconUpload,
-  IconSidebar,
-  IconX,
-  IconStop,
-  IconSpinner
-} from '@/components/ui/icons'
+import { IconPlus, IconLink, IconUpload, IconSidebar, IconX, IconStop, IconSpinner } from '@/components/ui/icons'
 import { Input } from '@/components/ui/input'
-import {
-  AgentBuilderFormPreview,
-  type AgentFormData
-} from './agent-builder-form-preview'
+import { AgentBuilderFormPreview, type AgentFormData } from './agent-builder-form-preview'
 import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 
 interface AgentCreatorChatProps {
   className?: string
   userId?: string
-  initialChatId?: string
 }
 
-export function AgentCreatorChat({
-  className,
-  userId,
-  initialChatId
-}: AgentCreatorChatProps) {
+export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
   const router = useRouter()
-  const [chatId, setChatId] = useState<string>(initialChatId || 'agent-creator')
+  const [chatId, setChatId] = useState<string>('agent-creator')
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
   const [formData, setFormData] = useState<AgentFormData>({
-    allowAnonymous: true,
-    quickSuggestionsMode: 'smart',
-    quickSuggestionsCount: 4
+    allowAnonymous: true
   })
   const [isCreating, setIsCreating] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -75,29 +57,11 @@ export function AgentCreatorChat({
               setFormData(prev => ({
                 ...prev,
                 ...(updates.name !== undefined && { name: updates.name }),
-                ...(updates.instructions !== undefined && {
-                  instructions: updates.instructions
-                }),
-                ...(updates.greetingText !== undefined && {
-                  greetingText: updates.greetingText
-                }),
+                ...(updates.instructions !== undefined && { instructions: updates.instructions }),
+                ...(updates.greetingText !== undefined && { greetingText: updates.greetingText }),
                 ...(updates.tools !== undefined && { tools: updates.tools }),
-                ...(updates.allowAnonymous !== undefined && {
-                  allowAnonymous: updates.allowAnonymous
-                }),
-                ...(updates.fileKeys !== undefined && {
-                  fileKeys: updates.fileKeys
-                }),
-                ...(updates.mode !== undefined && { mode: updates.mode }),
-                ...(updates.maxMessages !== undefined && {
-                  maxMessages: updates.maxMessages
-                }),
-                ...(updates.quickSuggestionsMode !== undefined && {
-                  quickSuggestionsMode: updates.quickSuggestionsMode
-                }),
-                ...(updates.quickSuggestionsCount !== undefined && {
-                  quickSuggestionsCount: updates.quickSuggestionsCount
-                })
+                ...(updates.allowAnonymous !== undefined && { allowAnonymous: updates.allowAnonymous }),
+                ...(updates.fileKeys !== undefined && { fileKeys: updates.fileKeys })
               }))
             } catch (parseError) {
               console.log('Failed to parse agentupdate block:', parseError)
@@ -140,11 +104,7 @@ export function AgentCreatorChat({
     setInput('')
     setChatId(`agent-creator-${nanoid()}`)
     setCreatedAgentId(null)
-    setFormData({
-      allowAnonymous: true,
-      quickSuggestionsMode: 'smart',
-      quickSuggestionsCount: 4
-    })
+    setFormData({ allowAnonymous: true })
   }
 
   const handleAddWebsiteUrl = () => {
@@ -228,14 +188,8 @@ export function AgentCreatorChat({
       const toolsPayload = (formData.tools || []).map(toolId => ({
         id: toolId,
         type: toolId,
-        name: toolId.replace('builtin:', '')
+        name: toolId.replace('builtin:', ''),
       }))
-
-      // Explicitly set mode and maxMessages
-      const mode = formData.mode ?? 'provider'
-      // If provider, no limit (null). If collector, use form value or default to 20.
-      const maxMessages =
-        mode === 'provider' ? null : (formData.maxMessages ?? 20)
 
       const res = await fetch('/api/agents', {
         method: 'POST',
@@ -248,11 +202,7 @@ export function AgentCreatorChat({
           greetingText: formData.greetingText,
           allowAnonymous: formData.allowAnonymous ?? true,
           fileKeys: formData.fileKeys || [],
-          tools: toolsPayload,
-          mode,
-          maxMessages,
-          quickSuggestionsMode: formData.quickSuggestionsMode ?? 'smart',
-          quickSuggestionsCount: formData.quickSuggestionsCount ?? 4
+          tools: toolsPayload
         })
       })
 
@@ -266,24 +216,17 @@ export function AgentCreatorChat({
       router.push(`/agents/${json.agent.id}`)
       router.refresh()
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to create agent'
-      )
+      toast.error(error instanceof Error ? error.message : 'Failed to create agent')
     } finally {
       setIsCreating(false)
     }
   }
 
   return (
-    <div
-      className={cn(
-        'flex min-h-[calc(100vh-4rem)] flex-1 bg-beige-bg dark:bg-background',
-        className
-      )}
-    >
+    <div className={cn('flex min-h-[calc(100vh-4rem)] flex-1 bg-beige-bg dark:bg-background', className)}>
       {/* Left Side: Chat Interface (70%) */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="relative flex flex-1 flex-col min-h-0">
+      <div className="flex flex-1 flex-col">
+        <div className="relative flex flex-1 flex-col">
           {messages.length > 0 ? (
             <>
               {/* Simple header when messages exist */}
@@ -293,25 +236,17 @@ export function AgentCreatorChat({
                     <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
                       Conversation Agent Builder
                     </p>
-                    <p className="mt-1 font-switzer text-sm text-gray-secondary">
-                      Build an agent via chat
-                    </p>
+                    <p className="mt-1 font-switzer text-sm text-gray-secondary">Build an agent via chat</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      aria-label={
-                        isPreviewOpen ? 'Hide preview' : 'Show preview'
-                      }
+                      aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                       title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                     >
-                      {isPreviewOpen ? (
-                        <IconX className="h-4 w-4" />
-                      ) : (
-                        <IconSidebar className="h-4 w-4" />
-                      )}
+                      {isPreviewOpen ? <IconX className="h-4 w-4" /> : <IconSidebar className="h-4 w-4" />}
                     </Button>
                     <Button
                       size="sm"
@@ -325,17 +260,15 @@ export function AgentCreatorChat({
                   </div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto pt-4 pb-4">
-                <ChatList
-                  messages={messages.map(msg => ({
-                    ...msg,
-                    // Remove agentupdate/agentcreated blocks from display
-                    content: msg.content
-                      .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
-                      .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
-                      .trim()
-                  }))}
-                />
+              <div className="flex-1 overflow-y-auto pt-4 pb-48">
+                <ChatList messages={messages.map(msg => ({
+                  ...msg,
+                  // Remove agentupdate/agentcreated blocks from display
+                  content: msg.content
+                    .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
+                    .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
+                    .trim()
+                }))} />
                 {isLoading && (
                   <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
                     <IconSpinner className="h-4 w-4 animate-spin" />
@@ -358,22 +291,15 @@ export function AgentCreatorChat({
                       size="sm"
                       variant="ghost"
                       onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      aria-label={
-                        isPreviewOpen ? 'Hide preview' : 'Show preview'
-                      }
+                      aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                       title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                       className="ml-2"
                     >
-                      {isPreviewOpen ? (
-                        <IconX className="h-4 w-4" />
-                      ) : (
-                        <IconSidebar className="h-4 w-4" />
-                      )}
+                      {isPreviewOpen ? <IconX className="h-4 w-4" /> : <IconSidebar className="h-4 w-4" />}
                     </Button>
                   </div>
                   <p className="font-switzer text-lg text-gray-secondary">
-                    Tell me about your agent, share a website URL, or upload
-                    files
+                    Tell me about your agent, share a website URL, or upload files
                   </p>
                 </div>
 
@@ -408,9 +334,7 @@ export function AgentCreatorChat({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        document.getElementById('file-upload')?.click()
-                      }
+                      onClick={() => document.getElementById('file-upload')?.click()}
                       disabled={isUploading || !userId}
                       className="gap-2"
                     >
@@ -431,9 +355,9 @@ export function AgentCreatorChat({
           )}
         </div>
 
-        {/* Chat Input - Fixed at bottom when messages exist */}
+        {/* Chat Input - Sticky at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="shrink-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border">
+          <div className="sticky bottom-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border z-10">
             <div className="mx-auto max-w-4xl">
               <div className="flex h-10 items-center justify-center">
                 {isLoading ? (
@@ -452,8 +376,8 @@ export function AgentCreatorChat({
                 {!createdAgentId && isReadyToCreate && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-black-10 bg-beige-bg px-3 py-2 text-xs text-black-primary dark:border-border dark:bg-muted dark:text-foreground">
                     <p className="font-switzer">
-                      Your agent draft is ready. Say “create it” or click Create
-                      Agent.
+                      Your agent draft is ready. Say “create it” or click
+                      Create Agent.
                     </p>
                     <Button
                       size="sm"
@@ -491,9 +415,7 @@ export function AgentCreatorChat({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      document.getElementById('file-upload-chat')?.click()
-                    }
+                    onClick={() => document.getElementById('file-upload-chat')?.click()}
                     disabled={isUploading || !userId}
                     className="gap-1 text-xs"
                   >

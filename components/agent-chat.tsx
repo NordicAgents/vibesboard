@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useChat, type Message } from 'ai/react'
 
-import { type AgentMode, type VibeAgent } from '@/lib/types'
+import { type VibeAgent } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
@@ -11,21 +11,12 @@ import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { EmptyScreen } from '@/components/empty-screen'
 import { nanoid } from '@/lib/utils'
 
-// Completion signal markers (must match server-side)
-const COMPLETION_MARKERS = {
-  COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
-  INFO_COMPLETE: '[INFO_COMPLETE]',
-  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/,
-  SUGGESTIONS_REGEX: /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
-}
-
 interface AgentChatProps {
   agent: VibeAgent
   endpoint: string
   conversationId?: string
   initialMessages?: Message[]
   className?: string
-  onChatComplete?: () => void
 }
 
 export function AgentChat({
@@ -33,24 +24,11 @@ export function AgentChat({
   endpoint,
   conversationId: initialConversationId,
   initialMessages,
-  className,
-  onChatComplete
+  className
 }: AgentChatProps) {
-  const [chatPanelHeight, setChatPanelHeight] = useState(200)
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
   )
-  const [agentMode, setAgentMode] = useState<AgentMode>(
-    agent.mode || 'provider'
-  )
-  const [maxMessages, setMaxMessages] = useState<number | null>(
-    agent.maxMessages ?? null
-  )
-  const [isChatComplete, setIsChatComplete] = useState(false)
-
-  const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
-  const quickSuggestionsCount = agent.quickSuggestionsCount === 3 ? 3 : 4
-
   const chatKey = useMemo(
     () => initialConversationId ?? nanoid(),
     [initialConversationId]
@@ -66,46 +44,13 @@ export function AgentChat({
     [chatKey, agent.greetingText]
   )
   const messagesToUse = useMemo(
-    () =>
-      initialMessages && initialMessages.length > 0
-        ? initialMessages
-        : defaultInitialMessages,
+    () => initialMessages && initialMessages.length > 0 
+      ? initialMessages 
+      : defaultInitialMessages,
     [initialMessages, defaultInitialMessages]
   )
-
-  // Check for completion signals in messages
-  const checkForCompletion = useCallback(
-    (messagesArr: Message[]) => {
-      // Count user messages
-      const userMessageCount = messagesArr.filter(m => m.role === 'user').length
-
-      // Check max messages threshold
-      if (maxMessages && userMessageCount >= maxMessages) {
-        setIsChatComplete(true)
-        return
-      }
-
-      // Check last assistant message for completion markers
-      const lastAssistantMessage = [...messagesArr]
-        .reverse()
-        .find(m => m.role === 'assistant')
-
-      if (lastAssistantMessage?.content) {
-        const content = lastAssistantMessage.content
-        if (
-          content.includes(COMPLETION_MARKERS.COLLECTION_COMPLETE) ||
-          content.includes(COMPLETION_MARKERS.INFO_COMPLETE) ||
-          COMPLETION_MARKERS.CHAT_COMPLETE_REGEX.test(content)
-        ) {
-          setIsChatComplete(true)
-        }
-      }
-    },
-    [maxMessages]
-  )
-
   const {
-    messages: rawMessages,
+    messages,
     append,
     reload,
     stop,
@@ -124,132 +69,15 @@ export function AgentChat({
       if (headerId) {
         setConversationId(headerId)
       }
-      // Get agent mode from header
-      const modeHeader = response.headers.get(
-        'x-agent-mode'
-      ) as AgentMode | null
-      if (modeHeader) {
-        setAgentMode(modeHeader)
-      }
-      // Get max messages from header
-      const maxMsgsHeader = response.headers.get('x-max-messages')
-      if (maxMsgsHeader) {
-        setMaxMessages(parseInt(maxMsgsHeader, 10) || null)
-      }
-    },
-    onFinish(_message) {
-      // Completion detection is handled in useEffect
     }
   })
 
-  // Clean completion markers from messages for display
-  const messages = useMemo(() => {
-    return rawMessages.map(m => {
-      if (m.role === 'assistant' && m.content) {
-        const cleanedContent = m.content
-          .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
-          .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
-          .replace(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX, '')
-          .replace(COMPLETION_MARKERS.SUGGESTIONS_REGEX, '')
-          .trim()
-        if (cleanedContent !== m.content) {
-          return { ...m, content: cleanedContent }
-        }
-      }
-      return m
-    })
-  }, [rawMessages])
-
-  const quickSuggestions = useMemo(() => {
-    if (quickSuggestionsMode === 'off') return []
-    if (isLoading || isChatComplete) return []
-    if (input.trim().length) return []
-
-    const lastAssistant = [...rawMessages]
-      .reverse()
-      .find(m => m.role === 'assistant' && typeof m.content === 'string')
-
-    const content = lastAssistant?.content ?? ''
-    const match = content.match(/<!--SUGGESTIONS:(\{[\s\S]*?\})-->/)
-    if (!match) return []
-
-    let parsed: unknown = null
-    try {
-      parsed = JSON.parse(match[1])
-    } catch {
-      return []
-    }
-
-    const suggestionsRaw = Array.isArray((parsed as any)?.suggestions)
-      ? ((parsed as any).suggestions as unknown[])
-      : []
-
-    const seen = new Set<string>()
-    const suggestions: string[] = []
-    for (const entry of suggestionsRaw) {
-      if (typeof entry !== 'string') continue
-      const value = entry.trim()
-      if (!value) continue
-      if (value.length > 80) continue
-      if (seen.has(value)) continue
-      seen.add(value)
-      suggestions.push(value)
-      if (suggestions.length >= quickSuggestionsCount) break
-    }
-
-    if (suggestions.length < 3) return []
-
-    if (quickSuggestionsMode === 'always') {
-      return suggestions
-    }
-
-    const userMessageCount = rawMessages.filter(m => m.role === 'user').length
-    const isStart = userMessageCount <= 1
-
-    const cleanedAssistantContent = content
-      .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
-      .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
-      .replace(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX, '')
-      .replace(COMPLETION_MARKERS.SUGGESTIONS_REGEX, '')
-      .trim()
-
-    const assistantAskedQuestion = /\?/.test(cleanedAssistantContent)
-
-    if (agentMode === 'collector' || isStart || assistantAskedQuestion) {
-      return suggestions
-    }
-
-    return []
-  }, [
-    quickSuggestionsMode,
-    quickSuggestionsCount,
-    rawMessages,
-    agentMode,
-    isLoading,
-    isChatComplete,
-    input
-  ])
-
-  // Check for completion whenever messages change (use rawMessages to detect markers)
-  useEffect(() => {
-    if (!isLoading && rawMessages.length > 0) {
-      checkForCompletion(rawMessages)
-    }
-  }, [rawMessages, isLoading, checkForCompletion])
-
-  const handleChatComplete = useCallback(() => {
-    onChatComplete?.()
-  }, [onChatComplete])
-
   return (
     <div className={cn('flex flex-1 flex-col', className)}>
-      <div
-        className="flex-1 pt-4"
-        style={{ paddingBottom: chatPanelHeight + 24 }}
-      >
+      <div className="flex-1 pb-36 pt-4">
         {messages.length ? (
           <>
-            <ChatList messages={messages} isLoading={isLoading} />
+            <ChatList messages={messages} />
             <ChatScrollAnchor trackVisibility={isLoading} />
           </>
         ) : (
@@ -265,12 +93,6 @@ export function AgentChat({
         messages={messages}
         input={input}
         setInput={setInput}
-        isChatComplete={isChatComplete}
-        agentMode={agentMode}
-        agentName={agent.name}
-        onChatComplete={handleChatComplete}
-        quickSuggestions={quickSuggestions}
-        onHeightChange={setChatPanelHeight}
       />
     </div>
   )

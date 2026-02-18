@@ -4,7 +4,6 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { isSuperAdmin, isMemberOfTenant } from '@/lib/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -36,11 +35,13 @@ export async function GET(req: Request, { params }: RouteParams) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
-    const supabaseAdmin = getServiceSupabaseClient()
+    const supabase = createRouteHandlerClient<Database>({
+        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+    })
 
-    const { data: tenant, error } = await supabaseAdmin
+    const { data: tenant, error } = await supabase
         .from('tenants')
-        .select('*')
+        .select('*, tenant_branding(*), tenant_users(count)')
         .eq('id', id)
         .single()
 
@@ -51,22 +52,7 @@ export async function GET(req: Request, { params }: RouteParams) {
         )
     }
 
-    const { data: branding } = await supabaseAdmin
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', id)
-        .maybeSingle()
-
-    const { count: userCount } = await supabaseAdmin
-        .from('tenant_users')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('tenant_id', id)
-
-    return NextResponse.json({
-        tenant,
-        branding: branding ?? null,
-        user_count: userCount ?? 0
-    })
+    return NextResponse.json({ tenant })
 }
 
 /**

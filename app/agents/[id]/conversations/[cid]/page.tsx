@@ -6,8 +6,6 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
 import { AgentChat } from '@/components/agent-chat'
-import { canEditAgent } from '@/lib/agents/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -32,6 +30,7 @@ export default async function AgentConversationPage({
     .from('vibe_agents')
     .select('*')
     .eq('id', id)
+    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!agentRow) {
@@ -39,21 +38,15 @@ export default async function AgentConversationPage({
   }
 
   const agent = mapAgentRow(agentRow)
-  const canEdit = await canEditAgent({
-    sessionUserId: session.user.id,
-    agentOwnerId: agentRow.user_id,
-    tenantId: agentRow.tenant_id
-  })
   let conversationId: string | undefined
   let initialMessages
 
   if (cid !== 'new') {
-    const conversationClient = canEdit ? getServiceSupabaseClient() : supabase
-    const { data } = await conversationClient
-        .from('vibe_agent_conversations')
-        .select('*')
-        .eq('id', cid)
-        .maybeSingle()
+    const { data } = await supabase
+      .from('vibe_agent_conversations')
+      .select('*')
+      .eq('id', cid)
+      .maybeSingle()
 
     if (!data || data.agent_id !== agent.id) {
       notFound()

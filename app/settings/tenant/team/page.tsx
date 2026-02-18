@@ -43,16 +43,15 @@ import toast from 'react-hot-toast'
 
 interface TenantMember {
     user_id: string
-    email: string | null
+    email: string
     role: Role
-    created_at: string
+    joined_at: string
 }
 
 interface PendingInvitation {
     id: string
     email: string
     role: Role
-    status: 'pending' | 'accepted' | 'expired'
     created_at: string
     expires_at: string
 }
@@ -60,12 +59,10 @@ interface PendingInvitation {
 export default function TeamManagementPage() {
     const [tenantId, setTenantId] = useState<string | null>(null)
     const [isPersonal, setIsPersonal] = useState(false)
-    const [teamCollaborationEnabled, setTeamCollaborationEnabled] = useState(true)
     const [members, setMembers] = useState<TenantMember[]>([])
     const [invitations, setInvitations] = useState<PendingInvitation[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
-    const [inviteUrl, setInviteUrl] = useState<string | null>(null)
 
     // Invite form state
     const [inviteEmail, setInviteEmail] = useState('')
@@ -81,7 +78,7 @@ export default function TeamManagementPage() {
             const loadTenantData = async () => {
                 const personal = await fetchTenantMeta()
                 await fetchMembers()
-                if (!personal && teamCollaborationEnabled) {
+                if (!personal) {
                     fetchInvitations()
                 } else {
                     setInvitations([])
@@ -112,12 +109,6 @@ export default function TeamManagementPage() {
                 const data = await response.json()
                 const personal = Boolean(data.tenant?.is_personal)
                 setIsPersonal(personal)
-                const features = (data.tenant?.features || data.features || []) as Array<{
-                    name: string
-                    isEnabled: boolean
-                }>
-                const teamFeature = features.find(f => f.name === 'TEAM_COLLABORATION')
-                setTeamCollaborationEnabled(teamFeature ? Boolean(teamFeature.isEnabled) : true)
                 return personal
             }
         } catch (error) {
@@ -151,11 +142,7 @@ export default function TeamManagementPage() {
             const response = await fetch(`/api/tenants/${tenantId}/invitations`)
             if (response.ok) {
                 const data = await response.json()
-                // Filter only pending invitations
-                const pending = (data.invitations || []).filter(
-                    (inv: PendingInvitation) => inv.status === 'pending'
-                )
-                setInvitations(pending)
+                setInvitations(data.invitations || [])
             }
         } catch (error) {
             console.error('Error fetching invitations:', error)
@@ -168,10 +155,6 @@ export default function TeamManagementPage() {
         if (!tenantId || !inviteEmail) return
         if (isPersonal) {
             toast.error('Personal workspaces cannot invite members')
-            return
-        }
-        if (!teamCollaborationEnabled) {
-            toast.error('Team collaboration is disabled for this workspace')
             return
         }
 
@@ -190,7 +173,9 @@ export default function TeamManagementPage() {
 
             if (response.ok) {
                 toast.success('Invitation sent successfully')
-                setInviteUrl(data.inviteUrl || null)
+                setIsInviteDialogOpen(false)
+                setInviteEmail('')
+                setInviteRole('MEMBER')
                 fetchInvitations()
             } else {
                 toast.error(data.error || 'Failed to send invitation')
@@ -207,10 +192,6 @@ export default function TeamManagementPage() {
         if (!tenantId) return
         if (isPersonal) {
             toast.error('Personal workspaces do not support role changes')
-            return
-        }
-        if (!teamCollaborationEnabled) {
-            toast.error('Team collaboration is disabled for this workspace')
             return
         }
 
@@ -234,19 +215,15 @@ export default function TeamManagementPage() {
         }
     }
 
-    const handleRemoveMember = async (userId: string, email: string | null) => {
+    const handleRemoveMember = async (userId: string, email: string) => {
         if (!tenantId) return
 
-        if (!confirm(`Are you sure you want to remove ${email || userId} from this tenant?`)) {
+        if (!confirm(`Are you sure you want to remove ${email} from this tenant?`)) {
             return
         }
 
         if (isPersonal) {
             toast.error('Personal workspaces cannot remove members')
-            return
-        }
-        if (!teamCollaborationEnabled) {
-            toast.error('Team collaboration is disabled for this workspace')
             return
         }
 
@@ -269,10 +246,6 @@ export default function TeamManagementPage() {
     }
 
     const handleCancelInvitation = async (invitationId: string) => {
-        if (!teamCollaborationEnabled) {
-            toast.error('Team collaboration is disabled for this workspace')
-            return
-        }
         if (!confirm('Are you sure you want to cancel this invitation?')) {
             return
         }
@@ -300,19 +273,13 @@ export default function TeamManagementPage() {
                 title="Team Management"
                 description="Manage your team members and invitations"
             >
-                {!isPersonal && teamCollaborationEnabled && (
+                {!isPersonal && (
                     <Button onClick={() => setIsInviteDialogOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Invite Member
                     </Button>
                 )}
             </PageHeader>
-
-            {!isPersonal && !teamCollaborationEnabled && (
-                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                    Team collaboration is disabled for this workspace. Contact a super admin to enable it.
-                </div>
-            )}
 
             {/* Team Members */}
             <Card>
@@ -348,15 +315,15 @@ export default function TeamManagementPage() {
                             <TableBody>
                                 {members.map((member) => (
                                 <TableRow key={member.user_id}>
-                                    <TableCell>{member.email || member.user_id}</TableCell>
+                                    <TableCell>{member.email}</TableCell>
                                     <TableCell>
                                         <RoleBadge role={member.role} />
                                     </TableCell>
                                         <TableCell className="text-muted-foreground">
-                                            {new Date(member.created_at).toLocaleDateString()}
+                                            {new Date(member.joined_at).toLocaleDateString()}
                                         </TableCell>
                                         <TableCell>
-                                            {!isPersonal && teamCollaborationEnabled && (
+                                            {!isPersonal && (
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" size="icon">
@@ -458,7 +425,6 @@ export default function TeamManagementPage() {
                                     onChange={(e) => setInviteEmail(e.target.value)}
                                     required
                                     autoFocus
-                                    disabled={isInviting}
                                 />
                             </div>
 
@@ -467,7 +433,6 @@ export default function TeamManagementPage() {
                                 <Select
                                     value={inviteRole}
                                     onValueChange={(value: 'TENANT_ADMIN' | 'MEMBER') => setInviteRole(value)}
-                                    disabled={isInviting}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
@@ -478,21 +443,6 @@ export default function TeamManagementPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-
-                            {inviteUrl && (
-                                <div className="space-y-2">
-                                    <Label htmlFor="invite-link">Invite Link</Label>
-                                    <Input
-                                        id="invite-link"
-                                        value={inviteUrl}
-                                        readOnly
-                                        className="font-mono text-xs"
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Use this link if email delivery is delayed.
-                                    </p>
-                                </div>
-                            )}
                         </div>
 
                         <DialogFooter>

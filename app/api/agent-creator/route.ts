@@ -13,7 +13,8 @@ import {
   ensureUniqueSlug
 } from '@/lib/agents/db'
 import { upsertAgentSchema } from '@/lib/agents/schema'
-import { getActiveTenant } from '@/lib/tenant-context'
+import { getUserActiveTenant } from '@/lib/permissions'
+import { ensurePersonalTenant } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
 
 export const runtime = 'nodejs'
@@ -57,58 +58,38 @@ export async function POST(req: Request) {
 
   const systemPrompt = `You are an assistant that helps users create a "VibeAgent" through a conversational, step-by-step process.
 
-**CRITICAL RULE - READ THIS FIRST:**
-NEVER call the create_agent function unless the user EXPLICITLY requests creation with phrases like:
-- "create it", "create the agent", "yes create", "go ahead and create"
-- "make it", "make the agent", "build it"
-- "looks good, create", "yes, let's do it", "go ahead"
-
-Phrases that do NOT mean create (DO NOT call create_agent for these):
-- "sounds good", "looks good" (without explicitly saying create)
-- "maybe", "I think so", "what about..."
-- Any question or request for changes
-- Simply providing information
-
-Your job is to GATHER information, SUGGEST values, and UPDATE the form preview. Only CREATE when explicitly asked.
-
-**Your Goal:**
-Make agent creation easy and delightful. Guide users through understanding their needs before suggesting anything.
+Your goal: Make agent creation easy and delightful. Guide users progressively through:
+1. Understanding their needs (website URL or files + description)
+2. Suggesting a friendly agent name
+3. Formulating clear instructions
+4. Creating a welcoming greeting message
 
 **Available Tools:**
-${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n')}
+${availableTools
+      .map(t => `- ${t.id}: ${t.name} – ${t.description}`)
+      .join('\n')}
 
-**Conversational Flow:**
+**Core Process:**
 
-1. **Gather Information First** - Ask 1-2 clarifying questions based on input type:
+If user provides a **website URL**:
+- Acknowledge you'll analyze it
+- Based on the content (imagine fetching it), suggest a name, instructions, and greeting
+- Ask if they want to adjust anything before creating
 
-   If user provides a **website URL**:
-   - Acknowledge you'll analyze it
-   - Ask: "What should this agent focus on? Customer support, product info, general questions, or something else?"
-   
-   If user provides **files**:
-   - Acknowledge the uploaded files
-   - Ask: "What kind of questions should this agent help answer based on these files?"
-   
-   If user provides a **description**:
-   - Ask one follow-up: "What tone should the agent have? Professional, friendly, casual, or something specific?"
+If user provides **files** (they'll be uploaded separately):
+- Reference the uploaded files in your suggestions
+- Suggest name, instructions, and greeting based on the file context
 
-2. **Suggest a Complete Draft** - After gathering enough context:
-   - Suggest name, instructions, and greeting
-   - Include the ~~~agentupdate~~~ block to update the form preview
-   - Ask: "Does this look good? Let me know if you'd like any changes, or say 'create it' when you're ready!"
-
-3. **Wait for Explicit Confirmation** - Only call create_agent when user explicitly confirms
+If user provides just a **description**:
+- Ask clarifying questions to understand the agent's purpose
+- Suggest name, instructions, and greeting accordingly
 
 **Required fields to collect:**
 - name (2-120 chars, friendly and clear)
 - instructions (detailed guidance on behavior, tone, and purpose)
 - greetingText (warm, welcoming first message users will see)
 - allowAnonymous (default: true, ask only if relevant)
-- tools (suggest relevant tools based on needs, use tool IDs from the list above)
-- quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
-- quickSuggestionsCount (default: 4; options: 3 | 4)
-- mode (default: "provider"; options: "provider" | "collector")
-- maxMessages (collector only; default: 20)
+ - tools (suggest relevant tools based on needs, use tool IDs from the list above)
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -118,11 +99,7 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "name": "suggested name",
   "instructions": "suggested instructions",
   "greetingText": "suggested greeting",
-  "tools": ["builtin:search"],
-  "quickSuggestionsMode": "smart",
-  "quickSuggestionsCount": 4,
-  "mode": "provider",
-  "maxMessages": null
+  "tools": ["builtin:search"]
 }
 ~~~
 
@@ -130,15 +107,14 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
 **Functions to call:**
 
-1. **create_agent** - ONLY when user explicitly says "create it" or similar
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 3 | 4 }
+1. **create_agent** - When user confirms, create the agent with all fields
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[] }
 
 **Interaction style:**
-- Be conversational and encouraging
-- Ask clarifying questions to understand the agent's purpose
+- Be conversational and encouraging  
 - Suggest values and include the agentupdate block so the form updates
 - Be brief but helpful
-- ALWAYS ask "Does this look good?" and wait for explicit creation request`
+- Confirm before calling create_agent`
 
   const initialMessages = [
     { role: 'system', content: systemPrompt },
@@ -147,8 +123,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
   const createAgentTool = {
     name: 'create_agent',
-    description:
-      'Creates the agent with all collected fields when user confirms.',
+    description: 'Creates the agent with all collected fields when user confirms.',
     parameters: {
       type: 'object',
       properties: {
@@ -156,28 +131,6 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         instructions: { type: 'string', minLength: 10 },
         greetingText: { type: 'string' },
         allowAnonymous: { type: 'boolean' },
-        mode: {
-          type: 'string',
-          enum: ['provider', 'collector'],
-          description: 'Agent mode: provider or collector.'
-        },
-        maxMessages: {
-          type: 'number',
-          description:
-            'Maximum user messages before completion (collector only).',
-          minimum: 1,
-          maximum: 50
-        },
-        quickSuggestionsMode: {
-          type: 'string',
-          enum: ['off', 'smart', 'always'],
-          description: 'Quick suggestions mode: off, smart, or always.'
-        },
-        quickSuggestionsCount: {
-          type: 'number',
-          enum: [3, 4],
-          description: 'Number of quick suggestions to show (3 or 4).'
-        },
         tools: {
           type: 'array',
           items: {
@@ -189,8 +142,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         fileKeys: {
           type: 'array',
           items: { type: 'string' },
-          description:
-            "Optional uploaded file keys to ground the agent's knowledge."
+          description: "Optional uploaded file keys to ground the agent's knowledge."
         }
       },
       required: ['name', 'instructions', 'greetingText']
@@ -215,10 +167,6 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     instructions: z.string().min(10),
     greetingText: z.string().min(1),
     allowAnonymous: z.boolean().optional(),
-    mode: z.enum(['provider', 'collector']).optional(),
-    maxMessages: z.number().int().min(1).max(50).nullable().optional(),
-    quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
-    quickSuggestionsCount: z.number().int().min(3).max(4).optional(),
     tools: z.array(z.string()).optional(),
     fileKeys: z.array(z.string()).optional()
   })
@@ -269,34 +217,30 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         description: BUILTIN_AGENT_TOOLS[toolId].description
       }))
 
-      const mode = parsed.data.mode ?? 'provider'
-      const maxMessages =
-        mode === 'provider' ? null : (parsed.data.maxMessages ?? 20)
-
       const payload = upsertAgentSchema.parse({
         name: parsed.data.name,
         instructions: parsed.data.instructions,
         greetingText: parsed.data.greetingText,
         allowAnonymous: parsed.data.allowAnonymous ?? true,
         fileKeys: parsed.data.fileKeys ?? [],
-        tools: toolsPayload,
-        mode,
-        maxMessages,
-        quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
-        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4
+        tools: toolsPayload
       })
 
       // Resolve the tenant the new agent should belong to.
-      const tenantId = await getActiveTenant(session.user.id)
+      let tenantId = await getUserActiveTenant(session.user.id)
+      if (!tenantId) {
+        try {
+          tenantId = await ensurePersonalTenant(session.user.id)
+        } catch (error) {
+          console.error('Failed to ensure personal tenant:', error)
+        }
+      }
 
       if (!tenantId) {
         return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
       }
 
-      const slug = await ensureUniqueSlug(
-        createAgentSlug(payload.name),
-        supabase
-      )
+      const slug = await ensureUniqueSlug(createAgentSlug(payload.name), supabase)
 
       const { data, error } = await supabase
         .from('vibe_agents')
@@ -309,10 +253,6 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           tools: payload.tools,
           allow_anonymous: payload.allowAnonymous,
           agent_url: slug,
-          mode: (payload as any).mode,
-          max_messages: (payload as any).maxMessages,
-          quick_suggestions_mode: (payload as any).quickSuggestionsMode,
-          quick_suggestions_count: (payload as any).quickSuggestionsCount,
           ...(payload.greetingText !== undefined
             ? { greeting_text: payload.greetingText }
             : {})
@@ -332,11 +272,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           greetingText: payload.greetingText ?? '',
           tools: sanitizedToolIds,
           allowAnonymous: payload.allowAnonymous,
-          fileKeys: payload.fileKeys,
-          mode: (payload as any).mode,
-          maxMessages: (payload as any).maxMessages,
-          quickSuggestionsMode: (payload as any).quickSuggestionsMode,
-          quickSuggestionsCount: (payload as any).quickSuggestionsCount
+          fileKeys: payload.fileKeys
         },
         null,
         2

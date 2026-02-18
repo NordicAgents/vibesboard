@@ -177,20 +177,17 @@ export async function ensureActiveTenant(userId: string): Promise<string | null>
         }
     }
 
-    // Get a deterministic tenant choice for the user when no active cookie is set/valid.
-    // Prefer the user's personal workspace if present, otherwise pick the oldest tenant.
-    const { data: tenantRow } = await supabase
+    // Get first available tenant for user
+    const { data: tenants } = await supabase
         .from('tenant_users')
-        .select('tenant_id, tenants(id, is_personal, created_at)')
+        .select('tenant_id, tenants(*)')
         .eq('user_id', userId)
-        .order('is_personal', { foreignTable: 'tenants', ascending: false })
-        .order('created_at', { foreignTable: 'tenants', ascending: true })
         .limit(1)
-        .maybeSingle()
+        .single()
 
-    const chosenTenantId = (tenantRow?.tenants as any)?.id as string | undefined
-    if (chosenTenantId) {
-        return chosenTenantId
+    if (tenants && tenants.tenants) {
+        const firstTenant = tenants.tenants as Database['public']['Tables']['tenants']['Row']
+        return firstTenant.id
     }
 
     // As a fallback, create or fetch a personal tenant so the user always has one

@@ -6,7 +6,6 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { mapAgentRow } from '@/lib/agents/db'
 import { getQrDataUrl } from '@/lib/qr'
-import { canEditAgent } from '@/lib/agents/permissions'
 
 export const runtime = 'nodejs'
 
@@ -30,20 +29,11 @@ export async function GET(
     .from('vibe_agents')
     .select('*')
     .eq('id', id)
+    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!data) {
     return new NextResponse('Not found', { status: 404 })
-  }
-
-  const canEdit = await canEditAgent({
-    sessionUserId: session.user.id,
-    agentOwnerId: data.user_id,
-    tenantId: data.tenant_id
-  })
-
-  if (!canEdit) {
-    return new NextResponse('Forbidden', { status: 403 })
   }
 
   const agent = mapAgentRow(data)

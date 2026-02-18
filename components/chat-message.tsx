@@ -59,7 +59,7 @@ const extractStructuredSections = (value: string) => {
 
 const ChatMarkdown = ({ children }: { children: string }) => (
   <MemoizedReactMarkdown
-    className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 prose-sm"
+    className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0"
     remarkPlugins={[remarkGfm, remarkMath]}
     components={{
       p({ children }) {
@@ -115,20 +115,26 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
 
   return (
     <div
-      className={cn('group relative mb-4 flex items-start md:-ml-12')}
+      className={cn(
+        'group relative mb-4 flex items-start',
+        message.role === 'user' ? 'flex-row-reverse md:ml-12' : 'md:-ml-12'
+      )}
       {...props}
     >
       <div
         className={cn(
           'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow',
           message.role === 'user'
-            ? 'bg-background'
+            ? 'bg-primary text-primary-foreground'
             : 'bg-white dark:bg-primary text-primary-foreground'
         )}
       >
         {message.role === 'user' ? <IconUser /> : <IconOpenAI />}
       </div>
-      <div className="ml-4 flex-1 space-y-2 overflow-hidden px-1">
+      <div className={cn(
+        'flex-1 space-y-2 overflow-hidden px-1',
+        message.role === 'user' ? 'mr-4' : 'ml-4'
+      )}>
         {structured && defaultTab ? (
           <div className="rounded-xl border bg-muted/30 p-3">
             <Tabs defaultValue={defaultTab} className="w-full">

@@ -35,12 +35,6 @@ export function TenantSwitcher({
 
     const currentTenant = tenants.find(t => t.id === currentTenantId)
 
-    const getTenantName = (tenant: Tenant) =>
-        tenant.is_personal ? 'Personal Workspace' : tenant.name
-
-    const getTenantSlugLabel = (tenant: Tenant) =>
-        tenant.is_personal ? null : `/${tenant.slug}`
-
     const handleTenantSwitch = async (tenantId: string) => {
         try {
             setIsSwitching(true)
@@ -71,14 +65,11 @@ export function TenantSwitcher({
     }
 
     if (tenants.length === 1) {
-        const onlyTenant = tenants[0]
         return (
             <div className={cn('flex items-center gap-2 px-3 py-2', className)}>
                 <div className="flex flex-col">
-                    <span className="text-sm font-medium">{getTenantName(onlyTenant)}</span>
-                    {getTenantSlugLabel(onlyTenant) && (
-                        <span className="text-xs text-muted-foreground">{getTenantSlugLabel(onlyTenant)}</span>
-                    )}
+                    <span className="text-sm font-medium">{tenants[0].name}</span>
+                    <span className="text-xs text-muted-foreground">/{tenants[0].slug}</span>
                 </div>
             </div>
         )
@@ -97,11 +88,11 @@ export function TenantSwitcher({
                 >
                     <div className="flex flex-col items-start">
                         <span className="text-sm font-medium">
-                            {currentTenant ? getTenantName(currentTenant) : 'Select tenant'}
+                            {currentTenant?.name || 'Select tenant'}
                         </span>
-                        {currentTenant && getTenantSlugLabel(currentTenant) && (
+                        {currentTenant && (
                             <span className="text-xs text-muted-foreground">
-                                {getTenantSlugLabel(currentTenant)}
+                                /{currentTenant.slug}
                             </span>
                         )}
                     </div>
@@ -122,10 +113,8 @@ export function TenantSwitcher({
                         className="flex items-center justify-between"
                     >
                         <div className="flex flex-col">
-                            <span className="font-medium">{getTenantName(tenant)}</span>
-                            {getTenantSlugLabel(tenant) && (
-                                <span className="text-xs text-muted-foreground">{getTenantSlugLabel(tenant)}</span>
-                            )}
+                            <span className="font-medium">{tenant.name}</span>
+                            <span className="text-xs text-muted-foreground">/{tenant.slug}</span>
                         </div>
                         {currentTenantId === tenant.id && (
                             <Check className="h-4 w-4" />

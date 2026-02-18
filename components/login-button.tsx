@@ -10,13 +10,11 @@ import { IconGitHub, IconSpinner } from '@/components/ui/icons'
 interface LoginButtonProps extends ButtonProps {
   showGithubIcon?: boolean
   text?: string
-  redirectedFrom?: string
 }
 
 export function LoginButton({
   text = 'Login with GitHub',
   showGithubIcon = true,
-  redirectedFrom,
   className,
   ...props
 }: LoginButtonProps) {
@@ -33,12 +31,9 @@ export function LoginButton({
       variant="outline"
       onClick={async () => {
         setIsLoading(true)
-        const redirectTo = redirectedFrom
-          ? `${location.origin}/api/auth/callback?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
-          : `${location.origin}/api/auth/callback`
         await supabase.auth.signInWithOAuth({
           provider: 'github',
-          options: { redirectTo }
+          options: { redirectTo: `${location.origin}/api/auth/callback` }
         })
       }}
       disabled={isLoading}

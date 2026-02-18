@@ -33,6 +33,7 @@ export default async function AgentSectionLayout({
     .from('vibe_agents')
     .select('*')
     .eq('id', id)
+    .eq('user_id', session.user.id)
     .maybeSingle()
 
   if (!data) {
@@ -63,5 +64,13 @@ export default async function AgentSectionLayout({
   const shareUrl = `${origin}/a/${agent.agentUrl}`
   const qrDataUrl = await getQrDataUrl(shareUrl)
 
-  return <AgentPageShell>{children}</AgentPageShell>
+  return (
+    <AgentPageShell
+      agent={agent}
+      share={{ url: shareUrl, qrDataUrl }}
+      conversations={conversations}
+    >
+      {children}
+    </AgentPageShell>
+  )
 }

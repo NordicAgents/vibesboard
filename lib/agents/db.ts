@@ -18,17 +18,20 @@ export const BUILTIN_AGENT_TOOLS = {
   'builtin:web_fetch': {
     id: 'builtin:web_fetch' as AgentToolType,
     name: 'Web Fetch',
-    description: 'Fetches web page content from a given URL.'
+    description:
+      'Fetches web page content from a given URL.'
   },
   'builtin:search': {
     id: 'builtin:search' as AgentToolType,
     name: 'Web Search',
-    description: 'Searches the public web for recent information.'
+    description:
+      'Searches the public web for recent information.'
   },
   'builtin:file_search': {
     id: 'builtin:file_search' as AgentToolType,
     name: 'File Search',
-    description: "Searches the agent's uploaded files for matching snippets."
+    description:
+      "Searches the agent's uploaded files for matching snippets."
   }
 } satisfies Record<
   AgentToolType,
@@ -119,10 +122,6 @@ export const mapAgentRow = (row: AgentRow): VibeAgent => ({
   tools: sanitizeTools(row.tools),
   allowAnonymous: row.allow_anonymous,
   greetingText: (row as any).greeting_text ?? null,
-  mode: (row as any).mode ?? 'provider',
-  maxMessages: (row as any).max_messages ?? null,
-  quickSuggestionsMode: (row as any).quick_suggestions_mode ?? 'off',
-  quickSuggestionsCount: (row as any).quick_suggestions_count ?? 4,
   lastEmbeddingsSyncAt: (row as any).last_embeddings_sync_at ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at

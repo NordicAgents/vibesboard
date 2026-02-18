@@ -4,23 +4,21 @@ import * as React from 'react'
 
 interface AgentPageShellContextValue {
   isSidebarOpen: boolean
-  setIsSidebarOpen: (isOpen: boolean) => void
 }
 
-const AgentPageShellContext =
-  React.createContext<AgentPageShellContextValue | null>(null)
+const AgentPageShellContext = React.createContext<AgentPageShellContextValue | null>(
+  null
+)
 
 export function AgentPageShellProvider({
   isSidebarOpen,
-  setIsSidebarOpen,
   children
 }: {
   isSidebarOpen: boolean
-  setIsSidebarOpen: (isOpen: boolean) => void
   children: React.ReactNode
 }) {
   return (
-    <AgentPageShellContext.Provider value={{ isSidebarOpen, setIsSidebarOpen }}>
+    <AgentPageShellContext.Provider value={{ isSidebarOpen }}>
       {children}
     </AgentPageShellContext.Provider>
   )
@@ -29,3 +27,4 @@ export function AgentPageShellProvider({
 export function useAgentPageShell() {
   return React.useContext(AgentPageShellContext)
 }
+

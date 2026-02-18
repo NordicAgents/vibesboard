@@ -5,7 +5,6 @@ import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
 import { validateBrandingColors, validateUrl } from '@/lib/validations'
-import { isFeatureEnabled } from '@/lib/features'
 
 export const runtime = 'nodejs'
 
@@ -82,17 +81,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
         )
     }
 
-    // Enforce feature flag for non-super admins
-    if (!isSuperAdminUser) {
-        const customBrandingEnabled = await isFeatureEnabled(id, 'CUSTOM_BRANDING')
-        if (!customBrandingEnabled) {
-            return NextResponse.json(
-                { error: 'Custom branding is disabled for this workspace' },
-                { status: 403 }
-            )
-        }
-    }
-
     // Build update object
     const updates: any = {}
     if (logo_url !== undefined) updates.logo_url = logo_url || null
@@ -108,7 +96,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     const { data: branding, error } = await supabase
         .from('tenant_branding')
-        .upsert({ tenant_id: id, ...updates }, { onConflict: 'tenant_id' })
+        .update(updates)
+        .eq('tenant_id', id)
         .select('*')
         .single()
 

@@ -1,427 +1,545 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import {
-  type AgentSharePayload,
-  type VibeAgent,
-  type VibeAgentConversation
-} from '@/lib/types'
+import { type AgentSharePayload, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
+import { getDisplayTools } from '@/lib/agents/tooling'
 import { formatDate } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
-import { useSecondarySidebarSetter } from '@/components/layouts/secondary-sidebar-context'
 import {
   DashboardSidebar,
   DashboardSidebarSection,
   DashboardSidebarItem
 } from '@/components/layouts/dashboard-sidebar'
+import { DashboardPanel, DashboardPanelSection } from '@/components/layouts/dashboard-panel'
 import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
-import { useSidebar } from '@/components/sidebar-context'
-import { AgentRightbar } from '@/components/agents/agent-rightbar'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationModal } from '@/components/agents/conversation-modal'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { IconRefresh, IconEdit, IconMessage } from '@/components/ui/icons'
-
-const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
-
-const toConversationLabel = (value?: string | null) => {
-  const cleaned = (value ?? '')
-    .replace(UUID_PATTERN, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!cleaned) return 'Visitor conversation'
-  if (cleaned.length <= 110) return cleaned
-
-  const truncated = cleaned.slice(0, 110)
-  const lastWordBoundary = truncated.lastIndexOf(' ')
-  if (lastWordBoundary > 60) {
-    return `${truncated.slice(0, lastWordBoundary)}…`
-  }
-
-  return `${truncated}…`
-}
+import { IconExternalLink, IconFile, IconRefresh } from '@/components/ui/icons'
+import { QrCode } from '@/components/qr-code'
 
 interface AgentChatWithLayoutProps {
-  agent: VibeAgent
-  ownerId: string
-  ownerSessions: VibeAgentConversation[]
-  visitorSessions: VibeAgentConversation[]
-  hasUnsyncedConversations: boolean
-  share: AgentSharePayload
-  isConfigure?: boolean
-  canEdit: boolean
+    agent: VibeAgent
+    ownerId: string
+    ownerSessions: VibeAgentConversation[]
+    visitorSessions: VibeAgentConversation[]
+    hasUnsyncedConversations: boolean
+    share: AgentSharePayload
 }
 
 export function AgentChatWithLayout({
-  agent,
-  ownerId,
-  ownerSessions,
-  visitorSessions,
-  hasUnsyncedConversations,
-  share,
-  isConfigure,
-  canEdit
+    agent,
+    ownerId,
+    ownerSessions,
+    visitorSessions,
+    hasUnsyncedConversations,
+    share
 }: AgentChatWithLayoutProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const agentPageShell = useAgentPageShell()
-  const { isSidebarOpen } = useSidebar()
-  const setSecondarySidebar = useSecondarySidebarSetter()
-
-  const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
-
-  // Sync sidebar (Configure vs Ask AI) with the URL
-  React.useEffect(() => {
-    if (!setAgentSidebarOpen) return
-    setAgentSidebarOpen(Boolean(isConfigure) && canEdit)
-  }, [isConfigure, setAgentSidebarOpen, canEdit])
-
-  const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
-    () => {
-      const sessionParam = searchParams.get('session')
-      if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
-        return sessionParam
-      }
-      return ownerSessions[0]?.id ?? null
-    }
-  )
-  const [selectedConversation, setSelectedConversation] =
-    React.useState<VibeAgentConversation | null>(null)
-  const [isModalOpen, setIsModalOpen] = React.useState(false)
-  const [visitorPage, setVisitorPage] = React.useState(1)
-  const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
-
-  // Sync activeSessionId with URL
-  React.useEffect(() => {
-    const sessionParam = searchParams.get('session')
-    if (sessionParam && sessionParam !== activeSessionId) {
-      const found = ownerSessions.find(session => session.id === sessionParam)
-      if (found) {
-        setActiveSessionId(sessionParam)
-      }
-    } else if (!sessionParam && activeSessionId) {
-      setActiveSessionId(null)
-    }
-  }, [searchParams, ownerSessions, activeSessionId])
-
-  const handleSelectSession = React.useCallback(
-    (sessionId: string | null) => {
-      setActiveSessionId(sessionId)
-      if (!canEdit) {
-        if (sessionId) {
-          router.push(`/agents/${agent.id}/conversations/${sessionId}`)
-          return
+    const router = useRouter()
+    const searchParams = useSearchParams()
+    const agentPageShell = useAgentPageShell()
+    const isPageShellSidebarOpen = agentPageShell?.isSidebarOpen ?? false
+    const [activeSessionId, setActiveSessionId] = React.useState<string | null>(() => {
+        const sessionParam = searchParams.get('session')
+        if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
+            return sessionParam
         }
-        router.push(`/agents/${agent.id}/conversations/new`)
-        return
-      }
-      if (sessionId) {
-        router.push(`/agents/${agent.id}?session=${sessionId}`)
-        return
-      }
-      router.push(`/agents/${agent.id}`)
-    },
-    [agent.id, router, canEdit]
-  )
+        return ownerSessions[0]?.id ?? null
+    })
+    const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
+    const [isModalOpen, setIsModalOpen] = React.useState(false)
+    const [visitorPage, setVisitorPage] = React.useState(1)
+    const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
+    const [syncingEmbeddings, setSyncingEmbeddings] = React.useState(false)
 
-  const handleOpenConversation = React.useCallback(
-    (conversation: VibeAgentConversation) => {
-      setSelectedConversation(conversation)
-      setIsModalOpen(true)
-    },
-    []
-  )
-
-  const handleNewChat = React.useCallback(() => {
-    setActiveSessionId(null)
-    if (!canEdit) {
-      router.push(`/agents/${agent.id}/conversations/new`)
-      return
-    }
-    router.push(`/agents/${agent.id}`)
-  }, [agent.id, router, canEdit])
-
-  const handleRefreshSummaries = React.useCallback(async () => {
-    setRefreshingSummaries(true)
-    try {
-      await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
-        method: 'POST'
-      })
-      router.refresh()
-    } finally {
-      setRefreshingSummaries(false)
-    }
-  }, [agent.id, router])
-
-  // Pagination for visitor conversations
-  const itemsPerPage = 5
-  const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
-  const startIndex = (visitorPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedVisitorSessions = React.useMemo(
-    () => visitorSessions.slice(startIndex, endIndex),
-    [visitorSessions, startIndex, endIndex]
-  )
-
-  // Reset to page 1 if current page is out of bounds
-  React.useEffect(() => {
-    if (visitorPage > totalVisitorPages && totalVisitorPages > 0) {
-      setVisitorPage(1)
-    }
-  }, [visitorPage, totalVisitorPages])
-
-  const sidebar = React.useMemo(
-    () => (
-      <DashboardSidebar>
-        {/* Agent Info */}
-        <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
-          <h3 className="truncate font-switzer text-lg font-bold text-black-primary dark:text-foreground">
-            {agent.name}
-          </h3>
-        </div>
-
-        {!canEdit && (
-          <div className="mb-4 rounded-2xl border border-dashed border-black-10 bg-muted/30 px-4 py-3 text-sm text-gray-secondary dark:border-border">
-            Read-only (ask a tenant admin to edit)
-          </div>
-        )}
-
-        {/* Navigation */}
-        <div
-          className={`mb-4 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}
-        >
-          <Button
-            variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
-            size="sm"
-            className="justify-start gap-2 px-2"
-            data-mobile-menu-close="true"
-            onClick={() => {
-              if (!canEdit) {
-                router.push(`/agents/${agent.id}/conversations/new`)
-                return
-              }
-              setAgentSidebarOpen?.(false)
-              const params = new URLSearchParams(searchParams.toString())
-              params.delete('configure')
-              const query = params.toString()
-              router.push(
-                query ? `/agents/${agent.id}?${query}` : `/agents/${agent.id}`
-              )
-            }}
-          >
-            <IconMessage className="h-4 w-4" />
-            {canEdit ? 'Ask AI' : 'Chat'}
-          </Button>
-          {canEdit && (
-            <Button
-              variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
-              size="sm"
-              className="justify-start gap-2 px-2"
-              data-mobile-menu-close="true"
-              onClick={() => {
-                setAgentSidebarOpen?.(true)
-                const params = new URLSearchParams(searchParams.toString())
-                params.set('configure', 'true')
-                router.push(`/agents/${agent.id}?${params.toString()}`)
-              }}
-            >
-              <IconEdit className="h-4 w-4" />
-              Configure
-            </Button>
-          )}
-        </div>
-
-        {/* Visitor Chat History */}
-        {canEdit && (
-          <DashboardSidebarSection
-            title="Visitor Chat History"
-            action={
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 w-7 rounded-full p-0"
-                onClick={handleRefreshSummaries}
-                disabled={refreshingSummaries}
-                title="Refresh summaries"
-                aria-label="Refresh summaries"
-              >
-                <IconRefresh
-                  className={
-                    refreshingSummaries
-                      ? 'h-3.5 w-3.5 animate-spin'
-                      : 'h-3.5 w-3.5'
-                  }
-                />
-              </Button>
+    // Sync activeSessionId with URL
+    React.useEffect(() => {
+        const sessionParam = searchParams.get('session')
+        if (sessionParam && sessionParam !== activeSessionId) {
+            const found = ownerSessions.find(session => session.id === sessionParam)
+            if (found) {
+                setActiveSessionId(sessionParam)
             }
-          >
-            {visitorSessions.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
-                No visitor chats yet.
-              </div>
-            )}
-            {paginatedVisitorSessions.map(session => {
-              const label = toConversationLabel(
-                session.summary || session.messages.at(-1)?.content
-              )
+        } else if (!sessionParam && activeSessionId) {
+            setActiveSessionId(null)
+        }
+    }, [searchParams, ownerSessions, activeSessionId])
 
-              return (
-                <DashboardSidebarItem
-                  key={session.id}
-                  className="bg-purewhite-bg dark:bg-background"
-                  onClick={() => handleOpenConversation(session)}
-                >
-                  <div className="truncate font-medium" title={label}>
-                    {label}
-                  </div>
-                  <div className="text-[11px] text-gray-secondary">
-                    Updated {formatDate(session.updatedAt)}
-                  </div>
-                </DashboardSidebarItem>
-              )
-            })}
-            {visitorSessions.length > itemsPerPage && (
-              <div className="flex items-center justify-between gap-2 pt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
-                  disabled={visitorPage === 1}
-                  className="h-7 rounded-full px-3 text-[11px] font-switzer"
-                >
-                  Previous
-                </Button>
-                <span className="text-[11px] text-gray-secondary font-switzer">
-                  Page {visitorPage} of {totalVisitorPages}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setVisitorPage(prev =>
-                      Math.min(totalVisitorPages, prev + 1)
-                    )
-                  }
-                  disabled={visitorPage === totalVisitorPages}
-                  className="h-7 rounded-full px-3 text-[11px] font-switzer"
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-          </DashboardSidebarSection>
-        )}
-
-        {/* Conversations */}
-        <DashboardSidebarSection
-          title="My Chat History"
-          action={
-            <button
-              onClick={handleNewChat}
-              data-mobile-menu-close="true"
-              className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
-              aria-label="New conversation"
-            >
-              +
-            </button>
-          }
-        >
-          {ownerSessions.slice(0, 10).map(session => (
-            <DashboardSidebarItem
-              key={session.id}
-              active={activeSessionId === session.id}
-              onClick={() => handleSelectSession(session.id)}
-            >
-              <div className="truncate">
-                {session.summary || 'Untitled conversation'}
-              </div>
-            </DashboardSidebarItem>
-          ))}
-        </DashboardSidebarSection>
-      </DashboardSidebar>
-    ),
-    [
-      activeSessionId,
-      agent.name,
-      agentPageShell?.isSidebarOpen,
-      agentPageShell?.setIsSidebarOpen,
-      canEdit,
-      handleNewChat,
-      handleOpenConversation,
-      handleRefreshSummaries,
-      handleSelectSession,
-      ownerSessions,
-      paginatedVisitorSessions,
-      refreshingSummaries,
-      totalVisitorPages,
-      visitorPage,
-      visitorSessions.length
-    ]
-  )
-
-  React.useEffect(() => {
-    setSecondarySidebar(sidebar)
-    return () => {
-      setSecondarySidebar(null)
+    const handleSelectSession = (sessionId: string | null) => {
+        setActiveSessionId(sessionId)
+        if (sessionId) {
+            router.push(`/agents/${agent.id}?session=${sessionId}`)
+        } else {
+            router.push(`/agents/${agent.id}`)
+        }
     }
-  }, [setSecondarySidebar, sidebar])
 
-  return (
-    <>
-      <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
-        {agentPageShell?.isSidebarOpen && canEdit ? (
-          <div className="h-full overflow-y-auto bg-background p-4">
-            <AgentRightbar
-              agent={agent}
-              share={share}
-              conversations={visitorSessions}
-              className="mx-auto w-full max-w-5xl"
-              onClose={() => agentPageShell.setIsSidebarOpen(false)}
-              canEdit={canEdit}
-            />
-          </div>
-        ) : canEdit ? (
-          <AgentAskChat
-            agent={agent}
-            ownerId={ownerId}
-            ownerSessions={ownerSessions}
-          />
-        ) : (
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-            <div className="rounded-2xl border bg-muted/30 p-6">
-              <h1 className="text-xl font-semibold">Read-only access</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Analytics and configuration are available to the agent owner and
-                tenant admins.
-              </p>
-              <div className="mt-4 flex gap-2">
-                <Button
-                  onClick={() => {
-                    if (activeSessionId) {
-                      router.push(
-                        `/agents/${agent.id}/conversations/${activeSessionId}`
-                      )
-                      return
-                    }
-                    router.push(`/agents/${agent.id}/conversations/new`)
-                  }}
-                >
-                  Open chat
-                </Button>
-              </div>
+    const handleOpenConversation = (conversation: VibeAgentConversation) => {
+        setSelectedConversation(conversation)
+        setIsModalOpen(true)
+    }
+
+    const handleNewChat = () => {
+        setActiveSessionId(null)
+        router.push(`/agents/${agent.id}`)
+    }
+
+    const handleRefreshSummaries = async () => {
+        setRefreshingSummaries(true)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setRefreshingSummaries(false)
+        }
+    }
+
+    const handleSyncEmbeddings = async () => {
+        if (syncingEmbeddings || !hasUnsyncedConversations) {
+            return
+        }
+        setSyncingEmbeddings(true)
+        try {
+            await fetch(`/api/agents/${agent.id}/conversations/sync-embeddings`, {
+                method: 'POST'
+            })
+            router.refresh()
+        } finally {
+            setSyncingEmbeddings(false)
+        }
+    }
+
+    const lastConversationAt = ownerSessions[0]?.updatedAt
+    const displayTools = getDisplayTools(agent.tools)
+    const [copiedShare, setCopiedShare] = React.useState(false)
+
+    // Pagination for visitor conversations
+    const itemsPerPage = 5
+    const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
+    const startIndex = (visitorPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const paginatedVisitorSessions = visitorSessions.slice(startIndex, endIndex)
+
+    // Reset to page 1 if current page is out of bounds
+    React.useEffect(() => {
+        if (visitorPage > totalVisitorPages && totalVisitorPages > 0) {
+            setVisitorPage(1)
+        }
+    }, [visitorPage, totalVisitorPages])
+
+    const handleCopyShare = async () => {
+        try {
+            await navigator.clipboard?.writeText(share.url)
+            setCopiedShare(true)
+            setTimeout(() => setCopiedShare(false), 1200)
+        } catch {
+            // noop
+        }
+    }
+
+    const sidebar = (
+        <DashboardSidebar>
+            {/* Agent Info */}
+            <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
+                <h3 className="font-switzer text-lg font-bold text-black-primary dark:text-foreground">
+                    {agent.name}
+                </h3>
             </div>
-          </div>
-        )}
-      </DashboardLayout>
-      <ConversationModal
-        conversation={selectedConversation}
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-      />
-    </>
-  )
+
+            {/* Visitor conversations */}
+            <DashboardSidebarSection
+                title="Visitor conversations"
+                action={
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-7 w-7 rounded-full p-0"
+                        onClick={handleRefreshSummaries}
+                        disabled={refreshingSummaries}
+                        title="Refresh summaries"
+                        aria-label="Refresh summaries"
+                    >
+                        <IconRefresh className={refreshingSummaries ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    </Button>
+                }
+            >
+                {visitorSessions.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
+                        No visitor chats yet.
+                    </div>
+                )}
+                {paginatedVisitorSessions.map((session) => (
+                    <DashboardSidebarItem
+                        key={session.id}
+                        className="bg-purewhite-bg dark:bg-background"
+                        onClick={() => handleOpenConversation(session)}
+                    >
+                        <div className="truncate font-medium">
+                            {session.summary || session.messages.at(-1)?.content || 'Visitor conversation'}
+                        </div>
+                        <div className="text-[11px] text-gray-secondary">
+                            Updated {formatDate(session.updatedAt)}
+                        </div>
+                    </DashboardSidebarItem>
+                ))}
+                {visitorSessions.length > itemsPerPage && (
+                    <div className="flex items-center justify-between gap-2 pt-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
+                            disabled={visitorPage === 1}
+                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-[11px] text-gray-secondary font-switzer">
+                            Page {visitorPage} of {totalVisitorPages}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))}
+                            disabled={visitorPage === totalVisitorPages}
+                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )}
+            </DashboardSidebarSection>
+
+            {/* Conversations */}
+            <DashboardSidebarSection 
+                title="My Chat History"
+                action={
+                    <button
+                        onClick={handleNewChat}
+                        className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
+                        aria-label="New conversation"
+                    >
+                        +
+                    </button>
+                }
+            >
+                {ownerSessions.slice(0, 10).map((session) => (
+                    <DashboardSidebarItem
+                        key={session.id}
+                        active={activeSessionId === session.id}
+                        onClick={() => handleSelectSession(session.id)}
+                    >
+                        <div className="truncate">
+                            {session.summary || 'Untitled conversation'}
+                        </div>
+                    </DashboardSidebarItem>
+                ))}
+            </DashboardSidebarSection>
+        </DashboardSidebar>
+    )
+
+    const [isEditing, setIsEditing] = React.useState(false)
+
+    const rightPanel = isEditing ? (
+        <DashboardPanel title="Configure Agent">
+            {/* Agent card */}
+            <DashboardPanelSection>
+                <div className="space-y-3 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 dark:border-border dark:bg-background/30">
+                    <div className="space-y-2">
+                        <label className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                            Name
+                        </label>
+                        <input
+                            type="text"
+                            value={agent.name}
+                            className="w-full rounded-xl border border-black-10 bg-background px-3 py-2 text-sm font-switzer text-black-primary focus:outline-none focus:ring-2 focus:ring-black-primary/20 dark:border-border dark:bg-muted dark:text-foreground"
+                            readOnly
+                        />
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                                Allow anonymous chat
+                            </p>
+                            <p className="text-xs text-gray-secondary">
+                                Require sign-in when disabled.
+                            </p>
+                        </div>
+                        <button
+                            className={`relative h-6 w-11 rounded-full transition-colors ${agent.allowAnonymous ? 'bg-black-primary dark:bg-primary' : 'bg-gray-200 dark:bg-muted'}`}
+                            disabled
+                        >
+                            <span
+                                className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition-transform ${agent.allowAnonymous ? 'translate-x-5' : 'translate-x-0'}`}
+                            />
+                        </button>
+                    </div>
+                </div>
+            </DashboardPanelSection>
+
+            {/* Instructions */}
+            <DashboardPanelSection
+                title="Instructions"
+                description="What the assistant follows."
+            >
+                <pre className="whitespace-pre-wrap rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
+                    {agent.instructions}
+                </pre>
+            </DashboardPanelSection>
+
+            {/* Greeting */}
+            <DashboardPanelSection
+                title="Greeting"
+                description="Initial greeting message."
+            >
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
+                    {agent.greetingText ?? 'Hi! How can I help you today?'}
+                </div>
+            </DashboardPanelSection>
+
+            {/* Tools Section */}
+            <DashboardPanelSection
+                title="Tools"
+                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
+            >
+                {displayTools.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {displayTools.map((tool) => (
+                            <span
+                                key={tool.id}
+                                className="rounded-full bg-beige-bg px-2 py-1 font-switzer text-xs text-black-primary dark:bg-muted dark:text-foreground"
+                            >
+                                {tool.name}
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </DashboardPanelSection>
+
+            {/* Files Section */}
+            <DashboardPanelSection
+                title="Reference Files"
+                description={agent.fileKeys.length > 0 ? `${agent.fileKeys.length} uploaded` : 'None uploaded'}
+            >
+                {agent.fileKeys.length > 0 && (
+                    <div className="space-y-2">
+                        {agent.fileKeys.slice(0, 5).map((key) => (
+                            <div
+                                key={key}
+                                className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-2 dark:border-border dark:bg-background/30"
+                            >
+                                <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
+                                <span className="truncate font-switzer text-xs text-black-primary dark:text-foreground">
+                                    {key.split('/').pop()?.replace(/^\d+-/, '') || key}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </DashboardPanelSection>
+
+            <div className="pt-2">
+                <button
+                    onClick={() => setIsEditing(false)}
+                    className="w-full rounded-full bg-black-primary py-2 font-switzer text-sm font-medium text-white transition-colors hover:bg-black-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+                >
+                    Done
+                </button>
+            </div>
+        </DashboardPanel>
+    ) : (
+        <DashboardPanel title="Agent Details">
+            {/* Overview */}
+            <DashboardPanelSection
+                title="Overview"
+                description="Key info about how this agent is configured."
+            >
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
+                    <div className="flex flex-wrap gap-x-6 gap-y-3">
+                        <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                                Visibility
+                            </p>
+                            <p className="mt-0.5">
+                                {agent.allowAnonymous
+                                    ? 'Public – anonymous chat allowed'
+                                    : 'Public – sign in required'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                                Created
+                            </p>
+                            <p className="mt-0.5">{formatDate(agent.createdAt)}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                                Last updated
+                            </p>
+                            <p className="mt-0.5">
+                                {formatDate(lastConversationAt ?? agent.updatedAt)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-background px-3 py-2 text-xs dark:bg-muted">
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
+                                Public link
+                            </p>
+                            <p className="truncate text-black-primary dark:text-foreground">
+                                /a/{agent.agentUrl}
+                            </p>
+                        </div>
+                        <Link
+                            href={`/a/${agent.agentUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-black-10 text-gray-secondary transition-colors hover:text-black-primary dark:border-border dark:hover:text-foreground"
+                        >
+                            <IconExternalLink className="h-4 w-4" />
+                        </Link>
+                    </div>
+                </div>
+            </DashboardPanelSection>
+
+            <div className="pt-2">
+                <button
+                    onClick={() => setIsEditing(true)}
+                    className="w-full rounded-full bg-black-primary py-2 font-switzer text-sm font-medium text-white transition-colors hover:bg-black-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
+                >
+                    Configure Agent
+                </button>
+            </div>
+
+            {/* Share & QR */}
+            <DashboardPanelSection
+                title="Share"
+                description="Share this agent via link or QR code."
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 text-xs font-switzer text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
+                        <span className="truncate">{share.url}</span>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 rounded-full px-3 text-[11px]"
+                            onClick={handleCopyShare}
+                        >
+                            {copiedShare ? 'Copied' : 'Copy'}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 rounded-full p-0"
+                            asChild
+                        >
+                            <Link href={share.url} target="_blank" rel="noopener noreferrer">
+                                <IconExternalLink className="h-3.5 w-3.5" />
+                            </Link>
+                        </Button>
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <QrCode dataUrl={share.qrDataUrl} size={140} />
+                    </div>
+                </div>
+            </DashboardPanelSection>
+
+            {/* Tools Section */}
+            <DashboardPanelSection
+                title="Tools"
+                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
+            >
+                {displayTools.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {displayTools.map((tool) => (
+                            <Badge key={tool.id} variant="secondary" className="font-switzer text-xs">
+                                {tool.name}
+                            </Badge>
+                        ))}
+                    </div>
+                )}
+            </DashboardPanelSection>
+
+            {/* Files Section */}
+            <DashboardPanelSection
+                title="Reference Files"
+                description={agent.fileKeys.length > 0 ? `${agent.fileKeys.length} uploaded` : 'None uploaded'}
+            >
+                {agent.fileKeys.length > 0 && (
+                    <div className="space-y-2">
+                        {agent.fileKeys.slice(0, 5).map((key) => (
+                            <div
+                                key={key}
+                                className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-2 dark:bg-background/30 dark:border-border"
+                            >
+                                <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
+                                <span className="truncate font-switzer text-xs text-black-primary dark:text-foreground">
+                                    {key.split('/').pop()?.replace(/^\d+-/, '') || key}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </DashboardPanelSection>
+
+            <DashboardPanelSection
+                title="Data sync"
+                description="Rebuild embeddings for Ask AI when you want deeper history search."
+            >
+                <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs text-gray-secondary">
+                        <div>
+                            Last sync:{' '}
+                            {agent.lastEmbeddingsSyncAt
+                                ? formatDate(agent.lastEmbeddingsSyncAt)
+                                : 'Never'}
+                        </div>
+                        {!hasUnsyncedConversations && (
+                            <div>No new responses since last sync.</div>
+                        )}
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-full px-3 text-[11px]"
+                        disabled={!hasUnsyncedConversations || syncingEmbeddings}
+                        onClick={handleSyncEmbeddings}
+                    >
+                        {syncingEmbeddings
+                            ? 'Syncing...'
+                            : hasUnsyncedConversations
+                                ? 'Sync conversations'
+                                : 'Up to date'}
+                    </Button>
+                </div>
+            </DashboardPanelSection>
+
+        </DashboardPanel>
+    )
+
+    return (
+        <>
+            <DashboardLayout
+              sidebar={sidebar}
+              rightPanel={rightPanel}
+              hideRightPanel={isPageShellSidebarOpen}
+            >
+                <AgentAskChat
+                    agent={agent}
+                    ownerId={ownerId}
+                    ownerSessions={ownerSessions}
+                />
+            </DashboardLayout>
+            <ConversationModal
+                conversation={selectedConversation}
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
+            />
+        </>
+    )
 }

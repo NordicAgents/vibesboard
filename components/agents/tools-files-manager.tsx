@@ -23,7 +23,6 @@ import { cn } from '@/lib/utils'
 interface ToolsFilesManagerProps {
     agent: VibeAgent
     onUpdate?: () => void
-    canEdit: boolean
 }
 
 interface FileUploadProgress {
@@ -33,7 +32,7 @@ interface FileUploadProgress {
     error?: string
 }
 
-export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManagerProps) {
+export function ToolsFilesManager({ agent, onUpdate }: ToolsFilesManagerProps) {
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -70,10 +69,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
     }
 
     const updateAgent = async (payload: Partial<VibeAgent>) => {
-        if (!canEdit) {
-            toast.error('Read-only: you do not have permission to edit this agent')
-            return
-        }
         setIsSaving(true)
         try {
             const res = await fetch(`/api/agents/${agent.id}`, {
@@ -119,10 +114,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
 
     const handleFileUpload = useCallback(
         async (files: FileList | File[]) => {
-            if (!canEdit) {
-                toast.error('Read-only: you do not have permission to edit this agent')
-                return
-            }
             const fileArray = Array.from(files)
             const supabase = getBrowserSupabaseClient()
 
@@ -248,10 +239,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
     )
 
     const handleFileDelete = async (path: string) => {
-        if (!canEdit) {
-            toast.error('Read-only: you do not have permission to edit this agent')
-            return
-        }
         const supabase = getBrowserSupabaseClient()
 
         try {
@@ -312,16 +299,12 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
             e.preventDefault()
             setIsDragging(false)
 
-            if (!canEdit) {
-                return
-            }
-
             const files = e.dataTransfer.files
             if (files.length > 0) {
                 handleFileUpload(files)
             }
         },
-        [handleFileUpload, canEdit]
+        [handleFileUpload]
     )
 
     return (
@@ -330,11 +313,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                 <CardTitle className="text-base">Tools & Files</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                {!canEdit && (
-                    <p className="text-xs text-muted-foreground">
-                        Read-only. Ask a tenant admin (or the agent owner) to update tools and files.
-                    </p>
-                )}
                 {/* Tools Section */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -347,7 +325,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                         <Button
                             size="sm"
                             onClick={handleSaveTools}
-                            disabled={isSaving || isIndexing || !canEdit}
+                            disabled={isSaving || isIndexing}
                         >
                             {isSaving ? 'Saving...' : isIndexing ? 'Indexing...' : 'Save Tools'}
                         </Button>
@@ -363,7 +341,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             </div>
                             <Switch
                                 checked={useWeb}
-                                disabled={isSaving || !canEdit}
+                                disabled={isSaving}
                                 onCheckedChange={value => setUseWeb(value)}
                             />
                         </div>
@@ -377,7 +355,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             </div>
                             <Switch
                                 checked={fileSearchEnabled}
-                                disabled={isSaving || !canEdit}
+                                disabled={isSaving}
                                 onCheckedChange={value => setFileSearchEnabled(value)}
                             />
                         </div>
@@ -392,7 +370,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             size="sm"
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isSaving || isIndexing || !canEdit}
+                            disabled={isSaving || isIndexing}
                         >
                             <IconUpload className="mr-2 h-4 w-4" />
                             Upload Files
@@ -404,7 +382,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                         ref={fileInputRef}
                         type="file"
                         multiple
-                        disabled={!canEdit}
                         onChange={e => {
                             if (e.target.files) {
                                 handleFileUpload(e.target.files)
@@ -422,7 +399,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                         onDrop={handleDrop}
                         className={cn(
                             'rounded-lg border-2 border-dashed p-6 text-center transition-colors',
-                            !canEdit && 'opacity-60',
                             isDragging
                                 ? 'border-primary bg-primary/5'
                                 : 'border-muted-foreground/25 hover:border-muted-foreground/50'
@@ -503,7 +479,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                                 size="sm"
                                                 variant="ghost"
                                                 onClick={() => handleFileDelete(key)}
-                                                disabled={isSaving || !canEdit}
+                                                disabled={isSaving}
                                                 title="Delete file"
                                                 className="text-destructive hover:text-destructive"
                                             >

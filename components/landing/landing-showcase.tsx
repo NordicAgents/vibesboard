@@ -50,12 +50,11 @@ export function LandingShowcase() {
                         <FadeIn key={project.id} delay={0.2 + (index * 0.1)}>
                             <div className="group cursor-pointer">
                                 <div className="relative aspect-[4/3] overflow-hidden rounded-lg mb-3 sm:mb-4 bg-gray-100 dark:bg-muted">
-                                    <Image
+                                    <img
                                         src={project.image}
                                         alt={project.title}
-                                        fill
-                                        className="object-cover transition-transform duration-700 ease-custom group-hover:scale-105"
-                                        sizes="(max-width: 640px) 100vw, 50vw"
+                                        className="w-full h-full object-cover transition-transform duration-700 ease-custom group-hover:scale-105"
+                                        loading="lazy"
                                     />
                                     <div className="absolute inset-0 bg-black-primary/0 group-hover:bg-black-primary/10 transition-colors duration-500 dark:group-hover:bg-white/10"></div>
                                 </div>

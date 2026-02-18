@@ -4,7 +4,6 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
 import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
-import { isFeatureEnabled } from '@/lib/features'
 
 export const runtime = 'nodejs'
 
@@ -77,16 +76,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
         )
     }
 
-    if (!isSuperAdminUser) {
-        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
-        if (!teamEnabled) {
-            return NextResponse.json(
-                { error: 'Team collaboration is disabled for this workspace' },
-                { status: 403 }
-            )
-        }
-    }
-
     const { data, error } = await supabase
         .from('tenant_users')
         .update({ role })
@@ -155,16 +144,6 @@ export async function DELETE(req: Request, { params }: RouteParams) {
             { error: 'Personal workspaces cannot manage team membership' },
             { status: 403 }
         )
-    }
-
-    if (!isSuperAdminUser) {
-        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
-        if (!teamEnabled) {
-            return NextResponse.json(
-                { error: 'Team collaboration is disabled for this workspace' },
-                { status: 403 }
-            )
-        }
     }
 
     const { error } = await supabase

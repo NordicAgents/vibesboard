@@ -32,9 +32,7 @@ export function AgentAskChat({
 }: AgentAskChatProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [sessions, setSessions] = React.useState(() =>
-    sortSessions(ownerSessions)
-  )
+  const [sessions, setSessions] = React.useState(() => sortSessions(ownerSessions))
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     ownerSessions[0]?.id ?? null
   )
@@ -111,16 +109,9 @@ export function AgentAskChat({
   })
 
   const persistSession = React.useCallback(
-    (
-      sessionId: string,
-      nextMessages: Message[],
-      prompt: string,
-      result: string
-    ) => {
+    (sessionId: string, nextMessages: Message[], prompt: string, result: string) => {
       setSessions(prev => {
-        const existingIndex = prev.findIndex(
-          session => session.id === sessionId
-        )
+        const existingIndex = prev.findIndex(session => session.id === sessionId)
         const summary = result?.trim().slice(0, 120) || prompt.slice(0, 120)
         const now = new Date().toISOString()
         if (existingIndex !== -1) {
@@ -223,12 +214,7 @@ export function AgentAskChat({
         {/* Only show new chat button when there are messages */}
         {pendingMessages.length > 0 && (
           <div className="absolute left-4 top-4 z-10">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleNewChat}
-              className="rounded-full font-switzer"
-            >
+            <Button size="sm" variant="secondary" onClick={handleNewChat} className="rounded-full font-switzer">
               New chat
             </Button>
           </div>
@@ -241,13 +227,11 @@ export function AgentAskChat({
               <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
                 ASK AI
               </p>
-              <p className="mt-1 hidden font-switzer text-sm text-gray-secondary sm:block">
-                Analyze visitor conversations
-              </p>
+              <p className="mt-1 font-switzer text-sm text-gray-secondary">Analyze visitor conversations</p>
             </div>
             <div className="flex-1 overflow-y-auto pb-36 pt-20">
               <ChatList messages={pendingMessages} />
-              {isLoading && !completion && (
+              {isLoading && (
                 <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
                   <IconSpinner className="h-4 w-4 animate-spin" />
                   <span>Thinking...</span>
@@ -264,19 +248,53 @@ export function AgentAskChat({
                 <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
                   ASK AI
                 </h1>
-                <p className="hidden font-switzer text-lg text-gray-secondary sm:block">
+                <p className="font-switzer text-lg text-gray-secondary">
                   Analyze visitor conversations
                 </p>
               </div>
 
+              <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-3 text-left sm:grid-cols-3">
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:border-border dark:bg-background/30">
+                  <p className="font-switzer text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-secondary">
+                    Overview
+                  </p>
+                  <p className="mt-2 font-switzer text-sm text-black-primary dark:text-foreground">
+                    Quick summary of what’s happening across visitor chats.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:border-border dark:bg-background/30">
+                  <p className="font-switzer text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-secondary">
+                    Analysis
+                  </p>
+                  <p className="mt-2 font-switzer text-sm text-black-primary dark:text-foreground">
+                    What users ask, where they get stuck, and recurring themes.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:border-border dark:bg-background/30">
+                  <p className="font-switzer text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-secondary">
+                    Improvements
+                  </p>
+                  <p className="mt-2 font-switzer text-sm text-black-primary dark:text-foreground">
+                    Concrete changes to scripts, UX, or answers to improve outcomes.
+                  </p>
+                </div>
+              </div>
+
+              {/* Input centered below header */}
               <div className="w-full">
+                <div className="mb-2 flex h-8 items-center justify-center">
+                  {isLoading && (
+                    <Button variant="outline" onClick={() => stop()} className="rounded-full bg-purewhite-bg font-switzer">
+                      Stop generating
+                    </Button>
+                  )}
+                </div>
                 <div className="px-4 py-3">
                   <PromptForm
                     onSubmit={handleSubmit}
                     input={input}
                     setInput={setInput}
                     isLoading={isLoading}
-                    onStop={() => stop()}
                     placeholder="Ask about your visitor conversations…"
                   />
                 </div>
@@ -284,20 +302,31 @@ export function AgentAskChat({
             </div>
           </div>
         )}
+
       </div>
 
       {/* Chat Input - Only show at bottom when messages exist */}
       {pendingMessages.length > 0 && (
-        <div className="sticky bottom-0">
-          <div className="mx-auto max-w-2xl px-4 pb-4 pt-2">
-            <PromptForm
-              onSubmit={handleSubmit}
-              input={input}
-              setInput={setInput}
-              isLoading={isLoading}
-              onStop={() => stop()}
-              placeholder="Ask about your visitor conversations…"
-            />
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+          <div className="mx-auto max-w-xl px-4 pb-4 pt-2">
+            <div className="mb-2 flex h-8 items-center justify-center">
+              {isLoading ? (
+                <Button variant="outline" onClick={() => stop()} className="rounded-full bg-purewhite-bg font-switzer">
+                  Stop generating
+                </Button>
+              ) : null}
+            </div>
+            <div className="px-4 py-3">
+              <div className="mx-auto max-w-lg">
+                <PromptForm
+                  onSubmit={handleSubmit}
+                  input={input}
+                  setInput={setInput}
+                  isLoading={isLoading}
+                  placeholder="Ask about your visitor conversations…"
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

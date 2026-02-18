@@ -3,36 +3,54 @@
 import * as React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FeatureToggle } from '@/components/tenants'
+import { Database } from '@/lib/db_types'
 import toast from 'react-hot-toast'
+
+type FeatureFlag = Database['public']['Tables']['feature_flags']['Row']
+type TenantFeatureToggle = Database['public']['Tables']['tenant_feature_toggles']['Row']
 
 interface TenantFeaturesTabProps {
     tenantId: string
 }
 
-interface TenantFeatureStatus {
-    id: string
-    name: string
-    description: string | null
-    isEnabled: boolean
-    isOverridden: boolean
+interface FeatureWithToggle extends FeatureFlag {
+    tenant_override?: boolean
+    is_enabled: boolean
 }
 
 export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
-    const [features, setFeatures] = React.useState<TenantFeatureStatus[]>([])
+    const [features, setFeatures] = React.useState<FeatureWithToggle[]>([])
     const [loading, setLoading] = React.useState(true)
 
     const fetchFeatures = React.useCallback(async () => {
         try {
             setLoading(true)
 
+            // Fetch all feature flags
+            const flagsResponse = await fetch('/api/admin/feature-flags')
+            if (!flagsResponse.ok) throw new Error('Failed to fetch feature flags')
+            const flagsData = await flagsResponse.json()
+
             // Fetch tenant configuration
             const configResponse = await fetch(`/api/tenants/${tenantId}/config`)
             if (!configResponse.ok) throw new Error('Failed to fetch tenant config')
             const configData = await configResponse.json()
 
-            const statuses: TenantFeatureStatus[] =
-                configData.tenant?.features || configData.features || []
-            setFeatures(statuses)
+            // Merge feature flags with tenant toggles
+            const mergedFeatures: FeatureWithToggle[] = flagsData.flags.map(
+                (flag: FeatureFlag) => {
+                    const toggle = configData.features?.find(
+                        (f: TenantFeatureToggle) => f.feature_flag_id === flag.id
+                    )
+                    return {
+                        ...flag,
+                        tenant_override: toggle !== undefined,
+                        is_enabled: toggle ? toggle.is_enabled : flag.default_value,
+                    }
+                }
+            )
+
+            setFeatures(mergedFeatures)
         } catch (error) {
             console.error('Error fetching features:', error)
             toast.error('Failed to load features')
@@ -64,7 +82,7 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
             setFeatures((prev) =>
                 prev.map((f) =>
                     f.id === featureId
-                        ? { ...f, isEnabled: enabled, isOverridden: true }
+                        ? { ...f, is_enabled: enabled, tenant_override: true }
                         : f
                 )
             )
@@ -113,8 +131,8 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
                             id={feature.id}
                             name={feature.name}
                             description={feature.description}
-                            isEnabled={feature.isEnabled}
-                            isOverridden={feature.isOverridden}
+                            isEnabled={feature.is_enabled}
+                            isOverridden={feature.tenant_override}
                             onToggle={async (id, enabled) => await handleToggle(id, enabled)}
                         />
                     ))

@@ -5,19 +5,11 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
 import { auth } from '@/auth'
 import { type Database } from '@/lib/db_types'
-import { getAgentForMember } from '@/lib/agents/server'
+import { getAgentForUser } from '@/lib/agents/server'
 import { agentChatRequestSchema } from '@/lib/agents/schema'
-import {
-  ensureConversation,
-  updateConversationMessages
-} from '@/lib/agents/conversations'
 import { fetchAgentFileContext } from '@/lib/agent/rag'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { nanoid } from '@/lib/utils'
-import {
-  stripCompletionMarkers,
-  wrapStreamWithCompletionDetection
-} from '@/lib/agent/completion'
 
 export const runtime = 'nodejs'
 
@@ -37,7 +29,7 @@ export async function POST(
     cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
   })
 
-  const agent = await getAgentForMember(supabase, id)
+  const agent = await getAgentForUser(supabase, id, session.user.id)
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
@@ -50,17 +42,6 @@ export async function POST(
     id: message.id ?? nanoid()
   })) as Message[]
 
-  const conversation = await ensureConversation({
-    supabase,
-    agentId: agent.id,
-    conversationId: payload.conversationId,
-    userId: session.user.id,
-    initialMessages: normalizedMessages
-  })
-
-  // Count user messages for max messages check
-  const userMessageCount = normalizedMessages.filter(m => m.role === 'user').length
-
   const context = await fetchAgentFileContext({
     supabase,
     fileKeys: agent.fileKeys
@@ -72,37 +53,8 @@ export async function POST(
     context,
     toolContext: {
       fileContext: context
-    },
-    onCompletion: async completion => {
-      const cleanedCompletion = stripCompletionMarkers(completion)
-      const nextMessages = [
-        ...normalizedMessages,
-        {
-          id: nanoid(),
-          role: 'assistant' as const,
-          content: cleanedCompletion
-        }
-      ]
-      await updateConversationMessages({
-        supabase,
-        conversationId: conversation.id,
-        messages: nextMessages,
-        summary: null
-      })
     }
   })
 
-  const transformedStream = wrapStreamWithCompletionDetection(
-    stream,
-    agent.maxMessages,
-    userMessageCount
-  )
-
-  return new StreamingTextResponse(transformedStream, {
-    headers: {
-      'x-conversation-id': conversation.id,
-      'x-agent-mode': agent.mode,
-      'x-max-messages': String(agent.maxMessages ?? '')
-    }
-  })
+  return new StreamingTextResponse(stream)
 }
