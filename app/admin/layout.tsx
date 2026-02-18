@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
-import { Building2, Flag } from 'lucide-react'
+import { Building2, Flag, FileText } from 'lucide-react'
 
 export default async function AdminLayout({
     children,
@@ -40,6 +40,9 @@ export default async function AdminLayout({
                         </NavLink>
                         <NavLink href="/admin/feature-flags" icon={Flag}>
                             Feature Flags
+                        </NavLink>
+                        <NavLink href="/admin/files" icon={FileText}>
+                            File Processing
                         </NavLink>
                     </nav>
                 </div>
