@@ -39,8 +39,8 @@ export function buildAgentSystemPrompt(
     : 'No external tools are enabled for this agent.'
 
   const contextBlock = context
-    ? `Use the following reference material when it is relevant:\n${context}`
-    : 'There is no reference material attached to this request.'
+    ? `KNOWLEDGE BASE - Use the following reference material when answering:\n${context}\n\nWhen you reference information from the knowledge base, briefly mention the source file.`
+    : 'No additional reference material is available for this query.'
 
   const fileSearchGuidance = agent.tools.some(
     tool => tool.type === 'builtin:file_search'
