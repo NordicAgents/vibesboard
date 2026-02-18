@@ -124,6 +124,9 @@ export const mapAgentRow = (row: AgentRow): VibeAgent => ({
   quickSuggestionsMode: (row as any).quick_suggestions_mode ?? 'off',
   quickSuggestionsCount: (row as any).quick_suggestions_count ?? 4,
   lastEmbeddingsSyncAt: (row as any).last_embeddings_sync_at ?? null,
+  ragEnabled: (row as any).rag_enabled ?? true,
+  ragChunkCount: (row as any).rag_chunk_count ?? 5,
+  ragSimilarityThreshold: (row as any).rag_similarity_threshold ?? 0.7,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 })
