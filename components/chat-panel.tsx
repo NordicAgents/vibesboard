@@ -95,7 +95,7 @@ export function ChatPanel({
   }
 
   return (
-    <div ref={panelRef} className="fixed inset-x-0 bottom-0">
+    <div ref={panelRef} className="fixed inset-x-0 bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
       <ButtonScrollToBottom />
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="space-y-4 px-4 py-2 md:py-4">
