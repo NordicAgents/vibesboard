@@ -288,7 +288,7 @@ export function AgentAskChat({
 
       {/* Chat Input - Only show at bottom when messages exist */}
       {pendingMessages.length > 0 && (
-        <div className="sticky bottom-0">
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
           <div className="mx-auto max-w-2xl px-4 pb-4 pt-2">
             <PromptForm
               onSubmit={handleSubmit}
