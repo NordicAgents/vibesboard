@@ -1,17 +1,22 @@
 'use client'
 
 import * as React from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { signInWithPopup, GithubAuthProvider } from 'firebase/auth'
+import { getClientAuth } from '@/lib/firebase/client'
 
 import { cn } from '@/lib/utils'
 import { Button, type ButtonProps } from '@/components/ui/button'
 import { IconGitHub, IconSpinner } from '@/components/ui/icons'
+import { useRouter } from 'next/navigation'
+import { toast } from 'react-hot-toast'
 
 interface LoginButtonProps extends ButtonProps {
   showGithubIcon?: boolean
   text?: string
   redirectedFrom?: string
 }
+
+const githubProvider = new GithubAuthProvider()
 
 export function LoginButton({
   text = 'Login with GitHub',
@@ -21,8 +26,8 @@ export function LoginButton({
   ...props
 }: LoginButtonProps) {
   const [isLoading, setIsLoading] = React.useState(false)
-  // Create a Supabase client configured to use cookies
-  const supabase = createClientComponentClient()
+  const router = useRouter()
+  const auth = getClientAuth()
 
   if (process.env.NEXT_PUBLIC_AUTH_GITHUB !== 'true') {
     return null
@@ -33,13 +38,30 @@ export function LoginButton({
       variant="outline"
       onClick={async () => {
         setIsLoading(true)
-        const redirectTo = redirectedFrom
-          ? `${location.origin}/api/auth/callback?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
-          : `${location.origin}/api/auth/callback`
-        await supabase.auth.signInWithOAuth({
-          provider: 'github',
-          options: { redirectTo }
-        })
+        try {
+          const result = await signInWithPopup(auth, githubProvider)
+          const idToken = await result.user.getIdToken()
+
+          const res = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+          })
+
+          if (!res.ok) {
+            toast.error('Failed to create session. Please try again.')
+            return
+          }
+
+          router.push(redirectedFrom ?? '/')
+          router.refresh()
+        } catch (err: any) {
+          if (err?.code !== 'auth/popup-closed-by-user') {
+            toast.error(err?.message ?? 'GitHub sign-in failed.')
+          }
+        } finally {
+          setIsLoading(false)
+        }
       }}
       disabled={isLoading}
       className={cn(className)}

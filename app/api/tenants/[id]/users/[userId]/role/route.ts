@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
+import { requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { isFeatureEnabled } from '@/lib/features'
 
 export const runtime = 'nodejs'
@@ -17,28 +15,18 @@ type RouteParams = {
 
 /**
  * PUT /api/tenants/[id]/users/[userId]/role
- * Update member role (SUPER_ADMIN or TENANT_ADMIN)
+ * Update member role (TENANT_ADMIN or SUPER_ADMIN)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const { id: tenantId, userId } = await params
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireTenantAdmin(tenantId)
+    if (!auth.ok) return auth.response
 
-    const { id, userId } = await params
-
-    // Check if user is super admin or tenant admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
-
-    if (!isSuperAdminUser && !isTenantAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
 
     // Prevent users from changing their own role (unless super admin)
-    if (session.user.id === userId && !isSuperAdminUser) {
+    if (auth.user.id === userId && !isSuperAdminUser) {
         return NextResponse.json(
             { error: 'Cannot change your own role' },
             { status: 400 }
@@ -55,22 +43,18 @@ export async function PUT(req: Request, { params }: RouteParams) {
         )
     }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
     // Block role changes in personal workspaces
-    const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('id, is_personal')
-        .eq('id', id)
-        .single()
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(tenantId)
+        .get()
 
-    if (tenantError || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    if (tenant.is_personal) {
+    const tenantData = tenantDoc.data()!
+    if (tenantData.isPersonal) {
         return NextResponse.json(
             { error: 'Personal workspaces cannot manage team roles' },
             { status: 403 }
@@ -78,7 +62,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     if (!isSuperAdminUser) {
-        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
+        const teamEnabled = await isFeatureEnabled(tenantId, 'TEAM_COLLABORATION')
         if (!teamEnabled) {
             return NextResponse.json(
                 { error: 'Team collaboration is disabled for this workspace' },
@@ -87,22 +71,25 @@ export async function PUT(req: Request, { params }: RouteParams) {
         }
     }
 
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .update({ role })
-        .eq('tenant_id', id)
-        .eq('user_id', userId)
-        .select('*')
-        .single()
+    const memberRef = adminDb
+        .collection(Collections.members(tenantId))
+        .doc(userId)
 
-    if (error || !data) {
+    const memberDoc = await memberRef.get()
+    if (!memberDoc.exists) {
         return NextResponse.json(
-            { error: error?.message || 'Failed to update role' },
-            { status: 500 }
+            { error: 'User is not a member of this tenant' },
+            { status: 404 }
         )
     }
 
-    return NextResponse.json({ success: true, user: data })
+    await memberRef.update({ role })
+
+    const updatedDoc = await memberRef.get()
+    return NextResponse.json({
+        success: true,
+        user: { userId, tenantId, ...updatedDoc.data() }
+    })
 }
 
 /**
@@ -110,47 +97,33 @@ export async function PUT(req: Request, { params }: RouteParams) {
  * Remove user from tenant
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const { id: tenantId, userId } = await params
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireTenantAdmin(tenantId)
+    if (!auth.ok) return auth.response
 
-    const { id, userId } = await params
-
-    // Check if user is super admin or tenant admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
-
-    if (!isSuperAdminUser && !isTenantAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
 
     // Prevent users from removing themselves
-    if (session.user.id === userId) {
+    if (auth.user.id === userId) {
         return NextResponse.json(
             { error: 'Cannot remove yourself from tenant' },
             { status: 400 }
         )
     }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
     // Block removals in personal workspaces
-    const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('id, is_personal')
-        .eq('id', id)
-        .single()
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(tenantId)
+        .get()
 
-    if (tenantError || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    if (tenant.is_personal) {
+    const tenantData = tenantDoc.data()!
+    if (tenantData.isPersonal) {
         return NextResponse.json(
             { error: 'Personal workspaces cannot manage team membership' },
             { status: 403 }
@@ -158,7 +131,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     if (!isSuperAdminUser) {
-        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
+        const teamEnabled = await isFeatureEnabled(tenantId, 'TEAM_COLLABORATION')
         if (!teamEnabled) {
             return NextResponse.json(
                 { error: 'Team collaboration is disabled for this workspace' },
@@ -167,18 +140,28 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         }
     }
 
-    const { error } = await supabase
-        .from('tenant_users')
-        .delete()
-        .eq('tenant_id', id)
-        .eq('user_id', userId)
+    const memberRef = adminDb
+        .collection(Collections.members(tenantId))
+        .doc(userId)
 
-    if (error) {
+    const memberDoc = await memberRef.get()
+    if (!memberDoc.exists) {
         return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
+            { error: 'User is not a member of this tenant' },
+            { status: 404 }
         )
     }
+
+    await memberRef.delete()
+
+    // Also remove tenantId from user's tenantIds array
+    const { FieldValue } = await import('firebase-admin/firestore')
+    await adminDb
+        .collection(Collections.users)
+        .doc(userId)
+        .update({
+            tenantIds: FieldValue.arrayRemove(tenantId)
+        })
 
     return NextResponse.json({ success: true })
 }

@@ -1,6 +1,5 @@
 import { auth } from '@/auth'
 import { PersistentSidebarLayout } from '@/components/layouts/persistent-sidebar-layout'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { isFeatureEnabled } from '@/lib/features'
 import { getActiveTenant } from '@/lib/tenant-context'
@@ -10,8 +9,7 @@ export default async function WhatsAppBulkLayout({
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     redirect('/sign-in')

@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { auth } from '@/auth'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
+import { requireAuth, requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { maskEmail } from '@/lib/email'
-import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
 
 export const runtime = 'nodejs'
 
@@ -20,104 +19,96 @@ type RouteParams = {
 export async function GET(req: Request, { params }: RouteParams) {
     const { token } = await params
 
-    const supabaseAdmin = getServiceSupabaseClient()
+    const invitationDoc = await adminDb
+        .collection(Collections.invitations)
+        .doc(token)
+        .get()
 
-    const { data: invitation, error } = await supabaseAdmin
-        .from('invitations')
-        .select('*, tenants(name, slug)')
-        .eq('token', token)
-        .single()
-
-    if (error || !invitation) {
+    if (!invitationDoc.exists) {
         return NextResponse.json(
             { error: 'Invitation not found' },
             { status: 404 }
         )
     }
 
-    // Check if invitation is expired
+    const invitation = invitationDoc.data()!
     const now = new Date()
-    const expiresAt = new Date(invitation.expires_at)
+    const expiresAt = new Date(invitation.expiresAt)
 
+    // If marked expired but hasn't actually expired yet, update expiresAt to now
     if (invitation.status === 'expired' && now < expiresAt) {
         const nowIso = now.toISOString()
-        await supabaseAdmin
-            .from('invitations')
-            .update({ expires_at: nowIso })
-            .eq('id', invitation.id)
-
-        invitation.expires_at = nowIso
+        await invitationDoc.ref.update({ expiresAt: nowIso })
+        invitation.expiresAt = nowIso
     }
 
-    if (now > expiresAt) {
-        // Mark as expired if not already
-        if (invitation.status === 'pending') {
-            await supabaseAdmin
-                .from('invitations')
-                .update({ status: 'expired' })
-                .eq('id', invitation.id)
-
-            invitation.status = 'expired'
-        }
+    // If past expiry and still pending, mark as expired
+    if (now > expiresAt && invitation.status === 'pending') {
+        await invitationDoc.ref.update({ status: 'expired' })
+        invitation.status = 'expired'
     }
 
-    const { data: invitedByData } = await supabaseAdmin.auth.admin.getUserById(
-        invitation.created_by
-    )
+    // Get tenant name
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(invitation.tenantId)
+        .get()
+
+    const tenantName = tenantDoc.exists ? tenantDoc.data()?.name : 'Unknown tenant'
+
+    // Get inviter info
+    const inviterDoc = await adminDb
+        .collection(Collections.users)
+        .doc(invitation.createdBy)
+        .get()
+
+    const inviterEmail = inviterDoc.exists ? inviterDoc.data()?.email : 'Unknown'
 
     const responseInvitation = {
-        id: invitation.id,
-        tenant_id: invitation.tenant_id,
-        tenant_name: invitation.tenants?.name ?? 'Unknown tenant',
+        id: invitationDoc.id,
+        tenant_id: invitation.tenantId,
+        tenant_name: tenantName,
         email: maskEmail(invitation.email),
         role: invitation.role,
         status: invitation.status,
-        created_at: invitation.created_at,
-        expires_at: invitation.expires_at,
-        accepted_at: invitation.accepted_at ?? null,
-        invited_by_email: invitedByData.user?.email ?? 'Unknown'
+        created_at: invitation.createdAt,
+        expires_at: invitation.expiresAt,
+        accepted_at: invitation.acceptedAt ?? null,
+        invited_by_email: inviterEmail
     }
 
     return NextResponse.json({ invitation: responseInvitation })
 }
 
 /**
- * DELETE /api/invitations/[id]
+ * DELETE /api/invitations/[token]
  * Cancel invitation (TENANT_ADMIN or SUPER_ADMIN)
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const authResult = await requireAuth()
+    if (!authResult.ok) return authResult.response
 
     // Note: this route param is `[token]` for historical reasons.
     // For DELETE requests we treat it as an invitation ID.
     const { token: invitationId } = await params
 
-    const supabaseAdmin = getServiceSupabaseClient()
+    const invitationDoc = await adminDb
+        .collection(Collections.invitations)
+        .doc(invitationId)
+        .get()
 
-    const { data: invitation, error } = await supabaseAdmin
-        .from('invitations')
-        .select('id, tenant_id, status')
-        .eq('id', invitationId)
-        .single()
-
-    if (error || !invitation) {
+    if (!invitationDoc.exists) {
         return NextResponse.json(
             { error: 'Invitation not found' },
             { status: 404 }
         )
     }
 
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isTenantAdminUser = await isTenantAdmin(session.user.id, invitation.tenant_id)
+    const invitation = invitationDoc.data()!
 
-    if (!isSuperAdminUser && !isTenantAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    // Check permissions: must be admin of the invitation's tenant
+    const adminCheck = await requireTenantAdmin(invitation.tenantId)
+    if (!adminCheck.ok) return adminCheck.response
 
     if (invitation.status === 'accepted') {
         return NextResponse.json(
@@ -126,17 +117,10 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         )
     }
 
-    const { error: updateError } = await supabaseAdmin
-        .from('invitations')
-        .update({ status: 'expired', expires_at: new Date().toISOString() })
-        .eq('id', invitation.id)
-
-    if (updateError) {
-        return NextResponse.json(
-            { error: updateError.message },
-            { status: 500 }
-        )
-    }
+    await invitationDoc.ref.update({
+        status: 'expired',
+        expiresAt: new Date().toISOString()
+    })
 
     return new NextResponse(null, { status: 204 })
 }

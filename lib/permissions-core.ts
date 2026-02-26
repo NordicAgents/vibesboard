@@ -1,14 +1,14 @@
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+
 export async function isSuperAdminWithClient(
-  supabase: any,
+  _unused: any,
   userId: string
 ): Promise<boolean> {
-  const { count, error } = await supabase
-    .from('tenant_users')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('role', 'SUPER_ADMIN')
+  const userDoc = await adminDb
+    .collection(Collections.users)
+    .doc(userId)
+    .get()
 
-  if (error) return false
-  return (count ?? 0) > 0
+  return userDoc.exists && userDoc.data()?.isSuperAdmin === true
 }
-

@@ -1,5 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service-client';
+import { adminDb } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
+import {
+  Collections,
+  type WhatsAppCampaignDocument,
+  type CampaignStatus,
+  type MessageQueueDocument,
+} from '@/lib/firestore-types'
 
 /**
  * WhatsApp Campaign Management
@@ -16,52 +22,27 @@ import { createServiceClient } from '@/lib/supabase/service-client';
 // =====================================================
 
 export interface CreateCampaignParams {
-  tenantId: string;
-  businessAccountId: string;
-  name: string;
-  description?: string;
-  templateId: string;
-  templateVariables?: Record<string, string>;
-  contactListIds: string[];
-  filterCriteria?: any;
-  scheduledAt?: Date;
-  maxMessagesPerSecond?: number;
-  userId: string;
+  tenantId: string
+  businessAccountId: string
+  name: string
+  description?: string
+  templateId: string
+  templateVariables?: Record<string, string>
+  contactListIds: string[]
+  filterCriteria?: any
+  scheduledAt?: Date
+  maxMessagesPerSecond?: number
+  userId: string
 }
 
-export interface Campaign {
-  id: string;
-  tenant_id: string;
-  business_account_id: string;
-  name: string;
-  description?: string;
-  template_id: string;
-  template_variables: Record<string, string>;
-  contact_list_ids: string[];
-  filter_criteria?: any;
-  status: 'draft' | 'scheduled' | 'sending' | 'paused' | 'completed' | 'failed' | 'cancelled';
-  scheduled_at?: string;
-  started_at?: string;
-  completed_at?: string;
-  paused_at?: string;
-  total_recipients: number;
-  messages_sent: number;
-  messages_delivered: number;
-  messages_read: number;
-  messages_failed: number;
-  messages_pending: number;
-  max_messages_per_second: number;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-}
+export type Campaign = WhatsAppCampaignDocument
 
 export interface CampaignStats {
-  campaign: Campaign;
-  deliveryRate: number;
-  readRate: number;
-  failureRate: number;
-  estimatedCompletion?: string;
+  campaign: Campaign
+  deliveryRate: number
+  readRate: number
+  failureRate: number
+  estimatedCompletion?: string
 }
 
 // =====================================================
@@ -72,244 +53,322 @@ export interface CampaignStats {
  * Create a new campaign
  */
 export async function createCampaign(
+  tenantId: string,
   params: CreateCampaignParams
 ): Promise<Campaign> {
-  const supabase = await createClient();
+  const collRef = adminDb.collection(Collections.whatsappCampaigns(tenantId))
 
-  const { data, error } = await supabase
-    .from('whatsapp_campaigns')
-    .insert({
-      tenant_id: params.tenantId,
-      business_account_id: params.businessAccountId,
-      name: params.name,
-      description: params.description,
-      template_id: params.templateId,
-      template_variables: params.templateVariables || {},
-      contact_list_ids: params.contactListIds,
-      filter_criteria: params.filterCriteria,
-      status: params.scheduledAt ? 'scheduled' : 'draft',
-      scheduled_at: params.scheduledAt?.toISOString(),
-      max_messages_per_second: params.maxMessagesPerSecond || 20,
-      created_by: params.userId,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to create campaign: ${error.message}`);
+  const now = new Date().toISOString()
+  const docRef = collRef.doc()
+  const campaign: Campaign = {
+    id: docRef.id,
+    tenantId,
+    businessAccountId: params.businessAccountId,
+    name: params.name,
+    description: params.description,
+    templateId: params.templateId,
+    templateVariables: params.templateVariables || {},
+    contactListIds: params.contactListIds,
+    filterCriteria: params.filterCriteria,
+    status: params.scheduledAt ? 'scheduled' : 'draft',
+    scheduledAt: params.scheduledAt?.toISOString(),
+    totalRecipients: 0,
+    messagesSent: 0,
+    messagesDelivered: 0,
+    messagesRead: 0,
+    messagesFailed: 0,
+    messagesPending: 0,
+    maxMessagesPerSecond: params.maxMessagesPerSecond || 20,
+    createdBy: params.userId,
+    createdAt: now,
+    updatedAt: now,
   }
 
-  return data as Campaign;
+  await docRef.set(campaign)
+
+  return campaign
 }
 
 /**
  * Start a campaign (queue all messages)
  */
-export async function startCampaign(campaignId: string): Promise<void> {
-  const supabase = createServiceClient();
+export async function startCampaign(
+  tenantId: string,
+  campaignId: string
+): Promise<void> {
+  const campaignRef = adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
 
   // 1. Get campaign details
-  const { data: campaign, error: campaignError } = await supabase
-    .from('whatsapp_campaigns')
-    .select(`
-      *,
-      whatsapp_message_templates(*)
-    `)
-    .eq('id', campaignId)
-    .single();
-
-  if (campaignError) {
-    throw new Error(`Failed to fetch campaign: ${campaignError.message}`);
+  const campaignSnap = await campaignRef.get()
+  if (!campaignSnap.exists) {
+    throw new Error('Campaign not found')
   }
+
+  const campaign = campaignSnap.data() as Campaign
 
   if (campaign.status !== 'draft' && campaign.status !== 'scheduled') {
-    throw new Error('Campaign must be in draft or scheduled status to start');
+    throw new Error('Campaign must be in draft or scheduled status to start')
   }
 
-  // 2. Get all contacts from specified lists
-  const { data: members, error: membersError } = await supabase
-    .from('whatsapp_contact_list_members')
-    .select('whatsapp_contacts(*)')
-    .in('list_id', campaign.contact_list_ids);
+  // 2. Get the template
+  const templateSnap = await adminDb
+    .collection(
+      Collections.templates(tenantId, campaign.businessAccountId)
+    )
+    .doc(campaign.templateId)
+    .get()
 
-  if (membersError) {
-    throw new Error(`Failed to fetch contacts: ${membersError.message}`);
+  const template = templateSnap.exists ? templateSnap.data() : null
+
+  // 3. Get all contacts from specified lists (denormalized contactIds on list docs)
+  const contactIds = new Set<string>()
+  for (const listId of campaign.contactListIds) {
+    const listSnap = await adminDb
+      .collection(Collections.whatsappContactLists(tenantId))
+      .doc(listId)
+      .get()
+    if (listSnap.exists) {
+      const listData = listSnap.data()
+      if (listData?.contactIds) {
+        for (const id of listData.contactIds) {
+          contactIds.add(id)
+        }
+      }
+    }
   }
 
-  // Filter opted-in contacts only
-  const contacts = members
-    .map((m: any) => m.whatsapp_contacts)
-    .filter((c: any) => c.opted_in);
+  // Fetch the actual contact documents and filter opted-in only
+  const contacts: any[] = []
+  const contactIdArray = Array.from(contactIds)
+
+  // Fetch in batches of 30 (Firestore 'in' limit is 30)
+  for (let i = 0; i < contactIdArray.length; i += 30) {
+    const batch = contactIdArray.slice(i, i + 30)
+    const snap = await adminDb
+      .collection(Collections.whatsappContacts(tenantId))
+      .where('id', 'in', batch)
+      .get()
+    snap.docs.forEach(doc => {
+      const data = doc.data()
+      if (data.optedIn) {
+        contacts.push(data)
+      }
+    })
+  }
 
   if (contacts.length === 0) {
-    throw new Error('No opted-in contacts found in selected lists');
+    throw new Error('No opted-in contacts found in selected lists')
   }
 
-  // 3. Update campaign status
-  const { error: updateError } = await supabase
-    .from('whatsapp_campaigns')
-    .update({
-      status: 'sending',
-      started_at: new Date().toISOString(),
-      total_recipients: contacts.length,
-      messages_pending: contacts.length,
-    })
-    .eq('id', campaignId);
+  // 4. Update campaign status
+  await campaignRef.update({
+    status: 'sending',
+    startedAt: new Date().toISOString(),
+    totalRecipients: contacts.length,
+    messagesPending: contacts.length,
+    updatedAt: new Date().toISOString(),
+  })
 
-  if (updateError) {
-    throw new Error(`Failed to update campaign: ${updateError.message}`);
-  }
+  // 5. Queue all messages
+  const queueCollRef = adminDb.collection(
+    Collections.messageQueue(tenantId, campaignId)
+  )
 
-  // 4. Queue all messages
-  const queueItems = contacts.map((contact: any) => ({
-    campaign_id: campaignId,
-    business_account_id: campaign.business_account_id,
-    contact_id: contact.id,
-    to_phone_number: contact.phone_number,
-    template_id: campaign.template_id,
-    template_name: campaign.whatsapp_message_templates.name,
-    template_language: campaign.whatsapp_message_templates.language,
-    template_variables: {
-      ...campaign.template_variables,
-      // Personalize with contact data
-      customer_name: contact.name || 'Customer',
-      ...contact.custom_fields,
-    },
-    status: 'pending',
-    max_attempts: 3,
-  }));
+  // Insert queue items in batches of 500 (Firestore batch limit)
+  const batchSize = 500
+  for (let i = 0; i < contacts.length; i += batchSize) {
+    const batchItems = contacts.slice(i, i + batchSize)
+    const writeBatch = adminDb.batch()
 
-  // Insert queue items in batches
-  const batchSize = 1000;
-  for (let i = 0; i < queueItems.length; i += batchSize) {
-    const batch = queueItems.slice(i, i + batchSize);
-    const { error: queueError } = await supabase
-      .from('whatsapp_message_queue')
-      .insert(batch);
-
-    if (queueError) {
-      throw new Error(`Failed to queue messages: ${queueError.message}`);
+    for (const contact of batchItems) {
+      const queueDocRef = queueCollRef.doc()
+      const now = new Date().toISOString()
+      const queueItem: MessageQueueDocument = {
+        id: queueDocRef.id,
+        campaignId,
+        businessAccountId: campaign.businessAccountId,
+        contactId: contact.id,
+        toPhoneNumber: contact.phoneNumber,
+        templateId: campaign.templateId,
+        templateName: template?.name || '',
+        templateLanguage: template?.language || 'en',
+        templateVariables: {
+          ...campaign.templateVariables,
+          // Personalize with contact data
+          customer_name: contact.name || 'Customer',
+          ...contact.customFields,
+        },
+        status: 'pending',
+        attempts: 0,
+        maxAttempts: 3,
+        createdAt: now,
+        updatedAt: now,
+      }
+      writeBatch.set(queueDocRef, queueItem)
     }
+
+    await writeBatch.commit()
   }
 }
 
 /**
  * Pause campaign
  */
-export async function pauseCampaign(campaignId: string): Promise<void> {
-  const supabase = await createClient();
+export async function pauseCampaign(
+  tenantId: string,
+  campaignId: string
+): Promise<void> {
+  const campaignRef = adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
 
-  const { error } = await supabase
-    .from('whatsapp_campaigns')
-    .update({
-      status: 'paused',
-      paused_at: new Date().toISOString(),
-    })
-    .eq('id', campaignId)
-    .eq('status', 'sending');
-
-  if (error) {
-    throw new Error(`Failed to pause campaign: ${error.message}`);
+  const snap = await campaignRef.get()
+  if (!snap.exists) {
+    throw new Error('Campaign not found')
   }
+
+  const campaign = snap.data() as Campaign
+  if (campaign.status !== 'sending') {
+    throw new Error('Campaign must be in sending status to pause')
+  }
+
+  await campaignRef.update({
+    status: 'paused',
+    pausedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 /**
  * Resume campaign
  */
-export async function resumeCampaign(campaignId: string): Promise<void> {
-  const supabase = await createClient();
+export async function resumeCampaign(
+  tenantId: string,
+  campaignId: string
+): Promise<void> {
+  const campaignRef = adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
 
-  const { error } = await supabase
-    .from('whatsapp_campaigns')
-    .update({
-      status: 'sending',
-      paused_at: null,
-    })
-    .eq('id', campaignId)
-    .eq('status', 'paused');
-
-  if (error) {
-    throw new Error(`Failed to resume campaign: ${error.message}`);
+  const snap = await campaignRef.get()
+  if (!snap.exists) {
+    throw new Error('Campaign not found')
   }
+
+  const campaign = snap.data() as Campaign
+  if (campaign.status !== 'paused') {
+    throw new Error('Campaign must be in paused status to resume')
+  }
+
+  await campaignRef.update({
+    status: 'sending',
+    pausedAt: FieldValue.delete(),
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 /**
  * Cancel campaign
  */
-export async function cancelCampaign(campaignId: string): Promise<void> {
-  const supabase = createServiceClient();
+export async function cancelCampaign(
+  tenantId: string,
+  campaignId: string
+): Promise<void> {
+  const campaignRef = adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
 
-  // Update campaign status
-  const { error: campaignError } = await supabase
-    .from('whatsapp_campaigns')
-    .update({
-      status: 'cancelled',
-    })
-    .eq('id', campaignId)
-    .in('status', ['draft', 'scheduled', 'sending', 'paused']);
-
-  if (campaignError) {
-    throw new Error(`Failed to cancel campaign: ${campaignError.message}`);
+  const snap = await campaignRef.get()
+  if (!snap.exists) {
+    throw new Error('Campaign not found')
   }
 
-  // Cancel pending queue items
-  const { error: queueError } = await supabase
-    .from('whatsapp_message_queue')
-    .update({
-      status: 'cancelled',
-    })
-    .eq('campaign_id', campaignId)
-    .eq('status', 'pending');
+  const campaign = snap.data() as Campaign
+  if (
+    !['draft', 'scheduled', 'sending', 'paused'].includes(campaign.status)
+  ) {
+    throw new Error('Campaign cannot be cancelled in its current status')
+  }
 
-  if (queueError) {
-    throw new Error(`Failed to cancel queue items: ${queueError.message}`);
+  // Update campaign status
+  await campaignRef.update({
+    status: 'cancelled',
+    updatedAt: new Date().toISOString(),
+  })
+
+  // Cancel pending queue items
+  const queueSnap = await adminDb
+    .collection(Collections.messageQueue(tenantId, campaignId))
+    .where('status', '==', 'pending')
+    .get()
+
+  // Update in batches of 500
+  const batchSize = 500
+  const docs = queueSnap.docs
+  for (let i = 0; i < docs.length; i += batchSize) {
+    const batchDocs = docs.slice(i, i + batchSize)
+    const writeBatch = adminDb.batch()
+    for (const doc of batchDocs) {
+      writeBatch.update(doc.ref, {
+        status: 'cancelled',
+        updatedAt: new Date().toISOString(),
+      })
+    }
+    await writeBatch.commit()
   }
 }
 
 /**
  * Get campaign statistics
  */
-export async function getCampaignStats(campaignId: string): Promise<CampaignStats> {
-  const supabase = await createClient();
+export async function getCampaignStats(
+  tenantId: string,
+  campaignId: string
+): Promise<CampaignStats> {
+  const snap = await adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
+    .get()
 
-  const { data: campaign, error } = await supabase
-    .from('whatsapp_campaigns')
-    .select('*')
-    .eq('id', campaignId)
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to fetch campaign: ${error.message}`);
+  if (!snap.exists) {
+    throw new Error('Campaign not found')
   }
 
-  const deliveryRate = campaign.total_recipients > 0
-    ? (campaign.messages_delivered / campaign.total_recipients) * 100
-    : 0;
+  const campaign = snap.data() as Campaign
 
-  const readRate = campaign.messages_delivered > 0
-    ? (campaign.messages_read / campaign.messages_delivered) * 100
-    : 0;
+  const deliveryRate =
+    campaign.totalRecipients > 0
+      ? (campaign.messagesDelivered / campaign.totalRecipients) * 100
+      : 0
 
-  const failureRate = campaign.total_recipients > 0
-    ? (campaign.messages_failed / campaign.total_recipients) * 100
-    : 0;
+  const readRate =
+    campaign.messagesDelivered > 0
+      ? (campaign.messagesRead / campaign.messagesDelivered) * 100
+      : 0
+
+  const failureRate =
+    campaign.totalRecipients > 0
+      ? (campaign.messagesFailed / campaign.totalRecipients) * 100
+      : 0
 
   // Estimate completion time
-  let estimatedCompletion: string | undefined;
-  if (campaign.status === 'sending' && campaign.messages_pending > 0) {
-    const messagesPerSecond = campaign.max_messages_per_second || 20;
-    const secondsRemaining = campaign.messages_pending / messagesPerSecond;
-    const completionDate = new Date(Date.now() + secondsRemaining * 1000);
-    estimatedCompletion = completionDate.toISOString();
+  let estimatedCompletion: string | undefined
+  if (campaign.status === 'sending' && campaign.messagesPending > 0) {
+    const messagesPerSecond = campaign.maxMessagesPerSecond || 20
+    const secondsRemaining = campaign.messagesPending / messagesPerSecond
+    const completionDate = new Date(Date.now() + secondsRemaining * 1000)
+    estimatedCompletion = completionDate.toISOString()
   }
 
   return {
-    campaign: campaign as Campaign,
+    campaign,
     deliveryRate,
     readRate,
     failureRate,
     estimatedCompletion,
-  };
+  }
 }
 
 /**
@@ -318,130 +377,114 @@ export async function getCampaignStats(campaignId: string): Promise<CampaignStat
 export async function listCampaigns(
   tenantId: string,
   filters?: {
-    status?: Campaign['status'];
-    limit?: number;
-    offset?: number;
+    status?: CampaignStatus
+    limit?: number
+    offset?: number
   }
 ): Promise<{ campaigns: Campaign[]; total: number }> {
-  const supabase = await createClient();
-
-  let query = supabase
-    .from('whatsapp_campaigns')
-    .select('*', { count: 'exact' })
-    .eq('tenant_id', tenantId);
+  let query: FirebaseFirestore.Query = adminDb.collection(
+    Collections.whatsappCampaigns(tenantId)
+  )
 
   if (filters?.status) {
-    query = query.eq('status', filters.status);
+    query = query.where('status', '==', filters.status)
+  }
+
+  query = query.orderBy('createdAt', 'desc')
+
+  // Get total count
+  const countSnap = await query.count().get()
+  const total = countSnap.data().count
+
+  // Apply pagination
+  if (filters?.offset) {
+    query = query.offset(filters.offset)
   }
 
   if (filters?.limit) {
-    query = query.limit(filters.limit);
+    query = query.limit(filters.limit)
   }
 
-  if (filters?.offset) {
-    query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
-  }
+  const snap = await query.get()
+  const campaigns = snap.docs.map(doc => doc.data() as Campaign)
 
-  query = query.order('created_at', { ascending: false });
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    throw new Error(`Failed to list campaigns: ${error.message}`);
-  }
-
-  return {
-    campaigns: data as Campaign[],
-    total: count || 0,
-  };
+  return { campaigns, total }
 }
 
 /**
  * Get a single campaign by ID
  */
-export async function getCampaignById(campaignId: string): Promise<Campaign | null> {
-  const supabase = await createClient();
+export async function getCampaignById(
+  tenantId: string,
+  campaignId: string
+): Promise<Campaign | null> {
+  const snap = await adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
+    .get()
 
-  const { data, error } = await supabase
-    .from('whatsapp_campaigns')
-    .select('*')
-    .eq('id', campaignId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
-    throw new Error(`Failed to fetch campaign: ${error.message}`);
+  if (!snap.exists) {
+    return null
   }
 
-  return data as Campaign;
+  return snap.data() as Campaign
 }
 
 /**
  * Delete campaign
  */
-export async function deleteCampaign(campaignId: string): Promise<void> {
-  const supabase = await createClient();
+export async function deleteCampaign(
+  tenantId: string,
+  campaignId: string
+): Promise<void> {
+  const snap = await adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
+    .get()
 
-  // Only allow deletion of draft campaigns
-  const { data: campaign } = await supabase
-    .from('whatsapp_campaigns')
-    .select('status')
-    .eq('id', campaignId)
-    .single();
-
-  if (campaign && campaign.status !== 'draft') {
-    throw new Error('Can only delete draft campaigns');
+  if (snap.exists) {
+    const campaign = snap.data() as Campaign
+    if (campaign.status !== 'draft') {
+      throw new Error('Can only delete draft campaigns')
+    }
   }
 
-  const { error } = await supabase
-    .from('whatsapp_campaigns')
+  await adminDb
+    .collection(Collections.whatsappCampaigns(tenantId))
+    .doc(campaignId)
     .delete()
-    .eq('id', campaignId);
-
-  if (error) {
-    throw new Error(`Failed to delete campaign: ${error.message}`);
-  }
 }
 
 /**
  * Get queue items for a campaign
  */
 export async function getCampaignQueueItems(
+  tenantId: string,
   campaignId: string,
   filters?: {
-    status?: string;
-    limit?: number;
-    offset?: number;
+    status?: string
+    limit?: number
+    offset?: number
   }
-): Promise<any[]> {
-  const supabase = await createClient();
-
-  let query = supabase
-    .from('whatsapp_message_queue')
-    .select('*')
-    .eq('campaign_id', campaignId);
+): Promise<MessageQueueDocument[]> {
+  let query: FirebaseFirestore.Query = adminDb.collection(
+    Collections.messageQueue(tenantId, campaignId)
+  )
 
   if (filters?.status) {
-    query = query.eq('status', filters.status);
+    query = query.where('status', '==', filters.status)
+  }
+
+  query = query.orderBy('createdAt', 'desc')
+
+  if (filters?.offset) {
+    query = query.offset(filters.offset)
   }
 
   if (filters?.limit) {
-    query = query.limit(filters.limit);
+    query = query.limit(filters.limit)
   }
 
-  if (filters?.offset) {
-    query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
-  }
-
-  query = query.order('created_at', { ascending: false });
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(`Failed to fetch queue items: ${error.message}`);
-  }
-
-  return data;
+  const snap = await query.get()
+  return snap.docs.map(doc => doc.data() as MessageQueueDocument)
 }

@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyButton } from '@/components/ui/copy-button'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
-import { mapAgentRow } from '@/lib/agents/db'
+import { getAgentById } from '@/lib/agents/server'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections, type TenantDocument } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -15,30 +16,29 @@ export default async function AdminAgentPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabaseAdmin = getServiceSupabaseClient()
 
-  const { data: agentRow } = await supabaseAdmin
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  const agent = await getAgentById(id)
 
-  if (!agentRow) {
+  if (!agent) {
     notFound()
   }
 
-  const agent = mapAgentRow(agentRow)
-  const tenantId = (agentRow as any).tenant_id as string | null
+  const tenantId = agent.tenantId ?? null
 
-  const { data: tenant } = tenantId
-    ? await supabaseAdmin
-        .from('tenants')
-        .select('id, name, slug')
-        .eq('id', tenantId)
-        .maybeSingle()
-    : { data: null as any }
+  let tenant: Pick<TenantDocument, 'id' | 'name' | 'slug'> | null = null
+  if (tenantId) {
+    const tenantDoc = await adminDb
+      .collection(Collections.tenants)
+      .doc(tenantId)
+      .get()
 
-  const sharePath = agent.allowAnonymous ? `/a/${agent.agentUrl}` : null
+    if (tenantDoc.exists) {
+      const data = tenantDoc.data()!
+      tenant = { id: data.id, name: data.name, slug: data.slug }
+    }
+  }
+
+  const sharePath = agent.allowAnonymous ? `/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}` : null
 
   return (
     <div className="space-y-6">
@@ -153,4 +153,3 @@ export default async function AdminAgentPage({
     </div>
   )
 }
-

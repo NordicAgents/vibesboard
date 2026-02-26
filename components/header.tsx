@@ -1,6 +1,5 @@
 import * as React from 'react'
 import Link from 'next/link'
-import { cookies } from 'next/headers'
 
 import { auth } from '@/auth'
 import { Button } from '@/components/ui/button'
@@ -11,8 +10,7 @@ import { UserMenu } from '@/components/user-menu'
 import { hasTenantAdminAccess, isSuperAdmin } from '@/lib/permissions'
 
 export async function Header() {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
   const [isSuperAdminUser, canManageTenant] = session?.user?.id
     ? await Promise.all([
         isSuperAdmin(session.user.id),

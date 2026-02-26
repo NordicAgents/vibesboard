@@ -41,3 +41,6 @@ yarn-error.log*
 
 .kilocodemodes
 .kilocode
+
+# Cloud Functions build output
+functions/lib

@@ -13,14 +13,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Database } from '@/lib/db_types'
+import type { TenantDocument } from '@/lib/firestore-types'
 import { Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-type Tenant = Database['public']['Tables']['tenants']['Row']
-
 interface TenantOverviewTabProps {
-  tenant: Tenant
+  tenant: TenantDocument
   onUpdate: () => void
 }
 
@@ -182,7 +180,7 @@ export function TenantOverviewTab({
         <div className="space-y-2">
           <Label>Created</Label>
           <div className="text-sm text-muted-foreground">
-            {new Date(tenant.created_at).toLocaleString()}
+            {new Date(tenant.createdAt).toLocaleString()}
           </div>
         </div>
 
@@ -190,7 +188,7 @@ export function TenantOverviewTab({
         <div className="space-y-2">
           <Label>Last Updated</Label>
           <div className="text-sm text-muted-foreground">
-            {new Date(tenant.updated_at).toLocaleString()}
+            {new Date(tenant.updatedAt).toLocaleString()}
           </div>
         </div>
 

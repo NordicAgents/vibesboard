@@ -13,13 +13,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Database } from '@/lib/db_types'
+import type { TenantDocument } from '@/lib/firestore-types'
 import toast from 'react-hot-toast'
 
-type Tenant = Database['public']['Tables']['tenants']['Row']
-
 interface TenantSwitcherProps {
-    tenants: Tenant[]
+    tenants: TenantDocument[]
     currentTenantId: string | null
     className?: string
 }
@@ -35,11 +33,11 @@ export function TenantSwitcher({
 
     const currentTenant = tenants.find(t => t.id === currentTenantId)
 
-    const getTenantName = (tenant: Tenant) =>
-        tenant.is_personal ? 'Personal Workspace' : tenant.name
+    const getTenantName = (tenant: TenantDocument) =>
+        tenant.isPersonal ? 'Personal Workspace' : tenant.name
 
-    const getTenantSlugLabel = (tenant: Tenant) =>
-        tenant.is_personal ? null : `/${tenant.slug}`
+    const getTenantSlugLabel = (tenant: TenantDocument) =>
+        tenant.isPersonal ? null : `/${tenant.slug}`
 
     const handleTenantSwitch = async (tenantId: string) => {
         try {

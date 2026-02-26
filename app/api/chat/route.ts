@@ -1,13 +1,12 @@
 import 'server-only'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 import { Configuration, OpenAIApi } from 'openai-edge'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { Database } from '@/lib/db_types'
 
 import { auth } from '@/auth'
 import { nanoid } from '@/lib/utils'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -18,13 +17,10 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration)
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
   const json = await req.json()
   const { messages, previewToken } = json
-  const userId = (await auth({ cookieStore }))?.user.id
+  const session = await auth()
+  const userId = session?.user?.id
 
   if (!userId) {
     return new Response('Unauthorized', {
@@ -78,7 +74,10 @@ export async function POST(req: Request) {
             }
           ]
         }
-        await supabase.from('chats').upsert({ id, payload }).throwOnError()
+        await adminDb
+          .collection(Collections.chats)
+          .doc(id)
+          .set({ id, userId, payload }, { merge: true })
       }
     })
 
@@ -112,8 +111,10 @@ export async function POST(req: Request) {
           }
         ]
       }
-      // Insert chat into database.
-      await supabase.from('chats').upsert({ id, payload }).throwOnError()
+      await adminDb
+        .collection(Collections.chats)
+        .doc(id)
+        .set({ id, userId, payload }, { merge: true })
     }
   })
 

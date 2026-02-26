@@ -10,7 +10,6 @@ import {
   type QuickSuggestionsMode,
   type VibeAgentTool
 } from '@/lib/types'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { AgentBuilderHelper } from './agent-builder-helper'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,24 +66,42 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return
     setIsUploading(true)
-    const supabase = getBrowserSupabaseClient()
 
     try {
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
-          const path = `${userId}/${Date.now()}-${safeFileName(file.name)}`
-          const { data, error } = await supabase.storage
-            .from('agent-files')
-            .upload(path, file, {
-              upsert: true,
+          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+
+          // Get a signed upload URL from the API
+          const res = await fetch('/api/files/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName,
               contentType: file.type || 'application/octet-stream'
             })
+          })
 
-          if (error || !data) {
-            throw error ?? new Error('Upload failed')
+          if (!res.ok) {
+            throw new Error('Failed to get upload URL')
           }
 
-          return data.path
+          const { uploadUrl, fileKey } = await res.json()
+
+          // Upload the file directly to GCS
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+          })
+
+          if (!uploadRes.ok) {
+            throw new Error('Upload failed')
+          }
+
+          return fileKey
         })
       )
       setFileKeys(prev => Array.from(new Set([...prev, ...uploads])))
@@ -99,8 +116,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   }
 
   const handleRemoveFile = async (path: string) => {
-    const supabase = getBrowserSupabaseClient()
-    await supabase.storage.from('agent-files').remove([path])
+    // Remove from local state; server-side cleanup happens when the agent is saved
     setFileKeys(prev => prev.filter(item => item !== path))
   }
 

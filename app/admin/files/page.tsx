@@ -1,6 +1,5 @@
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
 import { AdminFileMonitor } from '@/components/admin/admin-file-monitor'
@@ -11,8 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default async function AdminFilesPage() {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     redirect('/sign-in')

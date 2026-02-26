@@ -1,102 +1,84 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { mapAgentDoc, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
 import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
-import { getActiveTenant } from '@/lib/tenant-context'
+import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@/lib/agents/schema'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 import { processFile } from '@/lib/agent/file-processor'
+import { nanoid } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
 export async function GET(req: Request) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const user = authResult.user
 
   const { searchParams } = new URL(req.url)
   const tenantId = searchParams.get('tenant_id')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '9')
   const from = (page - 1) * limit
-  const to = from + limit - 1
 
   const isSuperAdminUser = tenantId
-    ? await isSuperAdmin(session.user.id)
+    ? await isSuperAdmin(user.id)
     : false
 
   if (tenantId && !isSuperAdminUser) {
-    const isMember = await isMemberOfTenant(session.user.id, tenantId)
+    const isMember = await isMemberOfTenant(user.id, tenantId)
     if (!isMember) {
       return new NextResponse('Forbidden', { status: 403 })
     }
   }
 
-  const supabase = isSuperAdminUser
-    ? getServiceSupabaseClient()
-    : createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-      })
+  // Build the Firestore query
+  let baseQuery: FirebaseFirestore.Query = adminDb
+    .collection(Collections.agents(tenantId!))
+    .orderBy('createdAt', 'desc')
 
-  // Start building the query
-  let query = supabase
-    .from('vibe_agents')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-
-  if (tenantId) {
-    // If tenant_id is provided, filter by it
-    query = query.eq('tenant_id', tenantId)
-  } else {
-    // Fallback: show agents created by the user (legacy behavior)
-    query = query.eq('user_id', session.user.id)
+  if (!tenantId) {
+    // Fallback: show agents created by the user across all tenants
+    baseQuery = adminDb
+      .collectionGroup('agents')
+      .where('userId', '==', user.id)
+      .orderBy('createdAt', 'desc')
   }
+
+  // Get total count
+  const countSnapshot = await baseQuery.count().get()
+  const total = countSnapshot.data().count
 
   // Apply pagination
-  query = query.range(from, to)
+  const snapshot = await baseQuery.offset(from).limit(limit).get()
 
-  const { data, count, error } = await query
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const agents = snapshot.docs.map(doc => mapAgentDoc(doc.data()))
 
   return NextResponse.json({
-    agents: (data ?? []).map(mapAgentRow),
+    agents,
     pagination: {
       page,
       limit,
-      total: count ?? 0,
-      totalPages: Math.ceil((count ?? 0) / limit)
+      total,
+      totalPages: Math.ceil(total / limit)
     }
   })
 }
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const user = authResult.user
 
   const body = await req.json()
   const payload = upsertAgentSchema.parse(body)
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
   // Resolve the tenant the new agent should belong to.
-  // Use the active tenant cookie, falling back to a deterministic default.
-  const tenantId = await getActiveTenant(session.user.id)
+  const tenantId = await getActiveTenant(user.id)
 
   if (!tenantId) {
     return NextResponse.json(
@@ -108,54 +90,57 @@ export async function POST(req: Request) {
     )
   }
 
-  const slug = await ensureUniqueSlug(createAgentSlug(payload.name), supabase)
+  // Look up the tenant slug for URL construction
+  const tenant = await getTenantById(tenantId)
+  const tenantSlug = tenant?.slug ?? 'unknown'
 
-  // Build insert payload - mode/max_messages are optional until migration is applied
-  const insertPayload = {
-    user_id: session.user.id,
-    tenant_id: tenantId,
+  const slug = await ensureUniqueSlug(createAgentSlug(payload.name), tenantId)
+
+  const now = new Date().toISOString()
+  const newId = nanoid()
+  const docRef = adminDb.collection(Collections.agents(tenantId)).doc(newId)
+
+  const agentData = {
+    id: newId,
+    userId: user.id,
+    tenantId,
+    tenantSlug,
     name: payload.name,
     instructions: payload.instructions,
-    file_keys: payload.fileKeys,
-    tools: payload.tools,
-    allow_anonymous: payload.allowAnonymous,
-    agent_url: slug,
+    fileKeys: payload.fileKeys ?? [],
+    tools: payload.tools ?? [],
+    allowAnonymous: payload.allowAnonymous ?? false,
+    agentUrl: slug,
     ...(payload.greetingText !== undefined && {
-      greeting_text: payload.greetingText
+      greetingText: payload.greetingText
     }),
-    ...(payload.mode !== undefined && { mode: payload.mode }),
+    mode: payload.mode ?? 'provider',
     ...(payload.maxMessages !== undefined && {
-      max_messages: payload.maxMessages
+      maxMessages: payload.maxMessages
     }),
-    ...(payload.quickSuggestionsMode !== undefined && {
-      quick_suggestions_mode: payload.quickSuggestionsMode
-    }),
-    ...(payload.quickSuggestionsCount !== undefined && {
-      quick_suggestions_count: payload.quickSuggestionsCount
-    })
+    quickSuggestionsMode: payload.quickSuggestionsMode ?? 'off',
+    quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
+    createdAt: now,
+    updatedAt: now
   }
 
-  const { data, error } = await supabase
-    .from('vibe_agents')
-    .insert(insertPayload)
-    .select('*')
-    .single()
-
-  if (error || !data) {
+  try {
+    await docRef.set(agentData)
+  } catch (error) {
     return NextResponse.json(
-      { error: error?.message ?? 'Unable to create agent' },
+      { error: error instanceof Error ? error.message : 'Unable to create agent' },
       { status: 500 }
     )
   }
 
-  const agent = mapAgentRow(data)
+  const agent = mapAgentDoc(agentData)
 
   // Auto-create agent_files entries for uploaded files (RAG Phase 1)
   if (payload.fileKeys && payload.fileKeys.length > 0) {
     await createAgentFilesAndTriggerProcessing({
       agentId: agent.id,
       tenantId,
-      userId: session.user.id,
+      userId: user.id,
       fileKeys: payload.fileKeys
     })
   }
@@ -174,75 +159,75 @@ async function createAgentFilesAndTriggerProcessing(params: {
   fileKeys: string[]
 }) {
   const { agentId, tenantId, userId, fileKeys } = params
-  const serviceSupabase = getServiceSupabaseClient()
 
   try {
-    // Get file metadata from storage
-    const fileEntries = await Promise.all(
-      fileKeys.map(async (fileKey) => {
-        try {
-          // Get file info from storage
-          const { data: fileData } = await serviceSupabase.storage
-            .from('agent-files')
-            .download(fileKey)
+    const batch = adminDb.batch()
+    const collPath = Collections.agentFiles(tenantId, agentId)
+    const createdFiles: Array<{
+      id: string
+      agentId: string
+      fileKey: string
+      fileName: string
+      mimeType: string
+    }> = []
 
-          const fileName = fileKey.split('/').pop() || fileKey
-          const fileSize = fileData?.size || 0
-          const mimeType = fileData?.type || guessMimeType(fileName)
+    for (const fileKey of fileKeys) {
+      try {
+        const fileName = fileKey.split('/').pop() || fileKey
+        const mimeType = guessMimeType(fileName)
 
-          return {
-            agent_id: agentId,
-            tenant_id: tenantId,
-            user_id: userId,
-            file_key: fileKey,
-            file_name: fileName,
-            file_size: fileSize,
-            mime_type: mimeType,
-            status: 'pending'
-          }
-        } catch (error) {
-          console.error(`Failed to get metadata for ${fileKey}:`, error)
-          return null
-        }
-      })
-    )
+        const ref = adminDb.collection(collPath).doc()
+        const now = new Date().toISOString()
 
-    const validEntries = fileEntries.filter(Boolean)
+        batch.set(ref, {
+          id: ref.id,
+          agentId,
+          tenantId,
+          userId,
+          fileKey,
+          fileName,
+          fileSize: 0,
+          mimeType,
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now
+        })
 
-    if (validEntries.length === 0) {
+        createdFiles.push({
+          id: ref.id,
+          agentId,
+          fileKey,
+          fileName,
+          mimeType
+        })
+      } catch (error) {
+        console.error(`Failed to prepare file entry for ${fileKey}:`, error)
+      }
+    }
+
+    if (createdFiles.length === 0) {
       return
     }
 
-    // Insert into agent_files table
-    const { data: createdFiles, error: insertError } = await serviceSupabase
-      .from('agent_files')
-      .insert(validEntries)
-      .select('id, agent_id, file_key, file_name, mime_type')
-
-    if (insertError) {
-      console.error('[Agent Creation] Failed to create agent_files:', insertError)
-      return
-    }
+    await batch.commit()
 
     // Trigger background processing for each file (non-blocking)
-    if (createdFiles && createdFiles.length > 0) {
-      // Process files in background (don't await)
-      Promise.all(
-        createdFiles.map(file =>
-          processFile({
-            fileId: file.id,
-            agentId: file.agent_id,
-            fileKey: file.file_key,
-            fileName: file.file_name,
-            mimeType: file.mime_type || 'application/octet-stream'
-          })
-        )
-      ).catch(error => {
-        console.error('[Agent Creation] Background file processing error:', error)
-      })
+    Promise.all(
+      createdFiles.map(file =>
+        processFile({
+          fileId: file.id,
+          agentId: file.agentId,
+          tenantId,
+          fileKey: file.fileKey,
+          fileName: file.fileName,
+          mimeType: file.mimeType || 'application/octet-stream'
+        })
+      )
+    ).catch(error => {
+      console.error('[Agent Creation] Background file processing error:', error)
+    })
 
-      console.log(`[Agent Creation] Triggered processing for ${createdFiles.length} files`)
-    }
+    console.log(`[Agent Creation] Triggered processing for ${createdFiles.length} files`)
   } catch (error) {
     console.error('[Agent Creation] Error in file processing setup:', error)
   }

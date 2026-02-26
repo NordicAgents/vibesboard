@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { type Database } from '@/lib/db_types'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import {
   createConnection,
   listAgentConnections
 } from '@/lib/whatsapp/connections'
 import { sendIntroductionMessage } from '@/lib/whatsapp/intro-message'
 import { z } from 'zod'
+
+export const runtime = 'nodejs'
 
 const CreateConnectionSchema = z.object({
   phoneNumber: z
@@ -21,44 +23,57 @@ const CreateConnectionSchema = z.object({
   expiresAt: z.string().datetime().optional()
 })
 
+type RouteParams = {
+  params: Promise<{ id: string }>
+}
+
+/**
+ * Find an agent by ID using collectionGroup query, verifying ownership.
+ * Returns the agent data and tenantId, or null if not found / not owned.
+ */
+async function findAgentWithOwnership(agentId: string, userId: string) {
+  const snap = await adminDb
+    .collectionGroup('agents')
+    .where('id', '==', agentId)
+    .where('userId', '==', userId)
+    .limit(1)
+    .get()
+
+  if (snap.empty) return null
+
+  const doc = snap.docs[0]
+  // Path: tenants/{tenantId}/agents/{agentId}
+  const pathParts = doc.ref.path.split('/')
+  const tenantId = pathParts[1]
+
+  return { agent: doc.data(), tenantId, ref: doc.ref }
+}
+
 /**
  * POST /api/agents/[id]/whatsapp/connections
  * Create new WhatsApp connection for agent
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: RouteParams
 ) {
   try {
     const { id: agentId } = await params
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({
-      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
 
-    // Check authentication
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
 
     // Verify agent ownership
-    const { data: agent, error: agentError } = await supabase
-      .from('vibe_agents')
-      .select('*')
-      .eq('id', agentId)
-      .eq('user_id', user.id)
-      .maybeSingle()
+    const agentResult = await findAgentWithOwnership(agentId, auth.user.id)
 
-    if (agentError || !agent) {
+    if (!agentResult) {
       return NextResponse.json(
         { error: 'Agent not found or unauthorized' },
         { status: 404 }
       )
     }
+
+    const { agent, tenantId } = agentResult
 
     // Parse and validate request body
     const body = await request.json()
@@ -66,15 +81,16 @@ export async function POST(
 
     // Create connection
     const connection = await createConnection(
+      tenantId,
       {
-        agent_id: agentId,
-        phone_number: validated.phoneNumber,
-        custom_intro_message: validated.customIntroMessage,
-        expires_at: validated.expiresAt
+        agentId,
+        phoneNumber: validated.phoneNumber,
+        customIntroMessage: validated.customIntroMessage,
+        expiresAt: validated.expiresAt
           ? new Date(validated.expiresAt)
           : undefined
       },
-      user.id
+      auth.user.id
     )
 
     if (!connection) {
@@ -87,7 +103,7 @@ export async function POST(
     // Send introduction message if requested
     let introMessageSent = false
     if (validated.sendIntroImmediately) {
-      introMessageSent = await sendIntroductionMessage(connection, agent)
+      introMessageSent = await sendIntroductionMessage(connection, agent as any)
     }
 
     return NextResponse.json(
@@ -124,44 +140,31 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: RouteParams
 ) {
   try {
     const { id: agentId } = await params
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({
-      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
 
-    // Check authentication
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
 
     // Verify agent ownership
-    const { data: agent } = await supabase
-      .from('vibe_agents')
-      .select('id')
-      .eq('id', agentId)
-      .eq('user_id', user.id)
-      .maybeSingle()
+    const agentResult = await findAgentWithOwnership(agentId, auth.user.id)
 
-    if (!agent) {
+    if (!agentResult) {
       return NextResponse.json(
         { error: 'Agent not found or unauthorized' },
         { status: 404 }
       )
     }
 
+    const { tenantId } = agentResult
+
     // Get status filter from query params
     const status = request.nextUrl.searchParams.get('status') || undefined
 
     // List connections
-    const connections = await listAgentConnections(agentId, status)
+    const connections = await listAgentConnections(tenantId, agentId, status)
 
     return NextResponse.json({
       connections,

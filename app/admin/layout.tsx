@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
@@ -12,8 +11,7 @@ export default async function AdminLayout({
 }: {
     children: React.ReactNode
 }) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const session = await auth()
 
     if (!session?.user) {
         redirect('/sign-in')

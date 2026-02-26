@@ -4,12 +4,10 @@ import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Database } from '@/lib/db_types'
-
-type Tenant = Database['public']['Tables']['tenants']['Row']
+import type { TenantDocument } from '@/lib/firestore-types'
 
 interface TenantCardProps {
-    tenant: Tenant
+    tenant: TenantDocument
     userCount?: number
     showActions?: boolean
     onEdit?: () => void
@@ -52,7 +50,7 @@ export function TenantCard({
                         <span className="ml-1">{userCount === 1 ? 'user' : 'users'}</span>
                     </div>
                     <div className="flex items-center">
-                        <span>Created {new Date(tenant.created_at).toLocaleDateString()}</span>
+                        <span>Created {new Date(tenant.createdAt).toLocaleDateString()}</span>
                     </div>
                 </div>
             </CardContent>

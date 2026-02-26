@@ -24,7 +24,6 @@ import {
   AgentBuilderFormPreview,
   type AgentFormData
 } from './agent-builder-form-preview'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 
 interface AgentCreatorChatProps {
   className?: string
@@ -151,6 +150,12 @@ export function AgentCreatorChat({
     setInput('Analyze this website: ')
   }
 
+  const safeFileName = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files?.length || !userId) {
       toast.error('Please sign in to upload files')
@@ -158,30 +163,42 @@ export function AgentCreatorChat({
     }
 
     setIsUploading(true)
-    const supabase = getBrowserSupabaseClient()
 
     try {
-      const safeFileName = (name: string) =>
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9._-]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
-          const path = `${userId}/${Date.now()}-${safeFileName(file.name)}`
-          const { data, error } = await supabase.storage
-            .from('agent-files')
-            .upload(path, file, {
-              upsert: true,
+          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+
+          // Get a signed upload URL from the API
+          const res = await fetch('/api/files/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName,
               contentType: file.type || 'application/octet-stream'
             })
+          })
 
-          if (error || !data) {
-            throw error ?? new Error('Upload failed')
+          if (!res.ok) {
+            throw new Error('Failed to get upload URL')
           }
 
-          return { path: data.path, name: file.name }
+          const { uploadUrl, fileKey } = await res.json()
+
+          // Upload the file directly to GCS
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+          })
+
+          if (!uploadRes.ok) {
+            throw new Error('Upload failed')
+          }
+
+          return { path: fileKey, name: file.name }
         })
       )
 
@@ -452,7 +469,7 @@ export function AgentCreatorChat({
                 {!createdAgentId && isReadyToCreate && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-black-10 bg-beige-bg px-3 py-2 text-xs text-black-primary dark:border-border dark:bg-muted dark:text-foreground">
                     <p className="font-switzer">
-                      Your agent draft is ready. Say “create it” or click Create
+                      Your agent draft is ready. Say "create it" or click Create
                       Agent.
                     </p>
                     <Button

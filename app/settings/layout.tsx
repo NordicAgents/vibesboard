@@ -1,27 +1,38 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@/auth'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Settings, Users, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+import { auth } from '@/auth'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections, type TenantDocument } from '@/lib/firestore-types'
 import { TenantSwitcher } from '@/components/tenants'
-import { getActiveTenant } from '@/lib/tenant-context'
+import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { hasTenantAdminAccess } from '@/lib/permissions'
 import { isFeatureEnabled } from '@/lib/features'
 
-async function getManageableTenants(userId: string) {
-    const supabase = createServerClient()
+async function getManageableTenants(userId: string): Promise<TenantDocument[]> {
+    // Find all memberships where user is admin or super admin
+    const membersSnapshot = await adminDb
+        .collectionGroup('members')
+        .where('userId', '==', userId)
+        .where('role', 'in', ['SUPER_ADMIN', 'TENANT_ADMIN'])
+        .get()
 
-    const { data } = await supabase
-        .from('tenant_users')
-        .select('tenant_id, role, tenants(*)')
-        .eq('user_id', userId)
-        .in('role', ['SUPER_ADMIN', 'TENANT_ADMIN'])
+    if (membersSnapshot.empty) return []
 
-    return (data ?? [])
-        .map((row: any) => row.tenants)
-        .filter(Boolean)
+    const tenantIds = membersSnapshot.docs.map(doc => doc.data().tenantId as string)
+
+    // Fetch tenant documents
+    const tenantDocs = await Promise.all(
+        tenantIds.map(id =>
+            adminDb.collection(Collections.tenants).doc(id).get()
+        )
+    )
+
+    return tenantDocs
+        .filter(doc => doc.exists)
+        .map(doc => doc.data() as TenantDocument)
 }
 
 export default async function SettingsLayout({
@@ -29,8 +40,7 @@ export default async function SettingsLayout({
 }: {
     children: React.ReactNode
 }) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const session = await auth()
 
     if (!session?.user?.id) {
         redirect('/sign-in')
@@ -47,16 +57,11 @@ export default async function SettingsLayout({
         getActiveTenant(session.user.id)
     ])
 
-    const supabase = createServerClient()
-    const { data: activeTenant } = activeTenantId
-        ? await supabase
-              .from('tenants')
-              .select('id, is_personal')
-              .eq('id', activeTenantId)
-              .maybeSingle()
-        : { data: null as any }
+    const activeTenant = activeTenantId
+        ? await getTenantById(activeTenantId)
+        : null
 
-    const isActivePersonal = Boolean(activeTenant?.is_personal)
+    const isActivePersonal = Boolean(activeTenant?.isPersonal)
     let teamCollaborationEnabled = true
     if (activeTenantId) {
         try {
@@ -67,7 +72,7 @@ export default async function SettingsLayout({
     }
 
     const canManageActiveTenant = Boolean(
-        activeTenantId && manageableTenants.some((t: any) => t.id === activeTenantId)
+        activeTenantId && manageableTenants.some((t) => t.id === activeTenantId)
     )
 
     const navItems = [

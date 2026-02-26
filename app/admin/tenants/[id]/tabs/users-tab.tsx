@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { RoleBadge } from '@/components/tenants'
-import { Database } from '@/lib/db_types'
+import type { TenantMemberDocument } from '@/lib/firestore-types'
 import { UserPlus, MoreHorizontal, Loader2, Copy } from 'lucide-react'
 import {
     DropdownMenu,
@@ -33,9 +33,7 @@ import {
 } from '@/components/ui/select'
 import toast from 'react-hot-toast'
 
-type TenantUser = Database['public']['Tables']['tenant_users']['Row']
-
-interface TenantUserWithEmail extends TenantUser {
+interface TenantUserWithEmail extends TenantMemberDocument {
     email?: string
 }
 
@@ -170,7 +168,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
             key: 'email',
             label: 'Email',
             sortable: true,
-            render: (user) => user.email || user.user_id,
+            render: (user) => user.email || user.userId,
         },
         {
             key: 'role',
@@ -179,10 +177,10 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
             render: (user) => <RoleBadge role={user.role} />,
         },
         {
-            key: 'created_at',
+            key: 'createdAt',
             label: 'Joined',
             sortable: true,
-            render: (user) => new Date(user.created_at).toLocaleDateString(),
+            render: (user) => new Date(user.createdAt).toLocaleDateString(),
         },
         {
             key: 'actions',
@@ -198,7 +196,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                         <DropdownMenuItem
                             onClick={() =>
                                 handleChangeRole(
-                                    user.user_id,
+                                    user.userId,
                                     user.role === 'TENANT_ADMIN' ? 'MEMBER' : 'TENANT_ADMIN'
                                 )
                             }
@@ -207,7 +205,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => handleRemoveUser(user.user_id)}
+                            onClick={() => handleRemoveUser(user.userId)}
                         >
                             Remove User
                         </DropdownMenuItem>

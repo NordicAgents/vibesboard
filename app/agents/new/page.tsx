@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
@@ -7,8 +6,7 @@ import { AgentBuilder } from '@/components/agents/agent-builder'
 export const runtime = 'nodejs'
 
 export default async function NewAgentPage() {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     redirect('/sign-in?next=/agents/new')

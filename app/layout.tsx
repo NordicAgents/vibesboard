@@ -1,7 +1,6 @@
 import { Metadata, Viewport } from 'next'
 
 import { Toaster } from 'react-hot-toast'
-import { cookies } from 'next/headers'
 
 import '@/app/globals.css'
 import { fontMono, fontSans, fontSwitzer } from '@/lib/fonts'
@@ -45,8 +44,7 @@ interface RootLayoutProps {
 import { AppHeaderController } from '@/components/app-header-controller'
 
 export default async function RootLayout({ children }: RootLayoutProps) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
   const tenantTheme = session?.user?.id
     ? await getActiveTenantTheme(session.user.id)
     : null

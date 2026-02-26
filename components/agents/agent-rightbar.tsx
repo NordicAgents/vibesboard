@@ -191,7 +191,7 @@ export function AgentRightbar({
               />
               <div className="flex items-center justify-between">
                 <p className="truncate text-xs text-muted-foreground">
-                  /a/{agent.agentUrl}
+                  /{agent.tenantSlug ?? 'unknown'}/{agent.agentUrl}
                 </p>
               </div>
             </div>

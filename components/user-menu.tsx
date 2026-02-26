@@ -1,6 +1,7 @@
 'use client'
-import { type Session } from '@supabase/auth-helpers-nextjs'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+import { signOut } from 'firebase/auth'
+import { getClientAuth } from '@/lib/firebase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Settings } from 'lucide-react'
@@ -15,24 +16,31 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export interface UserMenuProps {
-  user: Session['user']
+  user: {
+    id: string
+    email?: string
+    name?: string
+    image?: string
+  }
   isSuperAdmin?: boolean
   canManageTenant?: boolean
 }
 
-function getUserInitials(name: string) {
-  const [firstName, lastName] = name.split(' ')
-  return lastName ? `${firstName[0]}${lastName[0]}` : firstName.slice(0, 2)
-}
-
-export function UserMenu({ user, isSuperAdmin, canManageTenant }: UserMenuProps) {
+export function UserMenu({
+  user,
+  isSuperAdmin,
+  canManageTenant
+}: UserMenuProps) {
   const router = useRouter()
 
-  // Create a Supabase client configured to use cookies
-  const supabase = createClientComponentClient()
+  const handleSignOut = async () => {
+    // Sign out from Firebase client
+    const auth = getClientAuth()
+    await signOut(auth)
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
+    // Clear the server-side session cookie
+    await fetch('/api/auth/session', { method: 'DELETE' })
+
     router.refresh()
   }
 
@@ -45,11 +53,13 @@ export function UserMenu({ user, isSuperAdmin, canManageTenant }: UserMenuProps)
             <span className="sr-only">User Settings</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent sideOffset={8} align="end" className="w-[180px]">
+        <DropdownMenuContent
+          sideOffset={8}
+          align="end"
+          className="w-[180px]"
+        >
           <DropdownMenuItem className="flex-col items-start">
-            <div className="text-xs font-medium">
-              {user?.user_metadata.name}
-            </div>
+            <div className="text-xs font-medium">{user?.name}</div>
             <div className="w-full truncate text-xs text-zinc-500">
               {user?.email}
             </div>
@@ -57,21 +67,24 @@ export function UserMenu({ user, isSuperAdmin, canManageTenant }: UserMenuProps)
           <DropdownMenuSeparator />
           {canManageTenant && (
             <DropdownMenuItem asChild>
-              <Link href="/settings/tenant" className="text-xs cursor-pointer">
+              <Link
+                href="/settings/tenant"
+                className="cursor-pointer text-xs"
+              >
                 Tenant Settings
               </Link>
             </DropdownMenuItem>
           )}
           {isSuperAdmin && (
             <DropdownMenuItem asChild>
-              <Link href="/admin" className="text-xs cursor-pointer">
+              <Link href="/admin" className="cursor-pointer text-xs">
                 Super Admin
               </Link>
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
-            onClick={signOut}
-            className="text-xs cursor-pointer"
+            onClick={handleSignOut}
+            className="cursor-pointer text-xs"
           >
             Log Out
           </DropdownMenuItem>

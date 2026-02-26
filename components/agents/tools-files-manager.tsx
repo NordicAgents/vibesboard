@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { type VibeAgent } from '@/lib/types'
 import { deriveToolToggles, buildToolsPayload } from '@/lib/agents/tooling'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -124,7 +123,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                 return
             }
             const fileArray = Array.from(files)
-            const supabase = getBrowserSupabaseClient()
 
             // Validate files
             const maxSize = 10 * 1024 * 1024 // 10MB
@@ -147,16 +145,30 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                 const uploadPromises = fileArray.map(async (file, index) => {
                     try {
                         const path = `${agent.userId}/${Date.now()}-${safeFileName(file.name)}`
+                        const contentType = file.type || 'application/octet-stream'
 
-                        const { data, error } = await supabase.storage
-                            .from('agent-files')
-                            .upload(path, file, {
-                                upsert: true,
-                                contentType: file.type || 'application/octet-stream'
-                            })
+                        // Get a signed upload URL from the API
+                        const urlRes = await fetch(`/api/agents/${agent.id}/files/upload-url`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key: path, contentType })
+                        })
 
-                        if (error || !data) {
-                            throw error ?? new Error('Upload failed')
+                        if (!urlRes.ok) {
+                            throw new Error('Failed to get upload URL')
+                        }
+
+                        const { uploadUrl } = await urlRes.json()
+
+                        // Upload directly to GCS using the signed URL
+                        const uploadRes = await fetch(uploadUrl, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': contentType },
+                            body: file
+                        })
+
+                        if (!uploadRes.ok) {
+                            throw new Error('Upload to storage failed')
                         }
 
                         // Update progress to success
@@ -168,7 +180,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             )
                         )
 
-                        return { path: data.path, file }
+                        return { path, file }
                     } catch (error) {
                         // Update progress to error
                         setUploadProgress(prev =>
@@ -252,11 +264,14 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
             toast.error('Read-only: you do not have permission to edit this agent')
             return
         }
-        const supabase = getBrowserSupabaseClient()
 
         try {
-            // Remove from storage
-            await supabase.storage.from('agent-files').remove([path])
+            // Remove from storage via API
+            await fetch(`/api/agents/${agent.id}/files/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileKey: path })
+            })
 
             // Update state and database
             const newFileKeys = fileKeys.filter(key => key !== path)
@@ -270,26 +285,22 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
     }
 
     const handleFileDownload = async (path: string) => {
-        const supabase = getBrowserSupabaseClient()
-
         try {
-            const { data, error } = await supabase.storage
-                .from('agent-files')
-                .download(path)
-
-            if (error || !data) {
-                throw error ?? new Error('Download failed')
+            // Get a signed download URL from the API
+            const res = await fetch(`/api/agents/${agent.id}/files/download-url?fileKey=${encodeURIComponent(path)}`)
+            if (!res.ok) {
+                throw new Error('Failed to get download URL')
             }
 
-            // Create download link
-            const url = URL.createObjectURL(data)
+            const { downloadUrl } = await res.json()
+
+            // Open signed URL to trigger download
             const a = document.createElement('a')
-            a.href = url
+            a.href = downloadUrl
             a.download = getFileName(path)
             document.body.appendChild(a)
             a.click()
             document.body.removeChild(a)
-            URL.revokeObjectURL(url)
 
             toast.success('File downloaded')
         } catch (error) {

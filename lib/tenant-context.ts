@@ -1,220 +1,220 @@
 import { cookies } from 'next/headers'
-import { createServerClient } from '@/lib/supabase/server'
-import { Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections, type TenantDocument, type TenantBrandingDocument } from '@/lib/firestore-types'
 
 const ACTIVE_TENANT_COOKIE = 'active_tenant_id'
 
-/**
- * Get the active tenant ID from cookie
- */
 export async function getActiveTenantId(): Promise<string | null> {
-    const cookieStore = await cookies()
-    return cookieStore.get(ACTIVE_TENANT_COOKIE)?.value || null
+  const cookieStore = await cookies()
+  return cookieStore.get(ACTIVE_TENANT_COOKIE)?.value || null
 }
 
-/**
- * Set the active tenant ID in cookie
- */
 export async function setActiveTenantId(tenantId: string) {
-    const cookieStore = await cookies()
-    cookieStore.set(ACTIVE_TENANT_COOKIE, tenantId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 365 // 1 year
-    })
+  const cookieStore = await cookies()
+  cookieStore.set(ACTIVE_TENANT_COOKIE, tenantId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 365
+  })
 }
 
-/**
- * Clear the active tenant ID from cookie
- */
 export async function clearActiveTenantId() {
-    const cookieStore = await cookies()
-    cookieStore.delete(ACTIVE_TENANT_COOKIE)
+  const cookieStore = await cookies()
+  cookieStore.delete(ACTIVE_TENANT_COOKIE)
 }
 
-/**
- * Get the active tenant with full details
- */
-export async function getActiveTenant(userId?: string): Promise<string | null> {
-    let tenantId = await getActiveTenantId()
+export async function getActiveTenant(
+  userId?: string
+): Promise<string | null> {
+  let tenantId = await getActiveTenantId()
 
-    // If no active tenant but userId provided, get first available
-    if (!tenantId && userId) {
-        tenantId = await ensureActiveTenant(userId)
-    }
+  if (!tenantId && userId) {
+    tenantId = await ensureActiveTenant(userId)
+  }
 
-    return tenantId
+  return tenantId
 }
 
-/**
- * Get all tenants for a user
- */
-export async function getUserTenants(userId: string): Promise<Database['public']['Tables']['tenants']['Row'][]> {
-    const supabase = createServerClient()
+export async function getUserTenants(userId: string): Promise<TenantDocument[]> {
+  // Look up the user document to get tenantIds array
+  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+  if (!userDoc.exists) return []
 
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .select('tenants(*)')
-        .eq('user_id', userId)
+  const tenantIds: string[] = userDoc.data()?.tenantIds ?? []
+  if (!tenantIds.length) return []
 
-    if (error || !data) {
-        return []
-    }
+  // Fetch tenant documents
+  const tenantDocs = await Promise.all(
+    tenantIds.map(id =>
+      adminDb.collection(Collections.tenants).doc(id).get()
+    )
+  )
 
-    return data.map(item => item.tenants).filter(Boolean) as Database['public']['Tables']['tenants']['Row'][]
+  return tenantDocs
+    .filter(doc => doc.exists)
+    .map(doc => doc.data() as TenantDocument)
 }
 
-/**
- * Get full tenant details by ID
- */
-export async function getTenantById(tenantId: string): Promise<Database['public']['Tables']['tenants']['Row'] | null> {
-    const supabase = createServerClient()
+export async function getTenantById(
+  tenantId: string
+): Promise<TenantDocument | null> {
+  const doc = await adminDb
+    .collection(Collections.tenants)
+    .doc(tenantId)
+    .get()
 
-    const { data, error } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', tenantId)
-        .single()
-
-    if (error || !data) {
-        return null
-    }
-
-    return data
+  if (!doc.exists) return null
+  return doc.data() as TenantDocument
 }
 
-/**
- * Get tenant branding for the active tenant
- */
-export async function getActiveTenantBranding() {
-    const tenantId = await getActiveTenantId()
+export async function getActiveTenantBranding(): Promise<TenantBrandingDocument | null> {
+  const tenantId = await getActiveTenantId()
+  if (!tenantId) return null
 
-    if (!tenantId) {
-        return null
-    }
+  const doc = await adminDb
+    .collection(Collections.branding(tenantId))
+    .doc(tenantId)
+    .get()
 
-    const supabase = await createServerClient()
-
-    const { data, error } = await supabase
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .single()
-
-    if (error || !data) {
-        return null
-    }
-
-    return data
+  if (!doc.exists) return null
+  return doc.data() as TenantBrandingDocument
 }
 
-/**
- * Get tenant context including tenant, branding, and user role
- */
 export async function getTenantContext(userId: string) {
-    const tenantId = await getActiveTenantId()
+  const tenantId = await getActiveTenantId()
+  if (!tenantId) return null
 
-    if (!tenantId) {
-        return null
+  // Get tenant
+  const tenantDoc = await adminDb
+    .collection(Collections.tenants)
+    .doc(tenantId)
+    .get()
+
+  if (!tenantDoc.exists) return null
+  const tenant = tenantDoc.data() as TenantDocument
+
+  // Get branding
+  const brandingDoc = await adminDb
+    .collection(Collections.branding(tenantId))
+    .doc(tenantId)
+    .get()
+
+  const branding = brandingDoc.exists
+    ? (brandingDoc.data() as TenantBrandingDocument)
+    : null
+
+  // Get user role
+  const memberDoc = await adminDb
+    .collection(Collections.members(tenantId))
+    .doc(userId)
+    .get()
+
+  const role = memberDoc.exists ? memberDoc.data()?.role ?? null : null
+
+  return { tenant, branding, role }
+}
+
+export async function ensureActiveTenant(
+  userId: string
+): Promise<string | null> {
+  let tenantId = await getActiveTenantId()
+
+  // Check if user has access to current tenant
+  if (tenantId) {
+    const memberDoc = await adminDb
+      .collection(Collections.members(tenantId))
+      .doc(userId)
+      .get()
+
+    if (memberDoc.exists) {
+      return tenantId
     }
+  }
 
-    const supabase = await createServerClient()
+  // Get user's tenants and prefer personal workspace
+  const tenants = await getUserTenants(userId)
+  const personal = tenants.find(t => t.isPersonal)
+  const chosen = personal ?? tenants[0]
 
-    // Get tenant details
-    const { data: tenant } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', tenantId)
-        .single()
+  if (chosen) {
+    return chosen.id
+  }
 
-    if (!tenant) {
-        return null
-    }
-
-    // Get branding
-    const { data: branding } = await supabase
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .single()
-
-    // Get user role
-    const { data: tenantUser } = await supabase
-        .from('tenant_users')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .single()
-
-    return {
-        tenant,
-        branding,
-        role: tenantUser?.role || null
-    }
+  // As a fallback, create a personal tenant
+  try {
+    return await ensurePersonalTenant(userId)
+  } catch (error) {
+    console.error('Failed to ensure personal tenant:', error)
+    return null
+  }
 }
 
 /**
- * Ensure user has access to tenant, or set first available tenant
- */
-export async function ensureActiveTenant(userId: string): Promise<string | null> {
-    const supabase = await createServerClient()
-
-    // Get current active tenant
-    let tenantId = await getActiveTenantId()
-
-    // Check if user has access to current tenant
-    if (tenantId) {
-        const { data } = await supabase
-            .from('tenant_users')
-            .select('tenant_id')
-            .eq('user_id', userId)
-            .eq('tenant_id', tenantId)
-            .single()
-
-        if (data) {
-            return tenantId
-        }
-    }
-
-    // Get a deterministic tenant choice for the user when no active cookie is set/valid.
-    // Prefer the user's personal workspace if present, otherwise pick the oldest tenant.
-    const { data: tenantRow } = await supabase
-        .from('tenant_users')
-        .select('tenant_id, tenants(id, is_personal, created_at)')
-        .eq('user_id', userId)
-        .order('is_personal', { foreignTable: 'tenants', ascending: false })
-        .order('created_at', { foreignTable: 'tenants', ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-    const chosenTenantId = (tenantRow?.tenants as any)?.id as string | undefined
-    if (chosenTenantId) {
-        return chosenTenantId
-    }
-
-    // As a fallback, create or fetch a personal tenant so the user always has one
-    try {
-        return await ensurePersonalTenant(userId)
-    } catch (error) {
-        console.error('Failed to ensure personal tenant:', error)
-        return null
-    }
-}
-
-/**
- * Create or fetch the user's personal tenant, returning its id.
+ * Create or fetch the user's personal tenant.
  */
 export async function ensurePersonalTenant(userId: string): Promise<string> {
-    const supabase = await createServerClient()
+  // Check if user already has a personal tenant
+  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+  const tenantIds: string[] = userDoc.exists
+    ? userDoc.data()?.tenantIds ?? []
+    : []
 
-    const { data, error } = await supabase.rpc('create_or_get_personal_tenant', {
-        p_user_id: userId
-    })
-
-    if (error || !data) {
-        throw error || new Error('Unable to create or fetch personal tenant')
+  for (const tid of tenantIds) {
+    const tenantDoc = await adminDb
+      .collection(Collections.tenants)
+      .doc(tid)
+      .get()
+    if (tenantDoc.exists && tenantDoc.data()?.isPersonal) {
+      return tid
     }
+  }
 
-    return data as string
+  // Create a new personal tenant
+  const tenantRef = adminDb.collection(Collections.tenants).doc()
+  const tenantId = tenantRef.id
+  const userName = userDoc.data()?.name ?? 'Personal'
+  const slug = `user-${userId.slice(0, 8)}`
+  const now = new Date().toISOString()
+
+  const batch = adminDb.batch()
+
+  // Create tenant
+  batch.set(tenantRef, {
+    id: tenantId,
+    name: `${userName}'s Workspace`,
+    slug,
+    status: 'active',
+    createdBy: userId,
+    isPersonal: true,
+    createdAt: now,
+    updatedAt: now
+  })
+
+  // Create slug reservation
+  batch.set(
+    adminDb.collection(Collections.tenantSlugs).doc(slug),
+    { tenantId, createdAt: now }
+  )
+
+  // Create membership
+  batch.set(
+    adminDb.collection(Collections.members(tenantId)).doc(userId),
+    {
+      userId,
+      tenantId,
+      role: 'TENANT_ADMIN',
+      createdAt: now
+    }
+  )
+
+  // Update user's tenantIds
+  const { FieldValue } = await import('firebase-admin/firestore')
+  batch.update(adminDb.collection(Collections.users).doc(userId), {
+    tenantIds: FieldValue.arrayUnion(tenantId)
+  })
+
+  await batch.commit()
+
+  return tenantId
 }

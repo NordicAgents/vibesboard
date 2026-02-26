@@ -111,7 +111,7 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
           {/* Chat body */}
           <AgentChat
             agent={agent}
-            endpoint={`/api/public/agents/${agent.agentUrl}/chat`}
+            endpoint={`/api/public/agents/${agent.id}/chat`}
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
