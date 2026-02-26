@@ -11,10 +11,10 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tenantId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { tenantId } = params;
+    const { id: tenantId } = params;
 
     // Check if feature is enabled
     const hasAccess = await isFeatureEnabled(tenantId, 'whatsapp_bulk_messaging');
@@ -55,10 +55,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tenantId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { tenantId } = params;
+    const { id: tenantId } = params;
 
     // Check if feature is enabled
     const hasAccess = await isFeatureEnabled(tenantId, 'whatsapp_bulk_messaging');
