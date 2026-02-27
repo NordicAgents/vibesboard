@@ -1,12 +1,9 @@
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { Configuration, OpenAIApi } from 'openai-edge'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow } from '@/lib/agents/db'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { getAgentById } from '@/lib/agents/server'
 import { agentAskRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
@@ -17,7 +14,6 @@ import { summarizeConversation } from '@/lib/agent/summarize'
 import { buildAskAiConversationContext } from '@/lib/agent/conversation-rag'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 import { canEditAgent } from '@/lib/agents/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -32,12 +28,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
-
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
+  const { user } = authResult
 
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
@@ -46,32 +39,21 @@ export async function POST(
     )
   }
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
+  const agent = await getAgentById(id)
 
-  const { data: agentRow } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!agentRow) {
+  if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
   }
 
   const canEdit = await canEditAgent({
-    sessionUserId: session.user.id,
-    agentOwnerId: agentRow.user_id,
-    tenantId: agentRow.tenant_id
+    sessionUserId: user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
   })
 
   if (!canEdit) {
     return new NextResponse('Forbidden', { status: 403 })
   }
-
-  const agent = mapAgentRow(agentRow)
-  const supabaseAdmin = getServiceSupabaseClient()
 
   let json: Record<string, unknown> | null = null
   try {
@@ -90,10 +72,10 @@ export async function POST(
   })
 
   const askConversation = await ensureConversation({
-    supabase,
+    tenantId: agent.tenantId,
     agentId: agent.id,
     conversationId: payload.sessionId,
-    userId: session.user.id,
+    userId: user.id,
     initialMessages: []
   })
 
@@ -106,7 +88,7 @@ export async function POST(
   const pendingMessages = [...existingMessages, userMessage]
 
   const { context } = await buildAskAiConversationContext({
-    supabase: supabaseAdmin,
+    tenantId: agent.tenantId,
     agentId: agent.id,
     question: payload.question,
     contextConversationId: payload.contextConversationId
@@ -144,7 +126,8 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
         ]
         const summary = await summarizeConversation(nextMessages)
         await updateConversationMessages({
-          supabase,
+          tenantId: agent.tenantId,
+          agentId: agent.id,
           conversationId: askConversation.id,
           messages: nextMessages,
           summary
@@ -181,7 +164,8 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       ]
       const summary = await summarizeConversation(nextMessages)
       await updateConversationMessages({
-        supabase,
+        tenantId: agent.tenantId,
+        agentId: agent.id,
         conversationId: askConversation.id,
         messages: nextMessages,
         summary

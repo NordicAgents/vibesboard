@@ -1,14 +1,13 @@
-import { cookies, headers } from 'next/headers'
+import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 
 import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
 import { canEditAgent } from '@/lib/agents/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -22,44 +21,45 @@ export default async function AgentPageAsChat({
   const { id } = await params
   const query = await searchParams
   const isConfigure = query.configure === 'true'
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     redirect('/sign-in')
   }
 
-  const supabase = createServerComponentClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
+  // Find the agent across all tenants using collection group query
+  const agentSnapshot = await adminDb
+    .collectionGroup('agents')
+    .where('id', '==', id)
+    .limit(1)
+    .get()
 
-  const { data: agentRow } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!agentRow) {
+  if (agentSnapshot.empty) {
     notFound()
   }
 
+  const agentData = agentSnapshot.docs[0].data()
+  const agent = mapAgentDoc(agentData)
+
   const canEdit = await canEditAgent({
     sessionUserId: session.user.id,
-    agentOwnerId: agentRow.user_id,
-    tenantId: agentRow.tenant_id
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId ?? null
   })
 
-  const agent = mapAgentRow(agentRow)
+  // Fetch conversations for this agent
+  const tenantId = agent.tenantId
+  let conversations: ReturnType<typeof mapConversationDoc>[] = []
 
-  const conversationClient = canEdit ? getServiceSupabaseClient() : supabase
+  if (tenantId) {
+    const convoSnapshot = await adminDb
+      .collection(Collections.conversations(tenantId, agent.id))
+      .orderBy('updatedAt', 'desc')
+      .get()
 
-  const { data: convoRows } = await conversationClient
-    .from('vibe_agent_conversations')
-    .select('*')
-    .eq('agent_id', agent.id)
-    .order('updated_at', { ascending: false })
+    conversations = convoSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
+  }
 
-  const conversations = (convoRows ?? []).map(mapConversationRow)
   const ownerConversations = conversations.filter(
     conversation => conversation.userId === session.user.id
   )
@@ -88,7 +88,7 @@ export default async function AgentPageAsChat({
     (protocol && host
       ? `${protocol}://${host}`
       : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
-  const shareUrl = `${origin}/a/${agent.agentUrl}`
+  const shareUrl = `${origin}/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
   const qrDataUrl = await getQrDataUrl(shareUrl)
 
   return (

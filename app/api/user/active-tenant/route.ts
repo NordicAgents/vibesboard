@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { auth } from '@/auth'
 import { isMemberOfTenant } from '@/lib/permissions'
 import { setActiveTenantId, ensureActiveTenant } from '@/lib/tenant-context'
@@ -11,8 +10,7 @@ export const runtime = 'nodejs'
  * Get user's active tenant
  */
 export async function GET(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const session = await auth()
 
     if (!session?.user) {
         return new NextResponse('Unauthorized', { status: 401 })
@@ -37,8 +35,7 @@ export async function GET(req: Request) {
  * Set user's active tenant
  */
 export async function PUT(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const session = await auth()
 
     if (!session?.user) {
         return new NextResponse('Unauthorized', { status: 401 })

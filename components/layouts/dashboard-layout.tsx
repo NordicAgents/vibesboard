@@ -21,13 +21,13 @@ export function DashboardLayout({
   return (
     <div
       className={cn(
-        'flex h-full bg-beige-bg dark:bg-background overflow-hidden',
+        'flex h-full overflow-hidden bg-beige-bg dark:bg-background',
         className
       )}
     >
       {/* Left Sidebar */}
       {sidebar && (
-        <aside className="hidden w-64 flex-shrink-0 border-r border-black-10 bg-purewhite-bg dark:border-border dark:bg-card lg:block">
+        <aside className="hidden w-64 shrink-0 border-r border-black-10 bg-purewhite-bg dark:border-border dark:bg-card lg:block">
           <div className="h-full p-4">{sidebar}</div>
         </aside>
       )}
@@ -37,7 +37,7 @@ export function DashboardLayout({
 
       {/* Right Panel */}
       {rightPanel && !hideRightPanel && (
-        <aside className="hidden w-80 flex-shrink-0 border-l border-black-10 bg-purewhite-bg dark:border-border dark:bg-card xl:block">
+        <aside className="hidden w-80 shrink-0 border-l border-black-10 bg-purewhite-bg dark:border-border dark:bg-card xl:block">
           <div className="h-full overflow-y-auto p-4">{rightPanel}</div>
         </aside>
       )}

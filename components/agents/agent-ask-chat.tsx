@@ -43,36 +43,6 @@ export function AgentAskChat({
   )
   const sessionIdRef = React.useRef<string | null>(activeSessionId)
 
-  React.useEffect(() => {
-    sessionIdRef.current = activeSessionId
-  }, [activeSessionId])
-
-  React.useEffect(() => {
-    setSessions(sortSessions(ownerSessions))
-  }, [ownerSessions])
-
-  // Sync active session with `?session=` query param from the main sidebar
-  React.useEffect(() => {
-    const param = searchParams.get('session')
-    if (param && param !== activeSessionId) {
-      const found = ownerSessions.find(entry => entry.id === param)
-      if (found) {
-        setActiveSessionId(found.id)
-        sessionIdRef.current = found.id
-        setMessages(found.messages ?? [])
-        setInput('')
-        setCompletion('')
-      }
-    } else if (!param && activeSessionId) {
-      // If session param is removed, reset to new chat state
-      setActiveSessionId(null)
-      sessionIdRef.current = null
-      setMessages([])
-      setInput('')
-      setCompletion('')
-    }
-  }, [searchParams, ownerSessions, activeSessionId])
-
   const {
     completion,
     complete,
@@ -109,6 +79,36 @@ export function AgentAskChat({
       setCompletion('')
     }
   })
+
+  React.useEffect(() => {
+    sessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+
+  React.useEffect(() => {
+    setSessions(sortSessions(ownerSessions))
+  }, [ownerSessions])
+
+  // Sync active session with `?session=` query param from the main sidebar
+  React.useEffect(() => {
+    const param = searchParams.get('session')
+    if (param && param !== activeSessionId) {
+      const found = ownerSessions.find(entry => entry.id === param)
+      if (found) {
+        setActiveSessionId(found.id)
+        sessionIdRef.current = found.id
+        setMessages(found.messages ?? [])
+        setInput('')
+        setCompletion('')
+      }
+    } else if (!param && activeSessionId) {
+      // If session param is removed, reset to new chat state
+      setActiveSessionId(null)
+      sessionIdRef.current = null
+      setMessages([])
+      setInput('')
+      setCompletion('')
+    }
+  }, [searchParams, ownerSessions, activeSessionId, setInput, setCompletion])
 
   const persistSession = React.useCallback(
     (
@@ -249,7 +249,7 @@ export function AgentAskChat({
               <ChatList messages={pendingMessages} />
               {isLoading && !completion && (
                 <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-                  <IconSpinner className="h-4 w-4 animate-spin" />
+                  <IconSpinner className="size-4 animate-spin" />
                   <span>Thinking...</span>
                 </div>
               )}
@@ -261,7 +261,7 @@ export function AgentAskChat({
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl space-y-8 text-center">
               <div className="space-y-3">
-                <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
+                <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-white md:text-5xl">
                   ASK AI
                 </h1>
                 <p className="hidden font-switzer text-lg text-gray-secondary sm:block">
@@ -288,7 +288,7 @@ export function AgentAskChat({
 
       {/* Chat Input - Only show at bottom when messages exist */}
       {pendingMessages.length > 0 && (
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
+        <div className="sticky bottom-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto max-w-2xl px-4 pb-4 pt-2">
             <PromptForm
               onSubmit={handleSubmit}

@@ -51,21 +51,21 @@ export function LandingHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-beige-bg/80 backdrop-blur-sm dark:bg-background/80 safe-area-inset-top">
+        <header className="bg-beige-bg/80 safe-area-inset-top fixed inset-x-0 top-0 z-50 flex items-center justify-between px-4 py-3 backdrop-blur-sm dark:bg-background/80 sm:px-6 sm:py-4">
             <div className="flex items-center">
-                <Link href="/" className="text-xl sm:text-2xl font-bold font-switzer tracking-tighter dark:text-foreground">
+                <Link href="/" className="font-switzer text-xl font-bold tracking-tighter dark:text-foreground sm:text-2xl">
                     vibesboard
                 </Link>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-6 lg:space-x-8">
+            <nav className="hidden items-center space-x-6 md:flex lg:space-x-8">
                 <DropdownMenu>
-                    <DropdownMenuTrigger className="text-sm font-medium hover:text-gray-secondary transition-colors outline-none flex items-center gap-1 group dark:text-foreground dark:hover:text-muted-foreground">
+                    <DropdownMenuTrigger className="group flex items-center gap-1 text-sm font-medium outline-none transition-colors hover:text-gray-secondary dark:text-foreground dark:hover:text-muted-foreground">
                         Products
-                        <ChevronDown className="w-3.5 h-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                        <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-[280px] lg:min-w-[320px] p-2 bg-white/95 backdrop-blur-lg border-gray-200 shadow-2xl dark:bg-popover/95 dark:border-border">
+                    <DropdownMenuContent align="start" className="min-w-[280px] border-gray-200 bg-white/95 p-2 shadow-2xl backdrop-blur-lg dark:border-border dark:bg-popover/95 lg:min-w-[320px]">
                         <div className="space-y-1">
                             {products.map((product) => {
                                 return (
@@ -74,19 +74,19 @@ export function LandingHeader() {
                                             href={product.href}
                                             target={product.isExternal ? '_blank' : undefined}
                                             rel={product.isExternal ? 'noopener noreferrer' : undefined}
-                                            className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all hover:bg-beige-bg/50 group/item relative overflow-hidden dark:hover:bg-accent"
+                                            className="hover:bg-beige-bg/50 group/item relative flex cursor-pointer items-start gap-3 overflow-hidden rounded-lg p-3 transition-all dark:hover:bg-accent"
                                         >
-                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${product.accentColor} transform scale-y-0 group-hover/item:scale-y-100 transition-transform origin-top`} />
-                                            <div className="flex-1 min-w-0 pl-2">
+                                            <div className={`absolute inset-y-0 left-0 w-1 ${product.accentColor} origin-top scale-y-0 transition-transform group-hover/item:scale-y-100`} />
+                                            <div className="min-w-0 flex-1 pl-2">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <h3 className="font-semibold text-sm text-black-primary group-hover/item:translate-x-1 transition-transform dark:text-foreground">
+                                                    <h3 className="text-sm font-semibold text-black-primary transition-transform group-hover/item:translate-x-1 dark:text-foreground">
                                                         {product.name}
                                                     </h3>
                                                     {product.isExternal && (
-                                                        <ExternalLink className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                                                        <ExternalLink className="size-3.5 text-gray-400 opacity-0 transition-opacity group-hover/item:opacity-100" />
                                                     )}
                                                 </div>
-                                                <p className="text-xs text-gray-secondary mt-0.5 dark:text-muted-foreground">
+                                                <p className="mt-0.5 text-xs text-gray-secondary dark:text-muted-foreground">
                                                     {product.description}
                                                 </p>
                                             </div>
@@ -101,7 +101,7 @@ export function LandingHeader() {
                     <Link 
                         key={link.href}
                         href={link.href} 
-                        className="text-sm font-medium hover:text-gray-secondary transition-colors dark:text-foreground dark:hover:text-muted-foreground"
+                        className="text-sm font-medium transition-colors hover:text-gray-secondary dark:text-foreground dark:hover:text-muted-foreground"
                     >
                         {link.label}
                     </Link>
@@ -109,8 +109,8 @@ export function LandingHeader() {
             </nav>
 
             {/* Desktop Login Button */}
-            <div className="hidden md:flex items-center">
-                <Button variant="outline" className="rounded-full px-4 lg:px-6 border-black-primary text-black-primary hover:bg-black-primary hover:text-white transition-colors dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-black" asChild>
+            <div className="hidden items-center md:flex">
+                <Button variant="outline" className="rounded-full border-black-primary px-4 text-black-primary transition-colors hover:bg-black-primary hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-black lg:px-6" asChild>
                     <Link href="/sign-in">Login</Link>
                 </Button>
             </div>
@@ -118,19 +118,19 @@ export function LandingHeader() {
             {/* Mobile Menu Button */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild className="md:hidden">
-                    <Button variant="ghost" size="icon" className="h-10 w-10">
-                        <Menu className="h-5 w-5" />
+                    <Button variant="ghost" size="icon" className="size-10">
+                        <Menu className="size-5" />
                         <span className="sr-only">Open menu</span>
                     </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-full sm:w-[350px] p-0">
-                    <SheetHeader className="p-4 border-b">
+                <SheetContent side="right" className="w-full p-0 sm:w-[350px]">
+                    <SheetHeader className="border-b p-4">
                         <SheetTitle className="text-left font-switzer text-xl">Menu</SheetTitle>
                     </SheetHeader>
-                    <nav className="flex flex-col p-4 space-y-1">
+                    <nav className="flex flex-col space-y-1 p-4">
                         {/* Products Section */}
                         <div className="space-y-2">
-                            <p className="text-xs font-medium text-gray-secondary uppercase tracking-wider px-2">Products</p>
+                            <p className="px-2 text-xs font-medium uppercase tracking-wider text-gray-secondary">Products</p>
                             {products.map((product) => (
                                 <Link
                                     key={product.name}
@@ -138,14 +138,14 @@ export function LandingHeader() {
                                     target={product.isExternal ? '_blank' : undefined}
                                     rel={product.isExternal ? 'noopener noreferrer' : undefined}
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                                    className="flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-muted"
                                 >
-                                    <div className={`w-1 h-full min-h-[40px] rounded-full ${product.accentColor}`} />
-                                    <div className="flex-1 min-w-0">
+                                    <div className={`h-full min-h-[40px] w-1 rounded-full ${product.accentColor}`} />
+                                    <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-medium text-sm">{product.name}</span>
+                                            <span className="text-sm font-medium">{product.name}</span>
                                             {product.isExternal && (
-                                                <ExternalLink className="w-3 h-3 text-gray-400" />
+                                                <ExternalLink className="size-3 text-gray-400" />
                                             )}
                                         </div>
                                         <p className="text-xs text-gray-secondary">{product.description}</p>
@@ -154,7 +154,7 @@ export function LandingHeader() {
                             ))}
                         </div>
 
-                        <div className="border-t my-2" />
+                        <div className="my-2 border-t" />
 
                         {/* Navigation Links */}
                         <div className="space-y-1">
@@ -163,14 +163,14 @@ export function LandingHeader() {
                                     key={link.href}
                                     href={link.href}
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="flex items-center p-3 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                                    className="flex items-center rounded-lg p-3 text-sm font-medium transition-colors hover:bg-muted"
                                 >
                                     {link.label}
                                 </Link>
                             ))}
                         </div>
 
-                        <div className="border-t my-2" />
+                        <div className="my-2 border-t" />
 
                         {/* Login Button */}
                         <Button 

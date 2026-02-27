@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapConversationRow } from '@/lib/agents/db'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { getAgentById } from '@/lib/agents/server'
+import { getConversation } from '@/lib/agents/conversations'
+import { mapConversationDoc } from '@/lib/agents/db'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -13,30 +14,28 @@ export async function GET(
   { params }: { params: Promise<{ id: string; cid: string }> }
 ) {
   const { id, cid } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const agent = await getAgentById(id)
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
-  const { data, error } = await supabase
-    .from('vibe_agent_conversations')
-    .select('*')
-    .eq('id', cid)
-    .maybeSingle()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  if (!data || data.agent_id !== id) {
+  if (!agent) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  return NextResponse.json({ conversation: mapConversationRow(data) })
+  const doc = await adminDb
+    .collection(Collections.conversations(agent.tenantId, agent.id))
+    .doc(cid)
+    .get()
+
+  if (!doc.exists) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  const data = doc.data()!
+  if (data.agentId !== id) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  return NextResponse.json({ conversation: mapConversationDoc(data) })
 }

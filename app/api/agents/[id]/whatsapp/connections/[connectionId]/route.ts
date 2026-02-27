@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { type Database } from '@/lib/db_types'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import {
   findConnectionById,
   disconnectConnection,
@@ -10,6 +10,8 @@ import {
 } from '@/lib/whatsapp/connections'
 import { resendIntroductionMessage } from '@/lib/whatsapp/intro-message'
 import { z } from 'zod'
+
+export const runtime = 'nodejs'
 
 const DisconnectSchema = z.object({
   conversationAction: z.enum(['keep', 'archive', 'delete']).default('keep'),
@@ -20,48 +22,61 @@ const ReconnectSchema = z.object({
   sendIntroMessage: z.boolean().default(true)
 })
 
+type RouteParams = {
+  params: Promise<{ id: string; connectionId: string }>
+}
+
+/**
+ * Find an agent by ID using collectionGroup query, verifying ownership.
+ * Returns the agent data and tenantId, or null if not found / not owned.
+ */
+async function findAgentWithOwnership(agentId: string, userId: string) {
+  const snap = await adminDb
+    .collectionGroup('agents')
+    .where('id', '==', agentId)
+    .where('userId', '==', userId)
+    .limit(1)
+    .get()
+
+  if (snap.empty) return null
+
+  const doc = snap.docs[0]
+  // Path: tenants/{tenantId}/agents/{agentId}
+  const pathParts = doc.ref.path.split('/')
+  const tenantId = pathParts[1]
+
+  return { agent: doc.data(), tenantId, ref: doc.ref }
+}
+
 /**
  * GET /api/agents/[id]/whatsapp/connections/[connectionId]
  * Get connection details
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; connectionId: string }> }
+  { params }: RouteParams
 ) {
   try {
     const { id: agentId, connectionId } = await params
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({
-      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
 
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Verify agent ownership
+    const agentResult = await findAgentWithOwnership(agentId, auth.user.id)
+    if (!agentResult) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const connection = await findConnectionById(connectionId)
+    const { tenantId } = agentResult
 
-    if (!connection || connection.agent_id !== agentId) {
+    const connection = await findConnectionById(tenantId, agentId, connectionId)
+
+    if (!connection) {
       return NextResponse.json(
         { error: 'Connection not found' },
         { status: 404 }
       )
-    }
-
-    // Verify ownership
-    const { data: agent } = await supabase
-      .from('vibe_agents')
-      .select('id')
-      .eq('id', agentId)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!agent) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     return NextResponse.json({ connection })
@@ -80,38 +95,25 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; connectionId: string }> }
+  { params }: RouteParams
 ) {
   try {
     const { id: agentId, connectionId } = await params
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({
-      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
 
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
 
     // Verify ownership
-    const { data: agent } = await supabase
-      .from('vibe_agents')
-      .select('*')
-      .eq('id', agentId)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!agent) {
+    const agentResult = await findAgentWithOwnership(agentId, auth.user.id)
+    if (!agentResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const connection = await findConnectionById(connectionId)
+    const { agent, tenantId } = agentResult
 
-    if (!connection || connection.agent_id !== agentId) {
+    const connection = await findConnectionById(tenantId, agentId, connectionId)
+
+    if (!connection) {
       return NextResponse.json(
         { error: 'Connection not found' },
         { status: 404 }
@@ -127,19 +129,32 @@ export async function PATCH(
         const validated = DisconnectSchema.parse(body)
 
         // Handle conversation cleanup
+        const conversationsRef = adminDb.collection(
+          Collections.conversations(tenantId, agentId)
+        )
+
         if (validated.conversationAction === 'delete') {
-          await supabase
-            .from('vibe_agent_conversations')
-            .delete()
-            .eq('whatsapp_connection_id', connectionId)
+          // Delete conversations linked to this connection
+          const convSnap = await conversationsRef
+            .where('externalId', '==', connectionId)
+            .get()
+          const batch = adminDb.batch()
+          convSnap.docs.forEach(doc => batch.delete(doc.ref))
+          if (!convSnap.empty) await batch.commit()
         } else if (validated.conversationAction === 'archive') {
-          await supabase
-            .from('vibe_agent_conversations')
-            .update({ closed_at: new Date().toISOString() })
-            .eq('whatsapp_connection_id', connectionId)
+          const convSnap = await conversationsRef
+            .where('externalId', '==', connectionId)
+            .get()
+          const batch = adminDb.batch()
+          convSnap.docs.forEach(doc =>
+            batch.update(doc.ref, { closedAt: new Date().toISOString() })
+          )
+          if (!convSnap.empty) await batch.commit()
         }
 
         const updated = await disconnectConnection(
+          tenantId,
+          agentId,
           connectionId,
           validated.reason
         )
@@ -154,23 +169,27 @@ export async function PATCH(
         const validated = ReconnectSchema.parse(body)
 
         // Update connection to active and clear disconnection fields
-        await supabase
-          .from('whatsapp_agent_connections')
-          .update({
-            status: 'active',
-            connected_at: new Date().toISOString(),
-            disconnected_at: null,
-            disconnection_reason: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', connectionId)
+        const connRef = adminDb
+          .collection(Collections.whatsappConnections(tenantId, agentId))
+          .doc(connectionId)
+
+        await connRef.update({
+          status: 'active',
+          connectedAt: new Date().toISOString(),
+          disconnectedAt: null,
+          disconnectionReason: null,
+          updatedAt: new Date().toISOString()
+        })
 
         // Get updated connection
-        const updated = await findConnectionById(connectionId)
+        const updatedSnap = await connRef.get()
+        const updated = updatedSnap.exists
+          ? { id: updatedSnap.id, ...updatedSnap.data() }
+          : null
 
         // Optionally resend intro
         if (validated.sendIntroMessage) {
-          await resendIntroductionMessage(connectionId, agent)
+          await resendIntroductionMessage(connectionId, agent as any)
         }
 
         return NextResponse.json({
@@ -180,7 +199,7 @@ export async function PATCH(
       }
 
       case 'reset': {
-        await resetConnection(connectionId)
+        await resetConnection(tenantId, agentId, connectionId)
 
         return NextResponse.json({
           message: 'Connection reset successfully. All conversations closed.'
@@ -188,7 +207,7 @@ export async function PATCH(
       }
 
       case 'resend_intro': {
-        const sent = await resendIntroductionMessage(connectionId, agent)
+        const sent = await resendIntroductionMessage(connectionId, agent as any)
 
         if (!sent) {
           return NextResponse.json(
@@ -228,49 +247,36 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; connectionId: string }> }
+  { params }: RouteParams
 ) {
   try {
     const { id: agentId, connectionId } = await params
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({
-      cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
 
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
 
     // Verify ownership
-    const { data: agent } = await supabase
-      .from('vibe_agents')
-      .select('id')
-      .eq('id', agentId)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!agent) {
+    const agentResult = await findAgentWithOwnership(agentId, auth.user.id)
+    if (!agentResult) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const connection = await findConnectionById(connectionId)
+    const { tenantId } = agentResult
 
-    if (!connection || connection.agent_id !== agentId) {
+    const connection = await findConnectionById(tenantId, agentId, connectionId)
+
+    if (!connection) {
       return NextResponse.json(
         { error: 'Connection not found' },
         { status: 404 }
       )
     }
 
-    // Delete connection (cascades to conversations if configured)
-    await supabase
-      .from('whatsapp_agent_connections')
+    // Delete connection document
+    await adminDb
+      .collection(Collections.whatsappConnections(tenantId, agentId))
+      .doc(connectionId)
       .delete()
-      .eq('id', connectionId)
 
     return NextResponse.json({
       message: 'Connection deleted successfully'

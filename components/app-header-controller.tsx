@@ -2,6 +2,22 @@
 
 import { usePathname } from 'next/navigation'
 
+// Known system-level route prefixes that show the app header
+const SYSTEM_PREFIXES = [
+  '/agents',
+  '/chat',
+  '/admin',
+  '/settings',
+  '/sign-in',
+  '/sign-up',
+  '/invite',
+  '/share',
+  '/landing',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/whatsapp-bulk',
+]
+
 export function AppHeaderController({
   children
 }: {
@@ -9,14 +25,17 @@ export function AppHeaderController({
 }) {
   const pathname = usePathname()
 
-  // Hide header on app pages (agents, chat, public agent pages)
-  // We check if the path starts with /agents, /chat, or /a
-  const isAppPage =
-    pathname?.startsWith('/agents') ||
-    pathname?.startsWith('/chat') ||
-    pathname?.startsWith('/a')
+  const isSystemPath = SYSTEM_PREFIXES.some(p => pathname?.startsWith(p))
+  const segments = pathname?.split('/').filter(Boolean) ?? []
 
-  if (isAppPage) {
+  // Public agent pages: exactly 2 segments, not a known system path
+  // e.g. /user-WlgbEdFb/calcbuddy
+  const isPublicAgentPage = !isSystemPath && segments.length === 2
+
+  // Also hide on legacy /a paths
+  const isLegacyAppPage = pathname?.startsWith('/a')
+
+  if (isPublicAgentPage || isLegacyAppPage) {
     return null
   }
 

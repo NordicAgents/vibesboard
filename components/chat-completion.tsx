@@ -24,8 +24,8 @@ export function ChatCompletion({
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center gap-4 rounded-2xl border bg-gradient-to-b from-green-50 to-white p-6 text-center shadow-sm dark:from-green-950/20 dark:to-background"
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-          <IconCheck className="h-6 w-6 text-green-600 dark:text-green-400" />
+        <div className="flex size-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+          <IconCheck className="size-6 text-green-600 dark:text-green-400" />
         </div>
         <div>
           <h3 className="text-lg font-semibold">Thanks for vibing!</h3>
@@ -60,7 +60,7 @@ export function ChatCompletion({
         className="rounded-full"
         size="sm"
       >
-        <IconClose className="mr-2 h-4 w-4" />
+        <IconClose className="mr-2 size-4" />
         Close Chat
       </Button>
     </motion.div>
@@ -87,8 +87,8 @@ export function ChatCompletionBanner({
         className="flex items-center justify-between gap-4 rounded-xl bg-green-50 px-4 py-3 dark:bg-green-950/30"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-            <IconCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <div className="flex size-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+            <IconCheck className="size-4 text-green-600 dark:text-green-400" />
           </div>
           <span className="text-sm font-medium">
             Thanks for vibing! We&apos;ve collected your response.
@@ -115,7 +115,7 @@ export function ChatCompletionBanner({
         size="sm"
         className="rounded-full"
       >
-        <IconClose className="mr-2 h-3.5 w-3.5" />
+        <IconClose className="mr-2 size-3.5" />
         Close Chat
       </Button>
     </motion.div>

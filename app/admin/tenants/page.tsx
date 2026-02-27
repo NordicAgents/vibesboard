@@ -9,14 +9,12 @@ import { DataTable, Column } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { CreateTenantDialog } from '@/components/tenants'
-import { Database } from '@/lib/db_types'
+import type { TenantDocument } from '@/lib/firestore-types'
 import toast from 'react-hot-toast'
 
-type Tenant = Database['public']['Tables']['tenants']['Row']
-
-interface TenantWithStats extends Tenant {
-    user_count?: number
-    admin_email?: string
+interface TenantWithStats extends TenantDocument {
+    userCount?: number
+    adminEmail?: string
 }
 
 export default function TenantsPage() {
@@ -82,21 +80,21 @@ export default function TenantsPage() {
             },
         },
         {
-            key: 'admin_email',
+            key: 'adminEmail',
             label: 'Admin',
-            render: (tenant) => tenant.admin_email || 'N/A',
+            render: (tenant) => tenant.adminEmail || 'N/A',
         },
         {
-            key: 'user_count',
+            key: 'userCount',
             label: 'Members',
             sortable: true,
-            render: (tenant) => tenant.user_count || 0,
+            render: (tenant) => tenant.userCount || 0,
         },
         {
-            key: 'created_at',
+            key: 'createdAt',
             label: 'Created',
             sortable: true,
-            render: (tenant) => new Date(tenant.created_at).toLocaleDateString(),
+            render: (tenant) => new Date(tenant.createdAt).toLocaleDateString(),
         },
     ]
 
@@ -107,7 +105,7 @@ export default function TenantsPage() {
                 description="Manage all tenants in the system"
                 actions={
                     <Button onClick={() => setCreateDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className="mr-2 size-4" />
                         Create Tenant
                     </Button>
                 }
@@ -130,7 +128,7 @@ export default function TenantsPage() {
                         description="Get started by creating your first tenant"
                         action={
                             <Button onClick={() => setCreateDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
+                                <Plus className="mr-2 size-4" />
                                 Create Tenant
                             </Button>
                         }

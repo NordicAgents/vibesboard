@@ -1,48 +1,71 @@
-import { type SupabaseClient } from '@supabase/supabase-js'
-
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow } from './db'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { mapAgentDoc } from './db'
 import { type VibeAgent } from '@/lib/types'
 
-type Client = SupabaseClient<Database>
-
+/**
+ * Get agent by ID within a specific tenant
+ */
 export async function getAgentForUser(
-  supabase: Client,
-  id: string,
+  tenantId: string,
+  agentId: string,
   userId: string
 ): Promise<VibeAgent | null> {
-  const { data } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', userId)
-    .maybeSingle()
+  const doc = await adminDb
+    .collection(Collections.agents(tenantId))
+    .doc(agentId)
+    .get()
 
-  return data ? mapAgentRow(data) : null
+  if (!doc.exists) return null
+  const data = doc.data()!
+  if (data.userId !== userId) return null
+  return mapAgentDoc(data)
 }
 
 export async function getAgentForMember(
-  supabase: Client,
-  id: string
+  tenantId: string,
+  agentId: string
 ): Promise<VibeAgent | null> {
-  const { data } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  const doc = await adminDb
+    .collection(Collections.agents(tenantId))
+    .doc(agentId)
+    .get()
 
-  return data ? mapAgentRow(data) : null
+  if (!doc.exists) return null
+  return mapAgentDoc(doc.data()!)
 }
 
+/**
+ * Get agent by ID, searching across all tenants.
+ * Used by public API routes where the caller only has the agent ID.
+ */
+export async function getAgentById(
+  agentId: string
+): Promise<VibeAgent | null> {
+  // Use collection group query across all tenant agents subcollections
+  const snapshot = await adminDb
+    .collectionGroup('agents')
+    .where('id', '==', agentId)
+    .limit(1)
+    .get()
+
+  if (snapshot.empty) return null
+  return mapAgentDoc(snapshot.docs[0].data())
+}
+
+/**
+ * Get agent by slug within a specific tenant
+ */
 export async function getAgentBySlug(
-  supabase: Client,
+  tenantId: string,
   slug: string
 ): Promise<VibeAgent | null> {
-  const { data } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('agent_url', slug)
-    .maybeSingle()
+  const snapshot = await adminDb
+    .collection(Collections.agents(tenantId))
+    .where('agentUrl', '==', slug)
+    .limit(1)
+    .get()
 
-  return data ? mapAgentRow(data) : null
+  if (snapshot.empty) return null
+  return mapAgentDoc(snapshot.docs[0].data())
 }

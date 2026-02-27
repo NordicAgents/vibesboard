@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin } from '@/lib/permissions'
+import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { validateTenantSlug, validateTenantName, generateSlug } from '@/lib/validations'
 
 export const runtime = 'nodejs'
@@ -13,24 +11,9 @@ export const runtime = 'nodejs'
  * List all tenants (SUPER_ADMIN only)
  */
 export async function GET(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
-    // Get pagination parameters
     const { searchParams } = new URL(req.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -38,45 +21,45 @@ export async function GET(req: Request) {
     const offset = (page - 1) * limit
 
     // Build query
-    let query = supabase
-        .from('tenants')
-        .select('*, tenant_users(count)', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+    let query: FirebaseFirestore.Query = adminDb
+        .collection(Collections.tenants)
+        .orderBy('createdAt', 'desc')
 
-    // Apply status filter if provided
     if (status && ['active', 'trial', 'suspended'].includes(status)) {
-        query = query.eq('status', status as 'active' | 'trial' | 'suspended')
+        query = query.where('status', '==', status)
     }
 
-    const { data, error, count } = await query
+    // Get total count
+    const countSnapshot = await query.count().get()
+    const total = countSnapshot.data().count
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    // Get paginated results
+    const snapshot = await query.offset(offset).limit(limit).get()
 
-    const tenants = (data ?? []).map((tenant: any) => {
-        const rel = tenant?.tenant_users
-        const userCount =
-            Array.isArray(rel)
-                ? (rel[0]?.count ?? 0)
-                : typeof rel?.count === 'number'
-                  ? rel.count
-                  : 0
+    const tenants = await Promise.all(
+        snapshot.docs.map(async (doc) => {
+            const tenant = { id: doc.id, ...doc.data() }
 
-        return {
-            ...tenant,
-            user_count: userCount
-        }
-    })
+            // Get member count for this tenant
+            const membersCount = await adminDb
+                .collection(Collections.members(doc.id))
+                .count()
+                .get()
+
+            return {
+                ...tenant,
+                user_count: membersCount.data().count
+            }
+        })
+    )
 
     return NextResponse.json({
         tenants,
         pagination: {
             page,
             limit,
-            total: count || 0,
-            totalPages: Math.ceil((count || 0) / limit)
+            total,
+            totalPages: Math.ceil(total / limit)
         }
     })
 }
@@ -86,18 +69,8 @@ export async function GET(req: Request) {
  * Create new tenant (SUPER_ADMIN only)
  */
 export async function POST(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
     const body = await req.json()
     const { name, slug: providedSlug, created_by } = body
@@ -119,57 +92,58 @@ export async function POST(req: Request) {
         )
     }
 
-    const createdBy = created_by || session.user.id
-
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+    const createdBy = created_by || auth.user.id
 
     // Check if slug already exists
-    const { data: existing } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('slug', slug)
-        .single()
+    const slugDoc = await adminDb
+        .collection(Collections.tenantSlugs)
+        .doc(slug)
+        .get()
 
-    if (existing) {
+    if (slugDoc.exists) {
         return NextResponse.json(
             { error: 'Tenant slug already exists' },
             { status: 409 }
         )
     }
 
-    // Create tenant
-    const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .insert({
-            name,
-            slug,
-            status: 'active',
-            created_by: createdBy,
-            is_personal: false
-        })
-        .select('*')
-        .single()
+    const now = new Date().toISOString()
+    const tenantRef = adminDb.collection(Collections.tenants).doc()
+    const tenantId = tenantRef.id
 
-    if (tenantError || !tenant) {
-        return NextResponse.json(
-            { error: tenantError?.message || 'Failed to create tenant' },
-            { status: 500 }
-        )
+    const tenantData = {
+        id: tenantId,
+        name,
+        slug,
+        status: 'active' as const,
+        createdBy,
+        isPersonal: false,
+        createdAt: now,
+        updatedAt: now
     }
 
-    // Create tenant branding record
-    const { error: brandingError } = await supabase
-        .from('tenant_branding')
-        .insert({
-            tenant_id: tenant.id
-        })
+    // Use batch to create tenant + slug lock + branding atomically
+    const batch = adminDb.batch()
 
-    if (brandingError) {
-        // TODO: Consider rolling back tenant creation
-        console.error('Failed to create tenant branding:', brandingError)
-    }
+    batch.set(tenantRef, tenantData)
 
-    return NextResponse.json({ tenant }, { status: 201 })
+    batch.set(
+        adminDb.collection(Collections.tenantSlugs).doc(slug),
+        { tenantId, createdAt: now }
+    )
+
+    batch.set(
+        adminDb.collection(Collections.branding(tenantId)).doc(tenantId),
+        {
+            tenantId,
+            primaryColor: '#000000',
+            secondaryColor: '#ffffff',
+            createdAt: now,
+            updatedAt: now
+        }
+    )
+
+    await batch.commit()
+
+    return NextResponse.json({ tenant: tenantData }, { status: 201 })
 }

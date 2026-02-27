@@ -107,7 +107,7 @@ export default function InvitationPage() {
             <div className="container flex min-h-screen items-center justify-center">
                 <Card className="w-full max-w-md">
                     <CardContent className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <Loader2 className="size-8 animate-spin text-muted-foreground" />
                     </CardContent>
                 </Card>
             </div>
@@ -120,7 +120,7 @@ export default function InvitationPage() {
                 <Card className="w-full max-w-md">
                     <CardHeader>
                         <div className="flex items-center gap-2">
-                            <AlertCircle className="h-5 w-5 text-destructive" />
+                            <AlertCircle className="size-5 text-destructive" />
                             <CardTitle>Invalid Invitation</CardTitle>
                         </div>
                     </CardHeader>
@@ -150,7 +150,7 @@ export default function InvitationPage() {
                 <Card className="w-full max-w-md">
                     <CardHeader>
                         <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            <CheckCircle2 className="size-5 text-green-600" />
                             <CardTitle>Invitation Already Accepted</CardTitle>
                         </div>
                     </CardHeader>
@@ -175,7 +175,7 @@ export default function InvitationPage() {
                 <Card className="w-full max-w-md">
                     <CardHeader>
                         <div className="flex items-center gap-2">
-                            <AlertCircle className="h-5 w-5 text-destructive" />
+                            <AlertCircle className="size-5 text-destructive" />
                             <CardTitle>Invitation Expired</CardTitle>
                         </div>
                     </CardHeader>
@@ -260,7 +260,7 @@ export default function InvitationPage() {
                             >
                                 {isAccepting ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
                                         Accepting...
                                     </>
                                 ) : (

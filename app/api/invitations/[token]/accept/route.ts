@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { auth } from '@/auth'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { FieldValue } from 'firebase-admin/firestore'
 import { setActiveTenantId } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'
@@ -17,34 +18,30 @@ type RouteParams = {
  * Accept invitation (authenticated user)
  */
 export async function POST(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
 
     const { token } = await params
 
-    const supabaseAdmin = getServiceSupabaseClient()
+    // Get invitation by token (doc ID = token)
+    const invitationRef = adminDb
+        .collection(Collections.invitations)
+        .doc(token)
 
-    // Get invitation
-    const { data: invitation, error: inviteError } = await supabaseAdmin
-        .from('invitations')
-        .select('*')
-        .eq('token', token)
-        .single()
+    const invitationDoc = await invitationRef.get()
 
-    if (inviteError || !invitation) {
+    if (!invitationDoc.exists) {
         return NextResponse.json(
             { error: 'Invitation not found' },
             { status: 404 }
         )
     }
 
+    const invitation = invitationDoc.data()!
+
     // Check if invitation is expired
     const now = new Date()
-    const expiresAt = new Date(invitation.expires_at)
+    const expiresAt = new Date(invitation.expiresAt)
 
     if (now > expiresAt) {
         return NextResponse.json(
@@ -68,59 +65,57 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
-    // Verify email matches (optional - could also allow accepting with different email)
-    // For now, we'll allow any authenticated user to accept
+    const tenantId = invitation.tenantId
+    const userId = auth.user.id
 
     // Check if user is already a member
-    const { data: existingMember } = await supabaseAdmin
-        .from('tenant_users')
-        .select('user_id')
-        .eq('tenant_id', invitation.tenant_id)
-        .eq('user_id', session.user.id)
-        .single()
+    const memberDoc = await adminDb
+        .collection(Collections.members(tenantId))
+        .doc(userId)
+        .get()
 
-    if (existingMember) {
+    if (memberDoc.exists) {
         return NextResponse.json(
             { error: 'You are already a member of this tenant' },
             { status: 409 }
         )
     }
 
-    // Create tenant_users record
-    const { error: memberError } = await supabaseAdmin
-        .from('tenant_users')
-        .insert({
-            user_id: session.user.id,
-            tenant_id: invitation.tenant_id,
-            role: invitation.role
-        })
+    // Use a batch to add member + update invitation + update user atomically
+    const batch = adminDb.batch()
 
-    if (memberError) {
-        return NextResponse.json(
-            { error: memberError.message },
-            { status: 500 }
-        )
-    }
+    // Add user to tenant members
+    batch.set(
+        adminDb.collection(Collections.members(tenantId)).doc(userId),
+        {
+            userId,
+            tenantId,
+            role: invitation.role,
+            createdAt: now.toISOString()
+        }
+    )
 
     // Mark invitation as accepted
-    const { error: updateError } = await supabaseAdmin
-        .from('invitations')
-        .update({
-            status: 'accepted',
-            accepted_at: new Date().toISOString()
-        })
-        .eq('id', invitation.id)
+    batch.update(invitationRef, {
+        status: 'accepted',
+        acceptedAt: now.toISOString()
+    })
 
-    if (updateError) {
-        // Log error but don't fail the request since user was already added
-        console.error('Failed to mark invitation as accepted:', updateError)
-    }
+    // Add tenantId to user's tenantIds array
+    batch.update(
+        adminDb.collection(Collections.users).doc(userId),
+        {
+            tenantIds: FieldValue.arrayUnion(tenantId)
+        }
+    )
+
+    await batch.commit()
 
     // Set active tenant for the new member
-    await setActiveTenantId(invitation.tenant_id)
+    await setActiveTenantId(tenantId)
 
     return NextResponse.json({
         success: true,
-        tenant_id: invitation.tenant_id
+        tenant_id: tenantId
     })
 }

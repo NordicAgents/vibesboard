@@ -32,24 +32,24 @@ const projects = [
 
 export function LandingShowcase() {
     return (
-        <section id="works" className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 bg-beige-bg dark:bg-background">
+        <section id="works" className="bg-beige-bg px-4 py-12 dark:bg-background sm:px-6 sm:py-16 lg:py-20">
             <div className="container mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-start mb-8 sm:mb-12 lg:mb-16 gap-4 md:gap-8">
+                <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:mb-12 md:flex-row md:gap-8 lg:mb-16">
                     <FadeIn delay={0.1}>
-                        <h2 className="text-xs sm:text-sm font-mono text-gray-secondary">[01] HOW IT WORKS</h2>
+                        <h2 className="font-mono text-xs text-gray-secondary sm:text-sm">[01] HOW IT WORKS</h2>
                     </FadeIn>
                     <FadeIn delay={0.2} className="max-w-2xl">
-                        <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-switzer leading-tight dark:text-foreground">
+                        <p className="font-switzer text-xl leading-tight dark:text-foreground sm:text-2xl md:text-3xl lg:text-4xl">
                             Create agents, vibe with people, and get real insights through AI analysis.
                         </p>
                     </FadeIn>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:gap-12">
                     {projects.map((project, index) => (
                         <FadeIn key={project.id} delay={0.2 + (index * 0.1)}>
                             <div className="group cursor-pointer">
-                                <div className="relative aspect-[4/3] overflow-hidden rounded-lg mb-3 sm:mb-4 bg-gray-100 dark:bg-muted">
+                                <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-lg bg-gray-100 dark:bg-muted sm:mb-4">
                                     <Image
                                         src={project.image}
                                         alt={project.title}
@@ -57,11 +57,11 @@ export function LandingShowcase() {
                                         className="object-cover transition-transform duration-700 ease-custom group-hover:scale-105"
                                         sizes="(max-width: 640px) 100vw, 50vw"
                                     />
-                                    <div className="absolute inset-0 bg-black-primary/0 group-hover:bg-black-primary/10 transition-colors duration-500 dark:group-hover:bg-white/10"></div>
+                                    <div className="bg-black-primary/0 group-hover:bg-black-primary/10 absolute inset-0 transition-colors duration-500 dark:group-hover:bg-white/10"></div>
                                 </div>
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-0">
-                                    <h3 className="text-lg sm:text-xl font-medium dark:text-foreground">{project.title}</h3>
-                                    <span className="text-xs sm:text-sm text-gray-secondary">{project.category}</span>
+                                <div className="flex flex-col items-start justify-between gap-1 sm:flex-row sm:items-center sm:gap-0">
+                                    <h3 className="text-lg font-medium dark:text-foreground sm:text-xl">{project.title}</h3>
+                                    <span className="text-xs text-gray-secondary sm:text-sm">{project.category}</span>
                                 </div>
                             </div>
                         </FadeIn>

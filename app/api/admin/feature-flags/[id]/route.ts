@@ -1,45 +1,103 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin } from '@/lib/permissions'
+import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
+/**
+ * GET /api/admin/feature-flags/[id]
+ * Get single feature flag (SUPER_ADMIN only)
+ */
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const { id } = await params
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
+
+    const doc = await adminDb
+        .collection(Collections.featureFlags)
+        .doc(id)
+        .get()
+
+    if (!doc.exists) {
+        return NextResponse.json(
+            { error: 'Feature flag not found' },
+            { status: 404 }
+        )
+    }
+
+    return NextResponse.json({ flag: { id: doc.id, ...doc.data() } })
+}
+
+/**
+ * PUT /api/admin/feature-flags/[id]
+ * Update feature flag (SUPER_ADMIN only)
+ */
+export async function PUT(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const { id } = await params
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
+
+    const body = await req.json()
+    const { name, description, default_value } = body
+
+    const docRef = adminDb.collection(Collections.featureFlags).doc(id)
+    const doc = await docRef.get()
+
+    if (!doc.exists) {
+        return NextResponse.json(
+            { error: 'Feature flag not found' },
+            { status: 404 }
+        )
+    }
+
+    const updates: Record<string, any> = {}
+    if (name !== undefined) updates.name = name
+    if (description !== undefined) updates.description = description
+    if (default_value !== undefined) updates.defaultValue = default_value
+
+    if (Object.keys(updates).length === 0) {
+        return NextResponse.json(
+            { error: 'No valid fields to update' },
+            { status: 400 }
+        )
+    }
+
+    await docRef.update(updates)
+
+    const updatedDoc = await docRef.get()
+    return NextResponse.json({ flag: { id: updatedDoc.id, ...updatedDoc.data() } })
+}
+
+/**
+ * DELETE /api/admin/feature-flags/[id]
+ * Delete feature flag (SUPER_ADMIN only)
+ */
 export async function DELETE(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const docRef = adminDb.collection(Collections.featureFlags).doc(id)
+    const doc = await docRef.get()
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
-    const { error } = await supabase
-        .from('feature_flags')
-        .delete()
-        .eq('id', id)
-
-    if (error) {
+    if (!doc.exists) {
         return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
+            { error: 'Feature flag not found' },
+            { status: 404 }
         )
     }
+
+    await docRef.delete()
 
     return new NextResponse(null, { status: 204 })
 }

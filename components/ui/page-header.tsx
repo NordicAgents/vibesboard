@@ -19,22 +19,25 @@ export function PageHeader({
     className
 }: PageHeaderProps) {
     return (
-        <div className={cn('space-y-4 pb-6', className)}>
+        <div className={cn('animate-fade-slide-in pb-6', className)}>
             {breadcrumbs && (
-                <div className="text-sm text-muted-foreground">
+                <div className="mb-2 flex items-center gap-1 text-xs text-[#9D9790]">
                     {breadcrumbs}
                 </div>
             )}
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+                    <h1 className="font-serif text-3xl font-normal leading-tight text-[#1A1915]">
+                        {title}
+                    </h1>
                     {description && (
-                        <p className="text-muted-foreground">{description}</p>
+                        <p className="mt-1 text-sm text-[#6B6560]">{description}</p>
                     )}
                 </div>
-                {actions && (
-                    <div className="flex items-center gap-2">
+                {(actions || children) && (
+                    <div className="flex shrink-0 items-center gap-2">
                         {actions}
+                        {children}
                     </div>
                 )}
             </div>

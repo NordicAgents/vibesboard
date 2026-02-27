@@ -1,0 +1,208 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================
+    // Helper Functions
+    // =====================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isTenantMember(tenantId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+    }
+
+    function isTenantAdmin(tenantId) {
+      return isTenantMember(tenantId) &&
+        get(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid)).data.role in ['TENANT_ADMIN', 'SUPER_ADMIN'];
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
+    }
+
+    // =====================
+    // Top-level Collections
+    // =====================
+
+    // 1. Users: read/write by owner, super admins can read any user
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Deletion handled server-side
+    }
+
+    // 2. Tenants: read by members, write by tenant admins
+    match /tenants/{tenantId} {
+      allow read: if isTenantMember(tenantId) || isSuperAdmin();
+      allow create: if isAuthenticated(); // Any authenticated user can create a tenant
+      allow update: if isTenantAdmin(tenantId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // 3. Tenant slugs: read by anyone (for URL resolution), write by server only
+    match /tenant_slugs/{slug} {
+      allow read: if true;
+      allow write: if false; // Server-only via Admin SDK
+    }
+
+    // 4. Feature flags: read by authenticated users, write by super admins
+    match /feature_flags/{flagId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin();
+    }
+
+    // 5. Invitations: read by anyone (for lookup), write by tenant admins of the invitation's tenant
+    match /invitations/{token} {
+      allow read: if true;
+      allow create: if isAuthenticated() &&
+        isTenantAdmin(request.resource.data.tenantId);
+      allow update: if isAuthenticated() && (
+        isTenantAdmin(resource.data.tenantId) ||
+        // Allow the invited user to accept/update the invitation
+        (resource.data.email == request.auth.token.email)
+      );
+      allow delete: if isAuthenticated() &&
+        isTenantAdmin(resource.data.tenantId);
+    }
+
+    // 6. Chats: read/write by owner only
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // =====================
+    // Tenant-scoped Collections
+    // =====================
+
+    match /tenants/{tenantId} {
+
+      // 7. Branding: read by members, write by tenant admins
+      match /branding/{brandingId} {
+        allow read: if isTenantMember(tenantId) || isSuperAdmin();
+        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
+      }
+
+      // 8. Members: read by members, write by tenant admins
+      //    Tenant admins cannot demote themselves
+      match /members/{userId} {
+        allow read: if isTenantMember(tenantId) || isSuperAdmin();
+        allow create: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow update: if isSuperAdmin() || (
+          isTenantAdmin(tenantId) &&
+          // Prevent tenant admins from demoting themselves
+          !(request.auth.uid == userId && resource.data.role == 'TENANT_ADMIN' && request.resource.data.role != 'TENANT_ADMIN')
+        );
+        allow delete: if isSuperAdmin() || (
+          isTenantAdmin(tenantId) &&
+          // Prevent tenant admins from removing themselves
+          request.auth.uid != userId
+        );
+      }
+
+      // 9. Feature toggles: read by members, write by super admins only
+      match /feature_toggles/{flagId} {
+        allow read: if isTenantMember(tenantId) || isSuperAdmin();
+        allow write: if isSuperAdmin();
+      }
+
+      // 10. Agents: read by members, write by agent owner or tenant admins
+      match /agents/{agentId} {
+        allow read: if isTenantMember(tenantId) || isSuperAdmin();
+        allow create: if isTenantMember(tenantId) || isSuperAdmin();
+        allow update: if isSuperAdmin() || isTenantAdmin(tenantId) ||
+          (isTenantMember(tenantId) && resource.data.ownerId == request.auth.uid);
+        allow delete: if isSuperAdmin() || isTenantAdmin(tenantId) ||
+          (isTenantMember(tenantId) && resource.data.ownerId == request.auth.uid);
+
+        // 11. Conversations: read/write by tenant members
+        match /conversations/{conversationId} {
+          allow read: if isTenantMember(tenantId) || isSuperAdmin();
+          allow create: if isTenantMember(tenantId) || isSuperAdmin();
+          allow update: if isTenantMember(tenantId) || isSuperAdmin();
+          allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
+        }
+
+        // 12. Files: read by members, write by agent owner or tenant admins
+        match /files/{fileId} {
+          allow read: if isTenantMember(tenantId) || isSuperAdmin();
+          allow create: if isSuperAdmin() || isTenantAdmin(tenantId) ||
+            (isTenantMember(tenantId) &&
+              get(/databases/$(database)/documents/tenants/$(tenantId)/agents/$(agentId)).data.ownerId == request.auth.uid);
+          allow update: if isSuperAdmin() || isTenantAdmin(tenantId) ||
+            (isTenantMember(tenantId) &&
+              get(/databases/$(database)/documents/tenants/$(tenantId)/agents/$(agentId)).data.ownerId == request.auth.uid);
+          allow delete: if isSuperAdmin() || isTenantAdmin(tenantId) ||
+            (isTenantMember(tenantId) &&
+              get(/databases/$(database)/documents/tenants/$(tenantId)/agents/$(agentId)).data.ownerId == request.auth.uid);
+        }
+
+        // 13. File chunks: read by members, write only by Cloud Functions
+        match /file_chunks/{chunkId} {
+          allow read: if isTenantMember(tenantId) || isSuperAdmin();
+          allow write: if false; // Server-only via Admin SDK
+        }
+
+        // 14. Conversation chunks: read by members, write only by Cloud Functions
+        match /conversation_chunks/{chunkId} {
+          allow read: if isTenantMember(tenantId) || isSuperAdmin();
+          allow write: if false; // Server-only via Admin SDK
+        }
+
+        // WhatsApp connections under agents
+        match /whatsapp_connections/{connectionId} {
+          allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
+          allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
+        }
+      }
+
+      // 15. WhatsApp Business Accounts: read/write by tenant admins
+      match /whatsapp_business_accounts/{accountId} {
+        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
+      }
+
+      // 15. WhatsApp Contacts: read/write by tenant admins
+      match /whatsapp_contacts/{contactId} {
+        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
+      }
+
+      // 15. WhatsApp Contact Lists: read/write by tenant admins
+      match /whatsapp_contact_lists/{listId} {
+        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
+      }
+
+      // 15-16. WhatsApp Campaigns: read/write by tenant admins
+      match /whatsapp_campaigns/{campaignId} {
+        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
+
+        // 16. Message queue: read by tenant admins, write only by Cloud Functions
+        match /message_queue/{messageId} {
+          allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
+          allow write: if false; // Server-only via Admin SDK
+        }
+      }
+    }
+
+    // =====================
+    // Deny all other access by default
+    // =====================
+    // Firestore denies access by default for paths without matching rules.
+    // No catch-all needed, but this documents the intent.
+  }
+}
