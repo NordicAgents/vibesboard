@@ -10,10 +10,10 @@ export default function PrivacyPolicyPage() {
   return (
     <main className="min-h-screen bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
       <LandingHeader />
-      <div className="container mx-auto px-4 sm:px-6 py-24 sm:py-32">
-        <h1 className="text-4xl sm:text-5xl font-bold font-switzer mb-8">Privacy Policy</h1>
-        <div className="prose dark:prose-invert max-w-none prose-lg">
-          <p className="text-xl text-gray-secondary mb-8">Last updated: {new Date().toLocaleDateString()}</p>
+      <div className="container mx-auto px-4 py-24 sm:px-6 sm:py-32">
+        <h1 className="mb-8 font-switzer text-4xl font-bold sm:text-5xl">Privacy Policy</h1>
+        <div className="prose prose-lg max-w-none dark:prose-invert">
+          <p className="mb-8 text-xl text-gray-secondary">Last updated: {new Date().toLocaleDateString()}</p>
 
           <h2>1. Introduction</h2>
           <p>

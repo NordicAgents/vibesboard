@@ -73,8 +73,8 @@ export function AgentRightbar({
   )
   const [quickSuggestionsMode, setQuickSuggestionsMode] =
     useState<QuickSuggestionsMode>(agent.quickSuggestionsMode ?? 'off')
-  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<3 | 4>(
-    agent.quickSuggestionsCount === 3 ? 3 : 4
+  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(
+    agent.quickSuggestionsCount ?? 4
   )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -149,7 +149,7 @@ export function AgentRightbar({
     mode !== (agent.mode || 'provider') ||
     maxMessages !== (agent.maxMessages ?? null) ||
     quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
-    quickSuggestionsCount !== (agent.quickSuggestionsCount === 3 ? 3 : 4)
+    quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4)
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -191,7 +191,7 @@ export function AgentRightbar({
               />
               <div className="flex items-center justify-between">
                 <p className="truncate text-xs text-muted-foreground">
-                  /a/{agent.agentUrl}
+                  /{agent.tenantSlug ?? 'unknown'}/{agent.agentUrl}
                 </p>
               </div>
             </div>
@@ -253,7 +253,7 @@ export function AgentRightbar({
               <Badge
                 variant={mode !== 'collector' ? 'default' : 'secondary'}
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   mode !== 'collector' && 'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
                 )}
@@ -268,7 +268,7 @@ export function AgentRightbar({
               <Badge
                 variant={mode === 'collector' ? 'default' : 'secondary'}
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   mode === 'collector' && 'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
                 )}
@@ -319,7 +319,7 @@ export function AgentRightbar({
                   quickSuggestionsMode === 'off' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'off' &&
                     'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
@@ -336,7 +336,7 @@ export function AgentRightbar({
                   quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'smart' &&
                     'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
@@ -353,7 +353,7 @@ export function AgentRightbar({
                   quickSuggestionsMode === 'always' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'always' &&
                     'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
@@ -378,41 +378,20 @@ export function AgentRightbar({
                 <label className="text-xs font-medium text-muted-foreground">
                   Suggestions count
                 </label>
-                <div className="mt-2 flex gap-2">
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 3 ? 'default' : 'secondary'
+                <div className="mt-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    disabled={!canEdit}
+                    value={quickSuggestionsCount}
+                    onChange={e =>
+                      setQuickSuggestionsCount(
+                        Math.max(1, Math.min(10, parseInt(e.target.value) || 4))
+                      )
                     }
-                    className={cn(
-                      'cursor-pointer transition-all px-4 py-1',
-                      quickSuggestionsCount === 3 &&
-                        'bg-primary text-primary-foreground',
-                      !canEdit && 'cursor-not-allowed opacity-60'
-                    )}
-                    onClick={() => {
-                      if (!canEdit) return
-                      setQuickSuggestionsCount(3)
-                    }}
-                  >
-                    3
-                  </Badge>
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 4 ? 'default' : 'secondary'
-                    }
-                    className={cn(
-                      'cursor-pointer transition-all px-4 py-1',
-                      quickSuggestionsCount === 4 &&
-                        'bg-primary text-primary-foreground',
-                      !canEdit && 'cursor-not-allowed opacity-60'
-                    )}
-                    onClick={() => {
-                      if (!canEdit) return
-                      setQuickSuggestionsCount(4)
-                    }}
-                  >
-                    4
-                  </Badge>
+                    className="h-9 w-20 text-center"
+                  />
                 </div>
               </div>
             )}
@@ -443,7 +422,7 @@ export function AgentRightbar({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <IconExternalLink className="h-4 w-4" />
+                  <IconExternalLink className="size-4" />
                 </Link>
               </Button>
             </div>
@@ -474,7 +453,7 @@ export function AgentRightbar({
                   className="w-full bg-red-600 hover:bg-red-700"
                   disabled={!canEdit}
                 >
-                  <IconTrash className="mr-2 h-4 w-4" />
+                  <IconTrash className="mr-2 size-4" />
                   Delete Agent
                 </Button>
               </AlertDialogTrigger>

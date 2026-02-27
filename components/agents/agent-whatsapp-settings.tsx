@@ -23,17 +23,17 @@ import { Loader2, Plus, Phone, MessageSquare, RotateCw, Trash2, Power, RefreshCw
 
 interface WhatsAppConnection {
   id: string
-  phone_number: string
-  phone_number_normalized: string
+  phoneNumber: string
+  phoneNumberNormalized: string
   status: 'pending' | 'active' | 'disconnected' | 'expired'
-  intro_message_sent_at: string | null
-  last_message_received_at: string | null
-  total_conversations: number
-  connected_at: string | null
-  disconnected_at: string | null
-  disconnection_reason: string | null
-  custom_intro_message: string | null
-  created_at: string
+  introMessageSentAt: string | null
+  lastMessageReceivedAt: string | null
+  totalConversations: number
+  connectedAt: string | null
+  disconnectedAt: string | null
+  disconnectionReason: string | null
+  customIntroMessage: string | null
+  createdAt: string
 }
 
 interface AgentWhatsAppSettingsProps {
@@ -245,7 +245,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
 
     return (
       <div className="flex items-center gap-2">
-        <div className={`h-2 w-2 rounded-full ${config.color}`} />
+        <div className={`size-2 rounded-full ${config.color}`} />
         <Badge variant={config.variant}>{config.label}</Badge>
       </div>
     )
@@ -272,7 +272,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     )
@@ -300,7 +300,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               disabled={!canEdit}
               size="sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-4" />
               Add Phone Number
             </Button>
           </div>
@@ -316,7 +316,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Conversations</p>
                 <p className="text-2xl font-bold">
-                  {connections.reduce((sum, c) => sum + c.total_conversations, 0)}
+                  {connections.reduce((sum, c) => sum + c.totalConversations, 0)}
                 </p>
               </div>
               <div>
@@ -411,13 +411,13 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           {/* Empty State */}
           {connections.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-12 text-center">
-              <Phone className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <Phone className="mb-4 size-12 text-muted-foreground/50" />
               <h3 className="mb-2 text-lg font-semibold">No connections yet</h3>
               <p className="mb-4 text-sm text-muted-foreground">
                 Add a phone number to start receiving WhatsApp messages
               </p>
               <Button onClick={() => setShowAddModal(true)} disabled={!canEdit}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-4" />
                 Add Your First Number
               </Button>
             </div>
@@ -479,7 +479,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogFooter>
             <AlertDialogCancel disabled={addingConnection}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleAddConnection} disabled={addingConnection}>
-              {addingConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {addingConnection && <Loader2 className="mr-2 size-4 animate-spin" />}
               Connect
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -492,7 +492,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect Phone Number</AlertDialogTitle>
             <AlertDialogDescription>
-              Disconnect {selectedConnection?.phone_number} from this agent
+              Disconnect {selectedConnection?.phoneNumber} from this agent
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-4">
@@ -536,7 +536,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               disabled={actionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -549,13 +549,13 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Reconnect Phone Number</AlertDialogTitle>
             <AlertDialogDescription>
-              Reactivate {selectedConnection?.phone_number} and send a new introduction message
+              Reactivate {selectedConnection?.phoneNumber} and send a new introduction message
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleReconnect} disabled={actionLoading}>
-              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Reconnect
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -568,7 +568,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Connection</AlertDialogTitle>
             <AlertDialogDescription>
-              Permanently delete {selectedConnection?.phone_number}? This action cannot be undone.
+              Permanently delete {selectedConnection?.phoneNumber}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -578,7 +578,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               disabled={actionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -617,8 +617,8 @@ function ConnectionCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <span className="font-mono font-medium">{connection.phone_number}</span>
+            <Phone className="size-4 text-muted-foreground" />
+            <span className="font-mono font-medium">{connection.phoneNumber}</span>
             {getStatusBadge(connection.status)}
           </div>
 
@@ -626,26 +626,26 @@ function ConnectionCard({
             {isActive && (
               <>
                 <div>
-                  <MessageSquare className="mb-1 inline h-3 w-3" /> {connection.total_conversations}{' '}
+                  <MessageSquare className="mb-1 inline size-3" /> {connection.totalConversations}{' '}
                   conversations
                 </div>
-                <div>Last activity: {formatDate(connection.last_message_received_at)}</div>
-                <div>Connected: {formatDate(connection.connected_at)}</div>
+                <div>Last activity: {formatDate(connection.lastMessageReceivedAt)}</div>
+                <div>Connected: {formatDate(connection.connectedAt)}</div>
               </>
             )}
             {isPending && (
               <>
-                <div>Created: {formatDate(connection.created_at)}</div>
+                <div>Created: {formatDate(connection.createdAt)}</div>
                 <div>
-                  {connection.intro_message_sent_at ? 'Intro sent' : 'Intro not sent yet'}
+                  {connection.introMessageSentAt ? 'Intro sent' : 'Intro not sent yet'}
                 </div>
               </>
             )}
             {isDisconnected && (
               <>
-                <div>Disconnected: {formatDate(connection.disconnected_at)}</div>
-                {connection.disconnection_reason && (
-                  <div>Reason: {connection.disconnection_reason}</div>
+                <div>Disconnected: {formatDate(connection.disconnectedAt)}</div>
+                {connection.disconnectionReason && (
+                  <div>Reason: {connection.disconnectionReason}</div>
                 )}
               </>
             )}
@@ -658,12 +658,12 @@ function ConnectionCard({
               <>
                 {onResendIntro && (
                   <Button variant="ghost" size="sm" onClick={onResendIntro}>
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="size-4" />
                   </Button>
                 )}
                 {onDisconnect && (
                   <Button variant="ghost" size="sm" onClick={onDisconnect}>
-                    <Power className="h-4 w-4" />
+                    <Power className="size-4" />
                   </Button>
                 )}
               </>
@@ -672,12 +672,12 @@ function ConnectionCard({
               <>
                 {onResendIntro && (
                   <Button variant="ghost" size="sm" onClick={onResendIntro}>
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="size-4" />
                   </Button>
                 )}
                 {onDelete && (
                   <Button variant="ghost" size="sm" onClick={onDelete}>
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </Button>
                 )}
               </>
@@ -686,12 +686,12 @@ function ConnectionCard({
               <>
                 {onReconnect && (
                   <Button variant="ghost" size="sm" onClick={onReconnect}>
-                    <RotateCw className="h-4 w-4" />
+                    <RotateCw className="size-4" />
                   </Button>
                 )}
                 {onDelete && (
                   <Button variant="ghost" size="sm" onClick={onDelete}>
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </Button>
                 )}
               </>

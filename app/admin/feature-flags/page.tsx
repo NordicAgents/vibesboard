@@ -100,15 +100,15 @@ export default function FeatureFlagsPage() {
                 description="Manage feature flags that can be toggled per tenant"
                 actions={
                     <Button onClick={() => setIsCreateDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className="mr-2 size-4" />
                         Create Feature Flag
                     </Button>
                 }
             />
 
             <div className="flex items-center gap-4">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative max-w-md flex-1">
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Search feature flags..."
                         value={searchQuery}
@@ -136,7 +136,7 @@ export default function FeatureFlagsPage() {
                     action={
                         !searchQuery ? (
                             <Button onClick={() => setIsCreateDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
+                                <Plus className="mr-2 size-4" />
                                 Create Feature Flag
                             </Button>
                         ) : undefined
@@ -171,7 +171,7 @@ export default function FeatureFlagsPage() {
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal className="h-4 w-4" />
+                                                    <MoreHorizontal className="size-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">

@@ -310,7 +310,7 @@ export default function CampaignsPage() {
         const Icon = config.icon
         return (
           <Badge variant={config.variant} className="gap-1">
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
             {config.label}
           </Badge>
         )
@@ -370,7 +370,7 @@ export default function CampaignsPage() {
                 handleStartCampaign(campaign)
               }}
             >
-              <Play className="h-4 w-4 text-green-600" />
+              <Play className="size-4 text-green-600" />
             </Button>
           )}
           {campaign.status === 'sending' && (
@@ -382,7 +382,7 @@ export default function CampaignsPage() {
                 handlePauseCampaign(campaign)
               }}
             >
-              <Pause className="h-4 w-4 text-orange-600" />
+              <Pause className="size-4 text-orange-600" />
             </Button>
           )}
           {campaign.status === 'paused' && (
@@ -394,7 +394,7 @@ export default function CampaignsPage() {
                 handleResumeCampaign(campaign)
               }}
             >
-              <Play className="h-4 w-4 text-green-600" />
+              <Play className="size-4 text-green-600" />
             </Button>
           )}
           {campaign.status === 'draft' && (
@@ -407,7 +407,7 @@ export default function CampaignsPage() {
                 setDeleteDialogOpen(true)
               }}
             >
-              <Trash2 className="h-4 w-4 text-destructive" />
+              <Trash2 className="size-4 text-destructive" />
             </Button>
           )}
         </div>
@@ -424,7 +424,7 @@ export default function CampaignsPage() {
         description="Create and manage your WhatsApp bulk messaging campaigns"
         actions={
           <Button onClick={() => setCreateDialogOpen(true)} disabled={!canCreate}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             Create Campaign
           </Button>
         }
@@ -441,19 +441,19 @@ export default function CampaignsPage() {
           <CardContent className="space-y-2 text-sm">
             {businessAccounts.length === 0 && (
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive" />
+                <AlertCircle className="size-4 text-destructive" />
                 <span>Connect a WhatsApp Business account</span>
               </div>
             )}
             {templates.length === 0 && (
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive" />
+                <AlertCircle className="size-4 text-destructive" />
                 <span>Create and get approval for at least one message template</span>
               </div>
             )}
             {contactLists.length === 0 && (
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive" />
+                <AlertCircle className="size-4 text-destructive" />
                 <span>Create at least one contact list with opted-in contacts</span>
               </div>
             )}
@@ -477,7 +477,7 @@ export default function CampaignsPage() {
             description="Create your first bulk messaging campaign to reach your contacts"
             action={
               <Button onClick={() => setCreateDialogOpen(true)} disabled={!canCreate}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-4" />
                 Create Campaign
               </Button>
             }
@@ -495,7 +495,7 @@ export default function CampaignsPage() {
                 Set up a new bulk messaging campaign
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid max-h-[60vh] gap-4 overflow-y-auto py-4">
               <div className="grid gap-2">
                 <Label htmlFor="campaignName">Campaign Name *</Label>
                 <Input
@@ -557,7 +557,7 @@ export default function CampaignsPage() {
                   </SelectContent>
                 </Select>
                 {selectedTemplate && (
-                  <div className="rounded-lg border p-3 bg-muted/50 text-sm">
+                  <div className="rounded-lg border bg-muted/50 p-3 text-sm">
                     {selectedTemplate.body_text.replace(/{{(\d+)}}/g, '[Variable $1]')}
                   </div>
                 )}

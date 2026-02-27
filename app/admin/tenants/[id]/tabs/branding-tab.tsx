@@ -6,15 +6,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ColorPicker, BrandingPreview } from '@/components/tenants'
-import { Database } from '@/lib/db_types'
+import type { TenantBrandingDocument } from '@/lib/firestore-types'
 import { validateHexColor, validateUrl } from '@/lib/validations'
 import toast from 'react-hot-toast'
 
-type TenantBranding = Database['public']['Tables']['tenant_branding']['Row']
-
 interface TenantBrandingTabProps {
     tenantId: string
-    branding: TenantBranding | null
+    branding: TenantBrandingDocument | null
     onUpdate: () => void
 }
 
@@ -25,32 +23,32 @@ export function TenantBrandingTab({
 }: TenantBrandingTabProps) {
     const [isSaving, setIsSaving] = React.useState(false)
     const [formData, setFormData] = React.useState({
-        logo_url: branding?.logo_url || '',
-        primary_color: branding?.primary_color || '#000000',
-        secondary_color: branding?.secondary_color || '#ffffff',
+        logoUrl: branding?.logoUrl || '',
+        primaryColor: branding?.primaryColor || '#000000',
+        secondaryColor: branding?.secondaryColor || '#ffffff',
     })
     const [errors, setErrors] = React.useState({
-        logo_url: '',
-        primary_color: '',
-        secondary_color: '',
+        logoUrl: '',
+        primaryColor: '',
+        secondaryColor: '',
     })
 
     const validate = () => {
-        const newErrors = { logo_url: '', primary_color: '', secondary_color: '' }
+        const newErrors = { logoUrl: '', primaryColor: '', secondaryColor: '' }
         let isValid = true
 
-        if (formData.logo_url && !validateUrl(formData.logo_url)) {
-            newErrors.logo_url = 'Invalid URL'
+        if (formData.logoUrl && !validateUrl(formData.logoUrl)) {
+            newErrors.logoUrl = 'Invalid URL'
             isValid = false
         }
 
-        if (!validateHexColor(formData.primary_color)) {
-            newErrors.primary_color = 'Invalid hex color'
+        if (!validateHexColor(formData.primaryColor)) {
+            newErrors.primaryColor = 'Invalid hex color'
             isValid = false
         }
 
-        if (!validateHexColor(formData.secondary_color)) {
-            newErrors.secondary_color = 'Invalid hex color'
+        if (!validateHexColor(formData.secondaryColor)) {
+            newErrors.secondaryColor = 'Invalid hex color'
             isValid = false
         }
 
@@ -99,23 +97,23 @@ export function TenantBrandingTab({
                 <CardContent className="space-y-4">
                     {/* Logo URL */}
                     <div className="space-y-2">
-                        <Label htmlFor="logo_url">Logo URL</Label>
+                        <Label htmlFor="logoUrl">Logo URL</Label>
                         <Input
-                            id="logo_url"
+                            id="logoUrl"
                             placeholder="https://example.com/logo.png"
-                            value={formData.logo_url}
+                            value={formData.logoUrl}
                             onChange={(e) =>
-                                setFormData((prev) => ({ ...prev, logo_url: e.target.value }))
+                                setFormData((prev) => ({ ...prev, logoUrl: e.target.value }))
                             }
                             disabled={isSaving}
                         />
-                        {errors.logo_url && (
-                            <p className="text-sm text-destructive">{errors.logo_url}</p>
+                        {errors.logoUrl && (
+                            <p className="text-sm text-destructive">{errors.logoUrl}</p>
                         )}
-                        {formData.logo_url && !errors.logo_url && (
+                        {formData.logoUrl && !errors.logoUrl && (
                             <div className="mt-2 rounded border p-4">
                                 <img
-                                    src={formData.logo_url}
+                                    src={formData.logoUrl}
                                     alt="Logo preview"
                                     className="h-12 object-contain"
                                     onError={(e) => {
@@ -130,14 +128,14 @@ export function TenantBrandingTab({
                     <div className="space-y-2">
                         <ColorPicker
                             label="Primary Color"
-                            value={formData.primary_color}
+                            value={formData.primaryColor}
                             onChange={(color) =>
-                                setFormData((prev) => ({ ...prev, primary_color: color }))
+                                setFormData((prev) => ({ ...prev, primaryColor: color }))
                             }
-                            id="primary_color"
+                            id="primaryColor"
                         />
-                        {errors.primary_color && (
-                            <p className="text-sm text-destructive">{errors.primary_color}</p>
+                        {errors.primaryColor && (
+                            <p className="text-sm text-destructive">{errors.primaryColor}</p>
                         )}
                     </div>
 
@@ -145,14 +143,14 @@ export function TenantBrandingTab({
                     <div className="space-y-2">
                         <ColorPicker
                             label="Secondary Color"
-                            value={formData.secondary_color}
+                            value={formData.secondaryColor}
                             onChange={(color) =>
-                                setFormData((prev) => ({ ...prev, secondary_color: color }))
+                                setFormData((prev) => ({ ...prev, secondaryColor: color }))
                             }
-                            id="secondary_color"
+                            id="secondaryColor"
                         />
-                        {errors.secondary_color && (
-                            <p className="text-sm text-destructive">{errors.secondary_color}</p>
+                        {errors.secondaryColor && (
+                            <p className="text-sm text-destructive">{errors.secondaryColor}</p>
                         )}
                     </div>
 
@@ -176,9 +174,9 @@ export function TenantBrandingTab({
                 <CardContent>
                     <BrandingPreview
                         tenantName="Preview"
-                        logoUrl={formData.logo_url}
-                        primaryColor={formData.primary_color}
-                        secondaryColor={formData.secondary_color}
+                        logoUrl={formData.logoUrl}
+                        primaryColor={formData.primaryColor}
+                        secondaryColor={formData.secondaryColor}
                     />
                 </CardContent>
             </Card>

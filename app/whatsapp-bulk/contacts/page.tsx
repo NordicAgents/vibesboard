@@ -308,7 +308,7 @@ export default function ContactsPage() {
         const Icon = contact.opted_in ? CheckCircle2 : XCircle
         return (
           <Badge variant={contact.opted_in ? 'default' : 'secondary'} className="gap-1">
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
             {contact.opted_in ? 'Opted In' : 'Opted Out'}
           </Badge>
         )
@@ -344,7 +344,7 @@ export default function ContactsPage() {
               setDeleteDialogOpen(true)
             }}
           >
-            <Trash2 className="h-4 w-4 text-destructive" />
+            <Trash2 className="size-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -371,7 +371,7 @@ export default function ContactsPage() {
       sortable: true,
       render: (list) => (
         <Badge variant="secondary">
-          <UsersIcon className="h-3 w-3 mr-1" />
+          <UsersIcon className="mr-1 size-3" />
           {list.contact_count || 0}
         </Badge>
       ),
@@ -400,11 +400,11 @@ export default function ContactsPage() {
         <TabsContent value="contacts" className="space-y-4">
           <div className="flex gap-2">
             <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-4" />
               Add Contact
             </Button>
             <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" />
+              <Upload className="mr-2 size-4" />
               Import CSV
             </Button>
           </div>
@@ -426,11 +426,11 @@ export default function ContactsPage() {
                 action={
                   <div className="flex gap-2">
                     <Button onClick={() => setCreateDialogOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="mr-2 size-4" />
                       Add Contact
                     </Button>
                     <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-                      <Upload className="mr-2 h-4 w-4" />
+                      <Upload className="mr-2 size-4" />
                       Import CSV
                     </Button>
                   </div>
@@ -442,7 +442,7 @@ export default function ContactsPage() {
 
         <TabsContent value="lists" className="space-y-4">
           <Button onClick={() => setCreateListDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             Create List
           </Button>
 
@@ -462,7 +462,7 @@ export default function ContactsPage() {
                 description="Create lists to organize your contacts for targeted campaigns"
                 action={
                   <Button onClick={() => setCreateListDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="mr-2 size-4" />
                     Create List
                   </Button>
                 }

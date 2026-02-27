@@ -34,6 +34,7 @@ yarn-error.log*
 
 .contentlayer
 .env
+env.yaml
 .vercel
 .vscode
 
@@ -41,3 +42,6 @@ yarn-error.log*
 
 .kilocodemodes
 .kilocode
+
+# Cloud Functions build output
+functions/lib

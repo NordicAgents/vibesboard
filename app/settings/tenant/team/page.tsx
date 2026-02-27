@@ -302,7 +302,7 @@ export default function TeamManagementPage() {
             >
                 {!isPersonal && teamCollaborationEnabled && (
                     <Button onClick={() => setIsInviteDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className="mr-2 size-4" />
                         Invite Member
                     </Button>
                 )}
@@ -327,7 +327,7 @@ export default function TeamManagementPage() {
                 <CardContent>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            <Loader2 className="size-6 animate-spin text-muted-foreground" />
                         </div>
                     ) : members.length === 0 ? (
                         <EmptyState
@@ -360,7 +360,7 @@ export default function TeamManagementPage() {
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" size="icon">
-                                                            <MoreHorizontal className="h-4 w-4" />
+                                                            <MoreHorizontal className="size-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
@@ -507,7 +507,7 @@ export default function TeamManagementPage() {
                             <Button type="submit" disabled={isInviting}>
                                 {isInviting ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
                                         Sending...
                                     </>
                                 ) : (

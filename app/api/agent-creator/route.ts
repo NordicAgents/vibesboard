@@ -1,20 +1,20 @@
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { Configuration, OpenAIApi } from 'openai-edge'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import {
   BUILTIN_AGENT_TOOLS,
   createAgentSlug,
   ensureUniqueSlug
 } from '@/lib/agents/db'
 import { upsertAgentSchema } from '@/lib/agents/schema'
-import { getActiveTenant } from '@/lib/tenant-context'
+import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
+import { nanoid } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
@@ -27,8 +27,7 @@ const openai = new OpenAIApi(configuration)
 const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-4o-mini'
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     return new NextResponse('Unauthorized', { status: 401 })
@@ -44,10 +43,6 @@ export async function POST(req: Request) {
       { status: 500 }
     )
   }
-
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
 
   const availableTools = Object.values(BUILTIN_AGENT_TOOLS).map(t => ({
     id: t.id,
@@ -84,11 +79,11 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
    If user provides a **website URL**:
    - Acknowledge you'll analyze it
    - Ask: "What should this agent focus on? Customer support, product info, general questions, or something else?"
-   
+
    If user provides **files**:
    - Acknowledge the uploaded files
    - Ask: "What kind of questions should this agent help answer based on these files?"
-   
+
    If user provides a **description**:
    - Ask one follow-up: "What tone should the agent have? Professional, friendly, casual, or something specific?"
 
@@ -106,7 +101,7 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - allowAnonymous (default: true, ask only if relevant)
 - tools (suggest relevant tools based on needs, use tool IDs from the list above)
 - quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
-- quickSuggestionsCount (default: 4; options: 3 | 4)
+- quickSuggestionsCount (default: 4; options: 1–10)
 - mode (default: "provider"; options: "provider" | "collector")
 - maxMessages (collector only; default: 20)
 
@@ -218,7 +213,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     mode: z.enum(['provider', 'collector']).optional(),
     maxMessages: z.number().int().min(1).max(50).nullable().optional(),
     quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
-    quickSuggestionsCount: z.number().int().min(3).max(4).optional(),
+    quickSuggestionsCount: z.number().int().min(1).max(10).optional(),
     tools: z.array(z.string()).optional(),
     fileKeys: z.array(z.string()).optional()
   })
@@ -254,7 +249,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
       const parsed = createAgentArgsSchema.safeParse(args)
       if (!parsed.success) {
         const errorText = parsed.error.issues.map(i => i.message).join('; ')
-        return `I couldn't create the agent automatically (${errorText}). Please review the form and click “Create Agent”.`
+        return `I couldn't create the agent automatically (${errorText}). Please review the form and click "Create Agent".`
       }
 
       const sanitizedToolIds = (parsed.data.tools ?? []).filter(
@@ -293,36 +288,44 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
       }
 
+      // Get tenant slug for URL construction
+      const tenant = await getTenantById(tenantId)
+      const tenantSlug = tenant?.slug ?? 'unknown'
+
       const slug = await ensureUniqueSlug(
         createAgentSlug(payload.name),
-        supabase
+        tenantId
       )
 
-      const { data, error } = await supabase
-        .from('vibe_agents')
-        .insert({
-          user_id: session.user.id,
-          tenant_id: tenantId,
-          name: payload.name,
-          instructions: payload.instructions,
-          file_keys: payload.fileKeys,
-          tools: payload.tools,
-          allow_anonymous: payload.allowAnonymous,
-          agent_url: slug,
-          mode: (payload as any).mode,
-          max_messages: (payload as any).maxMessages,
-          quick_suggestions_mode: (payload as any).quickSuggestionsMode,
-          quick_suggestions_count: (payload as any).quickSuggestionsCount,
-          ...(payload.greetingText !== undefined
-            ? { greeting_text: payload.greetingText }
-            : {})
-        })
-        .select('id')
-        .single()
+      const agentId = nanoid()
+      const now = new Date().toISOString()
 
-      if (error || !data) {
+      try {
+        await adminDb
+          .collection(Collections.agents(tenantId))
+          .doc(agentId)
+          .set({
+            id: agentId,
+            userId: session.user.id,
+            tenantId,
+            tenantSlug,
+            name: payload.name,
+            instructions: payload.instructions,
+            fileKeys: payload.fileKeys,
+            tools: payload.tools,
+            allowAnonymous: payload.allowAnonymous,
+            agentUrl: slug,
+            greetingText: payload.greetingText ?? null,
+            mode: payload.mode,
+            maxMessages: maxMessages,
+            quickSuggestionsMode: payload.quickSuggestionsMode,
+            quickSuggestionsCount: payload.quickSuggestionsCount,
+            createdAt: now,
+            updatedAt: now
+          })
+      } catch (error: any) {
         console.error('Failed to create agent:', error)
-        return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click “Create Agent” in the preview panel.`
+        return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`
       }
 
       return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
@@ -333,14 +336,14 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           tools: sanitizedToolIds,
           allowAnonymous: payload.allowAnonymous,
           fileKeys: payload.fileKeys,
-          mode: (payload as any).mode,
-          maxMessages: (payload as any).maxMessages,
-          quickSuggestionsMode: (payload as any).quickSuggestionsMode,
-          quickSuggestionsCount: (payload as any).quickSuggestionsCount
+          mode: payload.mode,
+          maxMessages: maxMessages,
+          quickSuggestionsMode: payload.quickSuggestionsMode,
+          quickSuggestionsCount: payload.quickSuggestionsCount
         },
         null,
         2
-      )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: data.id })}\n~~~`
+      )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: agentId })}\n~~~`
     }
   })
 

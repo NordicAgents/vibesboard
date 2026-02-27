@@ -204,7 +204,7 @@ export default function BusinessAccountsPage() {
         const Icon = config.icon
         return (
           <Badge variant={config.variant} className="gap-1">
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
             {config.label}
           </Badge>
         )
@@ -240,7 +240,7 @@ export default function BusinessAccountsPage() {
             }}
             disabled={syncing === account.id}
           >
-            <RefreshCw className={`h-4 w-4 ${syncing === account.id ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-4 ${syncing === account.id ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             variant="ghost"
@@ -251,7 +251,7 @@ export default function BusinessAccountsPage() {
               setDisconnectDialogOpen(true)
             }}
           >
-            <Trash2 className="h-4 w-4 text-destructive" />
+            <Trash2 className="size-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -265,7 +265,7 @@ export default function BusinessAccountsPage() {
         description="Manage your WhatsApp Business accounts for bulk messaging"
         actions={
           <Button onClick={() => setConnectDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             Connect Account
           </Button>
         }
@@ -287,7 +287,7 @@ export default function BusinessAccountsPage() {
             description="Connect your first WhatsApp Business account to start sending campaigns"
             action={
               <Button onClick={() => setConnectDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-4" />
                 Connect Account
               </Button>
             }
@@ -297,7 +297,7 @@ export default function BusinessAccountsPage() {
 
       {/* Connect Account Dialog */}
       <Dialog open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
           <form onSubmit={handleConnectAccount}>
             <DialogHeader>
               <DialogTitle>Connect WhatsApp Business Account</DialogTitle>
@@ -307,29 +307,29 @@ export default function BusinessAccountsPage() {
             </DialogHeader>
 
             {/* Help Guide Section */}
-            <div className="my-4 rounded-lg border bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-900">
+            <div className="my-4 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950">
               <button
                 type="button"
                 onClick={() => setShowHelp(!showHelp)}
                 className="flex w-full items-center justify-between p-3 text-left"
               >
                 <div className="flex items-center gap-2">
-                  <HelpCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <HelpCircle className="size-5 text-blue-600 dark:text-blue-400" />
                   <span className="font-medium text-blue-900 dark:text-blue-100">
                     How to get these credentials?
                   </span>
                 </div>
                 {showHelp ? (
-                  <ChevronUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <ChevronUp className="size-5 text-blue-600 dark:text-blue-400" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <ChevronDown className="size-5 text-blue-600 dark:text-blue-400" />
                 )}
               </button>
 
               {showHelp && (
-                <div className="border-t border-blue-200 dark:border-blue-900 p-4 space-y-4 text-sm">
+                <div className="space-y-4 border-t border-blue-200 p-4 text-sm dark:border-blue-900">
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <h4 className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-100">
                       Step 1: Create Meta Business Account
                     </h4>
                     <p className="text-blue-800 dark:text-blue-200">
@@ -338,30 +338,30 @@ export default function BusinessAccountsPage() {
                         href="https://business.facebook.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline inline-flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-300"
+                        className="inline-flex items-center gap-1 underline hover:text-blue-600 dark:hover:text-blue-300"
                       >
                         business.facebook.com
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="size-3" />
                       </a>{' '}
                       and create or select your existing business account.
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <h4 className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-100">
                       Step 2: Create WhatsApp Business App
                     </h4>
-                    <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200 ml-2">
+                    <ol className="ml-2 list-inside list-decimal space-y-1 text-blue-800 dark:text-blue-200">
                       <li>
                         Go to{' '}
                         <a
                           href="https://developers.facebook.com"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="underline inline-flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-300"
+                          className="inline-flex items-center gap-1 underline hover:text-blue-600 dark:hover:text-blue-300"
                         >
                           developers.facebook.com
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className="size-3" />
                         </a>
                       </li>
                       <li>Click "My Apps" → "Create App"</li>
@@ -371,10 +371,10 @@ export default function BusinessAccountsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <h4 className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-100">
                       Step 3: Get Phone Number ID & Business Account ID
                     </h4>
-                    <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200 ml-2">
+                    <ol className="ml-2 list-inside list-decimal space-y-1 text-blue-800 dark:text-blue-200">
                       <li>In your app dashboard, go to "WhatsApp" → "API Setup"</li>
                       <li>
                         Find <strong>"Phone Number ID"</strong> - a 15-digit number (e.g., 123456789012345)
@@ -387,10 +387,10 @@ export default function BusinessAccountsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <h4 className="flex items-center gap-2 font-semibold text-blue-900 dark:text-blue-100">
                       Step 4: Generate Permanent Access Token
                     </h4>
-                    <ol className="list-decimal list-inside space-y-1 text-blue-800 dark:text-blue-200 ml-2">
+                    <ol className="ml-2 list-inside list-decimal space-y-1 text-blue-800 dark:text-blue-200">
                       <li>In the same "API Setup" page, find "Access Token"</li>
                       <li>Click "Generate Access Token"</li>
                       <li>
@@ -398,7 +398,7 @@ export default function BusinessAccountsPage() {
                       </li>
                       <li>
                         Grant these permissions:
-                        <ul className="list-disc list-inside ml-4 mt-1">
+                        <ul className="ml-4 mt-1 list-inside list-disc">
                           <li>whatsapp_business_messaging</li>
                           <li>whatsapp_business_management</li>
                         </ul>
@@ -410,7 +410,7 @@ export default function BusinessAccountsPage() {
                     </ol>
                   </div>
 
-                  <div className="rounded-md bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-900 p-3">
+                  <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-900 dark:bg-yellow-950">
                     <p className="text-xs text-yellow-800 dark:text-yellow-200">
                       <strong>Security Note:</strong> Your access token will be encrypted with AES-256 before storage and never displayed again. Only the Phone Number ID and Business Account ID are stored in plain text.
                     </p>
@@ -421,10 +421,10 @@ export default function BusinessAccountsPage() {
                       href="https://developers.facebook.com/docs/whatsapp/business-management-api/get-started"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium inline-flex items-center gap-1"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                     >
                       View detailed Meta documentation
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="size-4" />
                     </a>
                   </div>
                 </div>

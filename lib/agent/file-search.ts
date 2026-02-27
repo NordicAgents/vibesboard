@@ -1,16 +1,16 @@
 import { Buffer } from 'node:buffer'
 
 import { Configuration, OpenAIApi } from 'openai-edge'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { FieldValue } from 'firebase-admin/firestore'
 
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
-import { type Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { downloadFile } from '@/lib/firebase/storage'
+import { Collections } from '@/lib/firestore-types'
 import { OPENAI_VISION_MODEL } from '@/lib/openai'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
 const VISION_MODEL = OPENAI_VISION_MODEL
-const STORAGE_BUCKET = 'agent-files'
 
 const openai = new OpenAIApi(
   new Configuration({
@@ -107,7 +107,6 @@ const ensurePdfWorker = async (PDFParseClass: any) => {
   if (pdfWorkerConfigured) return
 
   try {
-    // Load the Node/Next.js worker helpers recommended by pdf-parse
     const workerModule: any = await import('pdf-parse/worker').catch(() => null)
 
     if (workerModule) {
@@ -131,14 +130,13 @@ const ensurePdfWorker = async (PDFParseClass: any) => {
 
     pdfWorkerConfigured = true
   } catch {
-    // Ignore worker configuration errors; we'll still attempt parsing.
+    // Ignore worker configuration errors
   }
 }
 
 const extractFromPdf = async (buffer: Buffer) => {
   const pdfModule = await import('pdf-parse')
 
-  // Prefer the class-based API introduced in pdf-parse v2.x
   const PDFParseClass: any = (pdfModule as any).PDFParse
   if (typeof PDFParseClass === 'function') {
     await ensurePdfWorker(PDFParseClass)
@@ -152,14 +150,11 @@ const extractFromPdf = async (buffer: Buffer) => {
       return cleanText(result?.text || '')
     } finally {
       if (typeof parser.destroy === 'function') {
-        await parser.destroy().catch(() => {
-          /* ignore */
-        })
+        await parser.destroy().catch(() => {})
       }
     }
   }
 
-  // Fallback for the legacy function export (pdf-parse v1.x)
   const legacyParser: any =
     typeof (pdfModule as any).default === 'function'
       ? (pdfModule as any).default
@@ -288,41 +283,41 @@ const embedChunks = async (values: string[]) => {
   return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
 }
 
+/**
+ * Delete existing file chunks for a given agent + file key.
+ * Requires tenantId to resolve the subcollection path.
+ */
 const deleteExistingChunks = async (
-  supabase: SupabaseClient<Database>,
+  tenantId: string,
   agentId: string,
   fileKey: string
 ) => {
-  await supabase
-    .from('agent_file_chunks')
-    .delete()
-    .eq('agent_id', agentId)
-    .eq('file_key', fileKey)
+  const collPath = Collections.fileChunks(tenantId, agentId)
+  const snapshot = await adminDb
+    .collection(collPath)
+    .where('fileKey', '==', fileKey)
+    .get()
+
+  if (snapshot.empty) return
+
+  const batch = adminDb.batch()
+  snapshot.docs.forEach(doc => batch.delete(doc.ref))
+  await batch.commit()
 }
 
 export const ingestFileForAgent = async (args: {
+  tenantId: string
   agentId: string
   fileKey: string
   fileName?: string
   mimeType?: string | null
 }) => {
-  const { agentId, fileKey } = args
+  const { tenantId, agentId, fileKey } = args
   const fileName = args.fileName || fileKey.split('/').pop() || fileKey
   const mimeType = args.mimeType || guessMimeFromPath(fileName)
 
-  const supabase = getServiceSupabaseClient()
-  const download = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .download(fileKey)
-
-  if (download.error || !download.data) {
-    throw new Error(
-      download.error?.message || 'Unable to download file for ingestion'
-    )
-  }
-
-  const arrayBuffer = await download.data.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+  // Download from GCS
+  const buffer = await downloadFile(fileKey)
 
   const text = await extractTextFromBuffer(buffer, mimeType)
 
@@ -343,37 +338,44 @@ export const ingestFileForAgent = async (args: {
     }
   }
 
-  await deleteExistingChunks(supabase, agentId, fileKey)
+  await deleteExistingChunks(tenantId, agentId, fileKey)
 
-  const rows = chunks.map((content, index) => ({
-    agent_id: agentId,
-    file_key: fileKey,
-    file_name: fileName,
-    mime_type: mimeType,
-    chunk_index: index,
-    content,
-    embedding: embeddings[index] ?? null
-  }))
+  // Write chunks to Firestore with vector embeddings
+  const collPath = Collections.fileChunks(tenantId, agentId)
+  const batch = adminDb.batch()
 
-  const { error } = await supabase.from('agent_file_chunks').insert(rows)
-  if (error) {
-    throw new Error(error.message)
-  }
+  chunks.forEach((content, index) => {
+    const ref = adminDb.collection(collPath).doc()
+    batch.set(ref, {
+      id: ref.id,
+      agentId,
+      fileKey,
+      fileName,
+      mimeType,
+      chunkIndex: index,
+      content,
+      embedding: FieldValue.vector(embeddings[index] ?? []),
+      createdAt: new Date().toISOString()
+    })
+  })
+
+  await batch.commit()
 
   return {
-    chunksInserted: rows.length,
-    message: `Ingested ${rows.length} chunk(s) for search.`
+    chunksInserted: chunks.length,
+    message: `Ingested ${chunks.length} chunk(s) for search.`
   }
 }
 
 export const searchAgentFileChunks = async (args: {
+  tenantId: string
   agentId: string
   query: string
   limit?: number
 }) => {
-  const { agentId, query, limit = 8 } = args
-  const supabase = getServiceSupabaseClient()
+  const { tenantId, agentId, query, limit = 8 } = args
 
+  // Generate query embedding
   const embedResponse = await openai.createEmbedding({
     model: EMBEDDING_MODEL,
     input: query
@@ -385,57 +387,57 @@ export const searchAgentFileChunks = async (args: {
     return { matches: [], error: 'Embedding generation failed.' }
   }
 
-  const rpc = await supabase.rpc('match_agent_file_chunks', {
-    agent_id: agentId,
-    query_embedding: queryEmbedding,
-    match_count: limit
-  })
+  // Use Firestore native vector search (findNearest)
+  const collPath = Collections.fileChunks(tenantId, agentId)
+  try {
+    const snapshot = await adminDb
+      .collection(collPath)
+      .findNearest('embedding', FieldValue.vector(queryEmbedding), {
+        limit,
+        distanceMeasure: 'COSINE'
+      })
+      .get()
 
-  let rpcErrorMessage: string | undefined
-  if (rpc.error) {
-    const message = rpc.error.message ?? ''
-    rpcErrorMessage = message
-    const missingFn =
-      message.toLowerCase().includes('does not exist') ||
-      message.toLowerCase().includes('undefined function')
+    const matches = snapshot.docs.map(doc => {
+      const data = doc.data()
+      return {
+        fileName: data.fileName,
+        fileKey: data.fileKey,
+        snippet: data.content,
+        score: 0 // Firestore findNearest doesn't return distance yet in all SDKs
+      }
+    })
 
-    if (!missingFn) {
-      return { matches: [], error: message }
+    if (matches.length > 0) {
+      return { matches }
     }
+  } catch (err: any) {
+    console.warn('[file-search] Vector search failed, trying keyword fallback:', err?.message)
   }
 
-  const matches =
-    rpc.data?.map(entry => ({
-      fileName: entry.file_name,
-      fileKey: entry.file_key,
-      snippet: entry.content,
-      score: entry.similarity ?? 0
-    })) ?? []
+  // Fallback to keyword search — not as elegant in Firestore but we can
+  // do a basic content scan on a limited set of chunks
+  const fallbackSnapshot = await adminDb
+    .collection(collPath)
+    .limit(limit * 5)
+    .get()
 
-  if (matches.length > 0) {
-    return { matches }
-  }
-
-  // Fallback to a basic text search if the RPC is unavailable.
-  const textFallback = await supabase
-    .from('agent_file_chunks')
-    .select('file_key,file_name,content')
-    .eq('agent_id', agentId)
-    .ilike('content', `%${query}%`)
-    .limit(limit)
-
-  if (textFallback.error) {
-    return { matches: [], error: textFallback.error.message }
-  }
-
-  return {
-    matches:
-      textFallback.data?.map(entry => ({
-        fileName: entry.file_name,
-        fileKey: entry.file_key,
-        snippet: entry.content,
+  const queryLower = query.toLowerCase()
+  const matches = fallbackSnapshot.docs
+    .filter(doc => {
+      const content: string = doc.data().content ?? ''
+      return content.toLowerCase().includes(queryLower)
+    })
+    .slice(0, limit)
+    .map(doc => {
+      const data = doc.data()
+      return {
+        fileName: data.fileName,
+        fileKey: data.fileKey,
+        snippet: data.content,
         score: 0
-      })) ?? [],
-    error: rpcErrorMessage
-  }
+      }
+    })
+
+  return { matches }
 }

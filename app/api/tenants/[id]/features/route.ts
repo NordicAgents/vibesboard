@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin } from '@/lib/permissions'
-import { toggleFeature } from '@/lib/features'
+import { requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { toggleFeature, getTenantFeatures } from '@/lib/features'
 
 export const runtime = 'nodejs'
 
@@ -15,40 +13,47 @@ type RouteParams = {
 }
 
 /**
+ * GET /api/tenants/[id]/features
+ * List features for a tenant
+ */
+export async function GET(req: Request, { params }: RouteParams) {
+    const { id: tenantId } = await params
+
+    const auth = await requireTenantAdmin(tenantId)
+    if (!auth.ok) return auth.response
+
+    const features = await getTenantFeatures(tenantId)
+
+    return NextResponse.json({ features })
+}
+
+/**
  * PUT /api/tenants/[id]/features
  * Toggle features for a tenant (SUPER_ADMIN only)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-    const session = await auth({ cookieStore })
+    const { id: tenantId } = await params
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireTenantAdmin(tenantId)
+    if (!auth.ok) return auth.response
 
-    const { id } = await params
-
-    // SUPER_ADMIN only
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
+    const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
     if (!isSuperAdminUser) {
         return new NextResponse('Forbidden', { status: 403 })
     }
 
     // Fetch tenant and block feature changes for personal workspaces
-    const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('id, is_personal')
-        .eq('id', id)
-        .single()
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(tenantId)
+        .get()
 
-    if (tenantError || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    if (tenant.is_personal) {
+    const tenantData = tenantDoc.data()!
+    if (tenantData.isPersonal) {
         return NextResponse.json(
             { error: 'Features cannot be changed for personal workspaces' },
             { status: 403 }
@@ -65,7 +70,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         )
     }
 
-    const result = await toggleFeature(id, feature_flag_id, is_enabled)
+    const result = await toggleFeature(tenantId, feature_flag_id, is_enabled)
 
     if (!result.success) {
         return NextResponse.json(

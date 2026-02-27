@@ -1,14 +1,9 @@
 import { type Message } from 'ai'
-import { type SupabaseClient } from '@supabase/supabase-js'
 
-import { type Database, type Json } from '@/lib/db_types'
-import { mapConversationRow } from './db'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { mapConversationDoc } from './db'
 import { type VibeAgentConversation } from '@/lib/types'
-
-type Client = SupabaseClient<any>
-type ConversationRow = Database['public']['Tables']['vibe_agent_conversations']['Row']
-type ConversationInsert = Database['public']['Tables']['vibe_agent_conversations']['Insert']
-type ConversationUpdate = Database['public']['Tables']['vibe_agent_conversations']['Update']
 
 interface ConversationIdentifier {
   conversationId?: string
@@ -17,133 +12,128 @@ interface ConversationIdentifier {
 }
 
 interface EnsureConversationArgs extends ConversationIdentifier {
-  supabase: Client
+  tenantId: string
   agentId: string
   initialMessages?: Message[]
 }
 
 export async function ensureConversation({
-  supabase,
+  tenantId,
   agentId,
   conversationId,
   userId,
   externalId,
   initialMessages = []
 }: EnsureConversationArgs): Promise<VibeAgentConversation> {
+  const collPath = Collections.conversations(tenantId, agentId)
+
   if (conversationId) {
-    const { data, error } = await supabase
-      .from('vibe_agent_conversations')
-      .select('*')
-      .eq('id', conversationId)
-      .maybeSingle<ConversationRow>()
+    const doc = await adminDb
+      .collection(collPath)
+      .doc(conversationId)
+      .get()
 
-    if (error) {
-      throw error
-    }
-
-    if (data) {
-      if (data.agent_id !== agentId) {
+    if (doc.exists) {
+      const data = doc.data()!
+      if (data.agentId !== agentId) {
         throw new Error('Conversation does not belong to agent')
       }
-      if (userId && data.user_id && data.user_id !== userId) {
+      if (userId && data.userId && data.userId !== userId) {
         throw new Error('Unauthorized conversation access')
       }
-      if (externalId && data.external_id && data.external_id !== externalId) {
+      if (externalId && data.externalId && data.externalId !== externalId) {
         throw new Error('Unauthorized conversation access')
       }
-      return mapConversationRow(data)
+      return mapConversationDoc(data)
     }
   }
 
-  const payload: ConversationInsert = {
-    ...(conversationId ? { id: conversationId } : {}),
-    agent_id: agentId,
-    user_id: userId ?? null,
-    external_id: externalId ?? null,
-    messages: serializeMessages(initialMessages)
+  // Create a new conversation
+  const ref = conversationId
+    ? adminDb.collection(collPath).doc(conversationId)
+    : adminDb.collection(collPath).doc()
+
+  const now = new Date().toISOString()
+  const docData = {
+    id: ref.id,
+    agentId,
+    userId: userId ?? null,
+    externalId: externalId ?? null,
+    messages: serializeMessages(initialMessages),
+    summary: null,
+    closedAt: null,
+    summaryGeneratedAt: null,
+    createdAt: now,
+    updatedAt: now
   }
 
-  const { data, error } = await supabase
-    .from('vibe_agent_conversations')
-    .insert(payload as ConversationInsert)
-    .select('*')
-    .single<ConversationRow>()
-
-  if (error) {
-    throw error
-  }
-
-  return mapConversationRow(data)
+  await ref.set(docData)
+  return mapConversationDoc(docData)
 }
 
 interface UpdateConversationArgs extends ConversationIdentifier {
-  supabase: Client
+  tenantId: string
+  agentId: string
   conversationId: string
   messages: Message[]
   summary?: string | null
 }
 
 export async function updateConversationMessages({
-  supabase,
+  tenantId,
+  agentId,
   conversationId,
   messages,
   summary
 }: UpdateConversationArgs) {
-  const updatePayload: ConversationUpdate = {
-    messages: serializeMessages(messages),
-    summary: summary ?? null,
-    updated_at: new Date().toISOString()
-  }
+  const collPath = Collections.conversations(tenantId, agentId)
 
-  const { error } = await supabase
-    .from('vibe_agent_conversations')
-    .update(updatePayload as ConversationUpdate)
-    .eq('id', conversationId)
-
-  if (error) {
-    throw error
-  }
+  await adminDb
+    .collection(collPath)
+    .doc(conversationId)
+    .update({
+      messages: serializeMessages(messages),
+      summary: summary ?? null,
+      updatedAt: new Date().toISOString()
+    })
 }
 
 export async function listAgentConversations(
-  supabase: Client,
+  tenantId: string,
   agentId: string,
   filter?: {
     userId?: string
     externalId?: string
   }
 ) {
-  let query = supabase
-    .from('vibe_agent_conversations')
-    .select('*')
-    .eq('agent_id', agentId)
+  const collPath = Collections.conversations(tenantId, agentId)
+  let query: FirebaseFirestore.Query = adminDb
+    .collection(collPath)
+    .orderBy('updatedAt', 'desc')
 
   if (filter?.userId) {
-    query = query.eq('user_id', filter.userId)
+    query = query.where('userId', '==', filter.userId)
   }
   if (filter?.externalId) {
-    query = query.eq('external_id', filter.externalId)
+    query = query.where('externalId', '==', filter.externalId)
   }
 
-  const { data } = await query.order('updated_at', { ascending: false })
-
-  return (data ?? []).map(mapConversationRow)
+  const snapshot = await query.get()
+  return snapshot.docs.map(doc => mapConversationDoc(doc.data()))
 }
 
 export async function getConversation(
-  supabase: Client,
+  tenantId: string,
+  agentId: string,
   id: string
 ): Promise<VibeAgentConversation | null> {
-  const { data } = await supabase
-    .from('vibe_agent_conversations')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle<ConversationRow>()
+  const collPath = Collections.conversations(tenantId, agentId)
+  const doc = await adminDb.collection(collPath).doc(id).get()
 
-  return data ? mapConversationRow(data) : null
+  return doc.exists ? mapConversationDoc(doc.data()!) : null
 }
 
-const serializeMessages = (messages: Message[]): ConversationInsert['messages'] =>
+const serializeMessages = (messages: Message[]) =>
   messages.map(message => ({
     id: message.id,
     role: message.role,

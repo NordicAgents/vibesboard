@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
@@ -13,8 +12,7 @@ import { LandingFooter } from '@/components/landing/landing-footer'
 export const runtime = 'nodejs'
 
 export default async function IndexPage() {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     return (

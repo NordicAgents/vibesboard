@@ -8,6 +8,7 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconArrowDown, IconArrowRight } from '@/components/ui/icons'
 import { SidebarAgentItem } from '@/components/sidebar-agent-item'
+import { cn } from '@/lib/utils'
 
 interface SidebarAgentGroupProps {
   agent: VibeAgent
@@ -46,7 +47,7 @@ export function SidebarAgentGroup({
   const items = useMemo(() => conversations ?? [], [conversations])
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <div className="relative">
         <SidebarAgentItem agent={agent} />
         {items.length > 0 ? (
@@ -57,20 +58,24 @@ export function SidebarAgentGroup({
             aria-label={
               expanded ? 'Collapse conversations' : 'Expand conversations'
             }
-            className="absolute right-2 top-1/2 -translate-y-1/2"
+            className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#9D9790]"
             onClick={e => {
               e.preventDefault()
               e.stopPropagation()
               setExpanded(!expanded)
             }}
           >
-            {expanded ? <IconArrowDown /> : <IconArrowRight />}
+            {expanded ? (
+              <IconArrowDown className="size-3" />
+            ) : (
+              <IconArrowRight className="size-3" />
+            )}
           </Button>
         ) : null}
       </div>
 
       {expanded && items.length ? (
-        <div className="ml-6 space-y-1">
+        <div className="ml-5 space-y-0.5 border-l border-[#E2DDD4] pl-2 dark:border-[#2E2B25]">
           {items.map(session => {
             const label = toConversationLabel(
               session.summary || session.messages.at(-1)?.content
@@ -79,7 +84,11 @@ export function SidebarAgentGroup({
               <Link
                 key={session.id}
                 href={`/agents/${agent.id}?session=${session.id}`}
-                className="block truncate rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted/50"
+                className={cn(
+                  'block truncate rounded-md px-2 py-1.5 text-sm transition-colors duration-150',
+                  'text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#6B6560]',
+                  'dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#9D9790]'
+                )}
                 title={label}
               >
                 {label}
