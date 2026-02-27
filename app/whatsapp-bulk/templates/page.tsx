@@ -229,7 +229,7 @@ export default function TemplatesPage() {
         const Icon = config.icon
         return (
           <Badge variant={config.variant} className="gap-1">
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
             {config.label}
           </Badge>
         )
@@ -271,7 +271,7 @@ export default function TemplatesPage() {
             disabled={syncing === template.id}
             title="Sync status from Meta"
           >
-            <RefreshCw className={`h-4 w-4 ${syncing === template.id ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-4 ${syncing === template.id ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             variant="ghost"
@@ -282,7 +282,7 @@ export default function TemplatesPage() {
               setDeleteDialogOpen(true)
             }}
           >
-            <Trash2 className="h-4 w-4 text-destructive" />
+            <Trash2 className="size-4 text-destructive" />
           </Button>
         </div>
       ),
@@ -298,7 +298,7 @@ export default function TemplatesPage() {
         description="Create and manage WhatsApp message templates for your campaigns"
         actions={
           <Button onClick={() => setCreateDialogOpen(true)} disabled={businessAccounts.length === 0}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 size-4" />
             Create Template
           </Button>
         }
@@ -332,7 +332,7 @@ export default function TemplatesPage() {
               description="Create your first message template to start sending campaigns"
               action={
                 <Button onClick={() => setCreateDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-2 size-4" />
                   Create Template
                 </Button>
               }
@@ -348,10 +348,10 @@ export default function TemplatesPage() {
             <DialogHeader>
               <DialogTitle>Create Message Template</DialogTitle>
               <DialogDescription>
-                Templates must be approved by Meta before use. Use {{`{1}`}}, {{`{2}`}} for variables.
+                Templates must be approved by Meta before use. Use {'{1}'}, {'{2}'} for variables.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid max-h-[60vh] gap-4 overflow-y-auto py-4">
               <div className="grid gap-2">
                 <Label htmlFor="businessAccount">Business Account *</Label>
                 <Select
@@ -436,7 +436,7 @@ export default function TemplatesPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use {{`{1}`}}, {{`{2}`}}, etc. for variables. Max 1024 characters.
+                  Use {'{1}'}, {'{2}'}, etc. for variables. Max 1024 characters.
                 </p>
                 {currentVariables.length > 0 && (
                   <div className="text-xs text-muted-foreground">
@@ -445,9 +445,9 @@ export default function TemplatesPage() {
                 )}
               </div>
 
-              <div className="rounded-lg border p-4 bg-muted/50">
-                <p className="text-sm font-medium mb-2">Preview</p>
-                <p className="text-sm whitespace-pre-wrap">
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <p className="mb-2 text-sm font-medium">Preview</p>
+                <p className="whitespace-pre-wrap text-sm">
                   {formData.bodyText.replace(/{{(\d+)}}/g, '[Variable $1]')}
                 </p>
               </div>

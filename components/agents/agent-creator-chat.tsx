@@ -24,7 +24,6 @@ import {
   AgentBuilderFormPreview,
   type AgentFormData
 } from './agent-builder-form-preview'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 
 interface AgentCreatorChatProps {
   className?: string
@@ -151,6 +150,12 @@ export function AgentCreatorChat({
     setInput('Analyze this website: ')
   }
 
+  const safeFileName = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files?.length || !userId) {
       toast.error('Please sign in to upload files')
@@ -158,30 +163,42 @@ export function AgentCreatorChat({
     }
 
     setIsUploading(true)
-    const supabase = getBrowserSupabaseClient()
 
     try {
-      const safeFileName = (name: string) =>
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9._-]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
-          const path = `${userId}/${Date.now()}-${safeFileName(file.name)}`
-          const { data, error } = await supabase.storage
-            .from('agent-files')
-            .upload(path, file, {
-              upsert: true,
+          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+
+          // Get a signed upload URL from the API
+          const res = await fetch('/api/files/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName,
               contentType: file.type || 'application/octet-stream'
             })
+          })
 
-          if (error || !data) {
-            throw error ?? new Error('Upload failed')
+          if (!res.ok) {
+            throw new Error('Failed to get upload URL')
           }
 
-          return { path: data.path, name: file.name }
+          const { uploadUrl, fileKey } = await res.json()
+
+          // Upload the file directly to GCS
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+          })
+
+          if (!uploadRes.ok) {
+            throw new Error('Upload failed')
+          }
+
+          return { path: fileKey, name: file.name }
         })
       )
 
@@ -283,11 +300,11 @@ export function AgentCreatorChat({
     >
       {/* Left Side: Chat Interface (70%) */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="relative flex flex-1 flex-col min-h-0">
+        <div className="relative flex min-h-0 flex-1 flex-col">
           {messages.length > 0 ? (
             <>
               {/* Simple header when messages exist */}
-              <div className="border-b border-black-10 bg-purewhite-bg p-4 dark:bg-card dark:border-border">
+              <div className="border-b border-black-10 bg-purewhite-bg p-4 dark:border-border dark:bg-card">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
@@ -308,9 +325,9 @@ export function AgentCreatorChat({
                       title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                     >
                       {isPreviewOpen ? (
-                        <IconX className="h-4 w-4" />
+                        <IconX className="size-4" />
                       ) : (
-                        <IconSidebar className="h-4 w-4" />
+                        <IconSidebar className="size-4" />
                       )}
                     </Button>
                     <Button
@@ -320,12 +337,12 @@ export function AgentCreatorChat({
                       aria-label="New chat"
                       title="New chat"
                     >
-                      <IconPlus className="h-4 w-4" />
+                      <IconPlus className="size-4" />
                     </Button>
                   </div>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto pt-4 pb-4">
+              <div className="flex-1 overflow-y-auto py-4">
                 <ChatList
                   messages={messages.map(msg => ({
                     ...msg,
@@ -338,7 +355,7 @@ export function AgentCreatorChat({
                 />
                 {isLoading && (
                   <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-                    <IconSpinner className="h-4 w-4 animate-spin" />
+                    <IconSpinner className="size-4 animate-spin" />
                     <span>Thinking...</span>
                   </div>
                 )}
@@ -351,7 +368,7 @@ export function AgentCreatorChat({
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
+                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-white md:text-5xl">
                       Build Your Agent
                     </h1>
                     <Button
@@ -365,9 +382,9 @@ export function AgentCreatorChat({
                       className="ml-2"
                     >
                       {isPreviewOpen ? (
-                        <IconX className="h-4 w-4" />
+                        <IconX className="size-4" />
                       ) : (
-                        <IconSidebar className="h-4 w-4" />
+                        <IconSidebar className="size-4" />
                       )}
                     </Button>
                   </div>
@@ -379,7 +396,7 @@ export function AgentCreatorChat({
 
                 {/* Input centered below header */}
                 <div className="w-full">
-                  <div className="rounded-3xl border border-black-10 bg-purewhite-bg px-4 py-3 shadow-lg dark:bg-card dark:border-border">
+                  <div className="rounded-3xl border border-black-10 bg-purewhite-bg px-4 py-3 shadow-lg dark:border-border dark:bg-card">
                     <PromptForm
                       onSubmit={async (value: string) => {
                         await append({
@@ -402,7 +419,7 @@ export function AgentCreatorChat({
                       onClick={handleAddWebsiteUrl}
                       className="gap-2"
                     >
-                      <IconLink className="h-4 w-4" />
+                      <IconLink className="size-4" />
                       Add Website
                     </Button>
                     <Button
@@ -414,7 +431,7 @@ export function AgentCreatorChat({
                       disabled={isUploading || !userId}
                       className="gap-2"
                     >
-                      <IconUpload className="h-4 w-4" />
+                      <IconUpload className="size-4" />
                       {isUploading ? 'Uploading...' : 'Upload Files'}
                     </Button>
                     <input
@@ -433,7 +450,7 @@ export function AgentCreatorChat({
 
         {/* Chat Input - Fixed at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="shrink-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border">
+          <div className="shrink-0 border-t border-black-10 bg-purewhite-bg dark:border-border dark:bg-card">
             <div className="mx-auto max-w-4xl">
               <div className="flex h-10 items-center justify-center">
                 {isLoading ? (
@@ -441,9 +458,9 @@ export function AgentCreatorChat({
                     variant="outline"
                     size="sm"
                     onClick={() => stop()}
-                    className="rounded-full bg-purewhite-bg font-switzer text-black-primary border-black-primary hover:bg-black-primary hover:text-white dark:bg-purewhite-bg dark:text-black-primary dark:border-black-primary dark:hover:bg-black-primary dark:hover:text-white"
+                    className="rounded-full border-black-primary bg-purewhite-bg font-switzer text-black-primary hover:bg-black-primary hover:text-white dark:border-black-primary dark:bg-purewhite-bg dark:text-black-primary dark:hover:bg-black-primary dark:hover:text-white"
                   >
-                    <IconStop className="mr-2 h-4 w-4" />
+                    <IconStop className="mr-2 size-4" />
                     Stop generating
                   </Button>
                 ) : null}
@@ -452,7 +469,7 @@ export function AgentCreatorChat({
                 {!createdAgentId && isReadyToCreate && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-black-10 bg-beige-bg px-3 py-2 text-xs text-black-primary dark:border-border dark:bg-muted dark:text-foreground">
                     <p className="font-switzer">
-                      Your agent draft is ready. Say “create it” or click Create
+                      Your agent draft is ready. Say "create it" or click Create
                       Agent.
                     </p>
                     <Button
@@ -485,7 +502,7 @@ export function AgentCreatorChat({
                     onClick={handleAddWebsiteUrl}
                     className="gap-1 text-xs"
                   >
-                    <IconLink className="h-3 w-3" />
+                    <IconLink className="size-3" />
                     Website
                   </Button>
                   <Button
@@ -497,7 +514,7 @@ export function AgentCreatorChat({
                     disabled={isUploading || !userId}
                     className="gap-1 text-xs"
                   >
-                    <IconUpload className="h-3 w-3" />
+                    <IconUpload className="size-3" />
                     {isUploading ? 'Uploading...' : 'Files'}
                   </Button>
                   <input
@@ -530,16 +547,16 @@ export function AgentCreatorChat({
           />
         </div>
       ) : (
-        <div className="flex items-center justify-center border-l border-black-10 dark:border-border w-12 shrink-0 transition-all duration-300 ease-in-out">
+        <div className="flex w-12 shrink-0 items-center justify-center border-l border-black-10 transition-all duration-300 ease-in-out dark:border-border">
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setIsPreviewOpen(true)}
             aria-label="Show preview"
             title="Show preview"
-            className="h-full w-full rounded-none"
+            className="size-full rounded-none"
           >
-            <IconSidebar className="h-5 w-5" />
+            <IconSidebar className="size-5" />
           </Button>
         </div>
       )}

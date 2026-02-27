@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { auth } from '@/auth'
-import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
+import { requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { isFeatureEnabled } from '@/lib/features'
 import { validateEmail } from '@/lib/validations'
 import { randomBytes } from 'crypto'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -16,24 +15,64 @@ type RouteParams = {
 }
 
 /**
+ * GET /api/tenants/[id]/invitations
+ * List invitations for a tenant
+ */
+export async function GET(req: Request, { params }: RouteParams) {
+    const { id: tenantId } = await params
+
+    const auth = await requireTenantAdmin(tenantId)
+    if (!auth.ok) return auth.response
+
+    const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
+
+    // Block invitation listing for personal workspaces
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(tenantId)
+        .get()
+
+    if (!tenantDoc.exists) {
+        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    }
+
+    const tenantData = tenantDoc.data()!
+    if (tenantData.isPersonal) {
+        return NextResponse.json({ invitations: [] })
+    }
+
+    if (!isSuperAdminUser) {
+        const teamEnabled = await isFeatureEnabled(tenantId, 'TEAM_COLLABORATION')
+        if (!teamEnabled) {
+            return NextResponse.json(
+                { error: 'Team collaboration is disabled for this workspace' },
+                { status: 403 }
+            )
+        }
+    }
+
+    const snapshot = await adminDb
+        .collection(Collections.invitations)
+        .where('tenantId', '==', tenantId)
+        .orderBy('createdAt', 'desc')
+        .get()
+
+    const invitations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+    return NextResponse.json({ invitations })
+}
+
+/**
  * POST /api/tenants/[id]/invitations
  * Create invitation (TENANT_ADMIN)
  */
 export async function POST(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const { id: tenantId } = await params
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireTenantAdmin(tenantId)
+    if (!auth.ok) return auth.response
 
-    const { id } = await params
-
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
-    if (!isSuperAdminUser && !isTenantAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
 
     const body = await req.json()
     const { email, role } = body
@@ -56,20 +95,18 @@ export async function POST(req: Request, { params }: RouteParams) {
         )
     }
 
-    const supabaseAdmin = getServiceSupabaseClient()
-
     // Block invitations for personal workspaces
-    const { data: tenant, error: tenantError } = await supabaseAdmin
-        .from('tenants')
-        .select('id, is_personal')
-        .eq('id', id)
-        .single()
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(tenantId)
+        .get()
 
-    if (tenantError || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    if (tenant.is_personal) {
+    const tenantData = tenantDoc.data()!
+    if (tenantData.isPersonal) {
         return NextResponse.json(
             { error: 'Personal workspaces cannot invite members' },
             { status: 403 }
@@ -77,7 +114,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     if (!isSuperAdminUser) {
-        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
+        const teamEnabled = await isFeatureEnabled(tenantId, 'TEAM_COLLABORATION')
         if (!teamEnabled) {
             return NextResponse.json(
                 { error: 'Team collaboration is disabled for this workspace' },
@@ -86,48 +123,38 @@ export async function POST(req: Request, { params }: RouteParams) {
         }
     }
 
-    // Check if user is already a member (by email lookup via auth admin API)
-    const { data: tenantUsers, error: tenantUsersError } = await supabaseAdmin
-        .from('tenant_users')
-        .select('user_id')
-        .eq('tenant_id', id)
+    // Check if user is already a member (by email lookup)
+    const membersSnapshot = await adminDb
+        .collection(Collections.members(tenantId))
+        .get()
 
-    if (tenantUsersError) {
-        return NextResponse.json(
-            { error: tenantUsersError.message },
-            { status: 500 }
-        )
-    }
+    for (const memberDoc of membersSnapshot.docs) {
+        const userDoc = await adminDb
+            .collection(Collections.users)
+            .doc(memberDoc.id)
+            .get()
 
-    for (const member of tenantUsers ?? []) {
-        const { data, error } = await supabaseAdmin.auth.admin.getUserById(member.user_id)
-        if (error) continue
-        const memberEmail = data.user?.email?.trim().toLowerCase()
-        if (memberEmail && memberEmail === normalizedEmail) {
-            return NextResponse.json(
-                { error: 'User is already a member of this tenant' },
-                { status: 409 }
-            )
+        if (userDoc.exists) {
+            const memberEmail = userDoc.data()?.email?.trim().toLowerCase()
+            if (memberEmail && memberEmail === normalizedEmail) {
+                return NextResponse.json(
+                    { error: 'User is already a member of this tenant' },
+                    { status: 409 }
+                )
+            }
         }
     }
 
     // Check for pending invitation
-    const { data: pendingInvites, error: pendingInvitesError } = await supabaseAdmin
-        .from('invitations')
-        .select('id')
-        .eq('tenant_id', id)
-        .ilike('email', normalizedEmail)
-        .eq('status', 'pending')
+    const pendingSnapshot = await adminDb
+        .collection(Collections.invitations)
+        .where('tenantId', '==', tenantId)
+        .where('email', '==', normalizedEmail)
+        .where('status', '==', 'pending')
         .limit(1)
+        .get()
 
-    if (pendingInvitesError) {
-        return NextResponse.json(
-            { error: pendingInvitesError.message },
-            { status: 500 }
-        )
-    }
-
-    if (pendingInvites && pendingInvites.length > 0) {
+    if (!pendingSnapshot.empty) {
         return NextResponse.json(
             { error: 'Invitation already sent to this email' },
             { status: 409 }
@@ -138,76 +165,29 @@ export async function POST(req: Request, { params }: RouteParams) {
     const token = randomBytes(32).toString('hex')
 
     // Set expiry (7 days from now)
+    const now = new Date()
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7)
 
-    // Create invitation
-    const { data: invitation, error } = await supabaseAdmin
-        .from('invitations')
-        .insert({
-            email: normalizedEmail,
-            tenant_id: id,
-            token,
-            role,
-            status: 'pending',
-            expires_at: expiresAt.toISOString(),
-            created_by: session.user.id
-        })
-        .select('*')
-        .single()
-
-    if (error || !invitation) {
-        return NextResponse.json(
-            { error: error?.message || 'Failed to create invitation' },
-            { status: 500 }
-        )
+    // Create invitation — keyed by token for O(1) lookup
+    const invitationData = {
+        id: token,
+        email: normalizedEmail,
+        tenantId,
+        token,
+        role,
+        status: 'pending' as const,
+        expiresAt: expiresAt.toISOString(),
+        createdBy: auth.user.id,
+        createdAt: now.toISOString()
     }
 
-    // Send invitation email via Supabase Auth
-    try {
-        const forwardedProto = req.headers
-            .get('x-forwarded-proto')
-            ?.split(',')[0]
-            ?.trim()
-        const forwardedHost = (req.headers.get('x-forwarded-host') ?? req.headers.get('host'))
-            ?.split(',')[0]
-            ?.trim()
+    await adminDb
+        .collection(Collections.invitations)
+        .doc(token)
+        .set(invitationData)
 
-        const origin =
-            forwardedProto && forwardedHost
-                ? `${forwardedProto}://${forwardedHost}`
-                : process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
-
-        const inviteUrl = `${origin}/invite/${token}`
-
-        const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(normalizedEmail, {
-            redirectTo: inviteUrl
-        })
-
-        if (inviteError) {
-            console.error('Error sending invitation email:', inviteError)
-
-            // If user already exists, try sending a magic link instead
-            // Status 422 is returned when user is already registered
-            if (inviteError.status === 422 || inviteError.message?.includes('already registered')) {
-                console.log('User already registered, sending magic link')
-                const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
-                    email: normalizedEmail,
-                    options: {
-                        emailRedirectTo: inviteUrl
-                    }
-                })
-
-                if (otpError) {
-                    console.error('Error sending magic link:', otpError)
-                }
-            }
-        }
-    } catch (emailError) {
-        // Log error but don't fail the request since the invitation was created
-        console.error('Failed to send invitation email:', emailError)
-    }
-
+    // Build invite URL
     const forwardedProto = req.headers
         .get('x-forwarded-proto')
         ?.split(',')[0]
@@ -222,70 +202,7 @@ export async function POST(req: Request, { params }: RouteParams) {
             : process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
     return NextResponse.json({
-        invitation,
+        invitation: invitationData,
         inviteUrl: `${origin}/invite/${token}`
     }, { status: 201 })
-}
-
-/**
- * GET /api/tenants/[id]/invitations
- * List invitations for a tenant
- */
-export async function GET(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    const { id } = await params
-
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isTenantAdminUser = await isTenantAdmin(session.user.id, id)
-    if (!isSuperAdminUser && !isTenantAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const supabaseAdmin = getServiceSupabaseClient()
-
-    // Block invitation listing for personal workspaces
-    const { data: tenant, error: tenantError } = await supabaseAdmin
-        .from('tenants')
-        .select('id, is_personal')
-        .eq('id', id)
-        .single()
-
-    if (tenantError || !tenant) {
-        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
-    }
-
-    if (tenant.is_personal) {
-        return NextResponse.json({ invitations: [] })
-    }
-
-    if (!isSuperAdminUser) {
-        const teamEnabled = await isFeatureEnabled(id, 'TEAM_COLLABORATION')
-        if (!teamEnabled) {
-            return NextResponse.json(
-                { error: 'Team collaboration is disabled for this workspace' },
-                { status: 403 }
-            )
-        }
-    }
-
-    const { data, error } = await supabaseAdmin
-        .from('invitations')
-        .select('*')
-        .eq('tenant_id', id)
-        .order('created_at', { ascending: false })
-
-    if (error) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        )
-    }
-
-    return NextResponse.json({ invitations: data })
 }

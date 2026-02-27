@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
@@ -8,8 +7,7 @@ import { nanoid } from '@/lib/utils'
 export const runtime = 'nodejs'
 
 export default async function CreateAgentChatPage() {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     redirect('/sign-in?next=/agents/create-chat')

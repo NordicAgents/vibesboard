@@ -1,9 +1,15 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { adminDb } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
+import {
+  Collections,
+  type WhatsAppAgentConnectionDocument,
+  type AgentDocument,
+} from '@/lib/firestore-types'
 import type {
   WhatsAppAgentConnection,
   WhatsAppConnectionWithAgent,
   CreateConnectionParams,
-  UpdateConnectionParams
+  UpdateConnectionParams,
 } from './types'
 
 /**
@@ -25,166 +31,197 @@ export function validatePhoneNumber(phone: string): boolean {
 
 /**
  * Find active connection by phone number
+ * Searches across all agents in a tenant
  */
 export async function findActiveConnection(
+  tenantId: string,
   phoneNumber: string
 ): Promise<WhatsAppConnectionWithAgent | null> {
-  const supabase = await createServerClient()
   const normalized = normalizePhoneNumber(phoneNumber)
 
-  const { data, error } = await supabase
-    .from('whatsapp_agent_connections')
-    .select(
-      `
-      *,
-      agent:vibe_agents (
-        id,
-        user_id,
-        name,
-        mode,
-        greeting_text,
-        instructions,
-        file_keys,
-        agent_url,
-        allow_anonymous,
-        quick_suggestions_mode,
-        quick_suggestions_count,
-        max_messages,
-        last_embeddings_sync_at,
-        created_at,
-        updated_at
-      )
-    `
-    )
-    .eq('phone_number_normalized', normalized)
-    .eq('status', 'active')
-    .maybeSingle()
+  // Use collectionGroup to search across all agents' whatsapp_connections
+  const snap = await adminDb
+    .collectionGroup('whatsapp_connections')
+    .where('phoneNumberNormalized', '==', normalized)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
 
-  if (error) {
-    console.error('Error finding connection:', error)
+  if (snap.empty) {
     return null
   }
 
-  return data as WhatsAppConnectionWithAgent | null
+  const connectionDoc = snap.docs[0]
+  const connection = connectionDoc.data() as WhatsAppAgentConnectionDocument
+
+  // Extract tenantId and agentId from path:
+  // tenants/{tenantId}/agents/{agentId}/whatsapp_connections/{docId}
+  const pathParts = connectionDoc.ref.path.split('/')
+  const docTenantId = pathParts[1]
+  const agentId = pathParts[3]
+
+  // Verify this belongs to the right tenant
+  if (docTenantId !== tenantId) {
+    return null
+  }
+
+  // Fetch the agent document
+  const agentSnap = await adminDb
+    .collection(Collections.agents(tenantId))
+    .doc(agentId)
+    .get()
+
+  if (!agentSnap.exists) {
+    return null
+  }
+
+  const agentData = agentSnap.data() as AgentDocument
+
+  return {
+    ...connection,
+    agent: {
+      id: agentData.id,
+      userId: agentData.userId,
+      name: agentData.name,
+      mode: agentData.mode,
+      greetingText: agentData.greetingText,
+      instructions: agentData.instructions,
+      fileKeys: agentData.fileKeys,
+      agentUrl: agentData.agentUrl,
+      allowAnonymous: agentData.allowAnonymous,
+      quickSuggestionsMode: agentData.quickSuggestionsMode,
+      quickSuggestionsCount: agentData.quickSuggestionsCount,
+      maxMessages: agentData.maxMessages,
+      lastEmbeddingsSyncAt: agentData.lastEmbeddingsSyncAt,
+      createdAt: agentData.createdAt,
+      updatedAt: agentData.updatedAt,
+    },
+  }
 }
 
 /**
  * Find connection by ID
  */
 export async function findConnectionById(
+  tenantId: string,
+  agentId: string,
   connectionId: string
 ): Promise<WhatsAppAgentConnection | null> {
-  const supabase = await createServerClient()
+  const snap = await adminDb
+    .collection(Collections.whatsappConnections(tenantId, agentId))
+    .doc(connectionId)
+    .get()
 
-  const { data, error } = await supabase
-    .from('whatsapp_agent_connections')
-    .select('*')
-    .eq('id', connectionId)
-    .maybeSingle()
-
-  if (error) {
-    console.error('Error finding connection by ID:', error)
+  if (!snap.exists) {
     return null
   }
 
-  return data as WhatsAppAgentConnection | null
+  return snap.data() as WhatsAppAgentConnection
 }
 
 /**
  * Create new phone number connection
  */
 export async function createConnection(
+  tenantId: string,
+  agentId: string,
   params: CreateConnectionParams,
   userId: string
-): Promise<WhatsAppAgentConnection | null> {
-  const supabase = await createServerClient()
-
+): Promise<WhatsAppAgentConnection> {
   // Validate phone number
-  if (!validatePhoneNumber(params.phone_number)) {
+  if (!validatePhoneNumber(params.phoneNumber)) {
     throw new Error(
       'Invalid phone number format. Use E.164 format (e.g., +919400293288)'
     )
   }
 
-  const normalized = normalizePhoneNumber(params.phone_number)
+  const normalized = normalizePhoneNumber(params.phoneNumber)
+  const collRef = adminDb.collection(
+    Collections.whatsappConnections(tenantId, agentId)
+  )
 
   // Check if phone already connected to this agent
-  const { data: existing } = await supabase
-    .from('whatsapp_agent_connections')
-    .select('id, status')
-    .eq('agent_id', params.agent_id)
-    .eq('phone_number_normalized', normalized)
-    .maybeSingle()
+  const existingSnap = await collRef
+    .where('phoneNumberNormalized', '==', normalized)
+    .where('status', 'in', ['active', 'pending'])
+    .limit(1)
+    .get()
 
-  if (
-    existing &&
-    (existing.status === 'active' || existing.status === 'pending')
-  ) {
+  if (!existingSnap.empty) {
     throw new Error('This phone number is already connected to this agent')
   }
 
   // Create connection
-  const { data, error } = await supabase
-    .from('whatsapp_agent_connections')
-    .insert({
-      agent_id: params.agent_id,
-      user_id: userId,
-      phone_number: params.phone_number,
-      phone_number_normalized: normalized,
-      custom_intro_message: params.custom_intro_message || null,
-      status: 'pending',
-      expires_at: params.expires_at || null
-    })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Error creating connection:', error)
-    throw new Error(`Failed to create connection: ${error.message}`)
+  const now = new Date().toISOString()
+  const docRef = collRef.doc()
+  const connection: WhatsAppAgentConnectionDocument = {
+    id: docRef.id,
+    agentId,
+    userId,
+    phoneNumber: params.phoneNumber,
+    phoneNumberNormalized: normalized,
+    status: 'pending',
+    customIntroMessage: params.customIntroMessage,
+    totalConversations: 0,
+    expiresAt: params.expiresAt?.toISOString(),
+    createdAt: now,
+    updatedAt: now,
   }
 
-  return data as unknown as WhatsAppAgentConnection
+  await docRef.set(connection)
+
+  return connection
 }
 
 /**
  * Update connection
  */
 export async function updateConnection(
+  tenantId: string,
+  agentId: string,
   connectionId: string,
   params: UpdateConnectionParams
 ): Promise<WhatsAppAgentConnection | null> {
-  const supabase = await createServerClient()
+  const docRef = adminDb
+    .collection(Collections.whatsappConnections(tenantId, agentId))
+    .doc(connectionId)
 
-  const { data, error } = await supabase
-    .from('whatsapp_agent_connections')
-    .update({
-      ...params,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', connectionId)
-    .select()
-    .single()
+  const updateData: Record<string, any> = {
+    ...params,
+    updatedAt: new Date().toISOString(),
+  }
 
-  if (error) {
-    console.error('Error updating connection:', error)
+  // Remove undefined values
+  Object.keys(updateData).forEach(key => {
+    if (updateData[key] === undefined) {
+      delete updateData[key]
+    }
+  })
+
+  await docRef.update(updateData)
+
+  const updatedSnap = await docRef.get()
+  if (!updatedSnap.exists) {
     return null
   }
 
-  return data as unknown as WhatsAppAgentConnection
+  return updatedSnap.data() as WhatsAppAgentConnection
 }
 
 /**
  * Mark connection as active after intro sent
  */
 export async function activateConnection(
+  tenantId: string,
+  agentId: string,
   connectionId: string,
   introMessageId: string
 ): Promise<WhatsAppAgentConnection | null> {
-  return updateConnection(connectionId, {
+  return updateConnection(tenantId, agentId, connectionId, {
     status: 'active',
-    intro_message_sent_at: new Date(),
-    intro_message_id: introMessageId,
-    connected_at: new Date()
+    introMessageSentAt: new Date().toISOString(),
+    introMessageId,
+    connectedAt: new Date().toISOString(),
   })
 }
 
@@ -192,13 +229,15 @@ export async function activateConnection(
  * Disconnect phone number from agent
  */
 export async function disconnectConnection(
+  tenantId: string,
+  agentId: string,
   connectionId: string,
   reason?: string
 ): Promise<WhatsAppAgentConnection | null> {
-  return updateConnection(connectionId, {
+  return updateConnection(tenantId, agentId, connectionId, {
     status: 'disconnected',
-    disconnected_at: new Date(),
-    disconnection_reason: reason || 'Manual disconnect'
+    disconnectedAt: new Date().toISOString(),
+    disconnectionReason: reason || 'Manual disconnect',
   })
 }
 
@@ -206,85 +245,112 @@ export async function disconnectConnection(
  * Increment conversation counter
  */
 export async function incrementConversationCount(
+  tenantId: string,
+  agentId: string,
   connectionId: string
 ): Promise<void> {
-  const supabase = await createServerClient()
-
-  await supabase.rpc('increment_connection_conversations', {
-    connection_id: connectionId
-  })
+  await adminDb
+    .collection(Collections.whatsappConnections(tenantId, agentId))
+    .doc(connectionId)
+    .update({
+      totalConversations: FieldValue.increment(1),
+      updatedAt: new Date().toISOString(),
+    })
 }
 
 /**
  * List connections for an agent
  */
 export async function listAgentConnections(
+  tenantId: string,
   agentId: string,
   status?: string
 ): Promise<WhatsAppAgentConnection[]> {
-  const supabase = await createServerClient()
-
-  let query = supabase
-    .from('whatsapp_agent_connections')
-    .select('*')
-    .eq('agent_id', agentId)
-    .order('created_at', { ascending: false })
+  let query: FirebaseFirestore.Query = adminDb
+    .collection(Collections.whatsappConnections(tenantId, agentId))
+    .orderBy('createdAt', 'desc')
 
   if (status) {
-    query = query.eq('status', status)
+    query = query.where('status', '==', status)
   }
 
-  const { data, error } = await query
-
-  if (error) {
-    console.error('Error listing connections:', error)
-    return []
-  }
-
-  return (data || []) as unknown as WhatsAppAgentConnection[]
+  const snap = await query.get()
+  return snap.docs.map(doc => doc.data() as WhatsAppAgentConnection)
 }
 
 /**
  * Reset connection (close all conversations, reset stats)
  */
-export async function resetConnection(connectionId: string): Promise<void> {
-  const supabase = await createServerClient()
-
+export async function resetConnection(
+  tenantId: string,
+  agentId: string,
+  connectionId: string
+): Promise<void> {
   // Close all active conversations for this connection
-  await supabase
-    .from('vibe_agent_conversations')
-    .update({ closed_at: new Date().toISOString() })
-    .eq('whatsapp_connection_id', connectionId)
-    .is('closed_at', null)
+  const conversationsSnap = await adminDb
+    .collection(Collections.conversations(tenantId, agentId))
+    .where('whatsappConnectionId', '==', connectionId)
+    .where('closedAt', '==', null)
+    .get()
 
-  // Reset connection stats (set last_message_received_at to null explicitly)
-  await supabase
-    .from('whatsapp_agent_connections')
+  if (!conversationsSnap.empty) {
+    const batch = adminDb.batch()
+    for (const doc of conversationsSnap.docs) {
+      batch.update(doc.ref, {
+        closedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+    await batch.commit()
+  }
+
+  // Reset connection stats
+  await adminDb
+    .collection(Collections.whatsappConnections(tenantId, agentId))
+    .doc(connectionId)
     .update({
-      total_conversations: 0,
-      last_message_received_at: null,
-      updated_at: new Date().toISOString()
+      totalConversations: 0,
+      lastMessageReceivedAt: FieldValue.delete(),
+      updatedAt: new Date().toISOString(),
     })
-    .eq('id', connectionId)
 }
 
 /**
  * Expire old connections (run via cron)
  */
-export async function expireOldConnections(): Promise<number> {
-  const supabase = await createServerClient()
+export async function expireOldConnections(
+  tenantId: string
+): Promise<number> {
+  // Use collectionGroup to find expiring connections across all agents
+  const now = new Date().toISOString()
+  const snap = await adminDb
+    .collectionGroup('whatsapp_connections')
+    .where('status', '==', 'active')
+    .where('expiresAt', '<', now)
+    .get()
 
-  const { data, error } = await supabase
-    .from('whatsapp_agent_connections')
-    .update({ status: 'expired' })
-    .eq('status', 'active')
-    .lt('expires_at', new Date().toISOString())
-    .select()
-
-  if (error) {
-    console.error('Error expiring connections:', error)
+  if (snap.empty) {
     return 0
   }
 
-  return data?.length || 0
+  // Filter to only this tenant's connections
+  const tenantDocs = snap.docs.filter(doc => {
+    const pathParts = doc.ref.path.split('/')
+    return pathParts[1] === tenantId
+  })
+
+  if (tenantDocs.length === 0) {
+    return 0
+  }
+
+  const batch = adminDb.batch()
+  for (const doc of tenantDocs) {
+    batch.update(doc.ref, {
+      status: 'expired',
+      updatedAt: new Date().toISOString(),
+    })
+  }
+  await batch.commit()
+
+  return tenantDocs.length
 }

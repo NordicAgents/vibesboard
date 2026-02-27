@@ -34,7 +34,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
   return (
     <div className="flex h-full flex-col rounded-3xl border border-black-10 bg-purewhite-bg p-6 shadow-lg">
       <div className="mb-4 font-switzer text-base font-semibold text-black-primary">Instruction helper</div>
-      <div className="flex-1 space-y-3 overflow-auto rounded-2xl bg-beige-bg/30 p-4 text-sm">
+      <div className="bg-beige-bg/30 flex-1 space-y-3 overflow-auto rounded-2xl p-4 text-sm">
         {!messages.length && (
           <p className="font-switzer text-gray-secondary">
             Describe what your agent should do and get a draft prompt back.
@@ -48,7 +48,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
             <div className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary">
               {message.role === 'assistant' ? 'Helper' : 'You'}
             </div>
-            <p className="font-switzer whitespace-pre-wrap text-black-primary">{formatContent(message.content)}</p>
+            <p className="whitespace-pre-wrap font-switzer text-black-primary">{formatContent(message.content)}</p>
             {message.role === 'assistant' && (
               <Button
                 size="sm"

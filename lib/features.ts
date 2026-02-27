@@ -1,151 +1,152 @@
-import { createServerClient } from '@/lib/supabase/server'
-import { Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { type FeatureFlagName } from '@/lib/feature-flags'
 
 /**
  * Check if a feature is enabled for a specific tenant
  */
 export async function isFeatureEnabled(
-    tenantId: string,
-    featureName: FeatureFlagName
+  tenantId: string,
+  featureName: FeatureFlagName
 ): Promise<boolean> {
-    const supabase = await createServerClient()
+  // Get global feature flag by name
+  const flagsSnapshot = await adminDb
+    .collection(Collections.featureFlags)
+    .where('name', '==', featureName)
+    .limit(1)
+    .get()
 
-    // Get feature flag
-    const { data: flag, error: flagError } = await supabase
-        .from('feature_flags')
-        .select('id, default_value')
-        .eq('name', featureName)
-        .single()
+  if (flagsSnapshot.empty) return false
+  const flag = flagsSnapshot.docs[0].data()
 
-    if (flagError || !flag) {
-        return false
-    }
+  // Check for tenant-specific override
+  const toggleDoc = await adminDb
+    .collection(Collections.featureToggles(tenantId))
+    .doc(flagsSnapshot.docs[0].id)
+    .get()
 
-    // Check for tenant-specific override
-    const { data: toggle, error: toggleError } = await supabase
-        .from('tenant_feature_toggles')
-        .select('is_enabled')
-        .eq('tenant_id', tenantId)
-        .eq('feature_flag_id', flag.id)
-        .single()
+  if (toggleDoc.exists) {
+    return toggleDoc.data()?.isEnabled ?? flag.defaultValue
+  }
 
-    // Return override if exists, otherwise return default
-    if (!toggleError && toggle) {
-        return toggle.is_enabled
-    }
-
-    return flag.default_value
+  return flag.defaultValue
 }
 
 /**
  * Get all enabled features for a tenant
  */
 export async function getEnabledFeatures(
-    tenantId: string
+  tenantId: string
 ): Promise<string[]> {
-    const supabase = await createServerClient()
+  // Get all feature flags
+  const flagsSnapshot = await adminDb
+    .collection(Collections.featureFlags)
+    .get()
 
-    // Get all feature flags
-    const { data: flags, error: flagsError } = await supabase
-        .from('feature_flags')
-        .select('*')
+  if (flagsSnapshot.empty) return []
 
-    if (flagsError || !flags) {
-        return []
+  // Get tenant-specific toggles
+  const togglesSnapshot = await adminDb
+    .collection(Collections.featureToggles(tenantId))
+    .get()
+
+  const toggleMap = new Map<string, boolean>()
+  togglesSnapshot.docs.forEach(doc => {
+    toggleMap.set(doc.id, doc.data().isEnabled)
+  })
+
+  const enabledFeatures: string[] = []
+
+  for (const doc of flagsSnapshot.docs) {
+    const flag = doc.data()
+    const override = toggleMap.get(doc.id)
+    const isEnabled = override !== undefined ? override : flag.defaultValue
+
+    if (isEnabled) {
+      enabledFeatures.push(flag.name)
     }
+  }
 
-    // Get tenant-specific toggles
-    const { data: toggles, error: togglesError } = await supabase
-        .from('tenant_feature_toggles')
-        .select('*')
-        .eq('tenant_id', tenantId)
-
-    if (togglesError) {
-        // Return features based on defaults only
-        return flags
-            .filter(flag => flag.default_value)
-            .map(flag => flag.name)
-    }
-
-    // Merge defaults with overrides
-    const enabledFeatures: string[] = []
-
-    for (const flag of flags) {
-        const toggle = toggles?.find(t => t.feature_flag_id === flag.id)
-        const isEnabled = toggle ? toggle.is_enabled : flag.default_value
-
-        if (isEnabled) {
-            enabledFeatures.push(flag.name)
-        }
-    }
-
-    return enabledFeatures
+  return enabledFeatures
 }
 
 /**
  * Get all features with their status for a tenant
  */
 export async function getTenantFeatures(
-    tenantId: string
-): Promise<Array<{
+  tenantId: string
+): Promise<
+  Array<{
     id: string
     name: string
     description: string | null
     isEnabled: boolean
     isOverridden: boolean
-}>> {
-    const supabase = await createServerClient()
+  }>
+> {
+  const flagsSnapshot = await adminDb
+    .collection(Collections.featureFlags)
+    .get()
 
-    // Get all feature flags
-    const { data: flags, error: flagsError } = await supabase
-        .from('feature_flags')
-        .select('*')
+  if (flagsSnapshot.empty) return []
 
-    if (flagsError || !flags) {
-        return []
+  const togglesSnapshot = await adminDb
+    .collection(Collections.featureToggles(tenantId))
+    .get()
+
+  const toggleMap = new Map<string, boolean>()
+  togglesSnapshot.docs.forEach(doc => {
+    toggleMap.set(doc.id, doc.data().isEnabled)
+  })
+
+  return flagsSnapshot.docs.map(doc => {
+    const flag = doc.data()
+    const override = toggleMap.get(doc.id)
+
+    return {
+      id: doc.id,
+      name: flag.name,
+      description: flag.description ?? null,
+      isEnabled: override !== undefined ? override : flag.defaultValue,
+      isOverridden: override !== undefined
     }
-
-    // Get tenant-specific toggles
-    const { data: toggles } = await supabase
-        .from('tenant_feature_toggles')
-        .select('*')
-        .eq('tenant_id', tenantId)
-
-    return flags.map(flag => {
-        const toggle = toggles?.find(t => t.feature_flag_id === flag.id)
-
-        return {
-            id: flag.id,
-            name: flag.name,
-            description: flag.description,
-            isEnabled: toggle ? toggle.is_enabled : flag.default_value,
-            isOverridden: !!toggle
-        }
-    })
+  })
 }
 
 /**
  * Toggle a feature for a tenant
  */
 export async function toggleFeature(
-    tenantId: string,
-    featureFlagId: string,
-    isEnabled: boolean
+  tenantId: string,
+  featureFlagId: string,
+  isEnabled: boolean
 ): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createServerClient()
+  try {
+    // Get flag name for denormalization
+    const flagDoc = await adminDb
+      .collection(Collections.featureFlags)
+      .doc(featureFlagId)
+      .get()
 
-    const { error } = await supabase
-        .from('tenant_feature_toggles')
-        .upsert({
-            tenant_id: tenantId,
-            feature_flag_id: featureFlagId,
-            is_enabled: isEnabled
-        })
+    const flagName = flagDoc.exists ? flagDoc.data()?.name : ''
 
-    if (error) {
-        return { success: false, error: error.message }
-    }
+    await adminDb
+      .collection(Collections.featureToggles(tenantId))
+      .doc(featureFlagId)
+      .set(
+        {
+          tenantId,
+          featureFlagId,
+          featureFlagName: flagName,
+          isEnabled,
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        },
+        { merge: true }
+      )
 
     return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error?.message }
+  }
 }

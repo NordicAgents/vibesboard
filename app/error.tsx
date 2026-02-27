@@ -23,7 +23,7 @@ export default function GlobalError({
       <Card className="w-full max-w-lg">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <AlertTriangle className="size-5 text-destructive" />
             <CardTitle>Something went wrong</CardTitle>
           </div>
           <CardDescription>
@@ -35,17 +35,17 @@ export default function GlobalError({
             If the issue persists, please refresh the page or contact an administrator.
           </p>
           {error?.digest && (
-            <p className="text-xs font-mono text-muted-foreground">Error ID: {error.digest}</p>
+            <p className="font-mono text-xs text-muted-foreground">Error ID: {error.digest}</p>
           )}
         </CardContent>
         <CardFooter className="flex gap-2">
           <Button onClick={reset} variant="default" className="flex-1">
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 size-4" />
             Try Again
           </Button>
           <Button asChild variant="outline" className="flex-1">
             <Link href="/">
-              <Home className="mr-2 h-4 w-4" />
+              <Home className="mr-2 size-4" />
               Go Home
             </Link>
           </Button>

@@ -37,7 +37,7 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
                         {displayTools.length > 0 ? (
                             displayTools.map(tool => (
                                 <Badge key={tool.id} variant="default" className="flex items-center gap-1">
-                                    <IconCheck className="h-3 w-3" />
+                                    <IconCheck className="size-3" />
                                     {tool.name}
                                 </Badge>
                             ))
@@ -61,10 +61,10 @@ export function ToolsFilesDisplay({ agent }: ToolsFilesDisplayProps) {
                                 {agent.fileKeys.map(key => (
                                     <li
                                         key={key}
-                                        className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-3"
+                                        className="bg-beige-bg/30 flex items-center gap-2 rounded-2xl border border-black-10 p-3"
                                     >
-                                        <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
-                                        <span className="font-switzer text-sm truncate text-black-primary">
+                                        <IconFile className="size-4 shrink-0 text-gray-secondary" />
+                                        <span className="truncate font-switzer text-sm text-black-primary">
                                             {getFileName(key)}
                                         </span>
                                     </li>

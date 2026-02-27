@@ -26,7 +26,7 @@ export function CopyButton({
         }
       }}
     >
-      <Copy className="mr-2 h-4 w-4" />
+      <Copy className="mr-2 size-4" />
       {label}
     </Button>
   )
