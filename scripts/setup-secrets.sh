@@ -75,6 +75,7 @@ upsert_secret "firebase-service-account-key"  "FIREBASE_SERVICE_ACCOUNT_KEY"
 upsert_secret "whatsapp-access-token"         "WHATSAPP_ACCESS_TOKEN"
 upsert_secret "whatsapp-verify-token"         "VERIFY_TOKEN"
 upsert_secret "encryption-key"                "ENCRYPTION_KEY"
+upsert_secret "cron-secret"                   "CRON_SECRET"
 
 echo ""
 echo "=== Secrets Setup Complete ==="

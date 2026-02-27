@@ -42,7 +42,7 @@ export const agentChatMessageSchema = z.object({
 
 export const agentChatRequestSchema = z.object({
   messages: z.array(agentChatMessageSchema),
-  conversationId: z.string().uuid().optional()
+  conversationId: z.string().min(1).optional()
 })
 
 export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
@@ -52,6 +52,6 @@ export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
 export const agentAskRequestSchema = z.object({
   // Allow any non-empty question; frontend already trims/blocks empty input
   question: z.string().min(1),
-  contextConversationId: z.string().uuid().optional(),
+  contextConversationId: z.string().min(1).optional(),
   sessionId: z.string().uuid().optional()
 })

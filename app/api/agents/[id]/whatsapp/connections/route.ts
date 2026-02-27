@@ -82,6 +82,7 @@ export async function POST(
     // Create connection
     const connection = await createConnection(
       tenantId,
+      agentId,
       {
         agentId,
         phoneNumber: validated.phoneNumber,

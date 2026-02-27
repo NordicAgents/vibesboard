@@ -132,11 +132,46 @@ gcloud run deploy "${SERVICE_NAME}" \
   --max-instances=3 \
   --timeout=600s \
   --set-env-vars="${ENV_VARS}" \
-  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest"
+  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest,CRON_SECRET=cron-secret:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo ""
 echo "Service deployed: ${SERVICE_URL}"
+echo ""
+
+# --- Cloud Scheduler for WhatsApp queue processing ---
+# Cloud Scheduler is not available in all regions; use the nearest supported one.
+SCHEDULER_REGION="europe-west1"
+JOB_NAME="vibeagent-process-whatsapp-queue"
+echo "Setting up Cloud Scheduler cron job: ${JOB_NAME} (location: ${SCHEDULER_REGION})..."
+
+CRON_TOKEN=$(gcloud secrets versions access latest --secret=cron-secret --project="${PROJECT_ID}")
+
+if gcloud scheduler jobs describe "${JOB_NAME}" --location="${SCHEDULER_REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "  Updating existing scheduler job..."
+  gcloud scheduler jobs update http "${JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="*/30 * * * *" \
+    --uri="${SERVICE_URL}/api/cron/process-whatsapp-queue" \
+    --http-method=GET \
+    --headers="Authorization=Bearer ${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+else
+  echo "  Creating new scheduler job..."
+  gcloud scheduler jobs create http "${JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="*/30 * * * *" \
+    --uri="${SERVICE_URL}/api/cron/process-whatsapp-queue" \
+    --http-method=GET \
+    --headers="Authorization=Bearer ${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+fi
+
+echo "Cloud Scheduler job configured: every 30 minutes"
 echo ""
 echo "Secrets are injected from Google Secret Manager (not env.yaml)."
 echo "Non-sensitive config is set via --set-env-vars."

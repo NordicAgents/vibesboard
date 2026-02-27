@@ -23,17 +23,17 @@ import { Loader2, Plus, Phone, MessageSquare, RotateCw, Trash2, Power, RefreshCw
 
 interface WhatsAppConnection {
   id: string
-  phone_number: string
-  phone_number_normalized: string
+  phoneNumber: string
+  phoneNumberNormalized: string
   status: 'pending' | 'active' | 'disconnected' | 'expired'
-  intro_message_sent_at: string | null
-  last_message_received_at: string | null
-  total_conversations: number
-  connected_at: string | null
-  disconnected_at: string | null
-  disconnection_reason: string | null
-  custom_intro_message: string | null
-  created_at: string
+  introMessageSentAt: string | null
+  lastMessageReceivedAt: string | null
+  totalConversations: number
+  connectedAt: string | null
+  disconnectedAt: string | null
+  disconnectionReason: string | null
+  customIntroMessage: string | null
+  createdAt: string
 }
 
 interface AgentWhatsAppSettingsProps {
@@ -316,7 +316,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Conversations</p>
                 <p className="text-2xl font-bold">
-                  {connections.reduce((sum, c) => sum + c.total_conversations, 0)}
+                  {connections.reduce((sum, c) => sum + c.totalConversations, 0)}
                 </p>
               </div>
               <div>
@@ -492,7 +492,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect Phone Number</AlertDialogTitle>
             <AlertDialogDescription>
-              Disconnect {selectedConnection?.phone_number} from this agent
+              Disconnect {selectedConnection?.phoneNumber} from this agent
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-4">
@@ -549,7 +549,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Reconnect Phone Number</AlertDialogTitle>
             <AlertDialogDescription>
-              Reactivate {selectedConnection?.phone_number} and send a new introduction message
+              Reactivate {selectedConnection?.phoneNumber} and send a new introduction message
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -568,7 +568,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Connection</AlertDialogTitle>
             <AlertDialogDescription>
-              Permanently delete {selectedConnection?.phone_number}? This action cannot be undone.
+              Permanently delete {selectedConnection?.phoneNumber}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -618,7 +618,7 @@ function ConnectionCard({
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
             <Phone className="h-4 w-4 text-muted-foreground" />
-            <span className="font-mono font-medium">{connection.phone_number}</span>
+            <span className="font-mono font-medium">{connection.phoneNumber}</span>
             {getStatusBadge(connection.status)}
           </div>
 
@@ -626,26 +626,26 @@ function ConnectionCard({
             {isActive && (
               <>
                 <div>
-                  <MessageSquare className="mb-1 inline h-3 w-3" /> {connection.total_conversations}{' '}
+                  <MessageSquare className="mb-1 inline h-3 w-3" /> {connection.totalConversations}{' '}
                   conversations
                 </div>
-                <div>Last activity: {formatDate(connection.last_message_received_at)}</div>
-                <div>Connected: {formatDate(connection.connected_at)}</div>
+                <div>Last activity: {formatDate(connection.lastMessageReceivedAt)}</div>
+                <div>Connected: {formatDate(connection.connectedAt)}</div>
               </>
             )}
             {isPending && (
               <>
-                <div>Created: {formatDate(connection.created_at)}</div>
+                <div>Created: {formatDate(connection.createdAt)}</div>
                 <div>
-                  {connection.intro_message_sent_at ? 'Intro sent' : 'Intro not sent yet'}
+                  {connection.introMessageSentAt ? 'Intro sent' : 'Intro not sent yet'}
                 </div>
               </>
             )}
             {isDisconnected && (
               <>
-                <div>Disconnected: {formatDate(connection.disconnected_at)}</div>
-                {connection.disconnection_reason && (
-                  <div>Reason: {connection.disconnection_reason}</div>
+                <div>Disconnected: {formatDate(connection.disconnectedAt)}</div>
+                {connection.disconnectionReason && (
+                  <div>Reason: {connection.disconnectionReason}</div>
                 )}
               </>
             )}
