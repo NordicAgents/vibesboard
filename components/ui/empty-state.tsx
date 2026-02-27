@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 
 interface EmptyStateProps {
     icon?: LucideIcon
@@ -21,18 +20,20 @@ export function EmptyState({
     return (
         <div
             className={cn(
-                'flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center',
+                'flex animate-fade-slide-in flex-col items-center justify-center px-8 py-16 text-center',
                 className
             )}
         >
             {Icon && (
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <Icon className="h-6 w-6 text-muted-foreground" />
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-[#EDE8DE]">
+                    <Icon className="size-6 text-accent-orange" />
                 </div>
             )}
-            <h3 className="mb-2 text-lg font-semibold">{title}</h3>
+            <h3 className="mb-2 font-serif text-lg font-normal text-[#1A1915]">
+                {title}
+            </h3>
             {description && (
-                <p className="mb-6 max-w-sm text-sm text-muted-foreground">
+                <p className="mb-6 max-w-sm text-sm text-[#6B6560]">
                     {description}
                 </p>
             )}

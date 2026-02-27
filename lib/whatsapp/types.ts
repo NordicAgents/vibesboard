@@ -1,68 +1,53 @@
 // WhatsApp Integration Types
+// Re-exports Firestore document types with camelCase field names
 
-export type WhatsAppConnectionStatus =
-  | 'pending'
-  | 'active'
-  | 'disconnected'
-  | 'expired'
+import type {
+  WhatsAppConnectionStatus,
+  WhatsAppAgentConnectionDocument,
+  AgentDocument,
+} from '@/lib/firestore-types'
 
-export interface WhatsAppAgentConnection {
-  id: string
-  agent_id: string
-  user_id: string
-  phone_number: string
-  phone_number_normalized: string
-  status: WhatsAppConnectionStatus
-  custom_intro_message: string | null
-  intro_message_sent_at: string | null
-  intro_message_id: string | null
-  last_message_received_at: string | null
-  total_conversations: number
-  connected_at: string | null
-  disconnected_at: string | null
-  expires_at: string | null
-  disconnection_reason: string | null
-  created_at: string
-  updated_at: string
-}
+export type { WhatsAppConnectionStatus }
+
+export type WhatsAppAgentConnection = WhatsAppAgentConnectionDocument
 
 export interface CreateConnectionParams {
-  agent_id: string
-  phone_number: string
-  custom_intro_message?: string
-  send_intro_immediately?: boolean
-  expires_at?: Date
+  agentId: string
+  phoneNumber: string
+  customIntroMessage?: string
+  sendIntroImmediately?: boolean
+  expiresAt?: Date
 }
 
 export interface UpdateConnectionParams {
   status?: WhatsAppConnectionStatus
-  intro_message_sent_at?: Date
-  intro_message_id?: string
-  last_message_received_at?: Date
-  total_conversations?: number
-  connected_at?: Date
-  disconnected_at?: Date
-  disconnection_reason?: string
-  expires_at?: Date
+  introMessageSentAt?: string
+  introMessageId?: string
+  lastMessageReceivedAt?: string
+  totalConversations?: number
+  connectedAt?: string
+  disconnectedAt?: string
+  disconnectionReason?: string
+  expiresAt?: string
 }
 
 export interface WhatsAppConnectionWithAgent extends WhatsAppAgentConnection {
   agent: {
     id: string
-    user_id: string
+    userId: string
     name: string
     mode: 'provider' | 'collector'
-    greeting_text: string | null
+    greetingText?: string
     instructions: string
-    file_keys: string[]
-    agent_url: string
-    allow_anonymous: boolean
-    quick_suggestions_mode: 'off' | 'smart' | 'always'
-    quick_suggestions_count: 3 | 4
-    max_messages: number | null
-    last_embeddings_sync_at: string | null
-    created_at: string
-    updated_at: string
+    fileKeys: string[]
+    agentUrl: string
+    allowAnonymous: boolean
+    quickSuggestionsMode: 'off' | 'smart' | 'always'
+    quickSuggestionsCount: number
+    maxMessages?: number
+    lastEmbeddingsSyncAt?: string
+    createdAt: string
+    updatedAt: string
   }
 }
 
@@ -74,5 +59,5 @@ export interface ConnectionListResponse {
 }
 
 export interface DisconnectConnectionParams {
-  conversation_action: 'keep' | 'archive' | 'delete'
+  conversationAction: 'keep' | 'archive' | 'delete'
 }

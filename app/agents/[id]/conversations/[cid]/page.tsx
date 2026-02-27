@@ -1,13 +1,11 @@
-import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 
 import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow, mapConversationRow } from '@/lib/agents/db'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
 import { AgentChat } from '@/components/agent-chat'
 import { canEditAgent } from '@/lib/agents/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -17,49 +15,52 @@ export default async function AgentConversationPage({
   params: Promise<{ id: string; cid: string }>
 }) {
   const { id, cid } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     redirect('/sign-in')
   }
 
-  const supabase = createServerComponentClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
+  // Find the agent across all tenants using collection group query
+  const agentSnapshot = await adminDb
+    .collectionGroup('agents')
+    .where('id', '==', id)
+    .limit(1)
+    .get()
 
-  const { data: agentRow } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!agentRow) {
+  if (agentSnapshot.empty) {
     notFound()
   }
 
-  const agent = mapAgentRow(agentRow)
+  const agentData = agentSnapshot.docs[0].data()
+  const agent = mapAgentDoc(agentData)
+  const tenantId = agent.tenantId
+
   const canEdit = await canEditAgent({
     sessionUserId: session.user.id,
-    agentOwnerId: agentRow.user_id,
-    tenantId: agentRow.tenant_id
+    agentOwnerId: agent.userId,
+    tenantId: tenantId ?? null
   })
+
   let conversationId: string | undefined
   let initialMessages
 
-  if (cid !== 'new') {
-    const conversationClient = canEdit ? getServiceSupabaseClient() : supabase
-    const { data } = await conversationClient
-        .from('vibe_agent_conversations')
-        .select('*')
-        .eq('id', cid)
-        .maybeSingle()
+  if (cid !== 'new' && tenantId) {
+    const convoDoc = await adminDb
+      .collection(Collections.conversations(tenantId, agent.id))
+      .doc(cid)
+      .get()
 
-    if (!data || data.agent_id !== agent.id) {
+    if (!convoDoc.exists) {
       notFound()
     }
 
-    const conversation = mapConversationRow(data)
+    const convoData = convoDoc.data()!
+    if (convoData.agentId !== agent.id) {
+      notFound()
+    }
+
+    const conversation = mapConversationDoc(convoData)
     conversationId = conversation.id
     initialMessages = conversation.messages
   }

@@ -160,12 +160,12 @@ export function DataTable<T extends Record<string, any>>({
                                                 <span className="text-muted-foreground">
                                                     {sortKey === column.key ? (
                                                         sortDirection === 'asc' ? (
-                                                            <ArrowUp className="h-4 w-4" />
+                                                            <ArrowUp className="size-4" />
                                                         ) : (
-                                                            <ArrowDown className="h-4 w-4" />
+                                                            <ArrowDown className="size-4" />
                                                         )
                                                     ) : (
-                                                        <ArrowUpDown className="h-4 w-4" />
+                                                        <ArrowUpDown className="size-4" />
                                                     )}
                                                 </span>
                                             )}
@@ -224,7 +224,7 @@ export function DataTable<T extends Record<string, any>>({
                             onClick={() => handlePageChange(1)}
                             disabled={currentPage === 1}
                         >
-                            <ChevronsLeft className="h-4 w-4" />
+                            <ChevronsLeft className="size-4" />
                         </Button>
                         <Button
                             variant="outline"
@@ -232,7 +232,7 @@ export function DataTable<T extends Record<string, any>>({
                             onClick={() => handlePageChange(currentPage - 1)}
                             disabled={currentPage === 1}
                         >
-                            <ChevronLeft className="h-4 w-4" />
+                            <ChevronLeft className="size-4" />
                         </Button>
                         <div className="text-sm">
                             Page {currentPage} of {totalPages}
@@ -243,7 +243,7 @@ export function DataTable<T extends Record<string, any>>({
                             onClick={() => handlePageChange(currentPage + 1)}
                             disabled={currentPage === totalPages}
                         >
-                            <ChevronRight className="h-4 w-4" />
+                            <ChevronRight className="size-4" />
                         </Button>
                         <Button
                             variant="outline"
@@ -251,7 +251,7 @@ export function DataTable<T extends Record<string, any>>({
                             onClick={() => handlePageChange(totalPages)}
                             disabled={currentPage === totalPages}
                         >
-                            <ChevronsRight className="h-4 w-4" />
+                            <ChevronsRight className="size-4" />
                         </Button>
                     </div>
                 </div>

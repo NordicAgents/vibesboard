@@ -73,13 +73,15 @@ const ChatMarkdown = ({
 }) => (
   <MemoizedReactMarkdown
     className={cn(
-      'prose break-words prose-p:leading-relaxed prose-pre:p-0 prose-sm max-w-none',
-      isUser ? 'prose-invert' : 'dark:prose-invert'
+      'prose prose-sm max-w-none break-words prose-p:leading-relaxed prose-pre:p-0',
+      isUser
+        ? 'prose-invert'
+        : 'dark:prose-invert prose-headings:font-serif prose-headings:font-normal'
     )}
     remarkPlugins={[remarkGfm, remarkMath]}
     components={{
       p({ children }) {
-        return <p className="mb-1.5 last:mb-0 leading-relaxed">{children}</p>
+        return <p className="mb-1.5 leading-[1.65] last:mb-0">{children}</p>
       },
       code({ node, inline, className, children, ...props }) {
         if (children.length) {
@@ -95,8 +97,10 @@ const ChatMarkdown = ({
           return (
             <code
               className={cn(
-                'rounded px-1 py-0.5 text-xs font-mono',
-                isUser ? 'bg-white/20 text-white' : 'bg-muted text-foreground'
+                'rounded-[4px] px-1.5 py-0.5 font-mono text-xs',
+                isUser
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#EDE8DE] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8]'
               )}
               {...props}
             >
@@ -122,7 +126,7 @@ const ChatMarkdown = ({
 
 export function ChatMessage({
   message,
-  agentAvatarGradient = 'from-violet-400 to-purple-500',
+  agentAvatarGradient = 'from-[#D97757] to-[#CC785C]',
   agentAvatarInitial = 'A',
   isLastMessage,
   ...props
@@ -140,37 +144,34 @@ export function ChatMessage({
         ? 'improvements'
         : null
 
-  return (
-    <div
-      className={cn(
-        'flex w-full gap-2.5',
-        isUser ? 'justify-end' : 'justify-start'
-      )}
-      {...props}
-    >
-      {/* AI avatar */}
-      {!isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center self-start mt-1 rounded-full border border-border/50 bg-background shadow-sm overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo_1.png"
-            alt="agent"
-            className="h-5 w-5 object-contain"
-          />
+  if (isUser) {
+    return (
+      <div className="flex justify-end" {...props}>
+        <div className="max-w-[82%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8] sm:max-w-[72%]">
+          <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
-      )}
+      </div>
+    )
+  }
 
-      {/* Bubble */}
-      <div
-        className={cn(
-          'group relative max-w-[85%] sm:max-w-[75%]',
-          isUser ? 'items-end' : 'items-start'
-        )}
-      >
+  return (
+    <div className="group flex items-start gap-3" {...props}>
+      {/* AI avatar */}
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo_1.png"
+          alt="agent"
+          className="size-5 object-contain"
+        />
+      </div>
+
+      {/* AI content — no bubble */}
+      <div className="min-w-0 flex-1">
         {structured && defaultTab ? (
-          <div className="rounded-2xl rounded-bl-sm border border-border/50 bg-muted/40 p-3 shadow-sm">
+          <div className="rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="w-full justify-start mb-2">
+              <TabsList className="mb-3 w-full justify-start bg-[#EDE8DE] dark:bg-[#2E2B25]">
                 {structured.overview && (
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                 )}
@@ -199,46 +200,19 @@ export function ChatMessage({
             </Tabs>
           </div>
         ) : (
-          <div
-            className={cn(
-              'rounded-2xl px-4 py-2.5 text-sm shadow-sm',
-              isUser
-                ? 'rounded-br-sm bg-primary text-primary-foreground'
-                : 'rounded-bl-sm border border-border/40 bg-muted/50 text-foreground dark:bg-muted/30'
-            )}
-          >
-            <ChatMarkdown isUser={isUser}>{message.content}</ChatMarkdown>
+          <div className="text-[15px] leading-[1.65] text-[#1A1915] dark:text-[#E8E3D8]">
+            <ChatMarkdown>{message.content}</ChatMarkdown>
           </div>
         )}
-        {/* Copy action for AI messages */}
-        {!isUser && (
-          <div className="mt-0.5 flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <ChatMessageActions
-              message={message}
-              className="static opacity-100 md:static md:opacity-100"
-            />
-          </div>
-        )}
-      </div>
 
-      {/* User avatar */}
-      {isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center self-end rounded-full bg-muted border border-border/50 shadow-sm">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-3.5 w-3.5 text-muted-foreground"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+        {/* Copy action — appears below on hover */}
+        <div className="mt-1.5 flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <ChatMessageActions
+            message={message}
+            className="static opacity-100 md:static md:opacity-100"
+          />
         </div>
-      )}
+      </div>
     </div>
   )
 }

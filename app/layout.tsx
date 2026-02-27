@@ -1,7 +1,6 @@
 import { Metadata, Viewport } from 'next'
 
 import { Toaster } from 'react-hot-toast'
-import { cookies } from 'next/headers'
 
 import '@/app/globals.css'
 import { fontMono, fontSans, fontSwitzer } from '@/lib/fonts'
@@ -28,7 +27,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: light)', color: '#F5F0E8' },
     { media: '(prefers-color-scheme: dark)', color: 'black' }
   ],
   width: 'device-width',
@@ -45,15 +44,21 @@ interface RootLayoutProps {
 import { AppHeaderController } from '@/components/app-header-controller'
 
 export default async function RootLayout({ children }: RootLayoutProps) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
   const tenantTheme = session?.user?.id
     ? await getActiveTenantTheme(session.user.id)
     : null
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap"
+        />
+      </head>
       <body
         className={cn(
           'font-sans antialiased',
@@ -71,7 +76,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
               {/* @ts-ignore */}
               <Header />
             </AppHeaderController>
-            <main className="flex flex-1 flex-col bg-beige-bg dark:bg-background">
+            <main className="flex min-h-0 flex-1 flex-col bg-beige-bg dark:bg-background">
               {children}
             </main>
           </div>

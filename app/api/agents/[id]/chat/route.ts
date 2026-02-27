@@ -1,11 +1,8 @@
 import { StreamingTextResponse, type Message } from 'ai'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { getAgentForMember } from '@/lib/agents/server'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { getAgentById } from '@/lib/agents/server'
 import { agentChatRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
@@ -26,18 +23,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const user = authResult.user
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
-  const agent = await getAgentForMember(supabase, id)
+  // Look up agent across all tenants by ID
+  const agent = await getAgentById(id)
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
@@ -51,10 +43,10 @@ export async function POST(
   })) as Message[]
 
   const conversation = await ensureConversation({
-    supabase,
+    tenantId: agent.tenantId!,
     agentId: agent.id,
     conversationId: payload.conversationId,
-    userId: session.user.id,
+    userId: user.id,
     initialMessages: normalizedMessages
   })
 
@@ -62,7 +54,6 @@ export async function POST(
   const userMessageCount = normalizedMessages.filter(m => m.role === 'user').length
 
   const context = await fetchAgentFileContext({
-    supabase,
     fileKeys: agent.fileKeys
   })
 
@@ -84,7 +75,8 @@ export async function POST(
         }
       ]
       await updateConversationMessages({
-        supabase,
+        tenantId: agent.tenantId!,
+        agentId: agent.id,
         conversationId: conversation.id,
         messages: nextMessages,
         summary: null

@@ -16,28 +16,28 @@ export function LandingFeatures() {
 
     return (
         <section id="features" className="bg-beige-bg py-20 md:py-32">
-            <div className="container mx-auto px-6 lg:px-12 max-w-7xl">
+            <div className="container mx-auto max-w-7xl px-6 lg:px-12">
                 {/* Section header */}
-                <div className="text-center max-w-4xl mx-auto mb-16 md:mb-20">
-                    <h2 className="font-switzer font-bold text-h2 text-black-primary mb-6">
+                <div className="mx-auto mb-16 max-w-4xl text-center md:mb-20">
+                    <h2 className="mb-6 font-switzer text-h2 font-bold text-black-primary">
                         Everything you need to understand the vibe
                     </h2>
-                    <p className="font-switzer text-lg md:text-xl text-gray-secondary">
+                    <p className="font-switzer text-lg text-gray-secondary md:text-xl">
                         Build, deploy, and analyze AI agents that capture authentic human interactions
                     </p>
                 </div>
 
                 {/* Features grid - NORRE style */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:gap-8">
                     {features.map((feature, index) => (
                         <div
                             key={index}
-                            className="group p-8 lg:p-10 rounded-3xl bg-purewhite-bg border border-black-10 hover:border-black-25 transition-all duration-300 hover:shadow-lg"
+                            className="group rounded-3xl border border-black-10 bg-purewhite-bg p-8 transition-all duration-300 hover:border-black-25 hover:shadow-lg lg:p-10"
                         >
-                            <h3 className="font-switzer font-semibold text-2xl lg:text-3xl text-black-primary mb-4">
+                            <h3 className="mb-4 font-switzer text-2xl font-semibold text-black-primary lg:text-3xl">
                                 {feature.title}
                             </h3>
-                            <p className="font-switzer text-base lg:text-lg text-gray-secondary leading-relaxed">
+                            <p className="font-switzer text-base leading-relaxed text-gray-secondary lg:text-lg">
                                 {feature.description}
                             </p>
                         </div>

@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { type AgentToolType, type AgentMode } from '@/lib/types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface AgentFormData {
   name?: string
@@ -84,14 +84,14 @@ export function AgentBuilderFormPreview({
   return (
     <aside
       className={cn(
-        'flex h-full flex-col overflow-y-auto border-l border-black-10 bg-beige-bg/50 p-6 dark:bg-background/50 dark:border-border',
+        'bg-beige-bg/50 flex h-full flex-col overflow-y-auto border-l border-black-10 p-6 dark:border-border dark:bg-background/50',
         className
       )}
     >
       <div className="mb-6">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <IconSparkles className="h-5 w-5 text-primary" />
+            <IconSparkles className="size-5 text-primary" />
             <h2 className="font-switzer text-lg font-semibold text-black-primary dark:text-foreground">
               Agent Builder
             </h2>
@@ -114,7 +114,7 @@ export function AgentBuilderFormPreview({
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               Name
               {formData.name && (
-                <IconCheck className="h-4 w-4 text-green-600" />
+                <IconCheck className="size-4 text-green-600" />
               )}
             </CardTitle>
           </CardHeader>
@@ -146,7 +146,7 @@ export function AgentBuilderFormPreview({
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               Instructions
               {formData.instructions && (
-                <IconCheck className="h-4 w-4 text-green-600" />
+                <IconCheck className="size-4 text-green-600" />
               )}
             </CardTitle>
           </CardHeader>
@@ -179,7 +179,7 @@ export function AgentBuilderFormPreview({
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               Greeting Message
               {formData.greetingText && (
-                <IconCheck className="h-4 w-4 text-green-600" />
+                <IconCheck className="size-4 text-green-600" />
               )}
             </CardTitle>
           </CardHeader>
@@ -259,7 +259,7 @@ export function AgentBuilderFormPreview({
                   formData.mode !== 'collector' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   formData.mode !== 'collector' &&
                     'bg-primary text-primary-foreground'
                 )}
@@ -278,7 +278,7 @@ export function AgentBuilderFormPreview({
                   formData.mode === 'collector' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   formData.mode === 'collector' &&
                     'bg-primary text-primary-foreground'
                 )}
@@ -343,7 +343,7 @@ export function AgentBuilderFormPreview({
                   quickSuggestionsMode === 'off' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'off' &&
                     'bg-primary text-primary-foreground'
                 )}
@@ -361,7 +361,7 @@ export function AgentBuilderFormPreview({
                   quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'smart' &&
                     'bg-primary text-primary-foreground'
                 )}
@@ -380,7 +380,7 @@ export function AgentBuilderFormPreview({
                   quickSuggestionsMode === 'always' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'always' &&
                     'bg-primary text-primary-foreground'
                 )}
@@ -407,7 +407,7 @@ export function AgentBuilderFormPreview({
                       quickSuggestionsCount === 3 ? 'default' : 'secondary'
                     }
                     className={cn(
-                      'cursor-pointer transition-all px-4 py-1',
+                      'cursor-pointer px-4 py-1 transition-all',
                       quickSuggestionsCount === 3 &&
                         'bg-primary text-primary-foreground'
                     )}
@@ -425,7 +425,7 @@ export function AgentBuilderFormPreview({
                       quickSuggestionsCount === 4 ? 'default' : 'secondary'
                     }
                     className={cn(
-                      'cursor-pointer transition-all px-4 py-1',
+                      'cursor-pointer px-4 py-1 transition-all',
                       quickSuggestionsCount === 4 &&
                         'bg-primary text-primary-foreground'
                     )}

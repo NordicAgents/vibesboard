@@ -82,10 +82,10 @@ export function TenantAgentsTab({ tenantId }: TenantAgentsTabProps) {
                             >
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-2">
-                                        <Bot className="h-5 w-5 text-muted-foreground" />
+                                        <Bot className="size-5 text-muted-foreground" />
                                         <h4 className="font-medium">{agent.name || 'Unnamed Agent'}</h4>
                                     </div>
-                                    <ExternalLink className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                                    <ExternalLink className="size-4 opacity-0 transition-opacity group-hover:opacity-100" />
                                 </div>
                                 <p className="mt-2 text-sm text-muted-foreground">
                                     Created {new Date(agent.createdAt).toLocaleDateString()}

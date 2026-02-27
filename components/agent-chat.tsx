@@ -53,7 +53,7 @@ export function AgentChat({
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
-  const quickSuggestionsCount = agent.quickSuggestionsCount === 3 ? 3 : 4
+  const quickSuggestionsCount = agent.quickSuggestionsCount ?? 4
 
   const chatKey = useMemo(
     () => initialConversationId ?? nanoid(),
@@ -252,19 +252,19 @@ export function AgentChat({
 
   return (
     <div
-      className={cn('flex flex-1 flex-col min-h-0 overflow-hidden', className)}
+      className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}
     >
-      {/* Scrollable messages area */}
+      {/* Scrollable messages area — full width, messages centered in column */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overscroll-contain"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F5F0E8] dark:bg-[#1A1915]"
         style={{
           scrollbarWidth: 'thin',
-          scrollbarColor: 'hsl(var(--border)) transparent'
+          scrollbarColor: '#E2DDD4 transparent'
         }}
       >
         {messages.length ? (
-          <>
+          <div className="mx-auto w-full max-w-[760px]">
             <ChatList
               messages={messages}
               isLoading={isLoading}
@@ -272,7 +272,7 @@ export function AgentChat({
               agentAvatarInitial={agentAvatarInitial}
             />
             <ChatScrollAnchor trackVisibility={isLoading} />
-          </>
+          </div>
         ) : (
           <EmptyScreen setInput={setInput} />
         )}

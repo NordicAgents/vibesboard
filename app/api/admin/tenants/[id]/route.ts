@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin, isMemberOfTenant } from '@/lib/permissions'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
+import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -16,56 +13,46 @@ type RouteParams = {
 
 /**
  * GET /api/admin/tenants/[id]
- * Get single tenant details (SUPER_ADMIN or tenant member)
+ * Get single tenant details (SUPER_ADMIN only)
  */
 export async function GET(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
     const { id } = await params
 
-    // Check if user is super admin or member of tenant
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isMember = await isMemberOfTenant(session.user.id, id)
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(id)
+        .get()
 
-    if (!isSuperAdminUser && !isMember) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const supabaseAdmin = getServiceSupabaseClient()
-
-    const { data: tenant, error } = await supabaseAdmin
-        .from('tenants')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-    if (error || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json(
             { error: 'Tenant not found' },
             { status: 404 }
         )
     }
 
-    const { data: branding } = await supabaseAdmin
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', id)
-        .maybeSingle()
+    const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
 
-    const { count: userCount } = await supabaseAdmin
-        .from('tenant_users')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('tenant_id', id)
+    // Get branding
+    const brandingDoc = await adminDb
+        .collection(Collections.branding(id))
+        .doc(id)
+        .get()
+
+    const branding = brandingDoc.exists ? brandingDoc.data() : null
+
+    // Get member count
+    const membersCount = await adminDb
+        .collection(Collections.members(id))
+        .count()
+        .get()
 
     return NextResponse.json({
         tenant,
-        branding: branding ?? null,
-        user_count: userCount ?? 0
+        branding,
+        user_count: membersCount.data().count
     })
 }
 
@@ -74,100 +61,76 @@ export async function GET(req: Request, { params }: RouteParams) {
  * Update tenant (SUPER_ADMIN only)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
     const { id } = await params
-
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
-
     const body = await req.json()
     const { name, slug, status } = body
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
     // Build update object
-    const updates: any = {}
+    const updates: Record<string, any> = {
+        updatedAt: new Date().toISOString()
+    }
     if (name !== undefined) updates.name = name
     if (slug !== undefined) updates.slug = slug
     if (status !== undefined && ['active', 'trial', 'suspended'].includes(status)) {
         updates.status = status
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length === 1) {
+        // Only updatedAt, no real fields
         return NextResponse.json(
             { error: 'No valid fields to update' },
             { status: 400 }
         )
     }
 
-    const { data: tenant, error } = await supabase
-        .from('tenants')
-        .update(updates)
-        .eq('id', id)
-        .select('*')
-        .single()
+    const tenantRef = adminDb.collection(Collections.tenants).doc(id)
+    const tenantDoc = await tenantRef.get()
 
-    if (error || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json(
-            { error: error?.message || 'Failed to update tenant' },
-            { status: 500 }
+            { error: 'Tenant not found' },
+            { status: 404 }
         )
     }
+
+    await tenantRef.update(updates)
+
+    const updatedDoc = await tenantRef.get()
+    const tenant = { id: updatedDoc.id, ...updatedDoc.data() }
 
     return NextResponse.json({ tenant })
 }
 
 /**
  * DELETE /api/admin/tenants/[id]
- * Soft delete tenant (SUPER_ADMIN only)
- * Note: In this implementation, we're using hard delete due to RLS constraints
- * In production, you might want to add a soft delete mechanism
+ * Soft delete tenant (SUPER_ADMIN only) — marks as suspended
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
     const { id } = await params
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const tenantRef = adminDb.collection(Collections.tenants).doc(id)
+    const tenantDoc = await tenantRef.get()
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
-    // Alternatively, just mark as suspended
-    const { data: tenant, error } = await supabase
-        .from('tenants')
-        .update({ status: 'suspended' })
-        .eq('id', id)
-        .select('*')
-        .single()
-
-    if (error || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json(
-            { error: error?.message || 'Failed to delete tenant' },
-            { status: 500 }
+            { error: 'Tenant not found' },
+            { status: 404 }
         )
     }
+
+    await tenantRef.update({
+        status: 'suspended',
+        updatedAt: new Date().toISOString()
+    })
+
+    const updatedDoc = await tenantRef.get()
+    const tenant = { id: updatedDoc.id, ...updatedDoc.data() }
 
     return NextResponse.json({ success: true, tenant })
 }

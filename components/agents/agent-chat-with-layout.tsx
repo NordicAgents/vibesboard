@@ -178,7 +178,7 @@ export function AgentChatWithLayout({
     () => (
       <DashboardSidebar>
         {/* Agent Info */}
-        <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
+        <div className="bg-beige-bg/30 mb-4 rounded-2xl border border-black-10 p-4 dark:border-border dark:bg-background/30">
           <h3 className="truncate font-switzer text-lg font-bold text-black-primary dark:text-foreground">
             {agent.name}
           </h3>
@@ -213,7 +213,7 @@ export function AgentChatWithLayout({
               )
             }}
           >
-            <IconMessage className="h-4 w-4" />
+            <IconMessage className="size-4" />
             {canEdit ? 'Ask AI' : 'Chat'}
           </Button>
           {canEdit && (
@@ -229,7 +229,7 @@ export function AgentChatWithLayout({
                 router.push(`/agents/${agent.id}?${params.toString()}`)
               }}
             >
-              <IconEdit className="h-4 w-4" />
+              <IconEdit className="size-4" />
               Configure
             </Button>
           )}
@@ -243,7 +243,7 @@ export function AgentChatWithLayout({
               <Button
                 size="sm"
                 variant="secondary"
-                className="h-7 w-7 rounded-full p-0"
+                className="size-7 rounded-full p-0"
                 onClick={handleRefreshSummaries}
                 disabled={refreshingSummaries}
                 title="Refresh summaries"
@@ -252,8 +252,8 @@ export function AgentChatWithLayout({
                 <IconRefresh
                   className={
                     refreshingSummaries
-                      ? 'h-3.5 w-3.5 animate-spin'
-                      : 'h-3.5 w-3.5'
+                      ? 'size-3.5 animate-spin'
+                      : 'size-3.5'
                   }
                 />
               </Button>
@@ -291,11 +291,11 @@ export function AgentChatWithLayout({
                   size="sm"
                   onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
                   disabled={visitorPage === 1}
-                  className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                  className="h-7 rounded-full px-3 font-switzer text-[11px]"
                 >
                   Previous
                 </Button>
-                <span className="text-[11px] text-gray-secondary font-switzer">
+                <span className="font-switzer text-[11px] text-gray-secondary">
                   Page {visitorPage} of {totalVisitorPages}
                 </span>
                 <Button
@@ -307,7 +307,7 @@ export function AgentChatWithLayout({
                     )
                   }
                   disabled={visitorPage === totalVisitorPages}
-                  className="h-7 rounded-full px-3 text-[11px] font-switzer"
+                  className="h-7 rounded-full px-3 font-switzer text-[11px]"
                 >
                   Next
                 </Button>
@@ -323,7 +323,7 @@ export function AgentChatWithLayout({
             <button
               onClick={handleNewChat}
               data-mobile-menu-close="true"
-              className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
+              className="flex size-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
               aria-label="New conversation"
             >
               +

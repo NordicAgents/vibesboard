@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PageHeader } from '@/components/ui/page-header'
-import { Database } from '@/lib/db_types'
+import type { TenantDocument, TenantBrandingDocument } from '@/lib/firestore-types'
 import toast from 'react-hot-toast'
 
 // Tab components
@@ -16,9 +16,6 @@ import { TenantFeaturesTab } from './tabs/features-tab'
 import { TenantUsersTab } from './tabs/users-tab'
 import { TenantAgentsTab } from './tabs/agents-tab'
 
-type Tenant = Database['public']['Tables']['tenants']['Row']
-type TenantBranding = Database['public']['Tables']['tenant_branding']['Row']
-
 interface PageProps {
     params: Promise<{ id: string }>
 }
@@ -26,8 +23,8 @@ interface PageProps {
 export default function TenantDetailPage({ params }: PageProps) {
     const router = useRouter()
     const [tenantId, setTenantId] = React.useState<string | null>(null)
-    const [tenant, setTenant] = React.useState<Tenant | null>(null)
-    const [branding, setBranding] = React.useState<TenantBranding | null>(null)
+    const [tenant, setTenant] = React.useState<TenantDocument | null>(null)
+    const [branding, setBranding] = React.useState<TenantBrandingDocument | null>(null)
     const [loading, setLoading] = React.useState(true)
 
     // Unwrap params
@@ -83,11 +80,11 @@ export default function TenantDetailPage({ params }: PageProps) {
                         <Link href="/admin" className="hover:text-foreground">
                             Admin
                         </Link>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="size-4" />
                         <Link href="/admin/tenants" className="hover:text-foreground">
                             Tenants
                         </Link>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="size-4" />
                         <span className="text-foreground">{tenant.name}</span>
                     </nav>
                 }

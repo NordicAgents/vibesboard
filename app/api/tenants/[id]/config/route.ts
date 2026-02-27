@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { auth } from '@/auth'
-import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
+import { requireTenantMember } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { getTenantFeatures } from '@/lib/features'
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
 
 export const runtime = 'nodejs'
 
@@ -18,54 +17,44 @@ type RouteParams = {
  * Get tenant configuration including features and branding
  */
 export async function GET(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const { id: tenantId } = await params
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    const { id } = await params
-
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isMember = await isMemberOfTenant(session.user.id, id)
-    if (!isSuperAdminUser && !isMember) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
-
-    const supabaseAdmin = getServiceSupabaseClient()
+    const auth = await requireTenantMember(tenantId)
+    if (!auth.ok) return auth.response
 
     // Get tenant details
-    const { data: tenant, error: tenantError } = await supabaseAdmin
-        .from('tenants')
-        .select('*')
-        .eq('id', id)
-        .single()
+    const tenantDoc = await adminDb
+        .collection(Collections.tenants)
+        .doc(tenantId)
+        .get()
 
-    if (tenantError || !tenant) {
+    if (!tenantDoc.exists) {
         return NextResponse.json(
             { error: 'Tenant not found' },
             { status: 404 }
         )
     }
 
+    const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
+
     // Get branding
-    const { data: branding } = await supabaseAdmin
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', id)
-        .maybeSingle()
+    const brandingDoc = await adminDb
+        .collection(Collections.branding(tenantId))
+        .doc(tenantId)
+        .get()
+
+    const branding = brandingDoc.exists ? brandingDoc.data() : null
 
     // Get features
-    const features = await getTenantFeatures(id)
+    const features = await getTenantFeatures(tenantId)
 
     return NextResponse.json({
         tenant: {
             ...tenant,
-            branding: branding ?? null,
+            branding,
             features
         },
-        branding: branding ?? null,
+        branding,
         features
     })
 }

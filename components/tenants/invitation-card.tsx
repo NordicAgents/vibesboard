@@ -3,13 +3,11 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Database } from '@/lib/db_types'
+import type { InvitationDocument } from '@/lib/firestore-types'
 import { RoleBadge } from './role-badge'
 
-type Invitation = Database['public']['Tables']['invitations']['Row']
-
 interface InvitationCardProps {
-    invitation: Invitation
+    invitation: InvitationDocument
     tenantName?: string
     onResend?: () => void
     onRevoke?: () => void
@@ -23,7 +21,7 @@ export function InvitationCard({
     onRevoke,
     showActions = false
 }: InvitationCardProps) {
-    const isExpired = new Date(invitation.expires_at) < new Date()
+    const isExpired = new Date(invitation.expiresAt) < new Date()
     const isPending = invitation.status === 'pending' && !isExpired
 
     const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
@@ -56,12 +54,12 @@ export function InvitationCard({
                         <RoleBadge role={invitation.role} />
                     </div>
                     <div className="text-muted-foreground">
-                        Sent {new Date(invitation.created_at).toLocaleDateString()}
+                        Sent {new Date(invitation.createdAt).toLocaleDateString()}
                     </div>
                 </div>
                 {isPending && (
                     <div className="mt-2 text-sm text-muted-foreground">
-                        Expires {new Date(invitation.expires_at).toLocaleDateString()}
+                        Expires {new Date(invitation.expiresAt).toLocaleDateString()}
                     </div>
                 )}
             </CardContent>
