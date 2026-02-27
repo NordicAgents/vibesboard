@@ -253,7 +253,7 @@ export function AgentRightbar({
               <Badge
                 variant={mode !== 'collector' ? 'default' : 'secondary'}
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   mode !== 'collector' && 'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
                 )}
@@ -268,7 +268,7 @@ export function AgentRightbar({
               <Badge
                 variant={mode === 'collector' ? 'default' : 'secondary'}
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   mode === 'collector' && 'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
                 )}
@@ -319,7 +319,7 @@ export function AgentRightbar({
                   quickSuggestionsMode === 'off' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'off' &&
                     'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
@@ -336,7 +336,7 @@ export function AgentRightbar({
                   quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'smart' &&
                     'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
@@ -353,7 +353,7 @@ export function AgentRightbar({
                   quickSuggestionsMode === 'always' ? 'default' : 'secondary'
                 }
                 className={cn(
-                  'cursor-pointer transition-all flex-1 justify-center py-2',
+                  'flex-1 cursor-pointer justify-center py-2 transition-all',
                   quickSuggestionsMode === 'always' &&
                     'bg-primary text-primary-foreground',
                   !canEdit && 'cursor-not-allowed opacity-60'
@@ -390,7 +390,7 @@ export function AgentRightbar({
                         Math.max(1, Math.min(10, parseInt(e.target.value) || 4))
                       )
                     }
-                    className="w-20 h-9 text-center"
+                    className="h-9 w-20 text-center"
                   />
                 </div>
               </div>
@@ -422,7 +422,7 @@ export function AgentRightbar({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <IconExternalLink className="h-4 w-4" />
+                  <IconExternalLink className="size-4" />
                 </Link>
               </Button>
             </div>
@@ -453,7 +453,7 @@ export function AgentRightbar({
                   className="w-full bg-red-600 hover:bg-red-700"
                   disabled={!canEdit}
                 >
-                  <IconTrash className="mr-2 h-4 w-4" />
+                  <IconTrash className="mr-2 size-4" />
                   Delete Agent
                 </Button>
               </AlertDialogTrigger>

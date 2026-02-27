@@ -76,7 +76,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
               {/* @ts-ignore */}
               <Header />
             </AppHeaderController>
-            <main className="flex flex-1 flex-col min-h-0 bg-beige-bg dark:bg-background">
+            <main className="flex min-h-0 flex-1 flex-col bg-beige-bg dark:bg-background">
               {children}
             </main>
           </div>

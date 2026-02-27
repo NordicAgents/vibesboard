@@ -105,7 +105,7 @@ export default function TenantsPage() {
                 description="Manage all tenants in the system"
                 actions={
                     <Button onClick={() => setCreateDialogOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className="mr-2 size-4" />
                         Create Tenant
                     </Button>
                 }
@@ -128,7 +128,7 @@ export default function TenantsPage() {
                         description="Get started by creating your first tenant"
                         action={
                             <Button onClick={() => setCreateDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
+                                <Plus className="mr-2 size-4" />
                                 Create Tenant
                             </Button>
                         }

@@ -70,8 +70,8 @@ export function TenantSwitcher({
         const onlyTenant = tenants[0]
         return (
             <div className={cn('flex items-center gap-2.5 rounded-lg px-3 py-2', className)}>
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
-                    <Building2 className="h-3.5 w-3.5 text-[#D97757]" />
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                    <Building2 className="size-3.5 text-accent-orange" />
                 </div>
                 <div className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
@@ -102,8 +102,8 @@ export function TenantSwitcher({
                     disabled={isSwitching}
                 >
                     <div className="flex items-center gap-2.5">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
-                            <Building2 className="h-3.5 w-3.5 text-[#D97757]" />
+                        <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                            <Building2 className="size-3.5 text-accent-orange" />
                         </div>
                         <div className="flex min-w-0 flex-col items-start">
                             <span className="truncate text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
@@ -117,9 +117,9 @@ export function TenantSwitcher({
                         </div>
                     </div>
                     {isSwitching ? (
-                        <Loader2 className="ml-2 h-3.5 w-3.5 shrink-0 animate-spin text-[#9D9790]" aria-hidden />
+                        <Loader2 className="ml-2 size-3.5 shrink-0 animate-spin text-[#9D9790]" aria-hidden />
                     ) : (
-                        <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-[#9D9790]" aria-hidden />
+                        <ChevronsUpDown className="ml-2 size-3.5 shrink-0 text-[#9D9790]" aria-hidden />
                     )}
                 </Button>
             </DropdownMenuTrigger>
@@ -135,7 +135,7 @@ export function TenantSwitcher({
                     <DropdownMenuItem
                         key={tenant.id}
                         onSelect={() => handleTenantSwitch(tenant.id)}
-                        className="flex cursor-pointer items-center justify-between rounded-lg mx-1 px-3 py-2 hover:bg-[#EDE8DE] dark:hover:bg-[#2E2B25] focus:bg-[#EDE8DE] dark:focus:bg-[#2E2B25]"
+                        className="mx-1 flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-[#EDE8DE] focus:bg-[#EDE8DE] dark:hover:bg-[#2E2B25] dark:focus:bg-[#2E2B25]"
                     >
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
@@ -148,7 +148,7 @@ export function TenantSwitcher({
                             )}
                         </div>
                         {currentTenantId === tenant.id && (
-                            <Check className="h-3.5 w-3.5 text-[#D97757]" />
+                            <Check className="size-3.5 text-accent-orange" />
                         )}
                     </DropdownMenuItem>
                 ))}

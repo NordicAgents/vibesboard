@@ -51,9 +51,9 @@ export function UserMenu({
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+            className="size-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="size-5" />
             <span className="sr-only">User Settings</span>
           </Button>
         </DropdownMenuTrigger>

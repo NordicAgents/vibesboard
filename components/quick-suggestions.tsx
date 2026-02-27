@@ -23,7 +23,7 @@ export function QuickSuggestions({
   return (
     <div
       className={cn(
-        'flex gap-2 overflow-x-auto pb-0.5 scrollbar-none',
+        'scrollbar-none flex gap-2 overflow-x-auto pb-0.5',
         className
       )}
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}

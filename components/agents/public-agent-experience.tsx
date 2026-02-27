@@ -59,9 +59,9 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
                 stiffness: 260,
                 damping: 20
               }}
-              className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30"
+              className="flex size-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30"
             >
-              <IconCheck className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+              <IconCheck className="size-10 text-emerald-600 dark:text-emerald-400" />
             </motion.div>
             <div className="space-y-2">
               <h2 className="font-serif text-2xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">
@@ -90,18 +90,18 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="flex flex-1 flex-col min-h-0 overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]"
         >
           {/* Agent header — full width, content centered */}
           <div className="shrink-0 border-b border-[#E2DDD4]/70 bg-[#FDFAF5]/80 backdrop-blur-sm dark:border-[#2E2B25] dark:bg-[#221F1A]/80">
             <div className="mx-auto flex w-full max-w-[760px] items-center gap-3 px-4 py-3 sm:px-6">
               {/* Agent logo */}
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_4px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+              <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_4px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo_1.png"
                   alt="agent"
-                  className="h-6 w-6 object-contain"
+                  className="size-6 object-contain"
                 />
               </div>
 
@@ -114,7 +114,7 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
 
               {/* Online indicator */}
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
+                <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
                 <span className="text-xs text-[#9D9790]">Online</span>
               </div>
             </div>

@@ -46,7 +46,7 @@ export function BrandingPreview({
                                 className="h-16 rounded-lg border"
                                 style={{ backgroundColor: primaryColor }}
                             />
-                            <p className="mt-1 text-xs font-mono text-muted-foreground">{primaryColor}</p>
+                            <p className="mt-1 font-mono text-xs text-muted-foreground">{primaryColor}</p>
                         </div>
                         <div>
                             <p className="mb-1 text-sm text-muted-foreground">Secondary Color</p>
@@ -54,7 +54,7 @@ export function BrandingPreview({
                                 className="h-16 rounded-lg border"
                                 style={{ backgroundColor: secondaryColor }}
                             />
-                            <p className="mt-1 text-xs font-mono text-muted-foreground">{secondaryColor}</p>
+                            <p className="mt-1 font-mono text-xs text-muted-foreground">{secondaryColor}</p>
                         </div>
                     </div>
                 </div>

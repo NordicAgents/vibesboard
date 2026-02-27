@@ -405,7 +405,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isSaving || isIndexing || !canEdit}
                         >
-                            <IconUpload className="mr-2 h-4 w-4" />
+                            <IconUpload className="mr-2 size-4" />
                             Upload Files
                         </Button>
                     </div>
@@ -439,7 +439,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                 : 'border-muted-foreground/25 hover:border-muted-foreground/50'
                         )}
                     >
-                        <IconUpload className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <IconUpload className="mx-auto size-8 text-muted-foreground" />
                         <p className="mt-2 text-sm text-muted-foreground">
                             Drag and drop files here, or click Upload Files
                         </p>
@@ -456,17 +456,17 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             {uploadProgress.map((item, index) => (
                                 <div
                                     key={index}
-                                    className="rounded-md border bg-muted/50 p-3 space-y-2"
+                                    className="space-y-2 rounded-md border bg-muted/50 p-3"
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium truncate flex-1">
+                                        <span className="flex-1 truncate text-sm font-medium">
                                             {item.name}
                                         </span>
                                         {item.status === 'success' && (
-                                            <IconCheck className="h-4 w-4 text-green-600" />
+                                            <IconCheck className="size-4 text-green-600" />
                                         )}
                                         {item.status === 'error' && (
-                                            <IconX className="h-4 w-4 text-red-600" />
+                                            <IconX className="size-4 text-red-600" />
                                         )}
                                     </div>
                                     {item.status === 'uploading' && (
@@ -490,11 +490,11 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                 {fileKeys.map(key => (
                                     <li
                                         key={key}
-                                        className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 hover:bg-accent/50 transition-colors"
+                                        className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 transition-colors hover:bg-accent/50"
                                     >
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
                                             {getFileIcon(getFileName(key))}
-                                            <span className="text-sm truncate">
+                                            <span className="truncate text-sm">
                                                 {getFileName(key)}
                                             </span>
                                         </div>
@@ -507,7 +507,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                                 disabled={isSaving}
                                                 title="Download file"
                                             >
-                                                <IconDownload className="h-4 w-4" />
+                                                <IconDownload className="size-4" />
                                             </Button>
                                             <Button
                                                 type="button"
@@ -518,7 +518,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                                 title="Delete file"
                                                 className="text-destructive hover:text-destructive"
                                             >
-                                                <IconTrash className="h-4 w-4" />
+                                                <IconTrash className="size-4" />
                                             </Button>
                                         </div>
                                     </li>
@@ -526,7 +526,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             </ul>
                         </div>
                     ) : (
-                        <p className="text-xs text-muted-foreground text-center py-4">
+                        <p className="py-4 text-center text-xs text-muted-foreground">
                             No files uploaded yet. Upload documents to help your agent provide better responses.
                         </p>
                     )}

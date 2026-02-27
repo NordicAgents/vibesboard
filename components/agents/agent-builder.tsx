@@ -167,7 +167,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   return (
     <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:bg-card dark:border-border">
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
           <CardHeader>
             <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">Agent basics</CardTitle>
             <CardDescription className="font-switzer text-gray-secondary">{helperText}</CardDescription>
@@ -190,7 +190,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 rows={8}
               />
             </div>
-            <div className="flex flex-col gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-background/30 dark:border-border">
+            <div className="bg-beige-bg/30 flex flex-col gap-2 rounded-2xl border border-black-10 p-4 dark:border-border dark:bg-background/30 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Allow anonymous chat</p>
                 <p className="font-switzer text-xs text-gray-secondary">
@@ -277,7 +277,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           </Card>
         )}
 
-        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:bg-card dark:border-border">
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
           <CardHeader>
             <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">
               Quick suggestions
@@ -318,7 +318,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
             </div>
 
             {quickSuggestionsMode !== 'off' && (
-              <div className="flex items-center justify-between rounded-2xl border border-black-10 bg-beige-bg/30 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-background/30 dark:border-border">
+              <div className="bg-beige-bg/30 flex items-center justify-between rounded-2xl border border-black-10 p-4 dark:border-border dark:bg-background/30 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
                     Suggestions count
@@ -337,7 +337,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                       Math.max(1, Math.min(10, parseInt(e.target.value) || 4))
                     )
                   }
-                  className="w-20 h-9 text-center"
+                  className="h-9 w-20 text-center"
                 />
               </div>
             )}

@@ -73,7 +73,7 @@ const ChatMarkdown = ({
 }) => (
   <MemoizedReactMarkdown
     className={cn(
-      'prose break-words prose-p:leading-relaxed prose-pre:p-0 prose-sm max-w-none',
+      'prose prose-sm max-w-none break-words prose-p:leading-relaxed prose-pre:p-0',
       isUser
         ? 'prose-invert'
         : 'dark:prose-invert prose-headings:font-serif prose-headings:font-normal'
@@ -81,7 +81,7 @@ const ChatMarkdown = ({
     remarkPlugins={[remarkGfm, remarkMath]}
     components={{
       p({ children }) {
-        return <p className="mb-1.5 last:mb-0 leading-[1.65]">{children}</p>
+        return <p className="mb-1.5 leading-[1.65] last:mb-0">{children}</p>
       },
       code({ node, inline, className, children, ...props }) {
         if (children.length) {
@@ -97,7 +97,7 @@ const ChatMarkdown = ({
           return (
             <code
               className={cn(
-                'rounded-[4px] px-1.5 py-0.5 text-xs font-mono',
+                'rounded-[4px] px-1.5 py-0.5 font-mono text-xs',
                 isUser
                   ? 'bg-white/20 text-white'
                   : 'bg-[#EDE8DE] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8]'
@@ -147,7 +147,7 @@ export function ChatMessage({
   if (isUser) {
     return (
       <div className="flex justify-end" {...props}>
-        <div className="max-w-[82%] sm:max-w-[72%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8]">
+        <div className="max-w-[82%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8] sm:max-w-[72%]">
           <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
       </div>
@@ -157,12 +157,12 @@ export function ChatMessage({
   return (
     <div className="group flex items-start gap-3" {...props}>
       {/* AI avatar */}
-      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] overflow-hidden dark:border-[#2E2B25] dark:bg-[#221F1A]">
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo_1.png"
           alt="agent"
-          className="h-5 w-5 object-contain"
+          className="size-5 object-contain"
         />
       </div>
 

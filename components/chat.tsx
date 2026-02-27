@@ -51,7 +51,7 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
   return (
     <>
       <div
-        className={cn('flex-1 overflow-y-auto pt-4 md:pt-10 pb-4', className)}
+        className={cn('flex-1 overflow-y-auto py-4 md:pt-10', className)}
       >
         {messages.length ? (
           <>

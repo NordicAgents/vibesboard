@@ -35,10 +35,10 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
     >
       <IconUser
         className={cn(
-          'h-4 w-4 flex-none transition-colors duration-150',
+          'size-4 flex-none transition-colors duration-150',
           isActive
-            ? 'text-[#D97757]'
-            : 'text-[#9D9790] group-hover:text-[#D97757]'
+            ? 'text-accent-orange'
+            : 'text-[#9D9790] group-hover:text-accent-orange'
         )}
       />
       <span className="truncate text-sm font-medium">{agent.name}</span>

@@ -55,7 +55,7 @@ export function PromptForm({
       {/* Claude-style: everything inside one rounded container */}
       <div
         className={cn(
-          'flex flex-col rounded-[16px] border transition-all duration-[250ms]',
+          'duration-[250ms] flex flex-col rounded-[16px] border transition-all',
           'bg-[#FDFAF5] dark:bg-[#221F1A]',
           'border-[#E2DDD4] dark:border-[#2E2B25]',
           'shadow-[0_1px_3px_rgba(26,25,21,0.06),_0_4px_16px_rgba(26,25,21,0.04)]',
@@ -63,7 +63,7 @@ export function PromptForm({
         )}
       >
         {/* Textarea */}
-        <div className="px-4 pt-3.5 pb-1">
+        <div className="px-4 pb-1 pt-3.5">
           <Textarea
             ref={inputRef}
             tabIndex={0}
@@ -74,7 +74,7 @@ export function PromptForm({
             onChange={e => setInput(e.target.value)}
             placeholder={placeholder}
             spellCheck={false}
-            className="w-full resize-none bg-transparent text-[15px] leading-[1.65] text-[#1A1915] focus:outline-none placeholder:text-[#9D9790] disabled:opacity-50 dark:text-[#E8E3D8] dark:placeholder:text-[#6B6560]"
+            className="w-full resize-none bg-transparent text-[15px] leading-[1.65] text-[#1A1915] placeholder:text-[#9D9790] focus:outline-none disabled:opacity-50 dark:text-[#E8E3D8] dark:placeholder:text-[#6B6560]"
           />
         </div>
 
@@ -95,7 +95,7 @@ export function PromptForm({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   whileTap={{ scale: 0.92 }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E2DDD4] bg-transparent text-[#9D9790] transition-all duration-150 hover:border-[#D97757]/30 hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:border-[#2E2B25] dark:hover:bg-[#2E2B25]"
+                  className="flex size-8 items-center justify-center rounded-full border border-[#E2DDD4] bg-transparent text-[#9D9790] transition-all duration-150 hover:border-[#D97757]/30 hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:border-[#2E2B25] dark:hover:bg-[#2E2B25]"
                   aria-label="Regenerate response"
                 >
                   <svg
@@ -106,7 +106,7 @@ export function PromptForm({
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
+                    className="size-3.5"
                   >
                     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
                     <path d="M21 3v5h-5" />
@@ -128,10 +128,10 @@ export function PromptForm({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   whileTap={{ scale: 0.92 }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1A1915] text-[#FDFAF5] transition-colors duration-150 hover:bg-[#2E2B25] dark:bg-[#E8E3D8] dark:text-[#1A1915]"
+                  className="flex size-8 items-center justify-center rounded-full bg-[#1A1915] text-[#FDFAF5] transition-colors duration-150 hover:bg-[#2E2B25] dark:bg-[#E8E3D8] dark:text-[#1A1915]"
                   aria-label="Stop generating"
                 >
-                  <span className="h-3 w-3 rounded-sm bg-current" />
+                  <span className="size-3 rounded-sm bg-current" />
                 </motion.button>
               ) : (
                 <motion.button
@@ -145,10 +145,10 @@ export function PromptForm({
                   }}
                   whileTap={hasInput ? { scale: 0.92 } : {}}
                   className={cn(
-                    'flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150',
+                    'flex size-8 items-center justify-center rounded-full transition-all duration-150',
                     hasInput
-                      ? 'bg-[#D97757] text-white hover:bg-[#CC785C] active:bg-[#BF6E52] shadow-sm'
-                      : 'bg-[#E2DDD4] text-[#9D9790] cursor-not-allowed dark:bg-[#2E2B25] dark:text-[#6B6560]'
+                      ? 'bg-accent-orange text-white shadow-sm hover:bg-accent-warm active:bg-[#BF6E52]'
+                      : 'cursor-not-allowed bg-[#E2DDD4] text-[#9D9790] dark:bg-[#2E2B25] dark:text-[#6B6560]'
                   )}
                   aria-label="Send message"
                 >
@@ -160,7 +160,7 @@ export function PromptForm({
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
+                    className="size-3.5"
                   >
                     <path d="M12 19V5" />
                     <path d="m5 12 7-7 7 7" />

@@ -62,7 +62,7 @@ export function AgentDashboard({ agent, share, canEdit }: AgentDashboardProps) {
   }
 
   return (
-    <div className="space-y-6 bg-beige-bg p-6 md:p-8 dark:bg-background">
+    <div className="space-y-6 bg-beige-bg p-6 dark:bg-background md:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="font-switzer text-sm uppercase tracking-wider text-gray-secondary">
@@ -89,7 +89,7 @@ export function AgentDashboard({ agent, share, canEdit }: AgentDashboardProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 text-sm">
+            <div className="bg-beige-bg/30 flex items-center gap-2 rounded-2xl border border-black-10 p-3 text-sm">
               <span className="truncate font-switzer text-black-primary">
                 {share.url}
               </span>
@@ -108,11 +108,11 @@ export function AgentDashboard({ agent, share, canEdit }: AgentDashboardProps) {
                 className="rounded-full"
               >
                 <Link href={share.url} target="_blank">
-                  <IconExternalLink className="h-4 w-4" />
+                  <IconExternalLink className="size-4" />
                 </Link>
               </Button>
             </div>
-            <div className="flex items-center justify-between rounded-2xl border border-black-10 bg-beige-bg/30 p-4">
+            <div className="bg-beige-bg/30 flex items-center justify-between rounded-2xl border border-black-10 p-4">
               <div>
                 <p className="font-switzer text-sm font-medium text-black-primary">
                   Allow anonymous chat
@@ -147,7 +147,7 @@ export function AgentDashboard({ agent, share, canEdit }: AgentDashboardProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <pre className="whitespace-pre-wrap rounded-2xl bg-beige-bg/30 p-4 font-switzer text-sm text-black-primary">
+          <pre className="bg-beige-bg/30 whitespace-pre-wrap rounded-2xl p-4 font-switzer text-sm text-black-primary">
             {agent.instructions}
           </pre>
         </CardContent>

@@ -189,7 +189,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MoreHorizontal className="size-4" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -227,7 +227,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                             </CardDescription>
                         </div>
                         <Button size="sm" onClick={() => setInviteOpen(true)}>
-                            <UserPlus className="mr-2 h-4 w-4" />
+                            <UserPlus className="mr-2 size-4" />
                             Invite User
                         </Button>
                     </div>
@@ -317,7 +317,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                                             size="sm"
                                             onClick={handleCopyInviteUrl}
                                         >
-                                            <Copy className="h-4 w-4" />
+                                            <Copy className="size-4" />
                                         </Button>
                                     </div>
                                     <p className="text-xs text-muted-foreground">
@@ -339,7 +339,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                             <Button type="submit" disabled={isInviting}>
                                 {isInviting ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="mr-2 size-4 animate-spin" />
                                         Sending...
                                     </>
                                 ) : (

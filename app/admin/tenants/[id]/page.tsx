@@ -80,11 +80,11 @@ export default function TenantDetailPage({ params }: PageProps) {
                         <Link href="/admin" className="hover:text-foreground">
                             Admin
                         </Link>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="size-4" />
                         <Link href="/admin/tenants" className="hover:text-foreground">
                             Tenants
                         </Link>
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="size-4" />
                         <span className="text-foreground">{tenant.name}</span>
                     </nav>
                 }

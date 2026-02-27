@@ -42,7 +42,7 @@ async function uniqueSlug(baseSlug: string): Promise<string> {
   let candidate = baseSlug;
   let attempt = 1;
 
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const existing = await db
       .collection(Collections.tenantSlugs)

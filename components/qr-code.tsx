@@ -33,7 +33,7 @@ export function QrCode({ value, dataUrl, size = 200 }: QrCodeProps) {
   if (!qr) {
     return (
       <div
-        className="flex h-[200px] w-[200px] items-center justify-center rounded-xl border bg-muted"
+        className="flex size-[200px] items-center justify-center rounded-xl border bg-muted"
         aria-busy
       >
         Generating QR...

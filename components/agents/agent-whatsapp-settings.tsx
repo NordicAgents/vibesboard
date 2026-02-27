@@ -245,7 +245,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
 
     return (
       <div className="flex items-center gap-2">
-        <div className={`h-2 w-2 rounded-full ${config.color}`} />
+        <div className={`size-2 rounded-full ${config.color}`} />
         <Badge variant={config.variant}>{config.label}</Badge>
       </div>
     )
@@ -272,7 +272,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     )
@@ -300,7 +300,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               disabled={!canEdit}
               size="sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-4" />
               Add Phone Number
             </Button>
           </div>
@@ -411,13 +411,13 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           {/* Empty State */}
           {connections.length === 0 && (
             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-12 text-center">
-              <Phone className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <Phone className="mb-4 size-12 text-muted-foreground/50" />
               <h3 className="mb-2 text-lg font-semibold">No connections yet</h3>
               <p className="mb-4 text-sm text-muted-foreground">
                 Add a phone number to start receiving WhatsApp messages
               </p>
               <Button onClick={() => setShowAddModal(true)} disabled={!canEdit}>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-4" />
                 Add Your First Number
               </Button>
             </div>
@@ -479,7 +479,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogFooter>
             <AlertDialogCancel disabled={addingConnection}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleAddConnection} disabled={addingConnection}>
-              {addingConnection && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {addingConnection && <Loader2 className="mr-2 size-4 animate-spin" />}
               Connect
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -536,7 +536,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               disabled={actionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -555,7 +555,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleReconnect} disabled={actionLoading}>
-              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Reconnect
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -578,7 +578,7 @@ export function AgentWhatsAppSettings({ agentId, canEdit }: AgentWhatsAppSetting
               disabled={actionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {actionLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -617,7 +617,7 @@ function ConnectionCard({
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3">
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Phone className="size-4 text-muted-foreground" />
             <span className="font-mono font-medium">{connection.phoneNumber}</span>
             {getStatusBadge(connection.status)}
           </div>
@@ -626,7 +626,7 @@ function ConnectionCard({
             {isActive && (
               <>
                 <div>
-                  <MessageSquare className="mb-1 inline h-3 w-3" /> {connection.totalConversations}{' '}
+                  <MessageSquare className="mb-1 inline size-3" /> {connection.totalConversations}{' '}
                   conversations
                 </div>
                 <div>Last activity: {formatDate(connection.lastMessageReceivedAt)}</div>
@@ -658,12 +658,12 @@ function ConnectionCard({
               <>
                 {onResendIntro && (
                   <Button variant="ghost" size="sm" onClick={onResendIntro}>
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="size-4" />
                   </Button>
                 )}
                 {onDisconnect && (
                   <Button variant="ghost" size="sm" onClick={onDisconnect}>
-                    <Power className="h-4 w-4" />
+                    <Power className="size-4" />
                   </Button>
                 )}
               </>
@@ -672,12 +672,12 @@ function ConnectionCard({
               <>
                 {onResendIntro && (
                   <Button variant="ghost" size="sm" onClick={onResendIntro}>
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="size-4" />
                   </Button>
                 )}
                 {onDelete && (
                   <Button variant="ghost" size="sm" onClick={onDelete}>
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </Button>
                 )}
               </>
@@ -686,12 +686,12 @@ function ConnectionCard({
               <>
                 {onReconnect && (
                   <Button variant="ghost" size="sm" onClick={onReconnect}>
-                    <RotateCw className="h-4 w-4" />
+                    <RotateCw className="size-4" />
                   </Button>
                 )}
                 {onDelete && (
                   <Button variant="ghost" size="sm" onClick={onDelete}>
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </Button>
                 )}
               </>

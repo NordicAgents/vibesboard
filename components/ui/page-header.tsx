@@ -27,11 +27,11 @@ export function PageHeader({
             )}
             <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                    <h1 className="font-serif text-3xl font-normal text-[#1A1915] leading-tight">
+                    <h1 className="font-serif text-3xl font-normal leading-tight text-[#1A1915]">
                         {title}
                     </h1>
                     {description && (
-                        <p className="text-sm text-[#6B6560] mt-1">{description}</p>
+                        <p className="mt-1 text-sm text-[#6B6560]">{description}</p>
                     )}
                 </div>
                 {(actions || children) && (

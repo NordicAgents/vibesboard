@@ -27,7 +27,7 @@ export default async function SignUpPage({
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center bg-[#F5F0E8] dark:bg-[#1A1915] px-4 py-8 sm:px-6">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center bg-[#F5F0E8] px-4 py-8 dark:bg-[#1A1915] sm:px-6">
       <div className="w-full max-w-[400px] animate-fade-slide-in">
         <div className="mb-8 text-center">
           <h1 className="font-serif text-3xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">
@@ -38,7 +38,7 @@ export default async function SignUpPage({
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#E2DDD4] dark:border-[#2E2B25] bg-[#FDFAF5] dark:bg-[#221F1A] p-6 shadow-[0_1px_3px_rgba(26,25,21,0.06),_0_4px_16px_rgba(26,25,21,0.04)] sm:p-8">
+        <div className="rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] p-6 shadow-[0_1px_3px_rgba(26,25,21,0.06),_0_4px_16px_rgba(26,25,21,0.04)] dark:border-[#2E2B25] dark:bg-[#221F1A] sm:p-8">
           <LoginForm
             action="sign-up"
             redirectedFrom={redirectedFrom ?? undefined}
@@ -46,7 +46,7 @@ export default async function SignUpPage({
 
           <div className="relative my-6">
             <Separator className="bg-[#E2DDD4] dark:bg-[#2E2B25]" />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#FDFAF5] dark:bg-[#221F1A] px-3 text-xs text-[#9D9790]">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#FDFAF5] px-3 text-xs text-[#9D9790] dark:bg-[#221F1A]">
               or continue with
             </span>
           </div>

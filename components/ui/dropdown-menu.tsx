@@ -24,7 +24,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'z-50 min-w-[8rem] overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 text-[#1A1915] shadow-[0_4px_24px_rgba(26,25,21,0.08)]',
+      'z-50 min-w-32 overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 text-[#1A1915] shadow-[0_4px_24px_rgba(26,25,21,0.08)]',
       'dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#E8E3D8]',
       'animate-in data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1',
       className
@@ -44,7 +44,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 text-[#1A1915] shadow-[0_4px_24px_rgba(26,25,21,0.08)]',
+        'z-50 min-w-32 overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 text-[#1A1915] shadow-[0_4px_24px_rgba(26,25,21,0.08)]',
         'dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#E8E3D8]',
         'animate-in data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
         className

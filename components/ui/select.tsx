@@ -23,14 +23,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-11 w-full items-center justify-between rounded-[8px] border border-[#E2DDD4] bg-[#FDFAF5] px-3 py-2 text-sm text-[#1A1915] transition-all duration-150 placeholder:text-[#9D9790] focus:outline-none focus:border-[#D97757] focus:shadow-[0_0_0_3px_rgba(217,119,87,0.15)] disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-[#9D9790] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#FDFAF5] dark:data-[placeholder]:text-[#6B6560] dark:focus:border-[#D97757]',
+      'flex h-11 w-full items-center justify-between rounded-[8px] border border-[#E2DDD4] bg-[#FDFAF5] px-3 py-2 text-sm text-[#1A1915] transition-all duration-150 placeholder:text-[#9D9790] focus:border-accent-orange focus:shadow-[0_0_0_3px_rgba(217,119,87,0.15)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-[#9D9790] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#FDFAF5] dark:focus:border-accent-orange dark:data-[placeholder]:text-[#6B6560]',
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <IconChevronUpDown className="opacity-50 shrink-0" />
+      <IconChevronUpDown className="shrink-0 opacity-50" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ))
@@ -44,7 +44,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 min-w-[8rem] overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] text-[#1A1915] shadow-soft animate-in fade-in-80 dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#FDFAF5]',
+        'relative z-50 min-w-32 overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] text-[#1A1915] shadow-soft animate-in fade-in-80 dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#FDFAF5]',
         position === 'popper' && 'translate-y-1',
         className
       )}
@@ -71,7 +71,7 @@ const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn('py-1.5 pl-8 pr-2 text-xs font-semibold text-[#9D9790] uppercase tracking-wide dark:text-[#6B6560]', className)}
+    className={cn('py-1.5 pl-8 pr-2 text-xs font-semibold uppercase tracking-wide text-[#9D9790] dark:text-[#6B6560]', className)}
     {...props}
   />
 ))
@@ -89,9 +89,9 @@ const SelectItem = React.forwardRef<
     )}
     {...props}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-2 flex size-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <IconCheck className="h-4 w-4 text-[#D97757]" />
+        <IconCheck className="size-4 text-accent-orange" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

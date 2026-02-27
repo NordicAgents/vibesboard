@@ -98,17 +98,17 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="py-8 px-4 sm:px-6 max-w-5xl mx-auto space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
       <PageHeader
         title="vibesboard"
         description="Build Agents for Vibing with People"
         actions={
           <Button
             asChild
-            className="bg-[#D97757] text-white hover:bg-[#C96747] border-0 shadow-none"
+            className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#C96747]"
           >
             <Link href="/agents/new">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 size-4" />
               Create Agent
             </Link>
           </Button>
@@ -132,10 +132,10 @@ export default function AgentsPage() {
           action={
             <Button
               asChild
-              className="bg-[#D97757] text-white hover:bg-[#C96747] border-0 shadow-none"
+              className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#C96747]"
             >
               <Link href="/agents/new">
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 size-4" />
                 Create Agent
               </Link>
             </Button>
@@ -148,21 +148,21 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/agents/${agent.id}?configure=true`}
-                className={index < 5 ? `animate-fade-slide-in stagger-${index + 1}` : undefined}
+                className={index < 5 ? `stagger- animate-fade-slide-in${index + 1}` : undefined}
               >
-                <Card className="flex flex-col h-full bg-[#FDFAF5] border border-[#E2DDD4] rounded-xl shadow-soft hover:-translate-y-0.5 hover:shadow-md transition-all duration-[250ms]">
+                <Card className="duration-[250ms] flex h-full flex-col rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-md">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="font-serif text-base font-normal text-[#1A1915] line-clamp-1">
+                      <CardTitle className="line-clamp-1 font-serif text-base font-normal text-[#1A1915]">
                         {agent.name}
                       </CardTitle>
-                      <Bot className="h-5 w-5 shrink-0 text-[#D97757]" />
+                      <Bot className="size-5 shrink-0 text-accent-orange" />
                     </div>
-                    <CardDescription className="text-sm text-[#6B6560] line-clamp-2">
+                    <CardDescription className="line-clamp-2 text-sm text-[#6B6560]">
                       {agent.instructions || 'No instructions provided'}
                     </CardDescription>
                     {agent.created_at && (
-                      <p className="text-xs text-[#9D9790] mt-auto pt-2">
+                      <p className="mt-auto pt-2 text-xs text-[#9D9790]">
                         {new Date(agent.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -186,10 +186,10 @@ export default function AgentsPage() {
                 disabled={page === 1}
                 className="border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] disabled:opacity-40"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="size-4" />
                 Previous
               </Button>
-              <div className="text-sm text-[#6B6560] px-2">
+              <div className="px-2 text-sm text-[#6B6560]">
                 Page {page} of {pagination.totalPages}
               </div>
               <Button
@@ -200,7 +200,7 @@ export default function AgentsPage() {
                 className="border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] disabled:opacity-40"
               >
                 Next
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           )}

@@ -20,16 +20,16 @@ export function EmptyState({
     return (
         <div
             className={cn(
-                'animate-fade-slide-in flex flex-col items-center justify-center py-16 px-8 text-center',
+                'flex animate-fade-slide-in flex-col items-center justify-center px-8 py-16 text-center',
                 className
             )}
         >
             {Icon && (
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#EDE8DE]">
-                    <Icon className="h-6 w-6 text-[#D97757]" />
+                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-[#EDE8DE]">
+                    <Icon className="size-6 text-accent-orange" />
                 </div>
             )}
-            <h3 className="font-serif text-lg font-normal text-[#1A1915] mb-2">
+            <h3 className="mb-2 font-serif text-lg font-normal text-[#1A1915]">
                 {title}
             </h3>
             {description && (

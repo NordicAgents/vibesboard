@@ -23,16 +23,16 @@ function TypingIndicator() {
       className="flex items-center gap-3"
     >
       {/* Avatar placeholder to align with AI messages */}
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] overflow-hidden dark:border-[#2E2B25] dark:bg-[#221F1A]">
+      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo_1.png" alt="agent" className="h-5 w-5 object-contain" />
+        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
       </div>
       {/* Dots */}
       <div className="flex items-center gap-1.5 py-1">
         {[0, 1, 2].map(i => (
           <motion.span
             key={i}
-            className="h-2 w-2 rounded-full bg-[#D97757]/50"
+            className="size-2 rounded-full bg-[#D97757]/50"
             animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
             transition={{
               duration: 0.9,

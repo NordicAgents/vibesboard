@@ -27,8 +27,8 @@ export default async function AdminLayout({
             {/* Sidebar */}
             <aside className="hidden w-64 shrink-0 border-r border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A] md:flex md:flex-col">
                 <div className="flex h-16 items-center gap-2.5 border-b border-[#E2DDD4] px-5 dark:border-[#2E2B25]">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EDE8DE] dark:bg-[#2E2B25]">
-                        <ShieldCheck className="h-3.5 w-3.5 text-[#D97757]" />
+                    <div className="flex size-7 items-center justify-center rounded-lg bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                        <ShieldCheck className="size-3.5 text-accent-orange" />
                     </div>
                     <div>
                         <h2 className="font-serif text-base font-normal text-[#1A1915] dark:text-[#E8E3D8]">
@@ -78,7 +78,7 @@ function NavLink({
                 'dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]'
             )}
         >
-            <Icon className="h-4 w-4 shrink-0 text-[#9D9790]" />
+            <Icon className="size-4 shrink-0 text-[#9D9790]" />
             {children}
         </Link>
     )

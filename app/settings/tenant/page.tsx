@@ -122,14 +122,14 @@ export default function TenantSettingsPage() {
     if (isLoading) {
         return (
             <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
         )
     }
 
     if (!tenant) {
         return (
-            <div className="text-center py-12">
+            <div className="py-12 text-center">
                 <p className="text-muted-foreground">No tenant found</p>
             </div>
         )
@@ -232,7 +232,7 @@ export default function TenantSettingsPage() {
                                 <Button onClick={handleSaveBranding} disabled={isSaving || brandingLocked}>
                                     {isSaving ? (
                                         <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            <Loader2 className="mr-2 size-4 animate-spin" />
                                             Saving...
                                         </>
                                     ) : (

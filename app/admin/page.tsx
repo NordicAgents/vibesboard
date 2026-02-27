@@ -44,16 +44,16 @@ export default function AdminPage() {
           <Link
             key={item.href}
             href={item.href}
-            className={`group animate-fade-slide-in stagger-${i + 1}`}
+            className={`stagger- group animate-fade-slide-in${i + 1}`}
           >
-            <Card className="h-full transition-all duration-[250ms] hover:-translate-y-0.5 hover:border-[#D97757]/40 hover:shadow-md">
+            <Card className="duration-[250ms] h-full transition-all hover:-translate-y-0.5 hover:border-[#D97757]/40 hover:shadow-md">
               <CardHeader>
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#EDE8DE] dark:bg-[#2E2B25]">
-                  <item.icon className="h-5 w-5 text-[#D97757]" />
+                <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                  <item.icon className="size-5 text-accent-orange" />
                 </div>
                 <CardTitle className="flex items-center justify-between font-serif text-base font-normal">
                   {item.title}
-                  <ArrowRight className="h-4 w-4 text-[#9D9790] opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
+                  <ArrowRight className="size-4 text-[#9D9790] opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
                 </CardTitle>
                 <CardDescription>{item.description}</CardDescription>
               </CardHeader>

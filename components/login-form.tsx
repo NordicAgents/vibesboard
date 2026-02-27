@@ -142,7 +142,7 @@ export function LoginForm({
                       ? `/sign-up?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
                       : '/sign-up'
                   }
-                  className="font-medium text-[#D97757] hover:text-[#CC785C] transition-colors"
+                  className="font-medium text-accent-orange transition-colors hover:text-accent-warm"
                 >
                   Sign Up
                 </Link>
@@ -156,7 +156,7 @@ export function LoginForm({
                       ? `/sign-in?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
                       : '/sign-in'
                   }
-                  className="font-medium text-[#D97757] hover:text-[#CC785C] transition-colors"
+                  className="font-medium text-accent-orange transition-colors hover:text-accent-warm"
                 >
                   Sign In
                 </Link>

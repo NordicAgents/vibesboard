@@ -104,7 +104,7 @@ export function TenantOverviewTab({
               size="sm"
               onClick={() => handleCopy(tenant.id)}
             >
-              <Copy className="h-4 w-4" />
+              <Copy className="size-4" />
             </Button>
           </div>
         </div>

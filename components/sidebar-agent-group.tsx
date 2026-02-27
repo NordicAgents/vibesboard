@@ -58,7 +58,7 @@ export function SidebarAgentGroup({
             aria-label={
               expanded ? 'Collapse conversations' : 'Expand conversations'
             }
-            className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#9D9790]"
+            className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#9D9790]"
             onClick={e => {
               e.preventDefault()
               e.stopPropagation()
@@ -66,9 +66,9 @@ export function SidebarAgentGroup({
             }}
           >
             {expanded ? (
-              <IconArrowDown className="h-3 w-3" />
+              <IconArrowDown className="size-3" />
             ) : (
-              <IconArrowRight className="h-3 w-3" />
+              <IconArrowRight className="size-3" />
             )}
           </Button>
         ) : null}
