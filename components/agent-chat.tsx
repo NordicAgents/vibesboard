@@ -53,7 +53,7 @@ export function AgentChat({
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
-  const quickSuggestionsCount = agent.quickSuggestionsCount === 3 ? 3 : 4
+  const quickSuggestionsCount = agent.quickSuggestionsCount ?? 4
 
   const chatKey = useMemo(
     () => initialConversationId ?? nanoid(),

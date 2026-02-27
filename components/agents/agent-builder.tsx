@@ -39,7 +39,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   const [selectedTools, setSelectedTools] = useState<AgentToolType[]>([])
   const [quickSuggestionsMode, setQuickSuggestionsMode] =
     useState<QuickSuggestionsMode>('smart')
-  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<3 | 4>(4)
+  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(4)
   const [fileKeys, setFileKeys] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -327,26 +327,18 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                     Choose how many chips to show.
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 3 ? 'default' : 'secondary'
-                    }
-                    className="cursor-pointer"
-                    onClick={() => setQuickSuggestionsCount(3)}
-                  >
-                    3
-                  </Badge>
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 4 ? 'default' : 'secondary'
-                    }
-                    className="cursor-pointer"
-                    onClick={() => setQuickSuggestionsCount(4)}
-                  >
-                    4
-                  </Badge>
-                </div>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={quickSuggestionsCount}
+                  onChange={e =>
+                    setQuickSuggestionsCount(
+                      Math.max(1, Math.min(10, parseInt(e.target.value) || 4))
+                    )
+                  }
+                  className="w-20 h-9 text-center"
+                />
               </div>
             )}
           </CardContent>
