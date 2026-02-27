@@ -12,7 +12,7 @@ export interface ChatListProps {
   agentAvatarInitial?: string
 }
 
-// Typing indicator — warm dots
+// Typing indicator — warm dots, aligned with AI avatar column
 function TypingIndicator() {
   return (
     <motion.div
@@ -20,22 +20,24 @@ function TypingIndicator() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
       transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      className="flex items-end gap-3"
+      className="flex items-center gap-3"
     >
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+      {/* Avatar placeholder to align with AI messages */}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] overflow-hidden dark:border-[#2E2B25] dark:bg-[#221F1A]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo_1.png" alt="agent" className="h-5 w-5 object-contain" />
       </div>
-      <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm border border-[#E2DDD4] bg-[#FDFAF5] px-4 py-3 shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+      {/* Dots */}
+      <div className="flex items-center gap-1.5 py-1">
         {[0, 1, 2].map(i => (
           <motion.span
             key={i}
-            className="h-1.5 w-1.5 rounded-full bg-[#D97757]/60"
-            animate={{ y: [0, -4, 0] }}
+            className="h-2 w-2 rounded-full bg-[#D97757]/50"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
             transition={{
-              duration: 0.8,
+              duration: 0.9,
               repeat: Infinity,
-              delay: i * 0.15,
+              delay: i * 0.18,
               ease: 'easeInOut'
             }}
           />
@@ -56,15 +58,15 @@ export function ChatList({
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
+    <div className="flex flex-col gap-6 px-4 py-6 sm:px-5">
       <AnimatePresence initial={false}>
         {messages.map((message, index) => (
           <motion.div
             key={message.id ?? index}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
-              duration: 0.25,
+              duration: 0.28,
               ease: [0.16, 1, 0.3, 1],
             }}
           >

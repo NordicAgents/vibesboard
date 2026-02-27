@@ -81,7 +81,7 @@ const ChatMarkdown = ({
     remarkPlugins={[remarkGfm, remarkMath]}
     components={{
       p({ children }) {
-        return <p className="mb-1.5 last:mb-0 leading-relaxed">{children}</p>
+        return <p className="mb-1.5 last:mb-0 leading-[1.65]">{children}</p>
       },
       code({ node, inline, className, children, ...props }) {
         if (children.length) {
@@ -144,36 +144,32 @@ export function ChatMessage({
         ? 'improvements'
         : null
 
-  return (
-    <div
-      className={cn(
-        'flex w-full gap-3',
-        isUser ? 'justify-end' : 'justify-start'
-      )}
-      {...props}
-    >
-      {/* AI avatar */}
-      {!isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center self-start mt-1 rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] overflow-hidden dark:border-[#2E2B25] dark:bg-[#221F1A]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo_1.png"
-            alt="agent"
-            className="h-5 w-5 object-contain"
-          />
+  if (isUser) {
+    return (
+      <div className="flex justify-end" {...props}>
+        <div className="max-w-[82%] sm:max-w-[72%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8]">
+          <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
-      )}
+      </div>
+    )
+  }
 
-      {/* Message content */}
-      <div
-        className={cn(
-          'group relative max-w-[85%] sm:max-w-[75%]',
-          isUser ? 'items-end' : 'items-start'
-        )}
-      >
+  return (
+    <div className="group flex items-start gap-3" {...props}>
+      {/* AI avatar */}
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] overflow-hidden dark:border-[#2E2B25] dark:bg-[#221F1A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo_1.png"
+          alt="agent"
+          className="h-5 w-5 object-contain"
+        />
+      </div>
+
+      {/* AI content — no bubble */}
+      <div className="min-w-0 flex-1">
         {structured && defaultTab ? (
-          /* Structured tabs view */
-          <div className="rounded-2xl rounded-bl-sm border border-[#E2DDD4] bg-[#FDFAF5] p-4 shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+          <div className="rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
             <Tabs defaultValue={defaultTab} className="w-full">
               <TabsList className="mb-3 w-full justify-start bg-[#EDE8DE] dark:bg-[#2E2B25]">
                 {structured.overview && (
@@ -203,47 +199,20 @@ export function ChatMessage({
               )}
             </Tabs>
           </div>
-        ) : isUser ? (
-          /* User bubble — warm surface */
-          <div className="rounded-2xl rounded-br-sm bg-[#FDFAF5] px-4 py-3 text-sm text-[#1A1915] shadow-[0_1px_3px_rgba(26,25,21,0.08)] border border-[#E2DDD4] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#E8E3D8]">
-            <ChatMarkdown isUser={false}>{message.content}</ChatMarkdown>
-          </div>
         ) : (
-          /* AI response — clean text, no bubble */
-          <div className="py-1 text-sm text-[#1A1915] dark:text-[#E8E3D8]">
+          <div className="text-[15px] leading-[1.65] text-[#1A1915] dark:text-[#E8E3D8]">
             <ChatMarkdown>{message.content}</ChatMarkdown>
           </div>
         )}
 
-        {/* Copy action for AI messages */}
-        {!isUser && (
-          <div className="mt-1 flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <ChatMessageActions
-              message={message}
-              className="static opacity-100 md:static md:opacity-100"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* User avatar */}
-      {isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center self-end rounded-full border border-[#E2DDD4] bg-[#EDE8DE] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#2E2B25]">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-3.5 w-3.5 text-[#9D9790]"
-          >
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+        {/* Copy action — appears below on hover */}
+        <div className="mt-1.5 flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <ChatMessageActions
+            message={message}
+            className="static opacity-100 md:static md:opacity-100"
+          />
         </div>
-      )}
+      </div>
     </div>
   )
 }
