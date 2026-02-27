@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,7 +42,6 @@ export function TenantSwitcher({
     const handleTenantSwitch = async (tenantId: string) => {
         try {
             setIsSwitching(true)
-            // Call API to set active tenant
             const response = await fetch('/api/user/active-tenant', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -50,7 +49,6 @@ export function TenantSwitcher({
             })
 
             if (response.ok) {
-                // Refresh the page to reload with new tenant context
                 router.refresh()
                 setOpen(false)
             } else {
@@ -71,11 +69,18 @@ export function TenantSwitcher({
     if (tenants.length === 1) {
         const onlyTenant = tenants[0]
         return (
-            <div className={cn('flex items-center gap-2 px-3 py-2', className)}>
-                <div className="flex flex-col">
-                    <span className="text-sm font-medium">{getTenantName(onlyTenant)}</span>
+            <div className={cn('flex items-center gap-2.5 rounded-lg px-3 py-2', className)}>
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                    <Building2 className="h-3.5 w-3.5 text-[#D97757]" />
+                </div>
+                <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+                        {getTenantName(onlyTenant)}
+                    </span>
                     {getTenantSlugLabel(onlyTenant) && (
-                        <span className="text-xs text-muted-foreground">{getTenantSlugLabel(onlyTenant)}</span>
+                        <span className="text-[11px] text-[#9D9790]">
+                            {getTenantSlugLabel(onlyTenant)}
+                        </span>
                     )}
                 </div>
             </div>
@@ -86,47 +91,64 @@ export function TenantSwitcher({
         <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
                 <Button
-                    variant="outline"
+                    variant="ghost"
                     role="combobox"
                     aria-expanded={open}
                     aria-label="Switch active tenant"
-                    className={cn('justify-between', className)}
+                    className={cn(
+                        'h-auto w-full justify-between rounded-lg px-3 py-2 hover:bg-[#EDE8DE] dark:hover:bg-[#2E2B25]',
+                        className
+                    )}
                     disabled={isSwitching}
                 >
-                    <div className="flex flex-col items-start">
-                        <span className="text-sm font-medium">
-                            {currentTenant ? getTenantName(currentTenant) : 'Select tenant'}
-                        </span>
-                        {currentTenant && getTenantSlugLabel(currentTenant) && (
-                            <span className="text-xs text-muted-foreground">
-                                {getTenantSlugLabel(currentTenant)}
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                            <Building2 className="h-3.5 w-3.5 text-[#D97757]" />
+                        </div>
+                        <div className="flex min-w-0 flex-col items-start">
+                            <span className="truncate text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+                                {currentTenant ? getTenantName(currentTenant) : 'Select workspace'}
                             </span>
-                        )}
+                            {currentTenant && getTenantSlugLabel(currentTenant) && (
+                                <span className="text-[11px] text-[#9D9790]">
+                                    {getTenantSlugLabel(currentTenant)}
+                                </span>
+                            )}
+                        </div>
                     </div>
                     {isSwitching ? (
-                        <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-70" aria-hidden />
+                        <Loader2 className="ml-2 h-3.5 w-3.5 shrink-0 animate-spin text-[#9D9790]" aria-hidden />
                     ) : (
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+                        <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-[#9D9790]" aria-hidden />
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[240px]">
-                <DropdownMenuLabel>Switch Tenant</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+            <DropdownMenuContent
+                align="start"
+                className="w-[240px] rounded-xl border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_4px_24px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]"
+            >
+                <DropdownMenuLabel className="label-caps px-3 py-2">
+                    Switch Workspace
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-[#E2DDD4] dark:bg-[#2E2B25]" />
                 {tenants.map((tenant) => (
                     <DropdownMenuItem
                         key={tenant.id}
                         onSelect={() => handleTenantSwitch(tenant.id)}
-                        className="flex items-center justify-between"
+                        className="flex cursor-pointer items-center justify-between rounded-lg mx-1 px-3 py-2 hover:bg-[#EDE8DE] dark:hover:bg-[#2E2B25] focus:bg-[#EDE8DE] dark:focus:bg-[#2E2B25]"
                     >
                         <div className="flex flex-col">
-                            <span className="font-medium">{getTenantName(tenant)}</span>
+                            <span className="text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+                                {getTenantName(tenant)}
+                            </span>
                             {getTenantSlugLabel(tenant) && (
-                                <span className="text-xs text-muted-foreground">{getTenantSlugLabel(tenant)}</span>
+                                <span className="text-[11px] text-[#9D9790]">
+                                    {getTenantSlugLabel(tenant)}
+                                </span>
                             )}
                         </div>
                         {currentTenantId === tenant.id && (
-                            <Check className="h-4 w-4" />
+                            <Check className="h-3.5 w-3.5 text-[#D97757]" />
                         )}
                     </DropdownMenuItem>
                 ))}

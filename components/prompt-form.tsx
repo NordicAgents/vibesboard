@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Textarea from 'react-textarea-autosize'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { UseChatHelpers } from 'ai/react'
 
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
@@ -53,32 +53,43 @@ export function PromptForm({
       ref={formRef}
     >
       <div className="flex items-end gap-2">
-        {/* Textarea container */}
-        <div className="relative flex min-h-[44px] flex-1 items-end rounded-2xl border border-border/60 bg-background px-4 py-2.5 shadow-sm transition-all duration-200 focus-within:border-ring/50 focus-within:shadow-md focus-within:shadow-ring/5">
+        {/* Signature chat input — Claude.ai style */}
+        <div
+          className={cn(
+            'relative flex min-h-[52px] flex-1 items-end rounded-2xl border px-4 py-3 transition-all duration-[250ms]',
+            'bg-[#FDFAF5] dark:bg-[#221F1A]',
+            'border-[#E2DDD4] dark:border-[#2E2B25]',
+            'shadow-[0_1px_3px_rgba(26,25,21,0.06),_0_4px_16px_rgba(26,25,21,0.04)]',
+            'focus-within:border-[#D97757] focus-within:shadow-[0_0_0_3px_rgba(217,119,87,0.12),_0_1px_3px_rgba(26,25,21,0.06)]'
+          )}
+        >
           <Textarea
             ref={inputRef}
             tabIndex={0}
             onKeyDown={onKeyDown}
             rows={1}
-            maxRows={6}
+            maxRows={8}
             value={input}
             onChange={e => setInput(e.target.value)}
             placeholder={placeholder}
             spellCheck={false}
-            className="w-full resize-none bg-transparent text-sm leading-relaxed focus:outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
-            style={{ lineHeight: '1.5' }}
+            className="w-full resize-none bg-transparent text-sm leading-relaxed text-[#1A1915] focus:outline-none placeholder:text-[#9D9790] disabled:opacity-50 dark:text-[#E8E3D8] dark:placeholder:text-[#6B6560]"
+            style={{ lineHeight: '1.6' }}
           />
         </div>
 
-        {/* Action button */}
+        {/* Action buttons */}
         <div className="flex shrink-0 items-center gap-1.5">
           {/* Regenerate button */}
           {!isLoading && canRegenerate && onRegenerate && (
             <motion.button
               type="button"
               onClick={() => onRegenerate?.()}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
               whileTap={{ scale: 0.92 }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground active:bg-muted/80"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] text-[#9D9790] shadow-[0_1px_3px_rgba(26,25,21,0.06)] transition-all duration-150 hover:border-[#D97757]/30 hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:hover:bg-[#2E2B25]"
               aria-label="Regenerate response"
             >
               <svg
@@ -86,7 +97,7 @@ export function PromptForm({
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="h-4 w-4"
@@ -100,45 +111,56 @@ export function PromptForm({
           )}
 
           {/* Stop / Send button */}
-          {showStop ? (
-            <motion.button
-              type="button"
-              onClick={() => onStop?.()}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground text-background shadow-sm transition-colors hover:bg-foreground/80 active:bg-foreground/70"
-              aria-label="Stop generating"
-            >
-              <span className="h-3.5 w-3.5 rounded-sm bg-current" />
-            </motion.button>
-          ) : (
-            <motion.button
-              type="submit"
-              disabled={!hasInput || isLoading}
-              whileTap={hasInput ? { scale: 0.92 } : {}}
-              className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition-all duration-200',
-                hasInput
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              )}
-              aria-label="Send message"
-            >
-              <motion.svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-                animate={hasInput ? { y: 0 } : { y: 0 }}
+          <AnimatePresence mode="wait">
+            {showStop ? (
+              <motion.button
+                key="stop"
+                type="button"
+                onClick={() => onStop?.()}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                whileTap={{ scale: 0.92 }}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1A1915] text-[#FDFAF5] shadow-sm transition-colors duration-150 hover:bg-[#2E2B25] dark:bg-[#E8E3D8] dark:text-[#1A1915]"
+                aria-label="Stop generating"
               >
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </motion.svg>
-            </motion.button>
-          )}
+                <span className="h-3.5 w-3.5 rounded-sm bg-current" />
+              </motion.button>
+            ) : (
+              <motion.button
+                key="send"
+                type="submit"
+                disabled={!hasInput || isLoading}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{
+                  opacity: hasInput ? 1 : 0.4,
+                  scale: 1
+                }}
+                whileTap={hasInput ? { scale: 0.92 } : {}}
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center rounded-xl shadow-sm transition-all duration-150',
+                  hasInput
+                    ? 'bg-[#D97757] text-white hover:bg-[#CC785C] active:bg-[#BF6E52]'
+                    : 'bg-[#EDE8DE] text-[#9D9790] cursor-not-allowed dark:bg-[#2E2B25] dark:text-[#6B6560]'
+                )}
+                aria-label="Send message"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                >
+                  <path d="M12 19V5" />
+                  <path d="m5 12 7-7 7 7" />
+                </svg>
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </form>

@@ -27,26 +27,34 @@ export default async function SignUpPage({
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center bg-beige-bg px-4 py-6 dark:bg-background sm:px-6 sm:py-10">
-      <div className="w-full max-w-md rounded-2xl border border-black-10 bg-purewhite-bg p-6 shadow-lg dark:border-border dark:bg-card sm:rounded-3xl sm:p-8">
-        <div className="mb-4 text-center sm:mb-6">
-          <h1 className="font-switzer text-2xl font-bold text-black-primary dark:text-card-foreground sm:text-3xl">
+    <div className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center bg-[#F5F0E8] dark:bg-[#1A1915] px-4 py-8 sm:px-6">
+      <div className="w-full max-w-[400px] animate-fade-slide-in">
+        <div className="mb-8 text-center">
+          <h1 className="font-serif text-3xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">
             Create your account
           </h1>
-          <p className="mt-2 font-switzer text-sm text-gray-secondary dark:text-muted-foreground">
-            Sign up to start building vibes
+          <p className="mt-2 text-sm text-[#6B6560] dark:text-[#9D9790]">
+            Start building with vibesboard
           </p>
         </div>
-        <LoginForm
-          action="sign-up"
-          redirectedFrom={redirectedFrom ?? undefined}
-        />
-        <Separator className="my-4 sm:my-6" />
-        <div className="flex flex-col gap-2">
-          <LoginButton redirectedFrom={redirectedFrom ?? undefined} />
-          <GoogleLoginButton
+
+        <div className="rounded-2xl border border-[#E2DDD4] dark:border-[#2E2B25] bg-[#FDFAF5] dark:bg-[#221F1A] p-6 shadow-[0_1px_3px_rgba(26,25,21,0.06),_0_4px_16px_rgba(26,25,21,0.04)] sm:p-8">
+          <LoginForm
+            action="sign-up"
             redirectedFrom={redirectedFrom ?? undefined}
           />
+
+          <div className="relative my-6">
+            <Separator className="bg-[#E2DDD4] dark:bg-[#2E2B25]" />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#FDFAF5] dark:bg-[#221F1A] px-3 text-xs text-[#9D9790]">
+              or continue with
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <LoginButton redirectedFrom={redirectedFrom ?? undefined} />
+            <GoogleLoginButton redirectedFrom={redirectedFrom ?? undefined} />
+          </div>
         </div>
       </div>
     </div>

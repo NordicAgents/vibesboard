@@ -65,7 +65,6 @@ export function LoginForm({
         )
       }
 
-      // Get the ID token and create a server-side session cookie
       const idToken = await userCredential.user.getIdToken()
       const ok = await postSessionCookie(idToken)
 
@@ -98,49 +97,42 @@ export function LoginForm({
     <div {...props}>
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
-          <div className="flex flex-col gap-y-1">
-            <Label className="font-switzer text-sm font-medium text-black-primary dark:text-card-foreground">
+          <div className="flex flex-col gap-y-1.5">
+            <Label className="text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
               Email
             </Label>
             <Input
               name="email"
               type="email"
+              placeholder="you@example.com"
               value={formState.email}
               onChange={e =>
-                setFormState(prev => ({
-                  ...prev,
-                  email: e.target.value
-                }))
+                setFormState(prev => ({ ...prev, email: e.target.value }))
               }
             />
           </div>
-          <div className="flex flex-col gap-y-1">
-            <Label className="font-switzer text-sm font-medium text-black-primary dark:text-card-foreground">
+          <div className="flex flex-col gap-y-1.5">
+            <Label className="text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
               Password
             </Label>
             <Input
               name="password"
               type="password"
+              placeholder="••••••••"
               value={formState.password}
               onChange={e =>
-                setFormState(prev => ({
-                  ...prev,
-                  password: e.target.value
-                }))
+                setFormState(prev => ({ ...prev, password: e.target.value }))
               }
             />
           </div>
         </fieldset>
 
         <div className="mt-6 flex flex-col gap-4">
-          <Button
-            disabled={isLoading}
-            className="w-full rounded-full font-switzer"
-          >
-            {isLoading && <IconSpinner className="mr-2 animate-spin" />}
-            {action === 'sign-in' ? 'Sign In' : 'Sign Up'}
+          <Button disabled={isLoading} className="w-full">
+            {isLoading && <IconSpinner className="animate-spin" />}
+            {action === 'sign-in' ? 'Sign In' : 'Create Account'}
           </Button>
-          <p className="text-center font-switzer text-sm text-gray-secondary dark:text-muted-foreground">
+          <p className="text-center text-sm text-[#6B6560] dark:text-[#9D9790]">
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}
@@ -150,7 +142,7 @@ export function LoginForm({
                       ? `/sign-up?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
                       : '/sign-up'
                   }
-                  className="font-medium text-black-primary hover:underline dark:text-card-foreground"
+                  className="font-medium text-[#D97757] hover:text-[#CC785C] transition-colors"
                 >
                   Sign Up
                 </Link>
@@ -164,7 +156,7 @@ export function LoginForm({
                       ? `/sign-in?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
                       : '/sign-in'
                   }
-                  className="font-medium text-black-primary hover:underline dark:text-card-foreground"
+                  className="font-medium text-[#D97757] hover:text-[#CC785C] transition-colors"
                 >
                   Sign In
                 </Link>

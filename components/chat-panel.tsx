@@ -44,7 +44,7 @@ export function ChatPanel({
   }, [isLoading, isChatComplete, messages])
 
   return (
-    <div className="shrink-0 border-t border-border/50 bg-background/80 backdrop-blur-sm">
+    <div className="shrink-0 border-t border-[#E2DDD4]/70 bg-[#F5F0E8]/80 backdrop-blur-sm dark:border-[#2E2B25] dark:bg-[#1A1915]/80">
       <div className="px-4 pb-4 pt-3 sm:px-5">
         <AnimatePresence mode="wait">
           {isChatComplete && !isLoading ? (
@@ -53,7 +53,7 @@ export function ChatPanel({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
               <ChatCompletionBanner
                 mode={agentMode}
@@ -66,7 +66,7 @@ export function ChatPanel({
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="space-y-2"
             >
               {/* Quick suggestions */}

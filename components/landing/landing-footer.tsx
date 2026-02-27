@@ -10,7 +10,7 @@ export function LandingFooter() {
                 <div className="flex flex-col md:flex-row justify-between items-start mb-12 sm:mb-16 lg:mb-20">
                     <div className="max-w-2xl w-full">
                         <FadeIn delay={0.1}>
-                            <h2 className="text-[12vw] sm:text-[10vw] md:text-[8vw] leading-[0.9] font-switzer font-bold tracking-tighter mb-6 sm:mb-8">
+                            <h2 className="text-[12vw] sm:text-[10vw] md:text-[8vw] leading-[0.9] font-switzer font-bold tracking-tighter mb-6 sm:mb-8 text-beige-bg">
                                 START VIBING <br className="hidden sm:block" /> TODAY
                             </h2>
                         </FadeIn>

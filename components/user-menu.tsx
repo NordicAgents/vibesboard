@@ -48,7 +48,11 @@ export function UserMenu({
     <div className="flex items-center justify-between">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+          >
             <Settings className="h-5 w-5" />
             <span className="sr-only">User Settings</span>
           </Button>
@@ -56,20 +60,22 @@ export function UserMenu({
         <DropdownMenuContent
           sideOffset={8}
           align="end"
-          className="w-[180px]"
+          className="w-[200px] rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 shadow-md dark:border-[#2E2B25] dark:bg-[#221F1A]"
         >
-          <DropdownMenuItem className="flex-col items-start">
-            <div className="text-xs font-medium">{user?.name}</div>
-            <div className="w-full truncate text-xs text-zinc-500">
+          <DropdownMenuItem className="flex-col items-start rounded-lg px-3 py-2 focus:bg-[#EDE8DE] dark:focus:bg-[#2E2B25]">
+            <div className="text-xs font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+              {user?.name}
+            </div>
+            <div className="w-full truncate text-xs text-[#9D9790]">
               {user?.email}
             </div>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          <DropdownMenuSeparator className="my-1 bg-[#E2DDD4] dark:bg-[#2E2B25]" />
           {canManageTenant && (
             <DropdownMenuItem asChild>
               <Link
                 href="/settings/tenant"
-                className="cursor-pointer text-xs"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] focus:bg-[#EDE8DE] focus:text-[#1A1915] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8] dark:focus:bg-[#2E2B25] dark:focus:text-[#E8E3D8]"
               >
                 Tenant Settings
               </Link>
@@ -77,14 +83,17 @@ export function UserMenu({
           )}
           {isSuperAdmin && (
             <DropdownMenuItem asChild>
-              <Link href="/admin" className="cursor-pointer text-xs">
+              <Link
+                href="/admin"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] focus:bg-[#EDE8DE] focus:text-[#1A1915] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8] dark:focus:bg-[#2E2B25] dark:focus:text-[#E8E3D8]"
+              >
                 Super Admin
               </Link>
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
             onClick={handleSignOut}
-            className="cursor-pointer text-xs"
+            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] focus:bg-[#EDE8DE] focus:text-[#1A1915] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8] dark:focus:bg-[#2E2B25] dark:focus:text-[#E8E3D8]"
           >
             Log Out
           </DropdownMenuItem>

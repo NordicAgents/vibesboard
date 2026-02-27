@@ -19,7 +19,7 @@ interface LoginButtonProps extends ButtonProps {
 const githubProvider = new GithubAuthProvider()
 
 export function LoginButton({
-  text = 'Login with GitHub',
+  text = 'Continue with GitHub',
   showGithubIcon = true,
   redirectedFrom,
   className,
@@ -64,7 +64,10 @@ export function LoginButton({
         }
       }}
       disabled={isLoading}
-      className={cn(className)}
+      className={cn(
+        'w-full gap-2 border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:border-[#2E2B25] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]',
+        className
+      )}
       {...props}
     >
       {isLoading ? (

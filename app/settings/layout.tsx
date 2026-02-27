@@ -12,7 +12,6 @@ import { hasTenantAdminAccess } from '@/lib/permissions'
 import { isFeatureEnabled } from '@/lib/features'
 
 async function getManageableTenants(userId: string): Promise<TenantDocument[]> {
-    // Find all memberships where user is admin or super admin
     const membersSnapshot = await adminDb
         .collectionGroup('members')
         .where('userId', '==', userId)
@@ -23,7 +22,6 @@ async function getManageableTenants(userId: string): Promise<TenantDocument[]> {
 
     const tenantIds = membersSnapshot.docs.map(doc => doc.data().tenantId as string)
 
-    // Fetch tenant documents
     const tenantDocs = await Promise.all(
         tenantIds.map(id =>
             adminDb.collection(Collections.tenants).doc(id).get()
@@ -49,7 +47,7 @@ export default async function SettingsLayout({
     const hasAccess = await hasTenantAdminAccess(session.user.id)
 
     if (!hasAccess) {
-        redirect('/') // Redirect to home if no access
+        redirect('/')
     }
 
     const [manageableTenants, activeTenantId] = await Promise.all([
@@ -89,36 +87,47 @@ export default async function SettingsLayout({
     ]
 
     return (
-        <div className="flex min-h-screen">
+        <div className="flex min-h-screen bg-[#F5F0E8] dark:bg-[#1A1915]">
             {/* Sidebar */}
-            <aside className="w-64 border-r bg-muted/40">
-                <div className="flex h-16 items-center border-b px-6">
-                    <Settings className="mr-2 h-5 w-5" />
-                    <h2 className="text-lg font-semibold">Settings</h2>
+            <aside className="hidden w-64 shrink-0 border-r border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A] md:flex md:flex-col">
+                {/* Header */}
+                <div className="flex h-16 items-center gap-2.5 border-b border-[#E2DDD4] px-5 dark:border-[#2E2B25]">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                        <Settings className="h-3.5 w-3.5 text-[#D97757]" />
+                    </div>
+                    <h2 className="font-serif text-base font-normal text-[#1A1915] dark:text-[#E8E3D8]">
+                        Settings
+                    </h2>
                 </div>
-                <div className="border-b p-4">
+
+                {/* Workspace Switcher */}
+                <div className="border-b border-[#E2DDD4] p-3 dark:border-[#2E2B25]">
                     <TenantSwitcher
                         tenants={manageableTenants}
                         currentTenantId={activeTenantId}
                         className="w-full"
                     />
                     {!canManageActiveTenant && (
-                        <p className="mt-2 text-xs text-muted-foreground">
+                        <p className="mt-2 px-1 text-xs text-[#9D9790]">
                             Switch to a workspace you can manage.
                         </p>
                     )}
                 </div>
-                <nav className="space-y-1 p-4">
+
+                {/* Navigation */}
+                <nav className="flex-1 space-y-0.5 p-3">
+                    <p className="label-caps mb-2 px-3">Navigation</p>
                     {navItems.map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}
                             className={cn(
-                                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                                'hover:bg-accent hover:text-accent-foreground'
+                                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
+                                'text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915]',
+                                'dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]'
                             )}
                         >
-                            <item.icon className="h-4 w-4" />
+                            <item.icon className="h-4 w-4 shrink-0 text-[#9D9790]" />
                             {item.title}
                         </Link>
                     ))}
@@ -126,9 +135,9 @@ export default async function SettingsLayout({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-8">
+            <main className="flex-1 overflow-auto p-6 md:p-8">
                 {!canManageActiveTenant && (
-                    <div className="mb-6 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                    <div className="mb-6 rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 text-sm text-[#6B6560] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#9D9790]">
                         You do not have admin access to the active workspace. Use the workspace switcher to select a workspace you can manage.
                     </div>
                 )}
