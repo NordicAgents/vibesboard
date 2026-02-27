@@ -9,31 +9,9 @@ import {
   type VibeAgentTool
 } from '@/lib/types'
 import { nanoid, slugify } from '@/lib/utils'
+import { BUILTIN_AGENT_TOOLS } from './constants'
 
-export const BUILTIN_AGENT_TOOLS = {
-  'builtin:web_fetch': {
-    id: 'builtin:web_fetch' as AgentToolType,
-    name: 'Web Fetch',
-    description: 'Fetches web page content from a given URL.'
-  },
-  'builtin:search': {
-    id: 'builtin:search' as AgentToolType,
-    name: 'Web Search',
-    description: 'Searches the public web for recent information.'
-  },
-  'builtin:file_search': {
-    id: 'builtin:file_search' as AgentToolType,
-    name: 'File Search',
-    description: "Searches the agent's uploaded files for matching snippets."
-  }
-} satisfies Record<
-  AgentToolType,
-  {
-    id: AgentToolType
-    name: string
-    description: string
-  }
->
+export { BUILTIN_AGENT_TOOLS }
 
 const sanitizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {

@@ -1,4 +1,4 @@
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 import { type AgentToolType, type VibeAgentTool } from '@/lib/types'
 
 const WEB_TOOL_TYPES: AgentToolType[] = ['builtin:web_fetch', 'builtin:search']

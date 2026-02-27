@@ -14,6 +14,7 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "extensions": {},
   "emulators": {
     "auth": { "port": 9099 },
     "functions": { "port": 5001 },

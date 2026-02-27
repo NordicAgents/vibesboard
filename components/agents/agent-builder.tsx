@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 import {
   type AgentToolType,
   type QuickSuggestionsMode,

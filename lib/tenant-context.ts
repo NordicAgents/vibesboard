@@ -208,11 +208,12 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
     }
   )
 
-  // Update user's tenantIds
+  // Update user's tenantIds (use set+merge so it works even if onUserCreated
+  // Cloud Function hasn't created the user doc yet — race condition)
   const { FieldValue } = await import('firebase-admin/firestore')
-  batch.update(adminDb.collection(Collections.users).doc(userId), {
+  batch.set(adminDb.collection(Collections.users).doc(userId), {
     tenantIds: FieldValue.arrayUnion(tenantId)
-  })
+  }, { merge: true })
 
   await batch.commit()
 

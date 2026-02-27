@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { type AgentToolType, type AgentMode } from '@/lib/types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface AgentFormData {
   name?: string

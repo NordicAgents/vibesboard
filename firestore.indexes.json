@@ -25,13 +25,6 @@
       ]
     },
     {
-      "collectionGroup": "agents",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "agentUrl", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "file_chunks",
       "queryScope": "COLLECTION",
       "fields": [
@@ -55,6 +48,14 @@
             "flat": {}
           }
         }
+      ]
+    },
+    {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" }
       ]
     }
   ],

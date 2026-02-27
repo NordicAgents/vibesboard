@@ -56,6 +56,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
+# Create cache dir writable by nextjs user (image optimization, etc.)
+RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next/cache
+
 USER nextjs
 EXPOSE 8080
 CMD ["node", "server.js"]

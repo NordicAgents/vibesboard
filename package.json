@@ -34,6 +34,8 @@
     "ai": "^2.1.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^1.2.1",
+    "crypto-js": "^4.2.0",
+    "csv-parse": "^6.1.0",
     "encoding": "^0.1.13",
     "firebase": "^12.9.0",
     "firebase-admin": "^13.7.0",
@@ -64,6 +66,7 @@
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.9",
+    "@types/crypto-js": "^4.2.2",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^20.19.25",
     "@types/qrcode": "^1.5.6",

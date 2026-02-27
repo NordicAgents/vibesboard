@@ -348,7 +348,7 @@ export default function TemplatesPage() {
             <DialogHeader>
               <DialogTitle>Create Message Template</DialogTitle>
               <DialogDescription>
-                Templates must be approved by Meta before use. Use {{`{1}`}}, {{`{2}`}} for variables.
+                Templates must be approved by Meta before use. Use {'{1}'}, {'{2}'} for variables.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -436,7 +436,7 @@ export default function TemplatesPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use {{`{1}`}}, {{`{2}`}}, etc. for variables. Max 1024 characters.
+                  Use {'{1}'}, {'{2}'}, etc. for variables. Max 1024 characters.
                 </p>
                 {currentVariables.length > 0 && (
                   <div className="text-xs text-muted-foreground">
