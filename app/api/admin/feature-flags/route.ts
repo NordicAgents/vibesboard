@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin } from '@/lib/permissions'
+import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import { validateFeatureFlagName } from '@/lib/validations'
 
 export const runtime = 'nodejs'
@@ -13,36 +11,17 @@ export const runtime = 'nodejs'
  * List all feature flags (SUPER_ADMIN only)
  */
 export async function GET() {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+    const snapshot = await adminDb
+        .collection(Collections.featureFlags)
+        .orderBy('name', 'asc')
+        .get()
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const flags = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
-
-    const { data, error } = await supabase
-        .from('feature_flags')
-        .select('*')
-        .order('name', { ascending: true })
-
-    if (error) {
-        return NextResponse.json(
-            { error: error.message },
-            { status: 500 }
-        )
-    }
-
-    return NextResponse.json({ flags: data })
+    return NextResponse.json({ flags })
 }
 
 /**
@@ -50,18 +29,8 @@ export async function GET() {
  * Create feature flag (SUPER_ADMIN only)
  */
 export async function POST(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
-
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+    const auth = await requireSuperAdmin()
+    if (!auth.ok) return auth.response
 
     const body = await req.json()
     const { name, description, default_value } = body
@@ -74,40 +43,32 @@ export async function POST(req: Request) {
         )
     }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+    // Check if feature flag already exists by name
+    const existingSnapshot = await adminDb
+        .collection(Collections.featureFlags)
+        .where('name', '==', name)
+        .limit(1)
+        .get()
 
-    // Check if feature flag already exists
-    const { data: existing } = await supabase
-        .from('feature_flags')
-        .select('id')
-        .eq('name', name)
-        .single()
-
-    if (existing) {
+    if (!existingSnapshot.empty) {
         return NextResponse.json(
             { error: 'Feature flag with this name already exists' },
             { status: 409 }
         )
     }
 
-    const { data: flag, error } = await supabase
-        .from('feature_flags')
-        .insert({
-            name,
-            description,
-            default_value: default_value ?? false
-        })
-        .select('*')
-        .single()
+    const now = new Date().toISOString()
+    const flagRef = adminDb.collection(Collections.featureFlags).doc()
 
-    if (error || !flag) {
-        return NextResponse.json(
-            { error: error?.message || 'Failed to create feature flag' },
-            { status: 500 }
-        )
+    const flagData = {
+        id: flagRef.id,
+        name,
+        description: description ?? '',
+        defaultValue: default_value ?? false,
+        createdAt: now
     }
 
-    return NextResponse.json({ flag }, { status: 201 })
+    await flagRef.set(flagData)
+
+    return NextResponse.json({ flag: flagData }, { status: 201 })
 }

@@ -57,17 +57,17 @@ export function DashboardSidebarSection({
                     {title ? (
                         <button
                             onClick={handleToggle}
-                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer group"
+                            className="group flex cursor-pointer items-center gap-1.5 transition-opacity hover:opacity-80"
                             type="button"
                         >
                             <h3 className="font-switzer text-xs font-medium uppercase tracking-wider text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground">
                                 {title}
                             </h3>
-                            <div className="flex-shrink-0">
+                            <div className="shrink-0">
                                 {isExpanded ? (
-                                    <IconArrowUp className="h-3.5 w-3.5 text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground" />
+                                    <IconArrowUp className="size-3.5 text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground" />
                                 ) : (
-                                    <IconArrowDown className="h-3.5 w-3.5 text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground" />
+                                    <IconArrowDown className="size-3.5 text-gray-secondary group-hover:text-black-primary dark:group-hover:text-foreground" />
                                 )}
                             </div>
                         </button>
@@ -107,7 +107,7 @@ export function DashboardSidebarItem({
                 'rounded-2xl px-3 py-2 text-left font-switzer text-sm transition-colors',
                 active
                     ? 'bg-black-primary text-purewhite-bg'
-                    : 'text-black-primary hover:bg-beige-bg/50 dark:text-foreground dark:hover:bg-white/5',
+                    : 'hover:bg-beige-bg/50 text-black-primary dark:text-foreground dark:hover:bg-white/5',
                 className
             )}
         >

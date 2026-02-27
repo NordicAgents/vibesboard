@@ -105,7 +105,7 @@ export function AgentConversationList({
                   aria-label="Close conversation preview"
                   onClick={() => setSelectedConversationId(null)}
                 >
-                  <IconClose className="h-4 w-4" />
+                  <IconClose className="size-4" />
                 </Button>
               </div>
               <div className="max-h-[500px] space-y-3 overflow-y-auto pr-2">

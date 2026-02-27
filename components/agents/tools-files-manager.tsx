@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { type VibeAgent } from '@/lib/types'
 import { deriveToolToggles, buildToolsPayload } from '@/lib/agents/tooling'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -124,7 +123,6 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                 return
             }
             const fileArray = Array.from(files)
-            const supabase = getBrowserSupabaseClient()
 
             // Validate files
             const maxSize = 10 * 1024 * 1024 // 10MB
@@ -147,16 +145,30 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                 const uploadPromises = fileArray.map(async (file, index) => {
                     try {
                         const path = `${agent.userId}/${Date.now()}-${safeFileName(file.name)}`
+                        const contentType = file.type || 'application/octet-stream'
 
-                        const { data, error } = await supabase.storage
-                            .from('agent-files')
-                            .upload(path, file, {
-                                upsert: true,
-                                contentType: file.type || 'application/octet-stream'
-                            })
+                        // Get a signed upload URL from the API
+                        const urlRes = await fetch(`/api/agents/${agent.id}/files/upload-url`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ key: path, contentType })
+                        })
 
-                        if (error || !data) {
-                            throw error ?? new Error('Upload failed')
+                        if (!urlRes.ok) {
+                            throw new Error('Failed to get upload URL')
+                        }
+
+                        const { uploadUrl } = await urlRes.json()
+
+                        // Upload directly to GCS using the signed URL
+                        const uploadRes = await fetch(uploadUrl, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': contentType },
+                            body: file
+                        })
+
+                        if (!uploadRes.ok) {
+                            throw new Error('Upload to storage failed')
                         }
 
                         // Update progress to success
@@ -168,7 +180,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             )
                         )
 
-                        return { path: data.path, file }
+                        return { path, file }
                     } catch (error) {
                         // Update progress to error
                         setUploadProgress(prev =>
@@ -252,11 +264,14 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
             toast.error('Read-only: you do not have permission to edit this agent')
             return
         }
-        const supabase = getBrowserSupabaseClient()
 
         try {
-            // Remove from storage
-            await supabase.storage.from('agent-files').remove([path])
+            // Remove from storage via API
+            await fetch(`/api/agents/${agent.id}/files/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileKey: path })
+            })
 
             // Update state and database
             const newFileKeys = fileKeys.filter(key => key !== path)
@@ -270,26 +285,22 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
     }
 
     const handleFileDownload = async (path: string) => {
-        const supabase = getBrowserSupabaseClient()
-
         try {
-            const { data, error } = await supabase.storage
-                .from('agent-files')
-                .download(path)
-
-            if (error || !data) {
-                throw error ?? new Error('Download failed')
+            // Get a signed download URL from the API
+            const res = await fetch(`/api/agents/${agent.id}/files/download-url?fileKey=${encodeURIComponent(path)}`)
+            if (!res.ok) {
+                throw new Error('Failed to get download URL')
             }
 
-            // Create download link
-            const url = URL.createObjectURL(data)
+            const { downloadUrl } = await res.json()
+
+            // Open signed URL to trigger download
             const a = document.createElement('a')
-            a.href = url
+            a.href = downloadUrl
             a.download = getFileName(path)
             document.body.appendChild(a)
             a.click()
             document.body.removeChild(a)
-            URL.revokeObjectURL(url)
 
             toast.success('File downloaded')
         } catch (error) {
@@ -394,7 +405,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isSaving || isIndexing || !canEdit}
                         >
-                            <IconUpload className="mr-2 h-4 w-4" />
+                            <IconUpload className="mr-2 size-4" />
                             Upload Files
                         </Button>
                     </div>
@@ -428,7 +439,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                 : 'border-muted-foreground/25 hover:border-muted-foreground/50'
                         )}
                     >
-                        <IconUpload className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <IconUpload className="mx-auto size-8 text-muted-foreground" />
                         <p className="mt-2 text-sm text-muted-foreground">
                             Drag and drop files here, or click Upload Files
                         </p>
@@ -445,17 +456,17 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             {uploadProgress.map((item, index) => (
                                 <div
                                     key={index}
-                                    className="rounded-md border bg-muted/50 p-3 space-y-2"
+                                    className="space-y-2 rounded-md border bg-muted/50 p-3"
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium truncate flex-1">
+                                        <span className="flex-1 truncate text-sm font-medium">
                                             {item.name}
                                         </span>
                                         {item.status === 'success' && (
-                                            <IconCheck className="h-4 w-4 text-green-600" />
+                                            <IconCheck className="size-4 text-green-600" />
                                         )}
                                         {item.status === 'error' && (
-                                            <IconX className="h-4 w-4 text-red-600" />
+                                            <IconX className="size-4 text-red-600" />
                                         )}
                                     </div>
                                     {item.status === 'uploading' && (
@@ -479,11 +490,11 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                 {fileKeys.map(key => (
                                     <li
                                         key={key}
-                                        className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 hover:bg-accent/50 transition-colors"
+                                        className="flex items-center justify-between gap-3 rounded-md border bg-card p-3 transition-colors hover:bg-accent/50"
                                     >
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
                                             {getFileIcon(getFileName(key))}
-                                            <span className="text-sm truncate">
+                                            <span className="truncate text-sm">
                                                 {getFileName(key)}
                                             </span>
                                         </div>
@@ -496,7 +507,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                                 disabled={isSaving}
                                                 title="Download file"
                                             >
-                                                <IconDownload className="h-4 w-4" />
+                                                <IconDownload className="size-4" />
                                             </Button>
                                             <Button
                                                 type="button"
@@ -507,7 +518,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                                                 title="Delete file"
                                                 className="text-destructive hover:text-destructive"
                                             >
-                                                <IconTrash className="h-4 w-4" />
+                                                <IconTrash className="size-4" />
                                             </Button>
                                         </div>
                                     </li>
@@ -515,7 +526,7 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                             </ul>
                         </div>
                     ) : (
-                        <p className="text-xs text-muted-foreground text-center py-4">
+                        <p className="py-4 text-center text-xs text-muted-foreground">
                             No files uploaded yet. Upload documents to help your agent provide better responses.
                         </p>
                     )}

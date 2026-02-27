@@ -2,7 +2,6 @@ import { SidebarList } from '@/components/sidebar-list'
 import { ReactNode, Suspense } from 'react'
 import { SidebarResizableLayout } from '@/components/layouts/sidebar-resizable-layout'
 import { auth } from '@/auth'
-import { cookies } from 'next/headers'
 import { SidebarProvider } from '@/components/sidebar-context'
 import { hasTenantAdminAccess, isSuperAdmin } from '@/lib/permissions'
 
@@ -15,8 +14,7 @@ export async function PersistentSidebarLayout({
   children,
   userId
 }: PersistentSidebarLayoutProps) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
   const [isSuperAdminUser, canManageTenant] = session?.user?.id
     ? await Promise.all([
         isSuperAdmin(session.user.id),

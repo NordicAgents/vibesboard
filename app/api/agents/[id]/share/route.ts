@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies, headers } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { headers } from 'next/headers'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow } from '@/lib/agents/db'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { getAgentById } from '@/lib/agents/server'
 import { getQrDataUrl } from '@/lib/qr'
 import { canEditAgent } from '@/lib/agents/permissions'
 
@@ -15,38 +13,26 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  // Find agent via collectionGroup query
+  const agent = await getAgentById(id)
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
-  const { data } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (!data) {
+  if (!agent) {
     return new NextResponse('Not found', { status: 404 })
   }
 
   const canEdit = await canEditAgent({
-    sessionUserId: session.user.id,
-    agentOwnerId: data.user_id,
-    tenantId: data.tenant_id
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
   })
 
   if (!canEdit) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const agent = mapAgentRow(data)
   const headersList = await headers()
   // Handle comma-separated proxy headers (e.g., "https,http") by taking the first value
   const rawProto = headersList.get('x-forwarded-proto')
@@ -59,7 +45,7 @@ export async function GET(
     (protocol && host
       ? `${protocol}://${host}`
       : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
-  const url = `${origin}/a/${agent.agentUrl}`
+  const url = `${origin}/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
   const qrDataUrl = await getQrDataUrl(url)
 
   return NextResponse.json({ url, qrDataUrl })

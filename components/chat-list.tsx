@@ -12,37 +12,32 @@ export interface ChatListProps {
   agentAvatarInitial?: string
 }
 
-// Typing indicator dots
-function TypingIndicator({
-  agentAvatarGradient = 'from-violet-400 to-purple-500',
-  agentAvatarInitial = 'A'
-}: {
-  agentAvatarGradient?: string
-  agentAvatarInitial?: string
-}) {
+// Typing indicator — warm dots, aligned with AI avatar column
+function TypingIndicator() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="flex items-end gap-2.5"
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="flex items-center gap-3"
     >
-      <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${agentAvatarGradient} text-xs font-semibold text-white shadow-sm`}
-      >
-        {agentAvatarInitial}
+      {/* Avatar placeholder to align with AI messages */}
+      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
       </div>
-      <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm border border-border/40 bg-muted/50 px-4 py-3 shadow-sm dark:bg-muted/30">
+      {/* Dots */}
+      <div className="flex items-center gap-1.5 py-1">
         {[0, 1, 2].map(i => (
           <motion.span
             key={i}
-            className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60"
-            animate={{ y: [0, -4, 0] }}
+            className="size-2 rounded-full bg-[#D97757]/50"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
             transition={{
-              duration: 0.8,
+              duration: 0.9,
               repeat: Infinity,
-              delay: i * 0.15,
+              delay: i * 0.18,
               ease: 'easeInOut'
             }}
           />
@@ -63,17 +58,16 @@ export function ChatList({
   }
 
   return (
-    <div className="flex flex-col gap-3 px-4 py-4 sm:px-5">
+    <div className="flex flex-col gap-6 px-4 py-6 sm:px-5">
       <AnimatePresence initial={false}>
         {messages.map((message, index) => (
           <motion.div
             key={message.id ?? index}
-            initial={{ opacity: 0, y: 8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{
-              duration: 0.25,
+              duration: 0.28,
               ease: [0.16, 1, 0.3, 1],
-              delay: 0
             }}
           >
             <ChatMessage
@@ -86,13 +80,7 @@ export function ChatList({
         ))}
 
         {/* Typing indicator */}
-        {isLoading && (
-          <TypingIndicator
-            key="typing"
-            agentAvatarGradient={agentAvatarGradient}
-            agentAvatarInitial={agentAvatarInitial}
-          />
-        )}
+        {isLoading && <TypingIndicator key="typing" />}
       </AnimatePresence>
     </div>
   )

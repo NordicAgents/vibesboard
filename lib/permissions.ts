@@ -1,107 +1,116 @@
-import { createServerClient } from './supabase/server'
-import { Database } from './db_types'
-import { isSuperAdminWithClient } from './permissions-core'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections, type TenantDocument } from '@/lib/firestore-types'
 
 export type Role = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 
 export async function getUserRole(
-    userId: string,
-    tenantId: string
+  userId: string,
+  tenantId: string
 ): Promise<Role | null> {
-    const supabase = await createServerClient()
+  const doc = await adminDb
+    .collection(Collections.members(tenantId))
+    .doc(userId)
+    .get()
 
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .single()
-
-    if (error || !data) return null
-    return data.role as Role
+  if (!doc.exists) return null
+  return doc.data()?.role as Role
 }
 
 export async function isSuperAdmin(userId: string): Promise<boolean> {
-    const supabase = createServerClient()
-    return isSuperAdminWithClient(supabase, userId)
+  // Check the user document for the isSuperAdmin flag
+  const userDoc = await adminDb
+    .collection(Collections.users)
+    .doc(userId)
+    .get()
+
+  if (userDoc.exists && userDoc.data()?.isSuperAdmin) {
+    return true
+  }
+
+  // Fallback: check if user has SUPER_ADMIN role in any tenant
+  const snapshot = await adminDb
+    .collectionGroup('members')
+    .where('userId', '==', userId)
+    .where('role', '==', 'SUPER_ADMIN')
+    .limit(1)
+    .get()
+
+  return !snapshot.empty
 }
 
 export async function isTenantAdmin(
-    userId: string,
-    tenantId: string
+  userId: string,
+  tenantId: string
 ): Promise<boolean> {
-    const supabase = await createServerClient()
+  const doc = await adminDb
+    .collection(Collections.members(tenantId))
+    .doc(userId)
+    .get()
 
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .in('role', ['TENANT_ADMIN', 'SUPER_ADMIN'])
-        .single()
-
-    return !error && !!data
+  if (!doc.exists) return false
+  const role = doc.data()?.role
+  return role === 'TENANT_ADMIN' || role === 'SUPER_ADMIN'
 }
 
 export async function canManageTenant(
-    userId: string,
-    tenantId: string
+  userId: string,
+  tenantId: string
 ): Promise<boolean> {
-    return await isTenantAdmin(userId, tenantId)
+  return isTenantAdmin(userId, tenantId)
 }
 
 export async function getUserTenants(
-    userId: string
-): Promise<Database['public']['Tables']['tenants']['Row'][]> {
-    const supabase = await createServerClient()
+  userId: string
+): Promise<TenantDocument[]> {
+  const userDoc = await adminDb
+    .collection(Collections.users)
+    .doc(userId)
+    .get()
 
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .select('tenant_id, tenants(*)')
-        .eq('user_id', userId)
+  if (!userDoc.exists) return []
+  const tenantIds: string[] = userDoc.data()?.tenantIds ?? []
+  if (!tenantIds.length) return []
 
-    if (error || !data) return []
+  const docs = await Promise.all(
+    tenantIds.map(id =>
+      adminDb.collection(Collections.tenants).doc(id).get()
+    )
+  )
 
-    return data
-        .map((item: any) => item.tenants)
-        .filter((tenant: any) => tenant !== null)
+  return docs
+    .filter(d => d.exists)
+    .map(d => d.data() as TenantDocument)
 }
 
 export async function getUserActiveTenant(
-    userId: string
+  userId: string
 ): Promise<string | null> {
-    const tenants = await getUserTenants(userId)
-
-    // Return first tenant or null
-    // In the future, this could be stored in user preferences
-    return tenants.length > 0 ? tenants[0].id : null
+  const tenants = await getUserTenants(userId)
+  return tenants.length > 0 ? tenants[0].id : null
 }
 
 export async function isMemberOfTenant(
-    userId: string,
-    tenantId: string
+  userId: string,
+  tenantId: string
 ): Promise<boolean> {
-    const supabase = await createServerClient()
+  const doc = await adminDb
+    .collection(Collections.members(tenantId))
+    .doc(userId)
+    .get()
 
-    const { data, error } = await supabase
-        .from('tenant_users')
-        .select('user_id')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .single()
-
-    return !error && !!data
+  return doc.exists
 }
 
-export async function hasTenantAdminAccess(userId: string): Promise<boolean> {
-    const supabase = await createServerClient()
+export async function hasTenantAdminAccess(
+  userId: string
+): Promise<boolean> {
+  // Check across all tenants if user has admin access
+  const snapshot = await adminDb
+    .collectionGroup('members')
+    .where('userId', '==', userId)
+    .where('role', 'in', ['TENANT_ADMIN', 'SUPER_ADMIN'])
+    .limit(1)
+    .get()
 
-    const { count, error } = await supabase
-        .from('tenant_users')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .in('role', ['TENANT_ADMIN', 'SUPER_ADMIN'])
-
-    if (error) return false
-    return (count ?? 0) > 0
+  return !snapshot.empty
 }

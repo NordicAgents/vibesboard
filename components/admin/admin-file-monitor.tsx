@@ -144,13 +144,13 @@ export function AdminFileMonitor() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'indexed':
-        return <Badge variant="default" className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Indexed</Badge>
+        return <Badge variant="default" className="bg-green-500"><CheckCircle className="mr-1 size-3" />Indexed</Badge>
       case 'processing':
-        return <Badge variant="secondary"><Loader2 className="w-3 h-3 mr-1 animate-spin" />Processing</Badge>
+        return <Badge variant="secondary"><Loader2 className="mr-1 size-3 animate-spin" />Processing</Badge>
       case 'pending':
-        return <Badge variant="outline"><Clock className="w-3 h-3 mr-1" />Pending</Badge>
+        return <Badge variant="outline"><Clock className="mr-1 size-3" />Pending</Badge>
       case 'failed':
-        return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Failed</Badge>
+        return <Badge variant="destructive"><AlertCircle className="mr-1 size-3" />Failed</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -203,7 +203,7 @@ export function AdminFileMonitor() {
             onClick={() => handleProcessFiles('pending')}
             disabled={isProcessing || stats.pending === 0}
           >
-            <PlayCircle className="w-4 h-4 mr-2" />
+            <PlayCircle className="mr-2 size-4" />
             Process Pending ({stats.pending})
           </Button>
           <Button
@@ -211,7 +211,7 @@ export function AdminFileMonitor() {
             disabled={isProcessing || stats.failed === 0}
             variant="outline"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="mr-2 size-4" />
             Retry Failed ({stats.failed})
           </Button>
           <Button
@@ -219,11 +219,11 @@ export function AdminFileMonitor() {
             disabled={isProcessing || selectedFiles.size === 0}
             variant="secondary"
           >
-            <PlayCircle className="w-4 h-4 mr-2" />
+            <PlayCircle className="mr-2 size-4" />
             Process Selected ({selectedFiles.size})
           </Button>
           <Button onClick={fetchFiles} variant="ghost" disabled={isLoading}>
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`mr-2 size-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </CardContent>
@@ -254,10 +254,10 @@ export function AdminFileMonitor() {
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
           ) : files.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="py-8 text-center text-muted-foreground">
               No files found
             </div>
           ) : (
@@ -265,7 +265,7 @@ export function AdminFileMonitor() {
               {files.map(file => (
                 <div
                   key={file.id}
-                  className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/50"
+                  className="flex items-start gap-4 rounded-lg border p-4 hover:bg-muted/50"
                 >
                   <input
                     type="checkbox"
@@ -292,7 +292,7 @@ export function AdminFileMonitor() {
                     )}
 
                     {file.status === 'failed' && file.error && (
-                      <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                      <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-600">
                         Error: {file.error}
                       </div>
                     )}

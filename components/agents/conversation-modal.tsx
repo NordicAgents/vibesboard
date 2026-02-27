@@ -33,21 +33,21 @@ export function ConversationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col gap-0">
-        <DialogHeader className="border-b border-black-10 dark:border-border pb-4 mb-4">
+      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden">
+        <DialogHeader className="mb-4 border-b border-black-10 pb-4 dark:border-border">
           <DialogTitle className="font-switzer text-lg font-bold text-black-primary dark:text-foreground">
             {summary}
           </DialogTitle>
-          <DialogDescription className="font-switzer text-sm text-gray-secondary mt-1">
+          <DialogDescription className="mt-1 font-switzer text-sm text-gray-secondary">
             Updated {formatDate(conversation.updatedAt)}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {messages.length > 0 ? (
             <ChatList messages={messages} />
           ) : (
-            <div className="py-8 text-center text-sm text-gray-secondary font-switzer">
+            <div className="py-8 text-center font-switzer text-sm text-gray-secondary">
               No messages in this conversation yet.
             </div>
           )}

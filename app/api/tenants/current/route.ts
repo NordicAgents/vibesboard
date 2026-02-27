@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { cookies } from 'next/headers';
 import { getActiveTenant } from '@/lib/tenant-context';
 
 /**
@@ -8,8 +7,7 @@ import { getActiveTenant } from '@/lib/tenant-context';
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await auth({ cookieStore });
+    const session = await auth();
 
     if (!session?.user?.id) {
       return NextResponse.json(

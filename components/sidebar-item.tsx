@@ -26,7 +26,7 @@ export function SidebarItem({ chat, children }: SidebarItemProps) {
 
   return (
     <div className="relative">
-      <div className="absolute left-2 top-1 flex h-6 w-6 items-center justify-center">
+      <div className="absolute left-2 top-1 flex size-6 items-center justify-center">
         {chat.sharePath ? (
           <Tooltip delayDuration={1000}>
             <TooltipTrigger

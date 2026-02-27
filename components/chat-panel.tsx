@@ -44,8 +44,16 @@ export function ChatPanel({
   }, [isLoading, isChatComplete, messages])
 
   return (
-    <div className="shrink-0 border-t border-border/50 bg-background/80 backdrop-blur-sm">
-      <div className="px-4 pb-4 pt-3 sm:px-5">
+    /* Full-width background, content centered in same column as messages */
+    <div className="relative shrink-0 bg-[#F5F0E8] dark:bg-[#1A1915]">
+      {/* Gradient fade — full width, bleeds upward into the scroll area */}
+      <div
+        className="pointer-events-none absolute inset-x-0 -top-12 h-12 bg-gradient-to-b from-transparent to-[#F5F0E8] dark:to-[#1A1915]"
+        aria-hidden="true"
+      />
+
+      {/* Centered content column — matches message column width */}
+      <div className="mx-auto w-full max-w-[760px] px-4 pb-5 pt-2 sm:px-6">
         <AnimatePresence mode="wait">
           {isChatComplete && !isLoading ? (
             <motion.div
@@ -53,7 +61,7 @@ export function ChatPanel({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
               <ChatCompletionBanner
                 mode={agentMode}
@@ -66,7 +74,7 @@ export function ChatPanel({
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="space-y-2"
             >
               {/* Quick suggestions */}

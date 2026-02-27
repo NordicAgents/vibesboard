@@ -8,7 +8,7 @@ import Image from 'next/image'
 
 export function LandingHero() {
     return (
-        <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden pt-16 sm:pt-20">
+        <section className="relative flex min-h-dvh items-center justify-center overflow-hidden pt-16 sm:pt-20">
             {/* Background Image with Overlay */}
             <div className="absolute inset-0 z-0">
                 <Image
@@ -22,19 +22,19 @@ export function LandingHero() {
             </div>
 
             {/* Content */}
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 z-10 relative">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
                     {/* Left Side - Main Headline */}
                     <div className="text-center lg:text-left">
                         <FadeIn delay={0.2}>
-                            <h1 className="font-switzer font-bold text-[clamp(2rem,8vw,5rem)] lg:text-[clamp(3rem,6vw,5.5rem)] leading-[1.1] lg:leading-[0.95] tracking-tight text-white mb-6 sm:mb-8">
+                            <h1 className="mb-6 font-switzer text-[clamp(2rem,8vw,5rem)] font-bold leading-[1.1] tracking-tight text-white sm:mb-8 lg:text-[clamp(3rem,6vw,5.5rem)] lg:leading-[0.95]">
                                 Build Agents for Vibing with People
                             </h1>
                         </FadeIn>
                         <FadeIn delay={0.4}>
                             <Button
                                 asChild
-                                className="rounded-full bg-white text-black-primary hover:bg-white/90 px-6 sm:px-8 py-5 sm:py-6 text-base sm:text-lg font-medium"
+                                className="rounded-full bg-white px-6 py-5 text-base font-medium text-black-primary hover:bg-white/90 sm:px-8 sm:py-6 sm:text-lg"
                             >
                                 <Link href="/sign-in">GET STARTED</Link>
                             </Button>
@@ -42,9 +42,9 @@ export function LandingHero() {
                     </div>
 
                     {/* Right Side - Description */}
-                    <div className="lg:ml-auto max-w-md mx-auto lg:mx-0 text-center lg:text-left">
+                    <div className="mx-auto max-w-md text-center lg:mx-0 lg:ml-auto lg:text-left">
                         <FadeIn delay={0.5}>
-                            <p className="text-white/90 text-base sm:text-lg leading-relaxed">
+                            <p className="text-base leading-relaxed text-white/90 sm:text-lg">
                                 Build custom agents and share them to vibe with people. All interactions are recorded, and you can discover the real vibe from people using AI-powered insights.
                             </p>
                         </FadeIn>
@@ -57,13 +57,13 @@ export function LandingHero() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1.5, duration: 1 }}
-                className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 z-10 hidden sm:block"
+                className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 sm:bottom-10 sm:block"
             >
-                <div className="w-[1px] h-12 sm:h-16 bg-white/20 overflow-hidden">
+                <div className="h-12 w-px overflow-hidden bg-white/20 sm:h-16">
                     <motion.div
                         animate={{ y: ["-100%", "100%"] }}
                         transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                        className="w-full h-1/2 bg-white"
+                        className="h-1/2 w-full bg-white"
                     ></motion.div>
                 </div>
             </motion.div>

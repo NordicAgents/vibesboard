@@ -1,5 +1,5 @@
 import { type AgentToolType, type VibeAgent, type VibeAgentTool } from '@/lib/types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface ToolExecutionContext {
   fileContext?: string | null
