@@ -66,7 +66,7 @@ export default async function AgentConversationPage({
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
+    <div className="flex h-full flex-col">
       <AgentChat
         agent={agent}
         endpoint={`/api/agents/${agent.id}/chat`}

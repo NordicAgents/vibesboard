@@ -50,28 +50,28 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
     })
   return (
     <>
-      <div
-        className={cn('flex-1 overflow-y-auto py-4 md:pt-10', className)}
-      >
-        {messages.length ? (
-          <>
-            <ChatList messages={messages} isLoading={isLoading} />
-            <ChatScrollAnchor trackVisibility={isLoading} />
-          </>
-        ) : (
-          <EmptyScreen setInput={setInput} />
-        )}
+      <div className={cn('flex h-full flex-col overflow-hidden', className)}>
+        <div data-chat-scroll className="min-h-0 flex-1 overflow-y-auto py-4 md:pt-10">
+          {messages.length ? (
+            <>
+              <ChatList messages={messages} isLoading={isLoading} />
+              <ChatScrollAnchor trackVisibility={isLoading} />
+            </>
+          ) : (
+            <EmptyScreen setInput={setInput} />
+          )}
+        </div>
+        <ChatPanel
+          id={id}
+          isLoading={isLoading}
+          stop={stop}
+          append={append}
+          reload={reload}
+          messages={messages}
+          input={input}
+          setInput={setInput}
+        />
       </div>
-      <ChatPanel
-        id={id}
-        isLoading={isLoading}
-        stop={stop}
-        append={append}
-        reload={reload}
-        messages={messages}
-        input={input}
-        setInput={setInput}
-      />
 
       <Dialog open={previewTokenDialog} onOpenChange={setPreviewTokenDialog}>
         <DialogContent>

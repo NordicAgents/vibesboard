@@ -385,7 +385,7 @@ export default function ContactsPage() {
   ]
 
   return (
-    <>
+    <div className="h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Contacts & Lists"
         description="Manage your WhatsApp contacts and organize them into lists"
@@ -646,6 +646,6 @@ export default function ContactsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

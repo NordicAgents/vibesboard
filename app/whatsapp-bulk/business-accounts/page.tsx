@@ -259,7 +259,7 @@ export default function BusinessAccountsPage() {
   ]
 
   return (
-    <>
+    <div className="h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Business Accounts"
         description="Manage your WhatsApp Business accounts for bulk messaging"
@@ -511,6 +511,6 @@ export default function BusinessAccountsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

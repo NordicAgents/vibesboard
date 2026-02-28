@@ -282,7 +282,7 @@ export function SidebarResizableLayout({
         </div>
       </aside>
 
-      <div className="relative flex flex-1 flex-col overflow-auto bg-[#F5F0E8] dark:bg-[#1A1915]">
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
         {/* Top bar area */}
         <div className="pointer-events-none absolute left-0 top-0 z-10 flex w-full items-center justify-end p-2">
           {/* Right Controls (Theme, User, Menu) - Pointer events auto */}
