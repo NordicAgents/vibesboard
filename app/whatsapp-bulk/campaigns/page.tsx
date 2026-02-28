@@ -418,7 +418,7 @@ export default function CampaignsPage() {
   const canCreate = businessAccounts.length > 0 && templates.length > 0 && contactLists.length > 0
 
   return (
-    <>
+    <div className="h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Campaigns"
         description="Create and manage your WhatsApp bulk messaging campaigns"
@@ -660,6 +660,6 @@ export default function CampaignsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

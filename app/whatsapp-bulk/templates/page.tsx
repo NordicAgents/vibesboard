@@ -292,7 +292,7 @@ export default function TemplatesPage() {
   const currentVariables = extractVariables(formData.bodyText)
 
   return (
-    <>
+    <div className="h-full overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Message Templates"
         description="Create and manage WhatsApp message templates for your campaigns"
@@ -487,6 +487,6 @@ export default function TemplatesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

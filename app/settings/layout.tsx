@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Settings, Users, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
 import { auth } from '@/auth'
 import { adminDb } from '@/lib/firebase/admin'
@@ -87,8 +88,8 @@ export default async function SettingsLayout({
     ]
 
     return (
-        <div className="flex min-h-screen bg-[#F5F0E8] dark:bg-[#1A1915]">
-            {/* Sidebar */}
+        <div className="flex h-full overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
+            {/* Desktop Sidebar */}
             <aside className="hidden w-64 shrink-0 border-r border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A] md:flex md:flex-col">
                 {/* Header */}
                 <div className="flex h-16 items-center gap-2.5 border-b border-[#E2DDD4] px-5 dark:border-[#2E2B25]">
@@ -135,14 +136,27 @@ export default async function SettingsLayout({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto p-6 md:p-8">
-                {!canManageActiveTenant && (
-                    <div className="mb-6 rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 text-sm text-[#6B6560] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#9D9790]">
-                        You do not have admin access to the active workspace. Use the workspace switcher to select a workspace you can manage.
+            <div className="flex flex-1 flex-col overflow-hidden">
+                {/* Mobile Header */}
+                <div className="flex h-14 items-center gap-3 border-b border-[#E2DDD4] bg-[#FDFAF5] px-4 dark:border-[#2E2B25] dark:bg-[#221F1A] md:hidden">
+                    <SettingsMobileSidebar navItems={navItems} />
+                    <div className="flex items-center gap-2">
+                        <div className="flex size-6 items-center justify-center rounded bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                            <Settings className="size-3.5 text-accent-orange" />
+                        </div>
+                        <span className="font-serif text-base font-normal text-[#1A1915] dark:text-[#E8E3D8]">Settings</span>
                     </div>
-                )}
-                {children}
-            </main>
+                </div>
+
+                <main className="flex-1 overflow-auto p-6 md:p-8">
+                    {!canManageActiveTenant && (
+                        <div className="mb-6 rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 text-sm text-[#6B6560] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#9D9790]">
+                            You do not have admin access to the active workspace. Use the workspace switcher to select a workspace you can manage.
+                        </div>
+                    )}
+                    {children}
+                </main>
+            </div>
         </div>
     )
 }
