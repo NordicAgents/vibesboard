@@ -71,7 +71,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       >
         <Toaster />
         <Providers attribute="class" defaultTheme="system" enableSystem>
-          <div className="flex min-h-screen flex-col">
+          <div className="flex h-dvh flex-col overflow-hidden">
             <AppHeaderController>
               {/* @ts-ignore */}
               <Header />
