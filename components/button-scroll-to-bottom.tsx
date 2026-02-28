@@ -15,16 +15,16 @@ export function ButtonScrollToBottom({ className, ...props }: ButtonProps) {
       variant="outline"
       size="icon"
       className={cn(
-        'absolute right-4 top-1 z-10 bg-background transition-opacity duration-300 sm:right-8 md:top-2',
-        isAtBottom ? 'opacity-0' : 'opacity-100',
+        'fixed bottom-24 right-6 z-10 size-8 rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-md transition-all duration-300 hover:bg-[#EDE8DE] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:hover:bg-[#2E2B25]',
+        isAtBottom ? 'pointer-events-none opacity-0' : 'opacity-100',
         className
       )}
-      onClick={() =>
-        window.scrollTo({
-          top: document.body.offsetHeight,
-          behavior: 'smooth'
-        })
-      }
+      onClick={() => {
+        const scrollContainer = document.querySelector('[data-chat-scroll]')
+        if (scrollContainer) {
+          scrollContainer.scrollTo({ top: scrollContainer.scrollHeight, behavior: 'smooth' })
+        }
+      }}
       {...props}
     >
       <IconArrowDown />

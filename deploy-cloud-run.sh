@@ -155,7 +155,7 @@ if gcloud scheduler jobs describe "${JOB_NAME}" --location="${SCHEDULER_REGION}"
     --schedule="*/30 * * * *" \
     --uri="${SERVICE_URL}/api/cron/process-whatsapp-queue" \
     --http-method=GET \
-    --headers="Authorization=Bearer ${CRON_TOKEN}" \
+    --update-headers="Authorization=Bearer ${CRON_TOKEN}" \
     --attempt-deadline=120s \
     --quiet
 else

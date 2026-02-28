@@ -98,6 +98,7 @@ export default function AgentsPage() {
   }
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
       <PageHeader
         title="vibesboard"
@@ -148,7 +149,7 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/agents/${agent.id}?configure=true`}
-                className={index < 5 ? `stagger- animate-fade-slide-in${index + 1}` : undefined}
+                className={index < 5 ? `animate-fade-slide-in stagger-${index + 1}` : undefined}
               >
                 <Card className="duration-[250ms] flex h-full flex-col rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-md">
                   <CardHeader>
@@ -206,6 +207,7 @@ export default function AgentsPage() {
           )}
         </>
       )}
+    </div>
     </div>
   )
 }

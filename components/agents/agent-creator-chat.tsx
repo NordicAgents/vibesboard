@@ -294,7 +294,7 @@ export function AgentCreatorChat({
   return (
     <div
       className={cn(
-        'flex min-h-[calc(100vh-4rem)] flex-1 bg-beige-bg dark:bg-background',
+        'flex h-full flex-1 bg-[#F5F0E8] dark:bg-[#1A1915]',
         className
       )}
     >
@@ -304,10 +304,10 @@ export function AgentCreatorChat({
           {messages.length > 0 ? (
             <>
               {/* Simple header when messages exist */}
-              <div className="border-b border-black-10 bg-purewhite-bg p-4 dark:border-border dark:bg-card">
+              <div className="border-b border-[#E2DDD4] bg-[#FDFAF5] p-4 dark:border-[#2E2B25] dark:bg-[#221F1A]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
+                    <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-[#E8E3D8]">
                       Conversation Agent Builder
                     </p>
                     <p className="mt-1 font-switzer text-sm text-gray-secondary">
@@ -368,7 +368,7 @@ export function AgentCreatorChat({
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-white md:text-5xl">
+                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#E8E3D8] md:text-5xl">
                       Build Your Agent
                     </h1>
                     <Button
@@ -396,7 +396,7 @@ export function AgentCreatorChat({
 
                 {/* Input centered below header */}
                 <div className="w-full">
-                  <div className="rounded-3xl border border-black-10 bg-purewhite-bg px-4 py-3 shadow-lg dark:border-border dark:bg-card">
+                  <div className="rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] px-4 py-3 shadow-soft dark:border-[#2E2B25] dark:bg-[#221F1A]">
                     <PromptForm
                       onSubmit={async (value: string) => {
                         await append({
@@ -450,7 +450,7 @@ export function AgentCreatorChat({
 
         {/* Chat Input - Fixed at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="shrink-0 border-t border-black-10 bg-purewhite-bg dark:border-border dark:bg-card">
+          <div className="shrink-0 border-t border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A]">
             <div className="mx-auto max-w-4xl">
               <div className="flex h-10 items-center justify-center">
                 {isLoading ? (
@@ -467,7 +467,7 @@ export function AgentCreatorChat({
               </div>
               <div className="space-y-2 px-4 py-2 md:py-4">
                 {!createdAgentId && isReadyToCreate && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-black-10 bg-beige-bg px-3 py-2 text-xs text-black-primary dark:border-border dark:bg-muted dark:text-foreground">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2DDD4] bg-[#EDE8DE] px-3 py-2 text-xs text-[#1A1915] dark:border-[#2E2B25] dark:bg-[#2E2B25] dark:text-[#E8E3D8]">
                     <p className="font-switzer">
                       Your agent draft is ready. Say "create it" or click Create
                       Agent.
@@ -547,7 +547,7 @@ export function AgentCreatorChat({
           />
         </div>
       ) : (
-        <div className="flex w-12 shrink-0 items-center justify-center border-l border-black-10 transition-all duration-300 ease-in-out dark:border-border">
+        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#E2DDD4] transition-all duration-300 ease-in-out dark:border-[#2E2B25]">
           <Button
             size="sm"
             variant="ghost"
