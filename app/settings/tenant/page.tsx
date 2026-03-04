@@ -20,6 +20,7 @@ interface TenantConfig {
     status: string
     created_at: string
     is_personal?: boolean
+    googlePlaceId?: string | null
     branding?: {
         logo_url?: string
         primary_color?: string
@@ -45,6 +46,10 @@ export default function TenantSettingsPage() {
     const [logoUrl, setLogoUrl] = useState('')
     const [primaryColor, setPrimaryColor] = useState('#000000')
     const [secondaryColor, setSecondaryColor] = useState('#666666')
+
+    // Google Review state
+    const [googlePlaceId, setGooglePlaceId] = useState('')
+    const [isSavingGoogleReview, setIsSavingGoogleReview] = useState(false)
 
     useEffect(() => {
         fetchTenantData()
@@ -79,6 +84,9 @@ export default function TenantSettingsPage() {
                     setLogoUrl(config.tenant.branding.logo_url || '')
                     setPrimaryColor(config.tenant.branding.primary_color || '#000000')
                     setSecondaryColor(config.tenant.branding.secondary_color || '#666666')
+                }
+                if (config.tenant.googlePlaceId) {
+                    setGooglePlaceId(config.tenant.googlePlaceId)
                 }
             }
         } catch (error) {
@@ -135,10 +143,39 @@ export default function TenantSettingsPage() {
         )
     }
 
+    const handleSaveGoogleReview = async () => {
+        if (!tenant) return
+
+        setIsSavingGoogleReview(true)
+        try {
+            const response = await fetch(`/api/tenants/${tenant.id}/google-review`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ googlePlaceId: googlePlaceId || null })
+            })
+
+            if (response.ok) {
+                toast.success('Google Review settings updated')
+                fetchTenantData()
+            } else {
+                const data = await response.json()
+                toast.error(data.error || 'Failed to update Google Review settings')
+            }
+        } catch (error) {
+            console.error('Error saving Google Review:', error)
+            toast.error('Failed to update Google Review settings')
+        } finally {
+            setIsSavingGoogleReview(false)
+        }
+    }
+
     const isPersonal = Boolean(tenant.is_personal)
     const customBrandingEnabled =
         features.find((f) => f.name === 'CUSTOM_BRANDING')?.isEnabled ?? true
     const brandingLocked = isPersonal || !customBrandingEnabled
+    const googleReviewEnabled =
+        features.find((f) => f.name === 'GOOGLE_REVIEW')?.isEnabled ?? false
+    const googleReviewLocked = isPersonal || !googleReviewEnabled
 
     return (
         <div className="space-y-6">
@@ -150,6 +187,9 @@ export default function TenantSettingsPage() {
             <Tabs defaultValue="branding" className="space-y-6">
                 <TabsList>
                     <TabsTrigger value="branding">Branding</TabsTrigger>
+                    {googleReviewEnabled && (
+                        <TabsTrigger value="google-review">Google Review</TabsTrigger>
+                    )}
                     <TabsTrigger value="features">Features</TabsTrigger>
                     <TabsTrigger value="info">Info</TabsTrigger>
                 </TabsList>
@@ -243,6 +283,63 @@ export default function TenantSettingsPage() {
                         </CardContent>
                     </Card>
                 </TabsContent>
+
+                {googleReviewEnabled && (
+                    <TabsContent value="google-review" className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Google Review Integration</CardTitle>
+                                <CardDescription>
+                                    Let customers share their feedback as a Google Review after completing a conversation
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="google-place-id">Google Place ID</Label>
+                                    <Input
+                                        id="google-place-id"
+                                        placeholder="ChIJ..."
+                                        value={googlePlaceId}
+                                        onChange={(e) => setGooglePlaceId(e.target.value)}
+                                        disabled={googleReviewLocked}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Find your Place ID using the{' '}
+                                        <a
+                                            href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-accent-orange underline underline-offset-2 hover:opacity-80"
+                                        >
+                                            Google Place ID Finder
+                                        </a>
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-4 pt-4">
+                                    {isPersonal && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Google Review is not available for personal workspaces.
+                                        </p>
+                                    )}
+                                    <Button
+                                        onClick={handleSaveGoogleReview}
+                                        disabled={isSavingGoogleReview || googleReviewLocked}
+                                    >
+                                        {isSavingGoogleReview ? (
+                                            <>
+                                                <Loader2 className="mr-2 size-4 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Changes'
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                )}
 
                 <TabsContent value="features" className="space-y-6">
                     <Card>

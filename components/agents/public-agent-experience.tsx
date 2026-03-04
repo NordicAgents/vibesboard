@@ -2,22 +2,27 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { type Message } from 'ai/react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { type VibeAgent } from '@/lib/types'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
 import { IconCheck } from '@/components/ui/icons'
+import { GoogleReviewButton } from '@/components/google-review-button'
 
 interface PublicAgentExperienceProps {
   agent: VibeAgent
+  googleReviewPlaceId?: string | null
 }
 
-export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
+export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgentExperienceProps) {
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
+  const [completedMessages, setCompletedMessages] = useState<Message[]>([])
 
-  const handleChatComplete = useCallback(() => {
+  const handleChatComplete = useCallback((messages?: Message[]) => {
+    if (messages) setCompletedMessages(messages)
     setShowThankYou(true)
   }, [])
 
@@ -73,13 +78,18 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
                   : 'We hope you found what you were looking for!'}
               </p>
             </div>
-            <Button
-              onClick={handleClose}
-              size="lg"
-              className="mt-2 rounded-full px-10"
-            >
-              Done
-            </Button>
+            <div className="flex flex-col items-center gap-3 mt-2">
+              {googleReviewPlaceId && agent.mode === 'collector' && completedMessages.length > 0 && (
+                <GoogleReviewButton placeId={googleReviewPlaceId} messages={completedMessages} />
+              )}
+              <Button
+                onClick={handleClose}
+                size="lg"
+                className="rounded-full px-10"
+              >
+                Done
+              </Button>
+            </div>
           </div>
         </motion.div>
       ) : (
@@ -127,6 +137,7 @@ export function PublicAgentExperience({ agent }: PublicAgentExperienceProps) {
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
+            googleReviewPlaceId={googleReviewPlaceId}
           />
         </motion.div>
       )}
