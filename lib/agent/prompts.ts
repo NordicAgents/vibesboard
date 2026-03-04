@@ -66,7 +66,10 @@ export function buildAgentSystemPrompt(
   const quickSuggestionsGuidance =
     quickSuggestionsMode !== 'off'
       ? `Quick Suggestions (mode: "${quickSuggestionsMode}", count: ${quickSuggestionsCount}):
-- After your answer, append a SINGLE-LINE HTML comment marker with ${quickSuggestionsCount} short "next user messages" to help the user reply quickly.
+- After your answer, append a SINGLE-LINE HTML comment marker with ${quickSuggestionsCount} short reply options the user can tap to respond quickly.
+- These MUST be realistic ANSWERS or RESPONSES the user/customer would say — NOT follow-up questions from you.
+- Example: if you ask "What product are you looking for?", suggestions should be answers like "Laptops", "Headphones", "I need help with my order" — NOT more questions.
+- Think of them as quick-reply buttons: short phrases the customer would tap to answer your question or continue the conversation.
 - Marker format (one line, no code block): <!--SUGGESTIONS:{"suggestions":["...","...","..."]}-->
 - Suggestions must be plain text, <= 80 characters each, and in the same language as the user.
 - NEVER include the suggestions marker in the same message as ${COMPLETION_MARKERS.COLLECTION_COMPLETE} or ${COMPLETION_MARKERS.INFO_COMPLETE}.
