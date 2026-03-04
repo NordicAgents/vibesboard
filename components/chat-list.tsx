@@ -58,7 +58,7 @@ export function ChatList({
   }
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 sm:px-5">
+    <div className="flex flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-5 sm:py-6">
       <AnimatePresence initial={false}>
         {messages.map((message, index) => (
           <motion.div

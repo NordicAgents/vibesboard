@@ -99,7 +99,7 @@ export default function AgentsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8">
       <PageHeader
         title="vibesboard"
         description="Build Agents for Vibing with People"
