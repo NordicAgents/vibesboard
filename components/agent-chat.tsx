@@ -25,9 +25,10 @@ interface AgentChatProps {
   conversationId?: string
   initialMessages?: Message[]
   className?: string
-  onChatComplete?: () => void
+  onChatComplete?: (messages?: Message[]) => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
+  googleReviewPlaceId?: string | null
 }
 
 export function AgentChat({
@@ -38,7 +39,8 @@ export function AgentChat({
   className,
   onChatComplete,
   agentAvatarGradient = 'from-violet-400 to-purple-500',
-  agentAvatarInitial = 'A'
+  agentAvatarInitial = 'A',
+  googleReviewPlaceId
 }: AgentChatProps) {
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
@@ -247,8 +249,8 @@ export function AgentChat({
   }, [messages.length, isLoading])
 
   const handleChatComplete = useCallback(() => {
-    onChatComplete?.()
-  }, [onChatComplete])
+    onChatComplete?.(messages)
+  }, [onChatComplete, messages])
 
   return (
     <div
@@ -293,6 +295,7 @@ export function AgentChat({
         agentName={agent.name}
         onChatComplete={handleChatComplete}
         quickSuggestions={quickSuggestions}
+        googleReviewPlaceId={googleReviewPlaceId}
       />
     </div>
   )
