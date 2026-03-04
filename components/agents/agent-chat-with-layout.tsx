@@ -69,16 +69,26 @@ export function AgentChatWithLayout({
   const router = useRouter()
   const searchParams = useSearchParams()
   const agentPageShell = useAgentPageShell()
-  const { isSidebarOpen } = useSidebar()
+  const { isSidebarOpen, setIsSidebarOpen: setMainSidebarOpen } = useSidebar()
   const setSecondarySidebar = useSecondarySidebarSetter()
 
   const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
+  const wasConfiguringRef = React.useRef(false)
 
   // Sync sidebar (Configure vs Ask AI) with the URL
   React.useEffect(() => {
     if (!setAgentSidebarOpen) return
     setAgentSidebarOpen(Boolean(isConfigure) && canEdit)
   }, [isConfigure, setAgentSidebarOpen, canEdit])
+
+  // Collapse main sidebar only on the transition into configure mode
+  React.useEffect(() => {
+    const isConfiguring = Boolean(agentPageShell?.isSidebarOpen)
+    if (isConfiguring && !wasConfiguringRef.current) {
+      setMainSidebarOpen(false)
+    }
+    wasConfiguringRef.current = isConfiguring
+  }, [agentPageShell?.isSidebarOpen, setMainSidebarOpen])
 
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     () => {
