@@ -303,63 +303,60 @@ export function AgentCreatorChat({
         <div className="relative flex min-h-0 flex-1 flex-col">
           {messages.length > 0 ? (
             <>
-              {/* Simple header when messages exist */}
-              <div className="border-b border-[#E2DDD4] bg-[#FDFAF5] p-4 dark:border-[#2E2B25] dark:bg-[#221F1A]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-[#E8E3D8]">
-                      Conversation Agent Builder
-                    </p>
-                    <p className="mt-1 font-switzer text-sm text-gray-secondary">
-                      Build an agent via chat
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      aria-label={
-                        isPreviewOpen ? 'Hide preview' : 'Show preview'
-                      }
-                      title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
-                    >
-                      {isPreviewOpen ? (
-                        <IconX className="size-4" />
-                      ) : (
-                        <IconSidebar className="size-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleNewChat}
-                      aria-label="New chat"
-                      title="New chat"
-                    >
-                      <IconPlus className="size-4" />
-                    </Button>
-                  </div>
+              {/* Compact header */}
+              <div className="flex items-center justify-between px-5 pb-2 pt-4">
+                <p className="font-switzer text-xs font-medium uppercase tracking-[0.08em] text-[#9D9790]">
+                  Agent Builder
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                    aria-label={
+                      isPreviewOpen ? 'Hide preview' : 'Show preview'
+                    }
+                    title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                    className="size-8 p-0"
+                  >
+                    {isPreviewOpen ? (
+                      <IconX className="size-3.5" />
+                    ) : (
+                      <IconSidebar className="size-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleNewChat}
+                    aria-label="New chat"
+                    title="New chat"
+                    className="size-8 p-0"
+                  >
+                    <IconPlus className="size-3.5" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto py-4">
-                <ChatList
-                  messages={messages.map(msg => ({
-                    ...msg,
-                    // Remove agentupdate/agentcreated blocks from display
-                    content: msg.content
-                      .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
-                      .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
-                      .trim()
-                  }))}
-                />
-                {isLoading && (
-                  <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-                    <IconSpinner className="size-4 animate-spin" />
-                    <span>Thinking...</span>
-                  </div>
-                )}
-                <ChatScrollAnchor trackVisibility={isLoading} />
+              <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-3xl">
+                  <ChatList
+                    messages={messages.map(msg => ({
+                      ...msg,
+                      // Remove agentupdate/agentcreated blocks from display
+                      content: msg.content
+                        .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
+                        .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
+                        .trim()
+                    }))}
+                  />
+                  {isLoading && (
+                    <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+                      <IconSpinner className="size-4 animate-spin" />
+                      <span>Thinking...</span>
+                    </div>
+                  )}
+                  <ChatScrollAnchor trackVisibility={isLoading} />
+                </div>
               </div>
             </>
           ) : (
@@ -450,22 +447,22 @@ export function AgentCreatorChat({
 
         {/* Chat Input - Fixed at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="shrink-0 border-t border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A]">
-            <div className="mx-auto max-w-4xl">
-              <div className="flex h-10 items-center justify-center">
-                {isLoading ? (
+          <div className="shrink-0">
+            <div className="mx-auto max-w-3xl">
+              {isLoading && (
+                <div className="flex justify-center pb-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => stop()}
-                    className="rounded-full border-black-primary bg-purewhite-bg font-switzer text-black-primary hover:bg-black-primary hover:text-white dark:border-black-primary dark:bg-purewhite-bg dark:text-black-primary dark:hover:bg-black-primary dark:hover:text-white"
+                    className="rounded-full border-[#E2DDD4] font-switzer text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:border-[#2E2B25] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
                   >
                     <IconStop className="mr-2 size-4" />
                     Stop generating
                   </Button>
-                ) : null}
-              </div>
-              <div className="space-y-2 px-4 py-2 md:py-4">
+                </div>
+              )}
+              <div className="space-y-2 px-4 py-3">
                 {!createdAgentId && isReadyToCreate && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2DDD4] bg-[#EDE8DE] px-3 py-2 text-xs text-[#1A1915] dark:border-[#2E2B25] dark:bg-[#2E2B25] dark:text-[#E8E3D8]">
                     <p className="font-switzer">

@@ -67,24 +67,7 @@ export function TenantSwitcher({
     }
 
     if (tenants.length === 1) {
-        const onlyTenant = tenants[0]
-        return (
-            <div className={cn('flex items-center gap-2.5 rounded-lg px-3 py-2', className)}>
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[#EDE8DE] dark:bg-[#2E2B25]">
-                    <Building2 className="size-3.5 text-accent-orange" />
-                </div>
-                <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
-                        {getTenantName(onlyTenant)}
-                    </span>
-                    {getTenantSlugLabel(onlyTenant) && (
-                        <span className="text-[11px] text-[#9D9790]">
-                            {getTenantSlugLabel(onlyTenant)}
-                        </span>
-                    )}
-                </div>
-            </div>
-        )
+        return null
     }
 
     return (
