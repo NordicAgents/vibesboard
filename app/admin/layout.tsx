@@ -5,7 +5,16 @@ import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { Building2, Flag, FileText, ShieldCheck } from 'lucide-react'
-import { AdminMobileSidebar } from './admin-mobile-sidebar'
+import type { LucideIcon } from 'lucide-react'
+import { AdminMobileSidebar, type NavItem } from './admin-mobile-sidebar'
+
+const iconMap: Record<string, LucideIcon> = { Building2, Flag, FileText }
+
+const navItems: NavItem[] = [
+    { href: '/admin/tenants', iconName: 'Building2', label: 'Tenants' },
+    { href: '/admin/feature-flags', iconName: 'Flag', label: 'Feature Flags' },
+    { href: '/admin/files', iconName: 'FileText', label: 'File Processing' },
+]
 
 export default async function AdminLayout({
     children,
@@ -22,12 +31,6 @@ export default async function AdminLayout({
     if (!isAdmin) {
         redirect('/agents')
     }
-
-    const navItems = [
-        { href: '/admin/tenants', icon: Building2, label: 'Tenants' },
-        { href: '/admin/feature-flags', icon: Flag, label: 'Feature Flags' },
-        { href: '/admin/files', icon: FileText, label: 'File Processing' },
-    ]
 
     return (
         <div className="flex h-full overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
@@ -47,11 +50,14 @@ export default async function AdminLayout({
 
                 <nav className="flex-1 space-y-0.5 p-3">
                     <p className="label-caps mb-2 px-3">Management</p>
-                    {navItems.map((item) => (
-                        <NavLink key={item.href} href={item.href} icon={item.icon}>
-                            {item.label}
-                        </NavLink>
-                    ))}
+                    {navItems.map((item) => {
+                        const Icon = iconMap[item.iconName]
+                        return (
+                            <NavLink key={item.href} href={item.href} icon={Icon}>
+                                {item.label}
+                            </NavLink>
+                        )
+                    })}
                 </nav>
             </aside>
 

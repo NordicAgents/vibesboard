@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { mapAgentDoc } from '@/lib/agents/db'
+import { isFeatureEnabled } from '@/lib/features'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 
 export const runtime = 'nodejs'
@@ -39,12 +40,24 @@ export default async function PublicAgentPage({
 
   const agent = mapAgentDoc(agentSnapshot.docs[0].data())
 
+  // Read Google Review config from tenant doc
+  const tenantDoc = await adminDb
+    .collection(Collections.tenants)
+    .doc(tenantId)
+    .get()
+  const tenantData = tenantDoc.data()
+  const googleReviewEnabled = await isFeatureEnabled(tenantId, 'GOOGLE_REVIEW')
+  const googleReviewPlaceId =
+    googleReviewEnabled && tenantData?.googlePlaceId
+      ? (tenantData.googlePlaceId as string)
+      : null
+
   // fixed inset-0: anchors to viewport, bypassing the parent min-height chain.
   // This ensures the scroll area is constrained and the input always stays visible.
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
       {agent.allowAnonymous ? (
-        <PublicAgentExperience agent={agent} />
+        <PublicAgentExperience agent={agent} googleReviewPlaceId={googleReviewPlaceId} />
       ) : (
         <div className="flex flex-1 items-center justify-center p-6">
           <div className="mx-auto w-full max-w-md rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] p-8 text-center shadow-[0_4px_24px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]">

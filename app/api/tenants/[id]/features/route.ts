@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { toggleFeature, getTenantFeatures } from '@/lib/features'
+import { isSuperAdmin } from '@/lib/permissions'
 
 export const runtime = 'nodejs'
 
@@ -34,12 +35,19 @@ export async function GET(req: Request, { params }: RouteParams) {
 export async function PUT(req: Request, { params }: RouteParams) {
     const { id: tenantId } = await params
 
-    const auth = await requireTenantAdmin(tenantId)
-    if (!auth.ok) return auth.response
+    // Super admins can toggle features for any tenant, even if not a member
+    const authResult = await requireAuth()
+    if (!authResult.ok) {
+        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
 
-    const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
+    const isSuperAdminUser = await isSuperAdmin(authResult.user.id)
+
     if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
+        return NextResponse.json(
+            { error: 'Super admin access required', userId: authResult.user.id },
+            { status: 403 }
+        )
     }
 
     // Fetch tenant and block feature changes for personal workspaces
