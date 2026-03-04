@@ -29,7 +29,7 @@ export const upsertAgentSchema = z.object({
   mode: agentModeSchema.default('provider'),
   maxMessages: z.number().int().min(1).max(50).nullable().optional(),
   quickSuggestionsMode: z.enum(['off', 'smart', 'always']).default('smart'),
-  quickSuggestionsCount: z.number().int().min(1).max(10).default(4)
+  quickSuggestionsCount: z.number().int().min(1).max(5).default(4)
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()

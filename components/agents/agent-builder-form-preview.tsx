@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -28,7 +35,7 @@ export interface AgentFormData {
   mode?: AgentMode
   maxMessages?: number | null
   quickSuggestionsMode?: 'off' | 'smart' | 'always'
-  quickSuggestionsCount?: 3 | 4
+  quickSuggestionsCount?: number
 }
 
 interface AgentBuilderFormPreviewProps {
@@ -369,11 +376,11 @@ export function AgentBuilderFormPreview({
                   onFormChange({
                     ...formData,
                     quickSuggestionsMode: 'smart',
-                    quickSuggestionsCount: quickSuggestionsCount === 3 ? 3 : 4
+                    quickSuggestionsCount
                   })
                 }
               >
-                Smart (Wisely)
+                Smart  
               </Badge>
               <Badge
                 variant={
@@ -388,7 +395,7 @@ export function AgentBuilderFormPreview({
                   onFormChange({
                     ...formData,
                     quickSuggestionsMode: 'always',
-                    quickSuggestionsCount: quickSuggestionsCount === 3 ? 3 : 4
+                    quickSuggestionsCount
                   })
                 }
               >
@@ -401,44 +408,26 @@ export function AgentBuilderFormPreview({
                 <label className="text-xs font-medium text-muted-foreground">
                   Suggestions count
                 </label>
-                <div className="flex gap-2">
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 3 ? 'default' : 'secondary'
-                    }
-                    className={cn(
-                      'cursor-pointer px-4 py-1 transition-all',
-                      quickSuggestionsCount === 3 &&
-                        'bg-primary text-primary-foreground'
-                    )}
-                    onClick={() =>
-                      onFormChange({
-                        ...formData,
-                        quickSuggestionsCount: 3
-                      })
-                    }
-                  >
-                    3
-                  </Badge>
-                  <Badge
-                    variant={
-                      quickSuggestionsCount === 4 ? 'default' : 'secondary'
-                    }
-                    className={cn(
-                      'cursor-pointer px-4 py-1 transition-all',
-                      quickSuggestionsCount === 4 &&
-                        'bg-primary text-primary-foreground'
-                    )}
-                    onClick={() =>
-                      onFormChange({
-                        ...formData,
-                        quickSuggestionsCount: 4
-                      })
-                    }
-                  >
-                    4
-                  </Badge>
-                </div>
+                <Select
+                  value={String(quickSuggestionsCount)}
+                  onValueChange={v =>
+                    onFormChange({
+                      ...formData,
+                      quickSuggestionsCount: Number(v)
+                    })
+                  }
+                >
+                  <SelectTrigger className="h-8 w-16">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -446,8 +435,8 @@ export function AgentBuilderFormPreview({
               {quickSuggestionsMode === 'off'
                 ? 'No suggestions will be shown.'
                 : quickSuggestionsMode === 'always'
-                  ? 'Suggestions appear after every agent reply.'
-                  : 'Suggestions appear when helpful (start + questions).'}
+                  ? `Show ${quickSuggestionsCount} suggestion chips after every reply.`
+                  : `Show ${quickSuggestionsCount} suggestion chips when helpful.`}
             </p>
           </CardContent>
         </Card>
