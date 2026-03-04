@@ -20,7 +20,7 @@ import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
 import { useSidebar } from '@/components/sidebar-context'
 import { AgentRightbar } from '@/components/agents/agent-rightbar'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
-import { ConversationModal } from '@/components/agents/conversation-modal'
+import { ConversationView } from '@/components/agents/conversation-modal'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconEdit, IconMessage } from '@/components/ui/icons'
 
@@ -101,7 +101,6 @@ export function AgentChatWithLayout({
   )
   const [selectedConversation, setSelectedConversation] =
     React.useState<VibeAgentConversation | null>(null)
-  const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [visitorPage, setVisitorPage] = React.useState(1)
   const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
 
@@ -141,7 +140,6 @@ export function AgentChatWithLayout({
   const handleOpenConversation = React.useCallback(
     (conversation: VibeAgentConversation) => {
       setSelectedConversation(conversation)
-      setIsModalOpen(true)
     },
     []
   )
@@ -210,6 +208,7 @@ export function AgentChatWithLayout({
             className="justify-start gap-2 px-2"
             data-mobile-menu-close="true"
             onClick={() => {
+              setSelectedConversation(null)
               if (!canEdit) {
                 router.push(`/agents/${agent.id}/conversations/new`)
                 return
@@ -233,6 +232,7 @@ export function AgentChatWithLayout({
               className="justify-start gap-2 px-2"
               data-mobile-menu-close="true"
               onClick={() => {
+                setSelectedConversation(null)
                 setAgentSidebarOpen?.(true)
                 const params = new URLSearchParams(searchParams.toString())
                 params.set('configure', 'true')
@@ -381,57 +381,57 @@ export function AgentChatWithLayout({
   }, [setSecondarySidebar, sidebar])
 
   return (
-    <>
-      <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
-        {agentPageShell?.isSidebarOpen && canEdit ? (
-          <div className="h-full overflow-y-auto bg-[#F5F0E8] p-4 dark:bg-[#1A1915]">
-            <AgentRightbar
-              agent={agent}
-              share={share}
-              conversations={visitorSessions}
-              className="mx-auto w-full max-w-5xl"
-              onClose={() => agentPageShell.setIsSidebarOpen(false)}
-              canEdit={canEdit}
-            />
-          </div>
-        ) : canEdit ? (
-          <AgentAskChat
-            agent={agent}
-            ownerId={ownerId}
-            ownerSessions={ownerSessions}
+    <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
+      {selectedConversation ? (
+        <div className="h-full bg-[#F5F0E8] dark:bg-[#1A1915]">
+          <ConversationView
+            conversation={selectedConversation}
+            onClose={() => setSelectedConversation(null)}
           />
-        ) : (
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-            <div className="rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-6 dark:border-[#2E2B25] dark:bg-[#221F1A]">
-              <h1 className="font-serif text-xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">Read-only access</h1>
-              <p className="mt-2 text-sm text-[#6B6560] dark:text-[#9D9790]">
-                Analytics and configuration are available to the agent owner and
-                tenant admins.
-              </p>
-              <div className="mt-4 flex gap-2">
-                <Button
-                  onClick={() => {
-                    if (activeSessionId) {
-                      router.push(
-                        `/agents/${agent.id}/conversations/${activeSessionId}`
-                      )
-                      return
-                    }
-                    router.push(`/agents/${agent.id}/conversations/new`)
-                  }}
-                >
-                  Open chat
-                </Button>
-              </div>
+        </div>
+      ) : agentPageShell?.isSidebarOpen && canEdit ? (
+        <div className="h-full overflow-y-auto bg-[#F5F0E8] p-4 dark:bg-[#1A1915]">
+          <AgentRightbar
+            agent={agent}
+            share={share}
+            conversations={visitorSessions}
+            className="mx-auto w-full max-w-5xl"
+            onClose={() => agentPageShell.setIsSidebarOpen(false)}
+            canEdit={canEdit}
+          />
+        </div>
+      ) : canEdit ? (
+        <AgentAskChat
+          agent={agent}
+          ownerId={ownerId}
+          ownerSessions={ownerSessions}
+        />
+      ) : (
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+          <div className="rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-6 dark:border-[#2E2B25] dark:bg-[#221F1A]">
+            <h1 className="font-serif text-xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">Read-only access</h1>
+            <p className="mt-2 text-sm text-[#6B6560] dark:text-[#9D9790]">
+              Analytics and configuration are available to the agent owner and
+              tenant admins.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <Button
+                onClick={() => {
+                  if (activeSessionId) {
+                    router.push(
+                      `/agents/${agent.id}/conversations/${activeSessionId}`
+                    )
+                    return
+                  }
+                  router.push(`/agents/${agent.id}/conversations/new`)
+                }}
+              >
+                Open chat
+              </Button>
             </div>
           </div>
-        )}
-      </DashboardLayout>
-      <ConversationModal
-        conversation={selectedConversation}
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-      />
-    </>
+        </div>
+      )}
+    </DashboardLayout>
   )
 }
