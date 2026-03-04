@@ -19,6 +19,7 @@ export interface ChatPanelProps extends Pick<
   agentName?: string
   onChatComplete?: () => void
   quickSuggestions?: string[]
+  googleReviewPlaceId?: string | null
 }
 
 export function ChatPanel({
@@ -34,7 +35,8 @@ export function ChatPanel({
   agentMode = 'provider',
   agentName,
   onChatComplete,
-  quickSuggestions = []
+  quickSuggestions = [],
+  googleReviewPlaceId
 }: ChatPanelProps) {
   const canRegenerate = React.useMemo(() => {
     if (isLoading || isChatComplete) return false
@@ -66,6 +68,8 @@ export function ChatPanel({
               <ChatCompletionBanner
                 mode={agentMode}
                 onComplete={onChatComplete ?? (() => {})}
+                googleReviewPlaceId={googleReviewPlaceId}
+                messages={messages}
               />
             </motion.div>
           ) : (

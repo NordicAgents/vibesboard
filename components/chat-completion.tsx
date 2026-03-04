@@ -1,10 +1,12 @@
 'use client'
 
+import { type Message } from 'ai/react'
 import { motion } from 'framer-motion'
 
 import { type AgentMode } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { IconCheck, IconClose } from '@/components/ui/icons'
+import { GoogleReviewButton } from '@/components/google-review-button'
 
 interface ChatCompletionProps {
   mode: AgentMode
@@ -70,6 +72,8 @@ export function ChatCompletion({
 interface ChatCompletionBannerProps {
   mode: AgentMode
   onComplete: () => void
+  googleReviewPlaceId?: string | null
+  messages?: Message[]
 }
 
 /**
@@ -77,7 +81,9 @@ interface ChatCompletionBannerProps {
  */
 export function ChatCompletionBanner({
   mode,
-  onComplete
+  onComplete,
+  googleReviewPlaceId,
+  messages = []
 }: ChatCompletionBannerProps) {
   if (mode === 'collector') {
     return (
@@ -94,9 +100,14 @@ export function ChatCompletionBanner({
             Thanks for vibing! We&apos;ve collected your response.
           </span>
         </div>
-        <Button onClick={onComplete} size="sm" className="rounded-full">
-          Submit
-        </Button>
+        <div className="flex items-center gap-2">
+          {googleReviewPlaceId && messages.length > 0 && (
+            <GoogleReviewButton placeId={googleReviewPlaceId} messages={messages} />
+          )}
+          <Button onClick={onComplete} size="sm" className="rounded-full">
+            Submit
+          </Button>
+        </div>
       </motion.div>
     )
   }

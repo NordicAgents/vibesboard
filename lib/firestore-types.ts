@@ -59,6 +59,7 @@ export interface TenantDocument {
   status: TenantStatus
   createdBy: string
   isPersonal: boolean
+  googlePlaceId?: string | null
   createdAt: string
   updatedAt: string
 }
