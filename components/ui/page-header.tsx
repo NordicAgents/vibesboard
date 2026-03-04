@@ -25,9 +25,9 @@ export function PageHeader({
                     {breadcrumbs}
                 </div>
             )}
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="space-y-1">
-                    <h1 className="font-serif text-3xl font-normal leading-tight text-[#1A1915]">
+                    <h1 className="font-serif text-2xl font-normal leading-tight text-[#1A1915] sm:text-3xl">
                         {title}
                     </h1>
                     {description && (

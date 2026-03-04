@@ -141,7 +141,7 @@ export function DataTable<T extends Record<string, any>>({
 
             <div className="rounded-md border">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full min-w-[500px]">
                         <thead>
                             <tr className="border-b bg-muted/50">
                                 {columns.map((column) => (
@@ -211,7 +211,7 @@ export function DataTable<T extends Record<string, any>>({
             </div>
 
             {pagination && totalPages > 1 && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
                     <div className="text-sm text-muted-foreground">
                         Showing {(currentPage - 1) * pageSize + 1} to{' '}
                         {Math.min(currentPage * pageSize, sortedData.length)} of{' '}
