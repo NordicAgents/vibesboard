@@ -79,13 +79,21 @@ export default async function SettingsLayout({
             title: 'Tenant Settings',
             href: '/settings/tenant',
             icon: Building2,
+            iconName: 'Building2' as const,
         },
         ...(!isActivePersonal && teamCollaborationEnabled ? [{
             title: 'Team Management',
             href: '/settings/tenant/team',
             icon: Users,
+            iconName: 'Users' as const,
         }] : []),
     ]
+
+    const mobileNavItems = navItems.map(({ title, href, iconName }) => ({
+        title,
+        href,
+        icon: iconName,
+    }))
 
     return (
         <div className="flex h-full overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
@@ -139,7 +147,7 @@ export default async function SettingsLayout({
             <div className="flex flex-1 flex-col overflow-hidden">
                 {/* Mobile Header */}
                 <div className="flex h-14 items-center gap-3 border-b border-[#E2DDD4] bg-[#FDFAF5] px-4 dark:border-[#2E2B25] dark:bg-[#221F1A] md:hidden">
-                    <SettingsMobileSidebar navItems={navItems} />
+                    <SettingsMobileSidebar navItems={mobileNavItems} />
                     <div className="flex items-center gap-2">
                         <div className="flex size-6 items-center justify-center rounded bg-[#EDE8DE] dark:bg-[#2E2B25]">
                             <Settings className="size-3.5 text-accent-orange" />

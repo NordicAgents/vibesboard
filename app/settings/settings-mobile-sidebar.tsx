@@ -2,14 +2,18 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, Settings } from 'lucide-react'
+import { Menu, Settings, Building2, Users } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import type { LucideIcon } from 'lucide-react'
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    Building2,
+    Users,
+}
 
 interface NavItem {
     href: string
-    icon: LucideIcon
+    icon: string
     title: string
 }
 
@@ -42,17 +46,20 @@ export function SettingsMobileSidebar({ navItems }: { navItems: NavItem[] }) {
                 </div>
                 <nav className="flex-1 space-y-0.5 p-3">
                     <p className="label-caps mb-2 px-3">Navigation</p>
-                    {navItems.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={() => setOpen(false)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[#6B6560] transition-all duration-150 hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
-                        >
-                            <item.icon className="size-4 shrink-0 text-[#9D9790]" />
-                            {item.title}
-                        </Link>
-                    ))}
+                    {navItems.map((item) => {
+                        const Icon = iconMap[item.icon]
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setOpen(false)}
+                                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[#6B6560] transition-all duration-150 hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+                            >
+                                {Icon && <Icon className="size-4 shrink-0 text-[#9D9790]" />}
+                                {item.title}
+                            </Link>
+                        )
+                    })}
                 </nav>
             </SheetContent>
         </Sheet>
