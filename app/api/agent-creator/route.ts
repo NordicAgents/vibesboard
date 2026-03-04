@@ -101,7 +101,7 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - allowAnonymous (default: true, ask only if relevant)
 - tools (suggest relevant tools based on needs, use tool IDs from the list above)
 - quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
-- quickSuggestionsCount (default: 4; options: 1–10)
+- quickSuggestionsCount (default: 4; options: 1–5)
 - mode (default: "provider"; options: "provider" | "collector")
 - maxMessages (collector only; default: 20)
 
@@ -126,7 +126,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 **Functions to call:**
 
 1. **create_agent** - ONLY when user explicitly says "create it" or similar
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 3 | 4 }
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5 }
 
 **Interaction style:**
 - Be conversational and encouraging
@@ -213,7 +213,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     mode: z.enum(['provider', 'collector']).optional(),
     maxMessages: z.number().int().min(1).max(50).nullable().optional(),
     quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
-    quickSuggestionsCount: z.number().int().min(1).max(10).optional(),
+    quickSuggestionsCount: z.number().int().min(1).max(5).optional(),
     tools: z.array(z.string()).optional(),
     fileKeys: z.array(z.string()).optional()
   })
