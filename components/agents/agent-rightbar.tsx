@@ -346,7 +346,7 @@ export function AgentRightbar({
                   setQuickSuggestionsMode('smart')
                 }}
               >
-                Smart (Wisely)
+                Smart  
               </Badge>
               <Badge
                 variant={
@@ -382,12 +382,12 @@ export function AgentRightbar({
                   <Input
                     type="number"
                     min={1}
-                    max={10}
+                    max={5}
                     disabled={!canEdit}
                     value={quickSuggestionsCount}
                     onChange={e =>
                       setQuickSuggestionsCount(
-                        Math.max(1, Math.min(10, parseInt(e.target.value) || 4))
+                        Math.max(1, Math.min(5, parseInt(e.target.value) || 4))
                       )
                     }
                     className="h-9 w-20 text-center"

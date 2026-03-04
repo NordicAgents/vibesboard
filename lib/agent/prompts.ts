@@ -61,8 +61,7 @@ export function buildAgentSystemPrompt(
     : ''
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
-  const quickSuggestionsCountRaw = agent.quickSuggestionsCount ?? 4
-  const quickSuggestionsCount = quickSuggestionsCountRaw === 3 ? 3 : 4
+  const quickSuggestionsCount = Math.max(1, Math.min(5, agent.quickSuggestionsCount ?? 4))
   const quickSuggestionsGuidance =
     quickSuggestionsMode !== 'off'
       ? `Quick Suggestions (mode: "${quickSuggestionsMode}", count: ${quickSuggestionsCount}):
