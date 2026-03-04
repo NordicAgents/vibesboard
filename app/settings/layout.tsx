@@ -148,7 +148,7 @@ export default async function SettingsLayout({
                     </div>
                 </div>
 
-                <main className="flex-1 overflow-auto p-6 md:p-8">
+                <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
                     {!canManageActiveTenant && (
                         <div className="mb-6 rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 text-sm text-[#6B6560] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#9D9790]">
                             You do not have admin access to the active workspace. Use the workspace switcher to select a workspace you can manage.

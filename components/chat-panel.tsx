@@ -53,7 +53,7 @@ export function ChatPanel({
       />
 
       {/* Centered content column — matches message column width */}
-      <div className="mx-auto w-full max-w-[760px] px-4 pb-5 pt-2 sm:px-6">
+      <div className="mx-auto w-full max-w-full px-3 pb-5 pt-2 sm:max-w-[760px] sm:px-6">
         <AnimatePresence mode="wait">
           {isChatComplete && !isLoading ? (
             <motion.div

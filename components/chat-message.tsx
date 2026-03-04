@@ -147,7 +147,7 @@ export function ChatMessage({
   if (isUser) {
     return (
       <div className="flex justify-end" {...props}>
-        <div className="max-w-[82%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8] sm:max-w-[72%]">
+        <div className="max-w-[88%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8] sm:max-w-[72%]">
           <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
       </div>
