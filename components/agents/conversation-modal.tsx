@@ -3,57 +3,59 @@
 import * as React from 'react'
 import { type VibeAgentConversation } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@/components/ui/dialog'
 import { ChatList } from '@/components/chat-list'
-import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
+import { IconArrowLeft } from '@/components/ui/icons'
 
-interface ConversationModalProps {
-  conversation: VibeAgentConversation | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
+interface ConversationViewProps {
+  conversation: VibeAgentConversation
+  onClose: () => void
 }
 
-export function ConversationModal({
+export function ConversationView({
   conversation,
-  open,
-  onOpenChange
-}: ConversationModalProps) {
-  if (!conversation) {
-    return null
-  }
-
+  onClose
+}: ConversationViewProps) {
   const summary = conversation.summary || 'Untitled conversation'
   const messages = conversation.messages || []
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden">
-        <DialogHeader className="mb-4 border-b border-black-10 pb-4 dark:border-border">
-          <DialogTitle className="font-switzer text-lg font-bold text-black-primary dark:text-foreground">
-            {summary}
-          </DialogTitle>
-          <DialogDescription className="mt-1 font-switzer text-sm text-gray-secondary">
-            Updated {formatDate(conversation.updatedAt)}
-          </DialogDescription>
-        </DialogHeader>
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="sticky top-0 z-10 border-b border-[#E2DDD4] bg-[#F5F0E8]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#F5F0E8]/75 dark:border-[#2E2B25] dark:bg-[#1A1915]/95">
+        <div className="mx-auto flex max-w-5xl items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="size-8 shrink-0 rounded-full p-0"
+            onClick={onClose}
+          >
+            <IconArrowLeft className="size-4" />
+            <span className="sr-only">Back</span>
+          </Button>
+          <div className="min-w-0">
+            <h2 className="truncate font-switzer text-base font-semibold text-[#1A1915] dark:text-[#E8E3D8]">
+              {summary}
+            </h2>
+            <p className="font-switzer text-xs text-[#9D9790]">
+              Updated {formatDate(conversation.updatedAt)}
+            </p>
+          </div>
+        </div>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Messages */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-5xl">
           {messages.length > 0 ? (
             <ChatList messages={messages} />
           ) : (
-            <div className="py-8 text-center font-switzer text-sm text-gray-secondary">
+            <div className="py-8 text-center font-switzer text-sm text-[#9D9790]">
               No messages in this conversation yet.
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }
-

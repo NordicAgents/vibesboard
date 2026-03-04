@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import * as SheetPrimitive from '@radix-ui/react-dialog'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
 import { cn } from '@/lib/utils'
 import { IconClose } from '@/components/ui/icons'
@@ -57,6 +58,7 @@ const SheetContent = React.forwardRef<
     <SheetPortal>
       <SheetPrimitive.Content
         ref={ref}
+        aria-describedby={undefined}
         className={cn(
           'fixed top-0 z-50 h-full bg-[#FDFAF5] p-6 opacity-100 shadow-[0_8px_32px_rgba(26,25,21,0.12)] dark:bg-[#221F1A]',
           sideClasses,
@@ -64,6 +66,9 @@ const SheetContent = React.forwardRef<
         )}
         {...props}
       >
+        <VisuallyHidden>
+          <SheetPrimitive.Title>Navigation</SheetPrimitive.Title>
+        </VisuallyHidden>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
           <IconClose />
