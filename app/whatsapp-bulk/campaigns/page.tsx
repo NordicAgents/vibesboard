@@ -325,7 +325,7 @@ export default function CampaignsPage() {
         const percentage = total > 0 ? Math.round((sent / total) * 100) : 0
         return (
           <div className="flex flex-col gap-1">
-            <Progress value={percentage} className="w-[100px]" />
+            <Progress value={percentage} className="w-full min-w-[60px] max-w-[100px]" />
             <span className="text-xs text-muted-foreground">
               {sent} / {total} ({percentage}%)
             </span>

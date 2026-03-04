@@ -37,7 +37,7 @@ export function DashboardLayout({
 
       {/* Right Panel */}
       {rightPanel && !hideRightPanel && (
-        <aside className="hidden w-80 shrink-0 border-l border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A] xl:block">
+        <aside className="hidden w-72 shrink-0 border-l border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A] lg:block xl:w-80">
           <div className="h-full overflow-y-auto p-4">{rightPanel}</div>
         </aside>
       )}
