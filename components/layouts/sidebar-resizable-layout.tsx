@@ -277,15 +277,33 @@ export function SidebarResizableLayout({
                 </Button>
               </div>
             )}
-            <div onClick={handlePrimarySidebarNavigate}>{sidebar}</div>
+            <div className="flex-1 overflow-y-auto" onClick={handlePrimarySidebarNavigate}>{sidebar}</div>
+          </div>
+
+          {/* Bottom controls */}
+          <div
+            className={cn(
+              'shrink-0 border-t border-[#E2DDD4] p-2 dark:border-[#2E2B25]',
+              isSidebarOpen
+                ? 'flex items-center justify-between'
+                : 'flex flex-col items-center gap-1'
+            )}
+          >
+            {user && (
+              <UserMenu
+                user={user}
+                isSuperAdmin={isSuperAdmin}
+                canManageTenant={canManageTenant}
+              />
+            )}
+            <ThemeToggle />
           </div>
         </div>
       </aside>
 
       <div className="relative flex flex-1 flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
-        {/* Top bar area */}
-        <div className="pointer-events-none absolute left-0 top-0 z-10 flex w-full items-center justify-end p-2">
-          {/* Right Controls (Theme, User, Menu) - Pointer events auto */}
+        {/* Mobile top bar */}
+        <div className="pointer-events-none absolute left-0 top-0 z-10 flex w-full items-center justify-end p-2 lg:hidden">
           <div className="pointer-events-auto flex items-center gap-2">
             <ThemeToggle />
             {user && (
@@ -295,9 +313,7 @@ export function SidebarResizableLayout({
                 canManageTenant={canManageTenant}
               />
             )}
-
-            {/* Mobile Menu Trigger - Visible only on mobile */}
-            <div className="lg:hidden">
+            <div>
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button
