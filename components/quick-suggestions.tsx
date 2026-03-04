@@ -23,10 +23,9 @@ export function QuickSuggestions({
   return (
     <div
       className={cn(
-        'scrollbar-none flex gap-2 overflow-x-auto pb-0.5',
+        'flex flex-wrap justify-center gap-2',
         className
       )}
-      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       aria-label="Quick suggestions"
     >
       {suggestions.map((suggestion, idx) => (
@@ -40,7 +39,7 @@ export function QuickSuggestions({
           transition={{ delay: idx * 0.05, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           whileTap={{ scale: 0.96 }}
           className={cn(
-            'shrink-0 rounded-full border border-[#E2DDD4] bg-[#FDFAF5] px-3.5 py-1.5 text-xs font-medium text-[#6B6560]',
+            'rounded-full border border-[#E2DDD4] bg-[#FDFAF5] px-3.5 py-1.5 text-xs font-medium text-[#6B6560]',
             'shadow-[0_1px_3px_rgba(26,25,21,0.06)] transition-all duration-150',
             'hover:border-[#D97757]/30 hover:bg-[#EDE8DE] hover:text-[#1A1915]',
             'active:scale-[0.97]',
