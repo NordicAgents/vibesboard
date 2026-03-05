@@ -5,7 +5,6 @@ import { type Message } from 'ai'
 import { buildAgentSystemPrompt } from './prompts'
 import { type VibeAgent } from '@/lib/types'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
-import { runAgentGraph } from './graph'
 import { OPENAI_CHAT_MODEL, completeText, isResponsesModel, streamText } from '@/lib/openai'
 import { retrieveContext, formatRAGPrompt } from './rag-retriever'
 
@@ -45,7 +44,7 @@ async function getRAGContext(
 
   try {
     // Retrieve relevant chunks
-    const ragContext = await retrieveContext(agent.id, query, {
+    const ragContext = await retrieveContext(agent.tenantId!, agent.id, query, {
       topK: agent.ragChunkCount ?? 5,
       minSimilarity: agent.ragSimilarityThreshold ?? 0.7,
       enableFallback: true,
@@ -111,41 +110,17 @@ export async function runAgentStream({
   const isResponses = isResponsesModel(model)
 
   if (toolkit.functions.length) {
-    if (isResponses) {
-      const stream = await runResponsesAgentWithTools({
-        agent,
-        messages,
-        context: enhancedContext,
-        toolkit,
-        model,
-        previewToken,
-        onCompletion,
-        toolContext
-      })
-      return stream
-    }
-
-    const finalMessages = await runAgentGraph({
-      openai,
+    const stream = await runResponsesAgentWithTools({
       agent,
-      context: enhancedContext,
       messages,
-      functions: toolkit.functions,
-      executors: toolkit.executors,
-      temperature
+      context: enhancedContext,
+      toolkit,
+      model,
+      previewToken,
+      onCompletion,
+      toolContext
     })
-
-    const completionMessage = [...finalMessages]
-      .reverse()
-      .find(message => message.role === 'assistant')
-
-    const completion = completionMessage?.content ?? ''
-
-    if (onCompletion) {
-      await onCompletion(completion)
-    }
-
-    return stringToStream(completion)
+    return stream
   }
 
   const systemPrompt = buildAgentSystemPrompt(agent, enhancedContext)
@@ -200,16 +175,6 @@ export async function runAgentStream({
       if (onCompletion) {
         await onCompletion(completion)
       }
-    }
-  })
-}
-
-const stringToStream = (value: string) => {
-  const encoder = new TextEncoder()
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encoder.encode(value))
-      controller.close()
     }
   })
 }

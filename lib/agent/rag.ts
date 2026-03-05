@@ -12,38 +12,31 @@ export async function fetchAgentFileContext({
     return null
   }
 
-  const chunks: string[] = []
+  const chunks = await Promise.all(
+    fileKeys.slice(0, MAX_FILE_COUNT).map(async (key): Promise<string | null> => {
+      try {
+        const signedUrl = await getSignedDownloadUrl(key, 5 * 60 * 1000)
+        const res = await fetch(signedUrl)
+        if (!res.ok) return null
+        const ctype = (res.headers.get('content-type') || '').toLowerCase()
+        const isText =
+          ctype.startsWith('text/') ||
+          ctype.includes('json') ||
+          ctype.includes('markdown') ||
+          ctype.includes('csv') ||
+          ctype.includes('xml')
 
-  for (const key of fileKeys.slice(0, MAX_FILE_COUNT)) {
-    try {
-      const signedUrl = await getSignedDownloadUrl(key, 5 * 60 * 1000)
-
-      const res = await fetch(signedUrl)
-      if (!res.ok) continue
-      const ctype = (res.headers.get('content-type') || '').toLowerCase()
-      const isText =
-        ctype.startsWith('text/') ||
-        ctype.includes('json') ||
-        ctype.includes('markdown') ||
-        ctype.includes('csv') ||
-        ctype.includes('xml')
-
-      if (!isText) {
-        chunks.push(
-          `File: ${key}\n[Non-text file (${ctype || 'unknown content-type'}) omitted]`
-        )
-      } else {
+        if (!isText) {
+          return `File: ${key}\n[Non-text file (${ctype || 'unknown content-type'}) omitted]`
+        }
         const text = await res.text()
-        chunks.push(`File: ${key}\n${text}`)
+        return `File: ${key}\n${text}`
+      } catch {
+        return null
       }
-      if (chunks.join('\n\n').length > MAX_CHAR_COUNT) {
-        break
-      }
-    } catch {
-      continue
-    }
-  }
+    })
+  )
 
-  const combined = chunks.join('\n\n').slice(0, MAX_CHAR_COUNT)
+  const combined = chunks.filter(Boolean).join('\n\n').slice(0, MAX_CHAR_COUNT)
   return combined.length ? combined : null
 }
