@@ -216,6 +216,7 @@ const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
       }
 
       const { matches, error } = await searchAgentFileChunks({
+        tenantId: agent.tenantId!,
         agentId: agent.id,
         query,
         limit
