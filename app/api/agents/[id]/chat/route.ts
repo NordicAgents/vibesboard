@@ -42,20 +42,23 @@ export async function POST(
     id: message.id ?? nanoid()
   })) as Message[]
 
-  const conversation = await ensureConversation({
-    tenantId: agent.tenantId!,
-    agentId: agent.id,
-    conversationId: payload.conversationId,
-    userId: user.id,
-    initialMessages: normalizedMessages
-  })
+  const needsFileContext = agent.ragEnabled === false
+
+  const [conversation, context] = await Promise.all([
+    ensureConversation({
+      tenantId: agent.tenantId!,
+      agentId: agent.id,
+      conversationId: payload.conversationId,
+      userId: user.id,
+      initialMessages: normalizedMessages
+    }),
+    needsFileContext
+      ? fetchAgentFileContext({ fileKeys: agent.fileKeys })
+      : Promise.resolve(null)
+  ])
 
   // Count user messages for max messages check
   const userMessageCount = normalizedMessages.filter(m => m.role === 'user').length
-
-  const context = await fetchAgentFileContext({
-    fileKeys: agent.fileKeys
-  })
 
   const stream = await runAgentStream({
     agent,
