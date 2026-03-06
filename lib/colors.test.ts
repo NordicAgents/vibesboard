@@ -1,7 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { hexToHslParts, normalizeHex, toCssHslVar } from './colors.ts'
+import {
+  hexToHslParts,
+  hexToRgbParts,
+  normalizeHex,
+  toCssHslVar
+} from './colors.ts'
 
 test('normalizeHex', () => {
   assert.equal(normalizeHex('#abc'), '#aabbcc')
@@ -16,6 +21,10 @@ test('hexToHslParts', () => {
   assert.deepEqual(hexToHslParts('#000000'), { h: 0, s: 0, l: 0 })
   assert.deepEqual(hexToHslParts('#ffffff'), { h: 0, s: 0, l: 100 })
   assert.deepEqual(hexToHslParts('#ff0000'), { h: 0, s: 100, l: 50 })
+})
+
+test('hexToRgbParts', () => {
+  assert.deepEqual(hexToRgbParts('#0f10f0'), { r: 15, g: 16, b: 240 })
 })
 
 test('toCssHslVar', () => {

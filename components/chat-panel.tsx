@@ -47,10 +47,10 @@ export function ChatPanel({
 
   return (
     /* Full-width background, content centered in same column as messages */
-    <div className="relative shrink-0 bg-[#FFFFFF] dark:bg-[#1A1A1A]">
+    <div className="relative shrink-0 bg-[#f7f7f5] dark:bg-[#222f30]">
       {/* Gradient fade — full width, bleeds upward into the scroll area */}
       <div
-        className="pointer-events-none absolute inset-x-0 -top-12 h-12 bg-gradient-to-b from-transparent to-[#FFFFFF] dark:to-[#1A1A1A]"
+        className="pointer-events-none absolute inset-x-0 -top-12 h-12 bg-gradient-to-b from-transparent to-[#f7f7f5] dark:to-[#222f30]"
         aria-hidden="true"
       />
 

@@ -22,13 +22,13 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
       title={agent.name}
       className={cn(
         'group relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors duration-150',
-        'text-[#1A1A1A] hover:bg-[#EFEFED] dark:text-[#F0F0F0] dark:hover:bg-[#1E1E1E]',
-        isActive && 'bg-[#EFEFED] dark:bg-[#1E1E1E]'
+        'text-[#222f30] hover:bg-[#e6ede6] dark:text-[#f5f8f7] dark:hover:bg-[#253435]',
+        isActive && 'bg-[#e6ede6] dark:bg-[#253435]'
       )}
       style={
         isActive
           ? {
-              boxShadow: 'inset 2px 0 0 0 #00C853'
+              boxShadow: 'inset 2px 0 0 0 #a7e26e'
             }
           : undefined
       }
@@ -38,7 +38,7 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
           'size-4 flex-none transition-colors duration-150',
           isActive
             ? 'text-accent-orange'
-            : 'text-[#8A8A8A] group-hover:text-accent-orange'
+            : 'text-[#6f7f80] group-hover:text-accent-orange'
         )}
       />
       <span className="truncate text-sm font-medium">{agent.name}</span>

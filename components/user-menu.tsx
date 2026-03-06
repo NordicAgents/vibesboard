@@ -51,7 +51,7 @@ export function UserMenu({
           <Button
             variant="ghost"
             size="icon"
-            className="size-9 text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:text-[#A0A0A0] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
+            className="size-9 text-[#6f7f80] hover:bg-[#e6ede6] hover:text-[#222f30] dark:text-[#c9cbbe] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
           >
             <Settings className="size-5" />
             <span className="sr-only">User Settings</span>
@@ -60,22 +60,22 @@ export function UserMenu({
         <DropdownMenuContent
           sideOffset={8}
           align="end"
-          className="w-[200px] rounded-xl border border-[#E5E5E5] bg-[#F7F7F5] p-1 shadow-md dark:border-[#2A2A2A] dark:bg-[#141414]"
+          className="w-[200px] rounded-xl border border-[#e4e3e3] bg-[#f5f8f7] p-1 shadow-md dark:border-[#344348] dark:bg-[#192425]"
         >
-          <DropdownMenuItem className="flex-col items-start rounded-lg px-3 py-2 focus:bg-[#EFEFED] dark:focus:bg-[#2A2A2A]">
-            <div className="text-xs font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
+          <DropdownMenuItem className="flex-col items-start rounded-lg px-3 py-2 focus:bg-[#e6ede6] dark:focus:bg-[#344348]">
+            <div className="text-xs font-medium text-[#222f30] dark:text-[#f5f8f7]">
               {user?.name}
             </div>
-            <div className="w-full truncate text-xs text-[#8A8A8A] dark:text-[#A0A0A0]">
+            <div className="w-full truncate text-xs text-[#6f7f80] dark:text-[#c9cbbe]">
               {user?.email}
             </div>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="my-1 bg-[#E5E5E5] dark:bg-[#2A2A2A]" />
+          <DropdownMenuSeparator className="my-1 bg-[#e4e3e3] dark:bg-[#344348]" />
           {canManageTenant && (
             <DropdownMenuItem asChild>
               <Link
                 href="/settings/tenant"
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] focus:bg-[#EFEFED] focus:text-[#1A1A1A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0] dark:focus:bg-[#2A2A2A] dark:focus:text-[#F0F0F0]"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] focus:bg-[#e6ede6] focus:text-[#222f30] dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7] dark:focus:bg-[#344348] dark:focus:text-[#f5f8f7]"
               >
                 Tenant Settings
               </Link>
@@ -85,7 +85,7 @@ export function UserMenu({
             <DropdownMenuItem asChild>
               <Link
                 href="/admin"
-                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] focus:bg-[#EFEFED] focus:text-[#1A1A1A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0] dark:focus:bg-[#2A2A2A] dark:focus:text-[#F0F0F0]"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] focus:bg-[#e6ede6] focus:text-[#222f30] dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7] dark:focus:bg-[#344348] dark:focus:text-[#f5f8f7]"
               >
                 Super Admin
               </Link>
@@ -93,7 +93,7 @@ export function UserMenu({
           )}
           <DropdownMenuItem
             onClick={handleSignOut}
-            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] focus:bg-[#EFEFED] focus:text-[#1A1A1A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0] dark:focus:bg-[#2A2A2A] dark:focus:text-[#F0F0F0]"
+            className="cursor-pointer rounded-lg px-3 py-2 text-sm text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] focus:bg-[#e6ede6] focus:text-[#222f30] dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7] dark:focus:bg-[#344348] dark:focus:text-[#f5f8f7]"
           >
             Log Out
           </DropdownMenuItem>

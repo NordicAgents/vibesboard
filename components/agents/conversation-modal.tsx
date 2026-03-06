@@ -22,7 +22,7 @@ export function ConversationView({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-[#E5E5E5] bg-[#FFFFFF]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#FFFFFF]/75 dark:border-[#2A2A2A] dark:bg-[#1A1A1A]/95">
+      <div className="sticky top-0 z-10 border-b border-[#e4e3e3] bg-[#f7f7f5]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#f7f7f5]/75 dark:border-[#344348] dark:bg-[#222f30]/95">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <Button
             variant="ghost"
@@ -34,10 +34,10 @@ export function ConversationView({
             <span className="sr-only">Back</span>
           </Button>
           <div className="min-w-0">
-            <h2 className="truncate font-switzer text-base font-semibold text-[#1A1A1A] dark:text-[#F0F0F0]">
+            <h2 className="truncate font-switzer text-base font-semibold text-[#222f30] dark:text-[#f5f8f7]">
               {summary}
             </h2>
-            <p className="font-switzer text-xs text-[#8A8A8A]">
+            <p className="font-switzer text-xs text-[#6f7f80]">
               Updated {formatDate(conversation.updatedAt)}
             </p>
           </div>
@@ -50,7 +50,7 @@ export function ConversationView({
           {messages.length > 0 ? (
             <ChatList messages={messages} />
           ) : (
-            <div className="py-8 text-center font-switzer text-sm text-[#8A8A8A]">
+            <div className="py-8 text-center font-switzer text-sm text-[#6f7f80]">
               No messages in this conversation yet.
             </div>
           )}

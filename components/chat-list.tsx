@@ -23,7 +23,7 @@ function TypingIndicator() {
       className="flex items-center gap-3"
     >
       {/* Avatar placeholder to align with AI messages */}
-      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E5E5E5] bg-[#F7F7F5] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#2A2A2A] dark:bg-[#141414]">
+      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
       </div>
@@ -32,7 +32,7 @@ function TypingIndicator() {
         {[0, 1, 2].map(i => (
           <motion.span
             key={i}
-            className="size-2 rounded-full bg-[#00C853]/50"
+            className="size-2 rounded-full bg-[#a7e26e]/50"
             animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
             transition={{
               duration: 0.9,
@@ -67,7 +67,7 @@ export function ChatList({
             animate={{ opacity: 1, y: 0 }}
             transition={{
               duration: 0.28,
-              ease: [0.16, 1, 0.3, 1],
+              ease: [0.16, 1, 0.3, 1]
             }}
           >
             <ChatMessage
