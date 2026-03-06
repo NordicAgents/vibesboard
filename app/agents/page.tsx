@@ -99,42 +99,12 @@ export default function AgentsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8">
-      <PageHeader
-        title="vibesboard"
-        description="Build Agents for Vibing with People"
-        actions={
-          <Button
-            asChild
-            className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#C96747]"
-          >
-            <Link href="/agents/new">
-              <Plus className="mr-2 size-4" />
-              Create Agent
-            </Link>
-          </Button>
-        }
-      />
-
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="skeleton h-[180px] rounded-xl"
-            />
-          ))}
-        </div>
-      ) : agents.length === 0 ? (
-        <EmptyState
-          icon={Bot}
-          title="No agents yet"
-          description="Create your first AI agent to get started"
-          action={
-            <Button
-              asChild
-              className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#C96747]"
-            >
+      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-8">
+        <PageHeader
+          title="vibesboard"
+          description="Build Agents for Vibing with People"
+          actions={
+            <Button asChild className="border-0 shadow-none">
               <Link href="/agents/new">
                 <Plus className="mr-2 size-4" />
                 Create Agent
@@ -142,72 +112,100 @@ export default function AgentsPage() {
             </Button>
           }
         />
-      ) : (
-        <>
+
+        {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {agents.map((agent, index) => (
-              <Link
-                key={agent.id}
-                href={`/agents/${agent.id}?configure=true`}
-                className={index < 5 ? `animate-fade-slide-in stagger-${index + 1}` : undefined}
-              >
-                <Card className="duration-[250ms] flex h-full flex-col rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="line-clamp-1 font-serif text-base font-normal text-[#1A1915]">
-                        {agent.name}
-                      </CardTitle>
-                      <Bot className="size-5 shrink-0 text-accent-orange" />
-                    </div>
-                    <CardDescription className="line-clamp-2 text-sm text-[#6B6560]">
-                      {agent.instructions || 'No instructions provided'}
-                    </CardDescription>
-                    {agent.created_at && (
-                      <p className="mt-auto pt-2 text-xs text-[#9D9790]">
-                        {new Date(agent.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    )}
-                  </CardHeader>
-                </Card>
-              </Link>
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="skeleton h-[180px] rounded-xl" />
             ))}
           </div>
-
-          {/* Pagination Controls */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page === 1}
-                className="border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] disabled:opacity-40"
-              >
-                <ChevronLeft className="size-4" />
-                Previous
+        ) : agents.length === 0 ? (
+          <EmptyState
+            icon={Bot}
+            title="No agents yet"
+            description="Create your first AI agent to get started"
+            action={
+              <Button asChild className="border-0 shadow-none">
+                <Link href="/agents/new">
+                  <Plus className="mr-2 size-4" />
+                  Create Agent
+                </Link>
               </Button>
-              <div className="px-2 text-sm text-[#6B6560]">
-                Page {page} of {pagination.totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page === pagination.totalPages}
-                className="border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="size-4" />
-              </Button>
+            }
+          />
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {agents.map((agent, index) => (
+                <Link
+                  key={agent.id}
+                  href={`/agents/${agent.id}?configure=true`}
+                  className={
+                    index < 5
+                      ? `stagger- animate-fade-slide-in${index + 1}`
+                      : undefined
+                  }
+                >
+                  <Card className="duration-[250ms] flex h-full flex-col rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="line-clamp-1 font-sans text-base font-normal text-[#222f30]">
+                          {agent.name}
+                        </CardTitle>
+                        <Bot className="size-5 shrink-0 text-accent-orange" />
+                      </div>
+                      <CardDescription className="line-clamp-2 text-sm text-[#445e5f]">
+                        {agent.instructions || 'No instructions provided'}
+                      </CardDescription>
+                      {agent.created_at && (
+                        <p className="mt-auto pt-2 text-xs text-[#6f7f80]">
+                          {new Date(agent.created_at).toLocaleDateString(
+                            'en-US',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            }
+                          )}
+                        </p>
+                      )}
+                    </CardHeader>
+                  </Card>
+                </Link>
+              ))}
             </div>
-          )}
-        </>
-      )}
-    </div>
+
+            {/* Pagination Controls */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page === 1}
+                  className="border-[#e4e3e3] text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] disabled:opacity-40 dark:border-[#344348] dark:text-[#c9cbbe] dark:hover:bg-[#253435] dark:hover:text-[#f5f8f7]"
+                >
+                  <ChevronLeft className="size-4" />
+                  Previous
+                </Button>
+                <div className="px-2 text-sm text-[#445e5f]">
+                  Page {page} of {pagination.totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page === pagination.totalPages}
+                  className="border-[#e4e3e3] text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] disabled:opacity-40 dark:border-[#344348] dark:text-[#c9cbbe] dark:hover:bg-[#253435] dark:hover:text-[#f5f8f7]"
+                >
+                  Next
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

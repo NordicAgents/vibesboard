@@ -33,7 +33,9 @@ export async function SidebarList({ userId }: SidebarListProps) {
   )
 
   // Check if WhatsApp bulk messaging is enabled for this tenant
-  const whatsappBulkEnabled = currentTenantId ? await isFeatureEnabled(currentTenantId, 'whatsapp_bulk_messaging') : false
+  const whatsappBulkEnabled = currentTenantId
+    ? await isFeatureEnabled(currentTenantId, 'whatsapp_bulk_messaging')
+    : false
 
   return (
     <div className="flex-1 space-y-4 overflow-auto">
@@ -46,7 +48,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
       </div>
       <div className="space-y-2 pb-4">
         <div className="flex items-center justify-between px-4">
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9D9790]">
+          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
             Agents
           </span>
         </div>
@@ -61,21 +63,24 @@ export async function SidebarList({ userId }: SidebarListProps) {
             ))}
           </div>
         ) : (
-          <p className="px-4 text-sm text-[#9D9790]">
+          <p className="px-4 text-sm text-[#6f7f80]">
             No agents yet. Create one!
           </p>
         )}
       </div>
 
       {whatsappBulkEnabled && (
-        <div className="space-y-2 border-t border-[#E2DDD4] py-4 dark:border-[#2E2B25]">
+        <div className="space-y-2 border-t border-[#e4e3e3] py-4 dark:border-[#344348]">
           <div className="flex items-center justify-between px-4">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9D9790]">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
               WhatsApp Marketing
             </span>
           </div>
           <div className="space-y-0.5 px-2">
-            <WhatsAppNavLink href="/whatsapp-bulk/business-accounts" icon={MessageSquare}>
+            <WhatsAppNavLink
+              href="/whatsapp-bulk/business-accounts"
+              icon={MessageSquare}
+            >
               Business Accounts
             </WhatsAppNavLink>
             <WhatsAppNavLink href="/whatsapp-bulk/templates" icon={FileText}>
@@ -108,10 +113,10 @@ function WhatsAppNavLink({
       href={href}
       className={cn(
         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150',
-        'text-[#1A1915] hover:bg-[#EDE8DE] dark:text-[#E8E3D8] dark:hover:bg-[#2E2B25]'
+        'text-[#222f30] hover:bg-[#e6ede6] dark:text-[#f5f8f7] dark:hover:bg-[#344348]'
       )}
     >
-      <Icon className="size-4 text-[#9D9790] transition-colors duration-150 group-hover:text-accent-orange" />
+      <Icon className="size-4 text-[#6f7f80] transition-colors duration-150 group-hover:text-accent-orange" />
       {children}
     </Link>
   )
