@@ -8,14 +8,18 @@ import { Button } from '@/components/ui/button'
 import { useCopyToClipboard } from '@/lib/hooks/use-copy-to-clipboard'
 
 // Words that are too trivial to include in a review
-const TRIVIAL_PATTERNS = /^(hi|hello|hey|yes|yeah|yep|no|nope|ok|okay|sure|thanks|thank you|bye|goodbye)\s*[.!?]*$/i
+const TRIVIAL_PATTERNS =
+  /^(hi|hello|hey|yes|yeah|yep|no|nope|ok|okay|sure|thanks|thank you|bye|goodbye)\s*[.!?]*$/i
 
 interface GoogleReviewButtonProps {
   placeId: string
   messages: Message[]
 }
 
-export function GoogleReviewButton({ placeId, messages }: GoogleReviewButtonProps) {
+export function GoogleReviewButton({
+  placeId,
+  messages
+}: GoogleReviewButtonProps) {
   const { copyToClipboard } = useCopyToClipboard({ timeout: 3000 })
 
   const handleClick = useCallback(() => {
@@ -44,7 +48,7 @@ export function GoogleReviewButton({ placeId, messages }: GoogleReviewButtonProp
       onClick={handleClick}
       variant="outline"
       size="sm"
-      className="gap-2 rounded-full border-[#E2DDD4] bg-white hover:bg-[#EDE8DE] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:hover:bg-[#2E2B25]"
+      className="gap-2 rounded-full border-[#e4e3e3] bg-white hover:bg-[#e6ede6] dark:border-[#344348] dark:bg-[#192425] dark:hover:bg-[#344348]"
     >
       <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
         <path

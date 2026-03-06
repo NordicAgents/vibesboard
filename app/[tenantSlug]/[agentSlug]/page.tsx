@@ -55,18 +55,21 @@ export default async function PublicAgentPage({
   // fixed inset-0: anchors to viewport, bypassing the parent min-height chain.
   // This ensures the scroll area is constrained and the input always stays visible.
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
       {agent.allowAnonymous ? (
-        <PublicAgentExperience agent={agent} googleReviewPlaceId={googleReviewPlaceId} />
+        <PublicAgentExperience
+          agent={agent}
+          googleReviewPlaceId={googleReviewPlaceId}
+        />
       ) : (
         <div className="flex flex-1 items-center justify-center p-6">
-          <div className="mx-auto w-full max-w-md rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] p-8 text-center shadow-[0_4px_24px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
-            <h1 className="font-serif text-2xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">
+          <div className="mx-auto w-full max-w-md rounded-2xl border border-[#e4e3e3] bg-[#f5f8f7] p-8 text-center shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]">
+            <h1 className="font-sans text-2xl font-normal text-[#222f30] dark:text-[#f5f8f7]">
               {agent.name}
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B6560] dark:text-[#9D9790]">
-              This agent requires an invitation or authenticated session.
-              Please contact the owner for access.
+            <p className="mt-3 text-sm leading-relaxed text-[#445e5f] dark:text-[#6f7f80]">
+              This agent requires an invitation or authenticated session. Please
+              contact the owner for access.
             </p>
           </div>
         </div>

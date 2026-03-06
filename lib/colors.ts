@@ -24,7 +24,11 @@ export function normalizeHex(input: unknown): string | null {
   return `#${hex}`
 }
 
-export function hexToHslParts(hex: string): { h: number; s: number; l: number } {
+export function hexToHslParts(hex: string): {
+  h: number
+  s: number
+  l: number
+} {
   const normalized = normalizeHex(hex)
   if (!normalized) {
     throw new Error('Invalid hex color')
@@ -69,7 +73,28 @@ export function hexToHslParts(hex: string): { h: number; s: number; l: number } 
   }
 }
 
-export function toCssHslVar(parts: { h: number; s: number; l: number }): string {
+export function hexToRgbParts(hex: string): {
+  r: number
+  g: number
+  b: number
+} {
+  const normalized = normalizeHex(hex)
+  if (!normalized) {
+    throw new Error('Invalid hex color')
+  }
+
+  return {
+    r: parseInt(normalized.slice(1, 3), 16),
+    g: parseInt(normalized.slice(3, 5), 16),
+    b: parseInt(normalized.slice(5, 7), 16)
+  }
+}
+
+export function toCssHslVar(parts: {
+  h: number
+  s: number
+  l: number
+}): string {
   const format = (n: number) => {
     const rounded = Math.round(n * 10) / 10
     return Number.isInteger(rounded) ? String(rounded) : String(rounded)
@@ -77,4 +102,3 @@ export function toCssHslVar(parts: { h: number; s: number; l: number }): string 
 
   return `${Math.round(parts.h)} ${format(parts.s)}% ${format(parts.l)}%`
 }
-

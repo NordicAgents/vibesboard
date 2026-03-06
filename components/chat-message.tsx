@@ -76,7 +76,7 @@ const ChatMarkdown = ({
       'prose prose-sm max-w-none break-words prose-p:leading-relaxed prose-pre:p-0',
       isUser
         ? 'prose-invert'
-        : 'dark:prose-invert prose-headings:font-serif prose-headings:font-normal'
+        : 'dark:prose-invert prose-headings:font-sans prose-headings:font-medium'
     )}
     remarkPlugins={[remarkGfm, remarkMath]}
     components={{
@@ -100,7 +100,7 @@ const ChatMarkdown = ({
                 'rounded-[4px] px-1.5 py-0.5 font-mono text-xs',
                 isUser
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#EDE8DE] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8]'
+                  : 'bg-[#f5f8f7] text-[#222f30] dark:bg-[#222f30] dark:text-[#f5f8f7]'
               )}
               {...props}
             >
@@ -126,7 +126,7 @@ const ChatMarkdown = ({
 
 export function ChatMessage({
   message,
-  agentAvatarGradient = 'from-[#D97757] to-[#CC785C]',
+  agentAvatarGradient = 'from-[#cef79e] to-[#a7e26e]',
   agentAvatarInitial = 'A',
   isLastMessage,
   ...props
@@ -147,7 +147,7 @@ export function ChatMessage({
   if (isUser) {
     return (
       <div className="flex justify-end" {...props}>
-        <div className="max-w-[88%] rounded-[18px] bg-[#EDE8DE] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1915] dark:bg-[#2E2B25] dark:text-[#E8E3D8] sm:max-w-[72%]">
+        <div className="max-w-[88%] rounded-[18px] bg-[#f5f8f7] px-4 py-2.5 text-[15px] leading-[1.65] text-[#222f30] dark:bg-[#222f30] dark:text-[#f5f8f7] sm:max-w-[72%]">
           <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
       </div>
@@ -157,21 +157,17 @@ export function ChatMessage({
   return (
     <div className="group flex items-start gap-3" {...props}>
       {/* AI avatar */}
-      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo_1.png"
-          alt="agent"
-          className="size-5 object-contain"
-        />
+        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
       </div>
 
       {/* AI content — no bubble */}
       <div className="min-w-0 flex-1">
         {structured && defaultTab ? (
-          <div className="rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] p-4 shadow-[0_1px_3px_rgba(26,25,21,0.06)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+          <div className="rounded-none border border-[#e4e3e3] bg-[#f5f8f7] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="mb-3 w-full justify-start bg-[#EDE8DE] dark:bg-[#2E2B25]">
+              <TabsList className="mb-3 w-full justify-start bg-[#e6ede6] dark:bg-[#253435]">
                 {structured.overview && (
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                 )}
@@ -200,7 +196,7 @@ export function ChatMessage({
             </Tabs>
           </div>
         ) : (
-          <div className="text-[15px] leading-[1.65] text-[#1A1915] dark:text-[#E8E3D8]">
+          <div className="text-[15px] leading-[1.65] text-[#222f30] dark:text-[#f5f8f7]">
             <ChatMarkdown>{message.content}</ChatMarkdown>
           </div>
         )}
