@@ -259,10 +259,10 @@ export function AgentChat({
       {/* Scrollable messages area — full width, messages centered in column */}
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F5F0E8] dark:bg-[#1A1915]"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f7f7f5] dark:bg-[#222f30]"
         style={{
           scrollbarWidth: 'thin',
-          scrollbarColor: '#E2DDD4 transparent'
+          scrollbarColor: '#e4e3e3 transparent'
         }}
       >
         {messages.length ? (

@@ -24,8 +24,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'z-50 min-w-32 overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 text-[#1A1915] shadow-[0_4px_24px_rgba(26,25,21,0.08)]',
-      'dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#E8E3D8]',
+      'z-50 min-w-32 overflow-hidden rounded-[1.25rem] border border-border bg-popover p-1 text-popover-foreground shadow-soft',
       'animate-in data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1',
       className
     )}
@@ -44,8 +43,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-32 overflow-hidden rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-1 text-[#1A1915] shadow-[0_4px_24px_rgba(26,25,21,0.08)]',
-        'dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#E8E3D8]',
+        'z-50 min-w-32 overflow-hidden rounded-[1.25rem] border border-border bg-popover p-1 text-popover-foreground shadow-soft',
         'animate-in data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
         className
       )}
@@ -64,9 +62,8 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm outline-none transition-colors duration-150',
-      'text-[#6B6560] focus:bg-[#EDE8DE] focus:text-[#1A1915]',
-      'dark:text-[#9D9790] dark:focus:bg-[#2E2B25] dark:focus:text-[#E8E3D8]',
+      'relative flex cursor-pointer select-none items-center rounded-xl px-3 py-2 text-sm outline-none transition-colors duration-150',
+      'text-muted-foreground focus:bg-secondary focus:text-foreground',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       inset && 'pl-8',
       className
@@ -85,7 +82,7 @@ const DropdownMenuLabel = React.forwardRef<
   <DropdownMenuPrimitive.Label
     ref={ref}
     className={cn(
-      'px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-[#9D9790]',
+      'px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground',
       inset && 'pl-8',
       className
     )}
@@ -100,7 +97,7 @@ const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn('-mx-1 my-1 h-px bg-[#E2DDD4] dark:bg-[#2E2B25]', className)}
+    className={cn('-mx-1 my-1 h-px bg-border', className)}
     {...props}
   />
 ))
@@ -112,7 +109,10 @@ const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => {
   return (
     <span
-      className={cn('ml-auto text-xs tracking-widest text-[#9D9790]', className)}
+      className={cn(
+        'ml-auto font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground',
+        className
+      )}
       {...props}
     />
   )
