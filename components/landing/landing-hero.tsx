@@ -1,26 +1,16 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 
 import { Button } from '@/components/ui/button'
 import { FadeIn } from './fade-in'
+import { LandingHeroBackground } from './landing-hero-background'
 
 export function LandingHero() {
   return (
     <section className="relative flex min-h-dvh items-center justify-center overflow-hidden pt-16 sm:pt-20">
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="/images/landing/hero-bg.png"
-          alt="Hero background"
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(17,25,24,0.78),rgba(17,25,24,0.58),rgba(167,226,110,0.18))]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(206,247,158,0.22),transparent_42%)]" />
-      </div>
+      <LandingHeroBackground />
 
       <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">

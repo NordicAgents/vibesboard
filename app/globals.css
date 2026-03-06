@@ -282,6 +282,120 @@
   }
 }
 
+@keyframes landingHeroOrbFloatA {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2.5%, 1.5%, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes landingHeroOrbFloatB {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-2.5%, -1.5%, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes landingHeroOrbFloatC {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.42;
+  }
+  50% {
+    transform: translate3d(-2%, 2.5%, 0) scale(1.07);
+    opacity: 0.68;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.42;
+  }
+}
+
+@keyframes landingHeroHazeFloat {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translate3d(-2%, 3%, 0) scale(1.06);
+    opacity: 0.92;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.72;
+  }
+}
+
+@keyframes landingHeroGlossShift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.58;
+  }
+  50% {
+    transform: translate3d(4%, -3%, 0) scale(1.08);
+    opacity: 0.82;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.58;
+  }
+}
+
+@keyframes landingHeroRibbonDrift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-1.6%, 1.2%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes landingHeroGridDrift {
+  0% {
+    background-position:
+      0 0,
+      0 0;
+  }
+  50% {
+    background-position:
+      18px 12px,
+      18px 12px;
+  }
+  100% {
+    background-position:
+      36px 24px,
+      36px 24px;
+  }
+}
+
+@keyframes landingHeroSheen {
+  0% {
+    transform: translate3d(-4%, 0, 0) rotate(0deg);
+    opacity: 0.14;
+  }
+  50% {
+    transform: translate3d(7%, -1%, 0) rotate(1deg);
+    opacity: 0.38;
+  }
+  100% {
+    transform: translate3d(16%, 0, 0) rotate(0deg);
+    opacity: 0.12;
+  }
+}
+
 /* Accordion (Radix) */
 @keyframes accordion-down {
   from {
@@ -381,6 +495,51 @@
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite linear;
     border-radius: 8px;
+  }
+  .landing-hero-orb-a {
+    animation: landingHeroOrbFloatA 18s ease-in-out infinite;
+    will-change: transform;
+  }
+  .landing-hero-orb-b {
+    animation: landingHeroOrbFloatB 22s ease-in-out infinite;
+    will-change: transform;
+  }
+  .landing-hero-orb-c {
+    animation: landingHeroOrbFloatC 19s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .landing-hero-gloss {
+    animation: landingHeroGlossShift 16s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .landing-hero-haze {
+    animation: landingHeroHazeFloat 20s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .landing-hero-ribbon-drift {
+    animation: landingHeroRibbonDrift 16s ease-in-out infinite;
+    will-change: transform;
+  }
+  .landing-hero-sheen {
+    animation: landingHeroSheen 11s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+    will-change: transform, opacity;
+  }
+  .landing-hero-grid-drift {
+    animation: landingHeroGridDrift 24s linear infinite alternate;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-orb-a,
+  .landing-hero-orb-b,
+  .landing-hero-orb-c,
+  .landing-hero-gloss,
+  .landing-hero-haze,
+  .landing-hero-ribbon-drift,
+  .landing-hero-sheen,
+  .landing-hero-grid-drift {
+    animation: none !important;
+    transform: none !important;
   }
 }
 
