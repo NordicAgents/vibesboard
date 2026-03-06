@@ -65,7 +65,7 @@ export function LoginButton({
       }}
       disabled={isLoading}
       className={cn(
-        'w-full gap-2 border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:border-[#2E2B25] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]',
+        'w-full gap-2 border-[#E5E5E5] text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:border-[#2A2A2A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]',
         className
       )}
       {...props}

@@ -46,7 +46,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
       </div>
       <div className="space-y-2 pb-4">
         <div className="flex items-center justify-between px-4">
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9D9790]">
+          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#8A8A8A]">
             Agents
           </span>
         </div>
@@ -61,16 +61,16 @@ export async function SidebarList({ userId }: SidebarListProps) {
             ))}
           </div>
         ) : (
-          <p className="px-4 text-sm text-[#9D9790]">
+          <p className="px-4 text-sm text-[#8A8A8A]">
             No agents yet. Create one!
           </p>
         )}
       </div>
 
       {whatsappBulkEnabled && (
-        <div className="space-y-2 border-t border-[#E2DDD4] py-4 dark:border-[#2E2B25]">
+        <div className="space-y-2 border-t border-[#E5E5E5] py-4 dark:border-[#2A2A2A]">
           <div className="flex items-center justify-between px-4">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#9D9790]">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#8A8A8A]">
               WhatsApp Marketing
             </span>
           </div>
@@ -108,10 +108,10 @@ function WhatsAppNavLink({
       href={href}
       className={cn(
         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150',
-        'text-[#1A1915] hover:bg-[#EDE8DE] dark:text-[#E8E3D8] dark:hover:bg-[#2E2B25]'
+        'text-[#1A1A1A] hover:bg-[#EFEFED] dark:text-[#F0F0F0] dark:hover:bg-[#2A2A2A]'
       )}
     >
-      <Icon className="size-4 text-[#9D9790] transition-colors duration-150 group-hover:text-accent-orange" />
+      <Icon className="size-4 text-[#8A8A8A] transition-colors duration-150 group-hover:text-accent-orange" />
       {children}
     </Link>
   )

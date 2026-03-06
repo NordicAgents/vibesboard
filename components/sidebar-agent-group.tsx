@@ -58,7 +58,7 @@ export function SidebarAgentGroup({
             aria-label={
               expanded ? 'Collapse conversations' : 'Expand conversations'
             }
-            className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#9D9790]"
+            className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#5A5A5A] dark:text-[#5A5A5A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#8A8A8A]"
             onClick={e => {
               e.preventDefault()
               e.stopPropagation()
@@ -75,7 +75,7 @@ export function SidebarAgentGroup({
       </div>
 
       {expanded && items.length ? (
-        <div className="ml-5 space-y-0.5 border-l border-[#E2DDD4] pl-2 dark:border-[#2E2B25]">
+        <div className="ml-5 space-y-0.5 border-l border-[#E5E5E5] pl-2 dark:border-[#2A2A2A]">
           {items.map(session => {
             const label = toConversationLabel(
               session.summary || session.messages.at(-1)?.content
@@ -86,8 +86,8 @@ export function SidebarAgentGroup({
                 href={`/agents/${agent.id}?session=${session.id}`}
                 className={cn(
                   'block truncate rounded-md px-2 py-1.5 text-sm transition-colors duration-150',
-                  'text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#6B6560]',
-                  'dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#9D9790]'
+                  'text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#5A5A5A]',
+                  'dark:text-[#5A5A5A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#8A8A8A]'
                 )}
                 title={label}
               >

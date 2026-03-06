@@ -58,7 +58,7 @@ const SheetContent = React.forwardRef<
         ref={ref}
         aria-describedby={undefined}
         className={cn(
-          'fixed top-0 z-50 h-full bg-[#FDFAF5] p-6 opacity-100 shadow-[0_8px_32px_rgba(26,25,21,0.12)] dark:bg-[#221F1A]',
+          'fixed top-0 z-50 h-full bg-[#F7F7F5] p-6 opacity-100 shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:bg-[#141414]',
           sideClasses,
           className
         )}

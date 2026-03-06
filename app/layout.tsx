@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F5F0E8' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' }
+    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
+    { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' }
   ],
   width: 'device-width',
   initialScale: 1,
@@ -56,7 +56,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
         />
       </head>
       <body

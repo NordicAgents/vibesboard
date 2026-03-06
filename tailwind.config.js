@@ -30,10 +30,10 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans:    ['DM Sans', 'var(--font-sans)', ...fontFamily.sans],
-        serif:   ['DM Serif Display', 'Georgia', 'serif'],
-        mono:    ['JetBrains Mono', 'var(--font-mono)', ...fontFamily.mono],
-        switzer: ['DM Sans', 'var(--font-switzer)', ...fontFamily.sans],
+        sans:    ['Inter', 'var(--font-sans)', ...fontFamily.sans],
+        serif:   ['Inter', 'var(--font-sans)', ...fontFamily.sans],
+        mono:    ['SF Mono', 'Fira Code', 'JetBrains Mono', 'var(--font-mono)', ...fontFamily.mono],
+        switzer: ['Inter', 'var(--font-switzer)', ...fontFamily.sans],
       },
       fontSize: {
         /* Claude-inspired scale */
@@ -59,17 +59,17 @@ module.exports = {
         'text-primary':   'var(--text-primary)',
         'text-secondary': 'var(--text-secondary)',
         'text-tertiary':  'var(--text-tertiary)',
-        'accent-orange':  '#D97757',
-        'accent-warm':    '#CC785C',
+        'accent-orange':  'var(--accent-orange)',
+        'accent-warm':    'var(--accent-warm)',
 
         /* ── Legacy aliases ── */
         'black-primary':  'var(--black-primary)',
         'gray-secondary': 'var(--gray-secondary)',
         'beige-bg':       'var(--beige-bg)',
         'purewhite-bg':   'var(--purewhite-bg)',
-        'black-10':       'rgba(26, 25, 21, 0.1)',
-        'black-25':       'rgba(26, 25, 21, 0.25)',
-        'black-50':       'rgba(26, 25, 21, 0.5)',
+        'black-10':       'rgba(0, 0, 0, 0.1)',
+        'black-25':       'rgba(0, 0, 0, 0.25)',
+        'black-50':       'rgba(0, 0, 0, 0.5)',
 
         /* ── Shadcn/Radix tokens ── */
         border:           'hsl(var(--border))',
@@ -113,9 +113,9 @@ module.exports = {
         xs:   `calc(var(--radius) - 6px)`, /* 6px — for tags/badges */
       },
       boxShadow: {
-        'soft':    '0 1px 3px rgba(26, 25, 21, 0.06), 0 4px 16px rgba(26, 25, 21, 0.04)',
-        'md':      '0 2px 8px rgba(26, 25, 21, 0.08), 0 8px 32px rgba(26, 25, 21, 0.06)',
-        'orange-glow': '0 0 0 3px rgba(217, 119, 87, 0.15)',
+        'soft':    '0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04)',
+        'md':      '0 2px 8px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(0, 0, 0, 0.06)',
+        'orange-glow': '0 0 0 3px rgba(0, 200, 83, 0.15)',
       },
       transitionTimingFunction: {
         'claude':   'cubic-bezier(0.16, 1, 0.3, 1)',

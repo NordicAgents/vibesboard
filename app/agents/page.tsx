@@ -106,7 +106,7 @@ export default function AgentsPage() {
         actions={
           <Button
             asChild
-            className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#C96747]"
+            className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#009624]"
           >
             <Link href="/agents/new">
               <Plus className="mr-2 size-4" />
@@ -133,7 +133,7 @@ export default function AgentsPage() {
           action={
             <Button
               asChild
-              className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#C96747]"
+              className="border-0 bg-accent-orange text-white shadow-none hover:bg-[#009624]"
             >
               <Link href="/agents/new">
                 <Plus className="mr-2 size-4" />
@@ -151,19 +151,19 @@ export default function AgentsPage() {
                 href={`/agents/${agent.id}?configure=true`}
                 className={index < 5 ? `animate-fade-slide-in stagger-${index + 1}` : undefined}
               >
-                <Card className="duration-[250ms] flex h-full flex-col rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-md">
+                <Card className="duration-[250ms] flex h-full flex-col rounded-xl border border-[#E5E5E5] bg-[#F7F7F5] shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-[#2A2A2A] dark:bg-[#141414]">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="line-clamp-1 font-serif text-base font-normal text-[#1A1915]">
+                      <CardTitle className="line-clamp-1 font-sans text-base font-normal text-[#1A1A1A]">
                         {agent.name}
                       </CardTitle>
                       <Bot className="size-5 shrink-0 text-accent-orange" />
                     </div>
-                    <CardDescription className="line-clamp-2 text-sm text-[#6B6560]">
+                    <CardDescription className="line-clamp-2 text-sm text-[#5A5A5A]">
                       {agent.instructions || 'No instructions provided'}
                     </CardDescription>
                     {agent.created_at && (
-                      <p className="mt-auto pt-2 text-xs text-[#9D9790]">
+                      <p className="mt-auto pt-2 text-xs text-[#8A8A8A]">
                         {new Date(agent.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -185,12 +185,12 @@ export default function AgentsPage() {
                 size="sm"
                 onClick={() => handlePageChange(page - 1)}
                 disabled={page === 1}
-                className="border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] disabled:opacity-40"
+                className="border-[#E5E5E5] text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] disabled:opacity-40 dark:border-[#2A2A2A] dark:text-[#A0A0A0] dark:hover:bg-[#1E1E1E] dark:hover:text-[#F0F0F0]"
               >
                 <ChevronLeft className="size-4" />
                 Previous
               </Button>
-              <div className="px-2 text-sm text-[#6B6560]">
+              <div className="px-2 text-sm text-[#5A5A5A]">
                 Page {page} of {pagination.totalPages}
               </div>
               <Button
@@ -198,7 +198,7 @@ export default function AgentsPage() {
                 size="sm"
                 onClick={() => handlePageChange(page + 1)}
                 disabled={page === pagination.totalPages}
-                className="border-[#E2DDD4] text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] disabled:opacity-40"
+                className="border-[#E5E5E5] text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] disabled:opacity-40 dark:border-[#2A2A2A] dark:text-[#A0A0A0] dark:hover:bg-[#1E1E1E] dark:hover:text-[#F0F0F0]"
               >
                 Next
                 <ChevronRight className="size-4" />

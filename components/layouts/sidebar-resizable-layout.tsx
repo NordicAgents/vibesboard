@@ -172,7 +172,7 @@ export function SidebarResizableLayout({
       <div className="flex h-full flex-1 overflow-hidden">
       <aside
         className={cn(
-          'hidden flex-col border-r border-[#E2DDD4] bg-[#FDFAF5] dark:border-[#2E2B25] dark:bg-[#221F1A] lg:flex',
+          'hidden flex-col border-r border-[#E5E5E5] bg-[#F7F7F5] dark:border-[#2A2A2A] dark:bg-[#141414] lg:flex',
           'ease-[cubic-bezier(0.16,1,0.3,1)] transition-[width] duration-300',
           isSidebarOpen ? 'w-[260px]' : 'w-[52px]'
         )}
@@ -196,7 +196,7 @@ export function SidebarResizableLayout({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+                        className="size-9 text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:text-[#666666] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
                         onClick={() => handleManualToggle(true)}
                       >
                         <IconSidebar className="size-5" />
@@ -213,7 +213,7 @@ export function SidebarResizableLayout({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+                        className="size-9 text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:text-[#666666] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
                         asChild
                       >
                         <Link href="/agents/create-chat">
@@ -233,7 +233,7 @@ export function SidebarResizableLayout({
               <>
                 <Link
                   href="/"
-                  className="ml-2 font-serif text-base font-normal text-[#1A1915] transition-colors hover:text-[#6B6560] dark:text-[#E8E3D8] dark:hover:text-[#9D9790]"
+                  className="ml-2 font-sans text-base font-medium tracking-tight text-[#1A1A1A] transition-colors hover:text-[#666666] dark:text-[#F0F0F0] dark:hover:text-[#8A8A8A]"
                 >
                   vibesboard
                 </Link>
@@ -243,7 +243,7 @@ export function SidebarResizableLayout({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+                        className="size-9 text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:text-[#666666] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
                         onClick={() => handleManualToggle(false)}
                       >
                         <IconSidebar className="size-5" />
@@ -268,7 +268,7 @@ export function SidebarResizableLayout({
               <div className="px-3 pb-2">
                 <Button
                   asChild
-                  className="h-10 w-full justify-start border-0 bg-accent-orange px-4 text-white shadow-none hover:bg-[#C4684A] dark:bg-accent-orange dark:text-white dark:hover:bg-[#C4684A]"
+                  className="h-10 w-full justify-start border-0 bg-[#1A1A1A] px-4 text-white shadow-none hover:bg-[#2A2A2A] dark:bg-[#F0F0F0] dark:text-[#0A0A0A] dark:hover:bg-[#EFEFED]"
                 >
                   <Link href="/agents/create-chat">
                     <IconPlus className="mr-2 size-4" />
@@ -283,7 +283,7 @@ export function SidebarResizableLayout({
           {/* Bottom controls */}
           <div
             className={cn(
-              'shrink-0 border-t border-[#E2DDD4] p-2 dark:border-[#2E2B25]',
+              'shrink-0 border-t border-[#E5E5E5] p-2 dark:border-[#2A2A2A]',
               isSidebarOpen
                 ? 'flex items-center justify-between'
                 : 'flex flex-col items-center gap-1'
@@ -301,7 +301,7 @@ export function SidebarResizableLayout({
         </div>
       </aside>
 
-      <div className="relative flex flex-1 flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]">
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-[#FFFFFF] dark:bg-[#0A0A0A]">
         {/* Mobile top bar */}
         <div className="pointer-events-none absolute left-0 top-0 z-10 flex w-full items-center justify-end p-2 lg:hidden">
           <div className="pointer-events-auto flex items-center gap-2">
@@ -319,7 +319,7 @@ export function SidebarResizableLayout({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-9 text-[#9D9790] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:text-[#6B6560] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+                    className="size-9 text-[#8A8A8A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:text-[#666666] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
                   >
                     <IconMenu className="size-5" />
                     <span className="sr-only">Open Menu</span>
@@ -327,13 +327,13 @@ export function SidebarResizableLayout({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="w-[280px] border-r border-[#E2DDD4] bg-[#FDFAF5] p-0 dark:border-[#2E2B25] dark:bg-[#221F1A]"
+                  className="w-[280px] border-r border-[#E5E5E5] bg-[#F7F7F5] p-0 dark:border-[#2A2A2A] dark:bg-[#141414]"
                 >
                   <div className="flex h-full flex-col">
-                    <div className="flex items-center justify-between border-b border-[#E2DDD4] p-4 dark:border-[#2E2B25]">
+                    <div className="flex items-center justify-between border-b border-[#E5E5E5] p-4 dark:border-[#2A2A2A]">
                       <Link
                         href="/"
-                        className="font-serif text-base font-normal text-[#1A1915] dark:text-[#E8E3D8]"
+                        className="font-sans text-base font-medium tracking-tight text-[#1A1A1A] dark:text-[#F0F0F0]"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         vibesboard
@@ -343,14 +343,14 @@ export function SidebarResizableLayout({
                     {/* View Switcher (Only if secondary sidebar exists) */}
                     {secondarySidebar && (
                       <div className="px-3 py-2">
-                        <div className="flex rounded-lg bg-[#EDE8DE] p-1 dark:bg-[#2E2B25]">
+                        <div className="flex rounded-lg bg-[#EFEFED] p-1 dark:bg-[#2A2A2A]">
                           <button
                             onClick={() => setMobileView('agents')}
                             className={cn(
                               'flex-1 rounded-md py-1 text-sm font-medium transition-colors',
                               mobileView === 'agents'
-                                ? 'bg-[#FDFAF5] text-[#1A1915] shadow-sm dark:bg-[#221F1A] dark:text-[#E8E3D8]'
-                                : 'text-[#9D9790] hover:bg-[#FDFAF5]/50 dark:text-[#6B6560] dark:hover:bg-[#221F1A]/50'
+                                ? 'bg-[#F7F7F5] text-[#1A1A1A] shadow-sm dark:bg-[#141414] dark:text-[#F0F0F0]'
+                                : 'text-[#8A8A8A] hover:bg-[#F7F7F5]/50 dark:text-[#666666] dark:hover:bg-[#141414]/50'
                             )}
                           >
                             Agents
@@ -360,8 +360,8 @@ export function SidebarResizableLayout({
                             className={cn(
                               'flex-1 rounded-md py-1 text-sm font-medium transition-colors',
                               mobileView === 'current-agent'
-                                ? 'bg-[#FDFAF5] text-[#1A1915] shadow-sm dark:bg-[#221F1A] dark:text-[#E8E3D8]'
-                                : 'text-[#9D9790] hover:bg-[#FDFAF5]/50 dark:text-[#6B6560] dark:hover:bg-[#221F1A]/50'
+                                ? 'bg-[#F7F7F5] text-[#1A1A1A] shadow-sm dark:bg-[#141414] dark:text-[#F0F0F0]'
+                                : 'text-[#8A8A8A] hover:bg-[#F7F7F5]/50 dark:text-[#666666] dark:hover:bg-[#141414]/50'
                             )}
                           >
                             Current Agent
@@ -377,7 +377,7 @@ export function SidebarResizableLayout({
                           <div className="px-3 py-2">
                             <Button
                               asChild
-                              className="h-10 w-full justify-start border-0 bg-accent-orange px-4 text-white shadow-none hover:bg-[#C4684A] dark:bg-accent-orange dark:text-white dark:hover:bg-[#C4684A]"
+                              className="h-10 w-full justify-start border-0 bg-[#1A1A1A] px-4 text-white shadow-none hover:bg-[#2A2A2A] dark:bg-[#F0F0F0] dark:text-[#0A0A0A] dark:hover:bg-[#EFEFED]"
                             >
                               <Link
                                 href="/agents/create-chat"
