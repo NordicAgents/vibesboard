@@ -294,7 +294,7 @@ export function AgentCreatorChat({
   return (
     <div
       className={cn(
-        'flex h-full flex-1 bg-[#FFFFFF] dark:bg-[#1A1A1A]',
+        'flex h-full flex-1 bg-[#f7f7f5] dark:bg-[#222f30]',
         className
       )}
     >
@@ -305,7 +305,7 @@ export function AgentCreatorChat({
             <>
               {/* Compact header */}
               <div className="flex items-center justify-between px-5 pb-2 pt-4">
-                <p className="font-switzer text-xs font-medium uppercase tracking-[0.08em] text-[#8A8A8A]">
+                <p className="font-switzer text-xs font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
                   Agent Builder
                 </p>
                 <div className="flex items-center gap-1">
@@ -313,9 +313,7 @@ export function AgentCreatorChat({
                     size="sm"
                     variant="ghost"
                     onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                    aria-label={
-                      isPreviewOpen ? 'Hide preview' : 'Show preview'
-                    }
+                    aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                     title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                     className="size-8 p-0"
                   >
@@ -365,7 +363,7 @@ export function AgentCreatorChat({
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#F0F0F0] md:text-5xl">
+                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#f5f8f7] md:text-5xl">
                       Build Your Agent
                     </h1>
                     <Button
@@ -393,7 +391,7 @@ export function AgentCreatorChat({
 
                 {/* Input centered below header */}
                 <div className="w-full">
-                  <div className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F5] px-4 py-3 shadow-soft dark:border-[#2A2A2A] dark:bg-[#141414]">
+                  <div className="rounded-2xl border border-[#e4e3e3] bg-[#f5f8f7] px-4 py-3 shadow-soft dark:border-[#344348] dark:bg-[#192425]">
                     <PromptForm
                       onSubmit={async (value: string) => {
                         await append({
@@ -455,7 +453,7 @@ export function AgentCreatorChat({
                     variant="outline"
                     size="sm"
                     onClick={() => stop()}
-                    className="rounded-full border-[#E5E5E5] font-switzer text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:border-[#2A2A2A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
+                    className="rounded-full border-[#e4e3e3] font-switzer text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] dark:border-[#344348] dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
                   >
                     <IconStop className="mr-2 size-4" />
                     Stop generating
@@ -464,7 +462,7 @@ export function AgentCreatorChat({
               )}
               <div className="space-y-2 px-4 py-3">
                 {!createdAgentId && isReadyToCreate && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E5E5E5] bg-[#EFEFED] px-3 py-2 text-xs text-[#1A1A1A] dark:border-[#2A2A2A] dark:bg-[#2A2A2A] dark:text-[#F0F0F0]">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e3e3] bg-[#e6ede6] px-3 py-2 text-xs text-[#222f30] dark:border-[#344348] dark:bg-[#344348] dark:text-[#f5f8f7]">
                     <p className="font-switzer">
                       Your agent draft is ready. Say "create it" or click Create
                       Agent.
@@ -544,7 +542,7 @@ export function AgentCreatorChat({
           />
         </div>
       ) : (
-        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#E5E5E5] transition-all duration-300 ease-in-out dark:border-[#2A2A2A]">
+        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
           <Button
             size="sm"
             variant="ghost"

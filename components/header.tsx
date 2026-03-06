@@ -19,10 +19,10 @@ export async function Header() {
     : [false, false]
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-[#E5E5E5] bg-[#FFFFFF]/80 px-4 backdrop-blur-sm dark:border-[#2A2A2A] dark:bg-[#0A0A0A]/80">
+    <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-[#e4e3e3] bg-[#f7f7f5]/80 px-4 backdrop-blur-sm dark:border-[#344348] dark:bg-[#111918]/80">
       <div className="flex items-center gap-3">
         {session?.user && (
-          <div className="flex items-center gap-2 rounded-none bg-[#F7F7F5] px-2 py-1.5 shadow-sm dark:bg-[#141414] dark:shadow-none">
+          <div className="flex items-center gap-2 rounded-none bg-[#f5f8f7] px-2 py-1.5 shadow-sm dark:bg-[#192425] dark:shadow-none">
             <Sidebar>
               <React.Suspense
                 fallback={<div className="flex-1 overflow-auto" />}
@@ -31,10 +31,10 @@ export async function Header() {
                 <SidebarList userId={session?.user?.id} />
               </React.Suspense>
             </Sidebar>
-            <div className="h-5 w-px bg-[#E5E5E5] dark:bg-[#2A2A2A]" />
+            <div className="h-5 w-px bg-[#e4e3e3] dark:bg-[#344348]" />
             <Link
               href="/"
-              className="px-2 font-sans text-base font-medium tracking-tight text-[#1A1A1A] transition-colors hover:text-[#5A5A5A] dark:text-[#F0F0F0] dark:hover:text-[#A0A0A0]"
+              className="px-2 font-sans text-base font-medium tracking-tight text-[#222f30] transition-colors hover:text-[#445e5f] dark:text-[#f5f8f7] dark:hover:text-[#c9cbbe]"
             >
               vibesboard
             </Link>
@@ -43,7 +43,7 @@ export async function Header() {
         {!session?.user && (
           <Link
             href="/"
-            className="font-sans text-base font-medium tracking-tight text-[#1A1A1A] dark:text-[#F0F0F0] dark:hover:text-[#A0A0A0]"
+            className="font-sans text-base font-medium tracking-tight text-[#222f30] dark:text-[#f5f8f7] dark:hover:text-[#c9cbbe]"
           >
             vibesboard
           </Link>
@@ -61,7 +61,7 @@ export async function Header() {
           <Button
             variant="ghost"
             asChild
-            className="text-sm text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:text-[#A0A0A0] dark:hover:bg-[#1E1E1E] dark:hover:text-[#F0F0F0]"
+            className="text-sm text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] dark:text-[#c9cbbe] dark:hover:bg-[#253435] dark:hover:text-[#f5f8f7]"
           >
             <Link href="/sign-in">Login</Link>
           </Button>

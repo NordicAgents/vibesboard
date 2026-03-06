@@ -100,7 +100,7 @@ const ChatMarkdown = ({
                 'rounded-[4px] px-1.5 py-0.5 font-mono text-xs',
                 isUser
                   ? 'bg-white/20 text-white'
-                  : 'bg-[#F7F7F5] text-[#1A1A1A] dark:bg-[#1A1A1A] dark:text-[#F0F0F0]'
+                  : 'bg-[#f5f8f7] text-[#222f30] dark:bg-[#222f30] dark:text-[#f5f8f7]'
               )}
               {...props}
             >
@@ -126,7 +126,7 @@ const ChatMarkdown = ({
 
 export function ChatMessage({
   message,
-  agentAvatarGradient = 'from-[#00C853] to-[#009624]',
+  agentAvatarGradient = 'from-[#cef79e] to-[#a7e26e]',
   agentAvatarInitial = 'A',
   isLastMessage,
   ...props
@@ -147,7 +147,7 @@ export function ChatMessage({
   if (isUser) {
     return (
       <div className="flex justify-end" {...props}>
-        <div className="max-w-[88%] rounded-[18px] bg-[#F7F7F5] px-4 py-2.5 text-[15px] leading-[1.65] text-[#1A1A1A] dark:bg-[#1A1A1A] dark:text-[#F0F0F0] sm:max-w-[72%]">
+        <div className="max-w-[88%] rounded-[18px] bg-[#f5f8f7] px-4 py-2.5 text-[15px] leading-[1.65] text-[#222f30] dark:bg-[#222f30] dark:text-[#f5f8f7] sm:max-w-[72%]">
           <ChatMarkdown>{message.content}</ChatMarkdown>
         </div>
       </div>
@@ -157,21 +157,17 @@ export function ChatMessage({
   return (
     <div className="group flex items-start gap-3" {...props}>
       {/* AI avatar */}
-      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E5E5E5] bg-[#F7F7F5] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#2A2A2A] dark:bg-[#141414]">
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo_1.png"
-          alt="agent"
-          className="size-5 object-contain"
-        />
+        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
       </div>
 
       {/* AI content — no bubble */}
       <div className="min-w-0 flex-1">
         {structured && defaultTab ? (
-          <div className="rounded-none border border-[#E5E5E5] bg-[#F7F7F5] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#2A2A2A] dark:bg-[#141414]">
+          <div className="rounded-none border border-[#e4e3e3] bg-[#f5f8f7] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
             <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="mb-3 w-full justify-start bg-[#EFEFED] dark:bg-[#1E1E1E]">
+              <TabsList className="mb-3 w-full justify-start bg-[#e6ede6] dark:bg-[#253435]">
                 {structured.overview && (
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                 )}
@@ -200,7 +196,7 @@ export function ChatMessage({
             </Tabs>
           </div>
         ) : (
-          <div className="text-[15px] leading-[1.65] text-[#1A1A1A] dark:text-[#F0F0F0]">
+          <div className="text-[15px] leading-[1.65] text-[#222f30] dark:text-[#f5f8f7]">
             <ChatMarkdown>{message.content}</ChatMarkdown>
           </div>
         )}

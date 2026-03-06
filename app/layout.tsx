@@ -3,7 +3,7 @@ import { Metadata, Viewport } from 'next'
 import { Toaster } from 'react-hot-toast'
 
 import '@/app/globals.css'
-import { fontMono, fontSans, fontSwitzer } from '@/lib/fonts'
+import { fontMono, fontSans } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
-    { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' }
+    { media: '(prefers-color-scheme: light)', color: '#f7f7f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#111918' }
   ],
   width: 'device-width',
   initialScale: 1,
@@ -51,20 +51,11 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
-        />
-      </head>
       <body
         className={cn(
           'font-sans antialiased',
           fontSans.variable,
-          fontMono.variable,
-          fontSwitzer.variable
+          fontMono.variable
         )}
         style={tenantTheme?.cssVars as any}
         data-tenant-id={tenantTheme?.tenantId}

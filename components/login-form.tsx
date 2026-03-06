@@ -86,7 +86,7 @@ export function LoginForm({
               ? 'An account with that email already exists.'
               : err?.code === 'auth/weak-password'
                 ? 'Password should be at least 6 characters.'
-                : err?.message ?? 'Authentication failed.'
+                : (err?.message ?? 'Authentication failed.')
       toast.error(message)
     } finally {
       setIsLoading(false)
@@ -98,9 +98,7 @@ export function LoginForm({
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
           <div className="flex flex-col gap-y-1.5">
-            <Label className="text-sm font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
-              Email
-            </Label>
+            <Label>Email</Label>
             <Input
               name="email"
               type="email"
@@ -112,9 +110,7 @@ export function LoginForm({
             />
           </div>
           <div className="flex flex-col gap-y-1.5">
-            <Label className="text-sm font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
-              Password
-            </Label>
+            <Label>Password</Label>
             <Input
               name="password"
               type="password"
@@ -132,7 +128,7 @@ export function LoginForm({
             {isLoading && <IconSpinner className="animate-spin" />}
             {action === 'sign-in' ? 'Sign In' : 'Create Account'}
           </Button>
-          <p className="text-center text-sm text-[#5A5A5A] dark:text-[#8A8A8A]">
+          <p className="text-center text-sm text-[#445e5f] dark:text-[#6f7f80]">
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}

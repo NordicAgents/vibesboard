@@ -62,10 +62,7 @@ export function GoogleLoginButton({
         }
       }}
       disabled={isLoading}
-      className={cn(
-        'w-full gap-2 border-[#E5E5E5] text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:border-[#2A2A2A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]',
-        className
-      )}
+      className={cn('w-full justify-center gap-2', className)}
       {...props}
     >
       {isLoading ? (

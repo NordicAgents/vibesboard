@@ -238,7 +238,7 @@ export function AgentAskChat({
           <>
             {/* Header when messages exist */}
             <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2 text-center">
-              <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-[#F0F0F0]">
+              <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-[#f5f8f7]">
                 ASK AI
               </p>
               <p className="mt-1 hidden font-switzer text-sm text-gray-secondary sm:block">
@@ -248,7 +248,7 @@ export function AgentAskChat({
             <div className="flex-1 overflow-y-auto pb-36 pt-20">
               <ChatList messages={pendingMessages} />
               {isLoading && !completion && (
-                <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-[#8A8A8A]">
+                <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-[#6f7f80]">
                   <IconSpinner className="size-4 animate-spin text-accent-orange" />
                   <span>Thinking...</span>
                 </div>
@@ -261,7 +261,7 @@ export function AgentAskChat({
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div className="w-full max-w-2xl space-y-8 text-center">
               <div className="space-y-3">
-                <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#F0F0F0] md:text-5xl">
+                <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#f5f8f7] md:text-5xl">
                   ASK AI
                 </h1>
                 <p className="hidden font-switzer text-lg text-gray-secondary sm:block">
@@ -288,7 +288,7 @@ export function AgentAskChat({
 
       {/* Chat Input - Only show at bottom when messages exist */}
       {pendingMessages.length > 0 && (
-        <div className="sticky bottom-0 border-t border-[#E5E5E5] bg-[#FFFFFF]/95 backdrop-blur-sm dark:border-[#2A2A2A] dark:bg-[#1A1A1A]/95">
+        <div className="sticky bottom-0 border-t border-[#e4e3e3] bg-[#f7f7f5]/95 backdrop-blur-sm dark:border-[#344348] dark:bg-[#222f30]/95">
           <div className="mx-auto max-w-2xl px-4 pb-4 pt-2">
             <PromptForm
               onSubmit={handleSubmit}
