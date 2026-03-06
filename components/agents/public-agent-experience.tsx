@@ -16,7 +16,10 @@ interface PublicAgentExperienceProps {
   googleReviewPlaceId?: string | null
 }
 
-export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgentExperienceProps) {
+export function PublicAgentExperience({
+  agent,
+  googleReviewPlaceId
+}: PublicAgentExperienceProps) {
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
   const [completedMessages, setCompletedMessages] = useState<Message[]>([])
@@ -52,9 +55,9 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-1 items-center justify-center bg-[#F5F0E8] p-6 dark:bg-[#1A1915]"
+          className="flex flex-1 items-center justify-center bg-[#f7f7f5] p-6 dark:bg-[#222f30]"
         >
-          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 rounded-3xl border border-[#E2DDD4] bg-[#FDFAF5] p-10 text-center shadow-[0_8px_40px_rgba(26,25,21,0.10)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 rounded-3xl border border-[#e4e3e3] bg-[#f5f8f7] p-10 text-center shadow-[0_8px_40px_rgba(0,0,0,0.10)] dark:border-[#344348] dark:bg-[#192425]">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -69,19 +72,24 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
               <IconCheck className="size-10 text-emerald-600 dark:text-emerald-400" />
             </motion.div>
             <div className="space-y-2">
-              <h2 className="font-serif text-2xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">
+              <h2 className="font-sans text-2xl font-medium tracking-tight text-[#222f30] dark:text-[#f5f8f7]">
                 Thanks for vibing!
               </h2>
-              <p className="text-sm leading-relaxed text-[#6B6560] dark:text-[#9D9790]">
+              <p className="text-sm leading-relaxed text-[#445e5f] dark:text-[#6f7f80]">
                 {agent.mode === 'collector'
                   ? "We've collected your responses. You can close this page now."
                   : 'We hope you found what you were looking for!'}
               </p>
             </div>
-            <div className="flex flex-col items-center gap-3 mt-2">
-              {googleReviewPlaceId && agent.mode === 'collector' && completedMessages.length > 0 && (
-                <GoogleReviewButton placeId={googleReviewPlaceId} messages={completedMessages} />
-              )}
+            <div className="mt-2 flex flex-col items-center gap-3">
+              {googleReviewPlaceId &&
+                agent.mode === 'collector' &&
+                completedMessages.length > 0 && (
+                  <GoogleReviewButton
+                    placeId={googleReviewPlaceId}
+                    messages={completedMessages}
+                  />
+                )}
               <Button
                 onClick={handleClose}
                 size="lg"
@@ -100,13 +108,13 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]"
         >
           {/* Agent header — full width, content centered */}
-          <div className="shrink-0 border-b border-[#E2DDD4]/70 bg-[#FDFAF5]/80 backdrop-blur-sm dark:border-[#2E2B25] dark:bg-[#221F1A]/80">
+          <div className="shrink-0 border-b border-[#e4e3e3]/70 bg-[#f5f8f7]/80 backdrop-blur-sm dark:border-[#344348] dark:bg-[#192425]/80">
             <div className="mx-auto flex w-full max-w-[760px] items-center gap-3 px-4 py-3 sm:px-6">
               {/* Agent logo */}
-              <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_4px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+              <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo_1.png"
@@ -117,15 +125,15 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
 
               {/* Agent name */}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+                <p className="truncate text-[15px] font-medium text-[#222f30] dark:text-[#f5f8f7]">
                   {agent.name}
                 </p>
               </div>
 
               {/* Online indicator */}
               <div className="flex items-center gap-1.5">
-                <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
-                <span className="text-xs text-[#9D9790]">Online</span>
+                <div className="size-2 rounded-full bg-primary shadow-[0_0_6px_rgba(167,226,110,0.6)]" />
+                <span className="text-xs text-[#6f7f80]">Online</span>
               </div>
             </div>
           </div>

@@ -4,7 +4,12 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { ensureActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
-import { hexToHslParts, normalizeHex, toCssHslVar } from '@/lib/colors'
+import {
+  hexToHslParts,
+  hexToRgbParts,
+  normalizeHex,
+  toCssHslVar
+} from '@/lib/colors'
 
 export async function getActiveTenantTheme(userId: string): Promise<{
   tenantId: string
@@ -36,8 +41,7 @@ export async function getActiveTenantTheme(userId: string): Promise<{
 
   const branding = brandingDoc.exists ? brandingDoc.data() : null
 
-  const primaryHex =
-    normalizeHex(branding?.primaryColor ?? '#000000') ?? null
+  const primaryHex = normalizeHex(branding?.primaryColor ?? '#000000') ?? null
   const secondaryHex =
     normalizeHex(branding?.secondaryColor ?? '#ffffff') ?? null
 
@@ -45,11 +49,15 @@ export async function getActiveTenantTheme(userId: string): Promise<{
 
   const primary = toCssHslVar(hexToHslParts(primaryHex))
   const secondary = toCssHslVar(hexToHslParts(secondaryHex))
+  const { r, g, b } = hexToRgbParts(primaryHex)
 
   return {
     tenantId,
     logoUrl: branding?.logoUrl ?? null,
     cssVars: {
+      '--accent-orange': primaryHex,
+      '--accent-warm': primaryHex,
+      '--accent-glow': `rgba(${r}, ${g}, ${b}, 0.24)`,
       '--primary': primary,
       '--primary-foreground': secondary,
       '--ring': primary
