@@ -9,15 +9,15 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          'border-transparent bg-[#EDE8DE] text-[#6B6560] hover:bg-[#E2DDD4] dark:bg-[#2E2B25] dark:text-[#9D9790] dark:hover:bg-[#3A3730]',
+          'border-transparent bg-[#EFEFED] text-[#5A5A5A] hover:bg-[#E5E5E5] dark:bg-[#2A2A2A] dark:text-[#8A8A8A] dark:hover:bg-[#242424]',
         primary:
           'border-transparent bg-accent-orange text-white hover:bg-accent-warm',
         secondary:
-          'border-transparent bg-[#EDE8DE] text-[#6B6560] hover:bg-[#E2DDD4] dark:bg-[#2E2B25] dark:text-[#9D9790] dark:hover:bg-[#3A3730]',
+          'border-transparent bg-[#EFEFED] text-[#5A5A5A] hover:bg-[#E5E5E5] dark:bg-[#2A2A2A] dark:text-[#8A8A8A] dark:hover:bg-[#242424]',
         destructive:
           'border-transparent bg-destructive text-white hover:bg-destructive/80',
         outline:
-          'border-[#E2DDD4] text-[#6B6560] dark:border-[#2E2B25] dark:text-[#9D9790]'
+          'border-[#E5E5E5] text-[#5A5A5A] dark:border-[#2A2A2A] dark:text-[#8A8A8A]'
       }
     },
     defaultVariants: {

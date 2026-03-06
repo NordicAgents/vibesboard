@@ -44,7 +44,7 @@ export function GoogleReviewButton({ placeId, messages }: GoogleReviewButtonProp
       onClick={handleClick}
       variant="outline"
       size="sm"
-      className="gap-2 rounded-full border-[#E2DDD4] bg-white hover:bg-[#EDE8DE] dark:border-[#2E2B25] dark:bg-[#221F1A] dark:hover:bg-[#2E2B25]"
+      className="gap-2 rounded-full border-[#E5E5E5] bg-white hover:bg-[#EFEFED] dark:border-[#2A2A2A] dark:bg-[#141414] dark:hover:bg-[#2A2A2A]"
     >
       <svg viewBox="0 0 24 24" className="size-4" aria-hidden="true">
         <path

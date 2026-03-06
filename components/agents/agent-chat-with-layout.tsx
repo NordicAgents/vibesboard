@@ -186,14 +186,14 @@ export function AgentChatWithLayout({
     () => (
       <DashboardSidebar>
         {/* Agent Info */}
-        <div className="mb-4 rounded-xl border border-[#E2DDD4] bg-[#EDE8DE]/40 p-4 dark:border-[#2E2B25] dark:bg-[#2E2B25]/40">
-          <h3 className="truncate font-serif text-base font-normal text-[#1A1915] dark:text-[#E8E3D8]">
+        <div className="mb-4 rounded-xl border border-[#E5E5E5] bg-[#EFEFED]/40 p-4 dark:border-[#2A2A2A] dark:bg-[#2A2A2A]/40">
+          <h3 className="truncate font-sans text-base font-medium tracking-tight text-[#1A1A1A] dark:text-[#F0F0F0]">
             {agent.name}
           </h3>
         </div>
 
         {!canEdit && (
-          <div className="mb-4 rounded-lg border border-dashed border-[#E2DDD4] bg-[#EDE8DE]/30 px-4 py-3 text-sm text-[#6B6560] dark:border-[#2E2B25] dark:bg-[#2E2B25]/20 dark:text-[#9D9790]">
+          <div className="mb-4 rounded-lg border border-dashed border-[#E5E5E5] bg-[#EFEFED]/30 px-4 py-3 text-sm text-[#5A5A5A] dark:border-[#2A2A2A] dark:bg-[#2A2A2A]/20 dark:text-[#8A8A8A]">
             Read-only (ask a tenant admin to edit)
           </div>
         )}
@@ -270,7 +270,7 @@ export function AgentChatWithLayout({
             }
           >
             {visitorSessions.length === 0 && (
-              <div className="rounded-lg border border-dashed border-[#E2DDD4] px-3 py-2 text-sm text-[#9D9790] dark:border-[#2E2B25]">
+              <div className="rounded-lg border border-dashed border-[#E5E5E5] px-3 py-2 text-sm text-[#8A8A8A] dark:border-[#2A2A2A]">
                 No visitor chats yet.
               </div>
             )}
@@ -282,7 +282,7 @@ export function AgentChatWithLayout({
               return (
                 <DashboardSidebarItem
                   key={session.id}
-                  className="bg-[#FDFAF5] dark:bg-[#221F1A]"
+                  className="bg-[#F7F7F5] dark:bg-[#141414]"
                   onClick={() => handleOpenConversation(session)}
                 >
                   <div className="truncate font-medium" title={label}>
@@ -333,7 +333,7 @@ export function AgentChatWithLayout({
             <button
               onClick={handleNewChat}
               data-mobile-menu-close="true"
-              className="flex size-5 items-center justify-center rounded text-xs text-[#9D9790] transition-colors hover:text-[#1A1915] dark:hover:text-[#E8E3D8]"
+              className="flex size-5 items-center justify-center rounded text-xs text-[#8A8A8A] transition-colors hover:text-[#1A1A1A] dark:hover:text-[#F0F0F0]"
               aria-label="New conversation"
             >
               +
@@ -383,14 +383,14 @@ export function AgentChatWithLayout({
   return (
     <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
       {selectedConversation ? (
-        <div className="h-full bg-[#F5F0E8] dark:bg-[#1A1915]">
+        <div className="h-full bg-[#FFFFFF] dark:bg-[#1A1A1A]">
           <ConversationView
             conversation={selectedConversation}
             onClose={() => setSelectedConversation(null)}
           />
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (
-        <div className="h-full overflow-y-auto bg-[#F5F0E8] p-4 dark:bg-[#1A1915]">
+        <div className="h-full overflow-y-auto bg-[#FFFFFF] p-4 dark:bg-[#1A1A1A]">
           <AgentRightbar
             agent={agent}
             share={share}
@@ -408,9 +408,9 @@ export function AgentChatWithLayout({
         />
       ) : (
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-          <div className="rounded-xl border border-[#E2DDD4] bg-[#FDFAF5] p-6 dark:border-[#2E2B25] dark:bg-[#221F1A]">
-            <h1 className="font-serif text-xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">Read-only access</h1>
-            <p className="mt-2 text-sm text-[#6B6560] dark:text-[#9D9790]">
+          <div className="rounded-xl border border-[#E5E5E5] bg-[#F7F7F5] p-6 dark:border-[#2A2A2A] dark:bg-[#141414]">
+            <h1 className="font-sans text-xl font-medium tracking-tight text-[#1A1A1A] dark:text-[#F0F0F0]">Read-only access</h1>
+            <p className="mt-2 text-sm text-[#5A5A5A] dark:text-[#8A8A8A]">
               Analytics and configuration are available to the agent owner and
               tenant admins.
             </p>

@@ -52,9 +52,9 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-1 items-center justify-center bg-[#F5F0E8] p-6 dark:bg-[#1A1915]"
+          className="flex flex-1 items-center justify-center bg-[#FFFFFF] p-6 dark:bg-[#1A1A1A]"
         >
-          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 rounded-3xl border border-[#E2DDD4] bg-[#FDFAF5] p-10 text-center shadow-[0_8px_40px_rgba(26,25,21,0.10)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 rounded-3xl border border-[#E5E5E5] bg-[#F7F7F5] p-10 text-center shadow-[0_8px_40px_rgba(0,0,0,0.10)] dark:border-[#2A2A2A] dark:bg-[#141414]">
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
@@ -69,10 +69,10 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
               <IconCheck className="size-10 text-emerald-600 dark:text-emerald-400" />
             </motion.div>
             <div className="space-y-2">
-              <h2 className="font-serif text-2xl font-normal text-[#1A1915] dark:text-[#E8E3D8]">
+              <h2 className="font-sans text-2xl font-medium tracking-tight text-[#1A1A1A] dark:text-[#F0F0F0]">
                 Thanks for vibing!
               </h2>
-              <p className="text-sm leading-relaxed text-[#6B6560] dark:text-[#9D9790]">
+              <p className="text-sm leading-relaxed text-[#5A5A5A] dark:text-[#8A8A8A]">
                 {agent.mode === 'collector'
                   ? "We've collected your responses. You can close this page now."
                   : 'We hope you found what you were looking for!'}
@@ -100,13 +100,13 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#F5F0E8] dark:bg-[#1A1915]"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#FFFFFF] dark:bg-[#1A1A1A]"
         >
           {/* Agent header — full width, content centered */}
-          <div className="shrink-0 border-b border-[#E2DDD4]/70 bg-[#FDFAF5]/80 backdrop-blur-sm dark:border-[#2E2B25] dark:bg-[#221F1A]/80">
+          <div className="shrink-0 border-b border-[#E5E5E5]/70 bg-[#F7F7F5]/80 backdrop-blur-sm dark:border-[#2A2A2A] dark:bg-[#141414]/80">
             <div className="mx-auto flex w-full max-w-[760px] items-center gap-3 px-4 py-3 sm:px-6">
               {/* Agent logo */}
-              <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E2DDD4] bg-[#FDFAF5] shadow-[0_1px_4px_rgba(26,25,21,0.08)] dark:border-[#2E2B25] dark:bg-[#221F1A]">
+              <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E5E5E5] bg-[#F7F7F5] shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:border-[#2A2A2A] dark:bg-[#141414]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/logo_1.png"
@@ -117,7 +117,7 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
 
               {/* Agent name */}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+                <p className="truncate text-[15px] font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
                   {agent.name}
                 </p>
               </div>
@@ -125,7 +125,7 @@ export function PublicAgentExperience({ agent, googleReviewPlaceId }: PublicAgen
               {/* Online indicator */}
               <div className="flex items-center gap-1.5">
                 <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
-                <span className="text-xs text-[#9D9790]">Online</span>
+                <span className="text-xs text-[#8A8A8A]">Online</span>
               </div>
             </div>
           </div>

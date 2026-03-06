@@ -5,99 +5,102 @@
 
 @layer base {
   :root {
-    /* ── Claude.ai Design Tokens ─────────────────────────────── */
-    --bg-base:        #F5F0E8;
-    --bg-surface:     #FDFAF5;
-    --bg-hover:       #EDE8DE;
-    --border-warm:    #E2DDD4;
-    --text-primary:   #1A1915;
-    --text-secondary: #6B6560;
-    --text-tertiary:  #9D9790;
-    --accent-orange:  #D97757;
-    --accent-warm:    #CC785C;
-    --accent-glow:    rgba(217, 119, 87, 0.12);
-    --shadow-soft:    0 1px 3px rgba(26, 25, 21, 0.06),
-                      0 4px 16px rgba(26, 25, 21, 0.04);
-    --shadow-md:      0 2px 8px rgba(26, 25, 21, 0.08),
-                      0 8px 32px rgba(26, 25, 21, 0.06);
+    /* ── Design Tokens (light) ───────────────────────────────── */
+    --bg-base:        #FFFFFF;
+    --bg-surface:     #F7F7F5;
+    --bg-hover:       #EFEFED;
+    --border-warm:    #E5E5E5;
+    --text-primary:   #1A1A1A;
+    --text-secondary: #5A5A5A;
+    --text-tertiary:  #8A8A8A;
+    --accent-orange:  #00C853;
+    --accent-warm:    #00C853;
+    --accent-glow:    rgba(0, 200, 83, 0.10);
+    --shadow-soft:    0 1px 3px rgba(0, 0, 0, 0.06),
+                      0 4px 16px rgba(0, 0, 0, 0.04);
+    --shadow-md:      0 2px 8px rgba(0, 0, 0, 0.08),
+                      0 8px 32px rgba(0, 0, 0, 0.06);
 
     /* ── Animation Easing ───────────────────────────────────── */
-    --ease-default:  cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-default:  cubic-bezier(0.25, 0.1, 0.25, 1);
     --ease-gentle:   cubic-bezier(0.4, 0, 0.2, 1);
     --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
     --duration-fast:   150ms;
-    --duration-normal: 250ms;
-    --duration-slow:   400ms;
+    --duration-normal: 300ms;
+    --duration-slow:   700ms;
 
     /* ── Shadcn/Tailwind HSL Tokens (light) ─────────────────── */
-    /* #F5F0E8 warm off-white */
-    --background:          35 33% 92%;
-    /* #1A1915 near-black warm */
-    --foreground:          40 6% 10%;
-    /* #EDE8DE subtle hover */
-    --muted:               35 18% 88%;
-    /* #6B6560 muted warm gray */
-    --muted-foreground:    25 5% 40%;
-    /* #FDFAF5 card/panel background */
-    --popover:             40 50% 98%;
-    --popover-foreground:  40 6% 10%;
-    --card:                40 50% 98%;
-    --card-foreground:     40 6% 10%;
-    /* #E2DDD4 soft dividers */
-    --border:              33 15% 86%;
-    --input:               33 15% 86%;
-    /* #D97757 accent orange as primary */
-    --primary:             15 65% 60%;
+    /* #FFFFFF white */
+    --background:          0 0% 100%;
+    /* #1A1A1A near-black */
+    --foreground:          0 0% 10%;
+    /* #EFEFED subtle hover */
+    --muted:               0 0% 94%;
+    /* #5A5A5A muted gray */
+    --muted-foreground:    0 0% 35%;
+    /* #F7F7F5 card/panel background */
+    --popover:             60 5% 97%;
+    --popover-foreground:  0 0% 10%;
+    --card:                60 5% 97%;
+    --card-foreground:     0 0% 10%;
+    /* #E5E5E5 soft dividers */
+    --border:              0 0% 90%;
+    --input:               0 0% 90%;
+    /* #00C853 green accent as primary */
+    --primary:             145 100% 39%;
     --primary-foreground:  0 0% 100%;
-    --secondary:           35 18% 88%;
-    --secondary-foreground: 40 6% 10%;
-    --accent:              35 18% 88%;
-    --accent-foreground:   40 6% 10%;
+    --secondary:           0 0% 94%;
+    --secondary-foreground: 0 0% 10%;
+    --accent:              0 0% 94%;
+    --accent-foreground:   0 0% 10%;
     --destructive:         0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --ring:                15 65% 60%;
-    --radius:              0.75rem;
+    --ring:                145 100% 39%;
+    --radius:              0.5rem;
 
     /* Legacy aliases kept for compatibility */
-    --black-primary:  #1A1915;
-    --gray-secondary: #6B6560;
-    --beige-bg:       #F5F0E8;
-    --purewhite-bg:   #FDFAF5;
+    --black-primary:  #1A1A1A;
+    --gray-secondary: #5A5A5A;
+    --beige-bg:       #FFFFFF;
+    --purewhite-bg:   #F7F7F5;
   }
 
   .dark {
     /* ── Dark Mode Tokens ───────────────────────────────────── */
-    --bg-base:        #1A1915;
-    --bg-surface:     #221F1A;
-    --bg-hover:       #2E2B25;
-    --border-warm:    #2E2B25;
-    --text-primary:   #E8E3D8;
-    --text-secondary: #9D9790;
-    --text-tertiary:  #6B6560;
-    --beige-bg:       #1A1915;
-    --purewhite-bg:   #221F1A;
-    --black-primary:  #E8E3D8;
-    --gray-secondary: #9D9790;
+    --bg-base:        #0A0A0A;
+    --bg-surface:     #141414;
+    --bg-hover:       #1E1E1E;
+    --border-warm:    #2A2A2A;
+    --text-primary:   #F0F0F0;
+    --text-secondary: #A0A0A0;
+    --text-tertiary:  #666666;
+    --accent-orange:  #00E676;
+    --accent-warm:    #00E676;
+    --accent-glow:    rgba(0, 230, 118, 0.10);
+    --beige-bg:       #0A0A0A;
+    --purewhite-bg:   #141414;
+    --black-primary:  #F0F0F0;
+    --gray-secondary: #A0A0A0;
 
-    --background:          40 6% 10%;
-    --foreground:          40 15% 88%;
-    --muted:               35 6% 15%;
-    --muted-foreground:    30 4% 55%;
-    --popover:             35 6% 13%;
-    --popover-foreground:  40 15% 88%;
-    --card:                35 6% 13%;
-    --card-foreground:     40 15% 88%;
-    --border:              35 6% 18%;
-    --input:               35 6% 18%;
-    --primary:             15 65% 60%;
-    --primary-foreground:  0 0% 100%;
-    --secondary:           35 6% 18%;
-    --secondary-foreground: 40 15% 88%;
-    --accent:              35 6% 18%;
-    --accent-foreground:   40 15% 88%;
+    --background:          0 0% 4%;
+    --foreground:          0 0% 94%;
+    --muted:               0 0% 10%;
+    --muted-foreground:    0 0% 55%;
+    --popover:             0 0% 8%;
+    --popover-foreground:  0 0% 94%;
+    --card:                0 0% 8%;
+    --card-foreground:     0 0% 94%;
+    --border:              0 0% 17%;
+    --input:               0 0% 17%;
+    --primary:             145 100% 45%;
+    --primary-foreground:  0 0% 0%;
+    --secondary:           0 0% 10%;
+    --secondary-foreground: 0 0% 94%;
+    --accent:              0 0% 10%;
+    --accent-foreground:   0 0% 94%;
     --destructive:         0 62.8% 30.6%;
     --destructive-foreground: 0 85.7% 97.3%;
-    --ring:                15 65% 60%;
+    --ring:                145 100% 45%;
   }
 }
 
@@ -116,7 +119,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'DM Sans', var(--font-sans), system-ui, sans-serif;
+    font-family: 'Inter', var(--font-sans), system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.65;
     min-height: 100vh;
@@ -129,17 +132,18 @@
   }
 
   h1, h2, h3 {
-    font-family: 'DM Serif Display', serif;
-    font-weight: 400;
-    line-height: 1.35;
-    letter-spacing: -0.01em;
+    font-family: 'Inter', var(--font-sans), sans-serif;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     color: var(--text-primary);
   }
 
   h4, h5, h6 {
-    font-family: 'DM Sans', var(--font-sans), sans-serif;
+    font-family: 'Inter', var(--font-sans), sans-serif;
     font-weight: 500;
-    line-height: 1.4;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
   }
 
   /* Touch-target floors — only for interactive elements */
@@ -172,7 +176,7 @@
   /* Custom warm scrollbar */
   ::-webkit-scrollbar              { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track        { background: transparent; }
-  ::-webkit-scrollbar-thumb        { background: var(--border-warm); border-radius: 100px; }
+  ::-webkit-scrollbar-thumb        { background: var(--border-warm); border-radius: 0; }
   ::-webkit-scrollbar-thumb:hover  { background: var(--accent-orange); }
 }
 
@@ -252,7 +256,7 @@
     box-shadow: var(--shadow-md);
   }
 
-  /* Input orange glow ring on focus */
+  /* Input green glow ring on focus */
   .input-claude:focus,
   .input-claude:focus-within {
     border-color: var(--accent-orange) !important;

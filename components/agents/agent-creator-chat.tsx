@@ -294,7 +294,7 @@ export function AgentCreatorChat({
   return (
     <div
       className={cn(
-        'flex h-full flex-1 bg-[#F5F0E8] dark:bg-[#1A1915]',
+        'flex h-full flex-1 bg-[#FFFFFF] dark:bg-[#1A1A1A]',
         className
       )}
     >
@@ -305,7 +305,7 @@ export function AgentCreatorChat({
             <>
               {/* Compact header */}
               <div className="flex items-center justify-between px-5 pb-2 pt-4">
-                <p className="font-switzer text-xs font-medium uppercase tracking-[0.08em] text-[#9D9790]">
+                <p className="font-switzer text-xs font-medium uppercase tracking-[0.08em] text-[#8A8A8A]">
                   Agent Builder
                 </p>
                 <div className="flex items-center gap-1">
@@ -365,7 +365,7 @@ export function AgentCreatorChat({
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#E8E3D8] md:text-5xl">
+                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#F0F0F0] md:text-5xl">
                       Build Your Agent
                     </h1>
                     <Button
@@ -393,7 +393,7 @@ export function AgentCreatorChat({
 
                 {/* Input centered below header */}
                 <div className="w-full">
-                  <div className="rounded-2xl border border-[#E2DDD4] bg-[#FDFAF5] px-4 py-3 shadow-soft dark:border-[#2E2B25] dark:bg-[#221F1A]">
+                  <div className="rounded-2xl border border-[#E5E5E5] bg-[#F7F7F5] px-4 py-3 shadow-soft dark:border-[#2A2A2A] dark:bg-[#141414]">
                     <PromptForm
                       onSubmit={async (value: string) => {
                         await append({
@@ -455,7 +455,7 @@ export function AgentCreatorChat({
                     variant="outline"
                     size="sm"
                     onClick={() => stop()}
-                    className="rounded-full border-[#E2DDD4] font-switzer text-[#6B6560] hover:bg-[#EDE8DE] hover:text-[#1A1915] dark:border-[#2E2B25] dark:text-[#9D9790] dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]"
+                    className="rounded-full border-[#E5E5E5] font-switzer text-[#5A5A5A] hover:bg-[#EFEFED] hover:text-[#1A1A1A] dark:border-[#2A2A2A] dark:text-[#8A8A8A] dark:hover:bg-[#2A2A2A] dark:hover:text-[#F0F0F0]"
                   >
                     <IconStop className="mr-2 size-4" />
                     Stop generating
@@ -464,7 +464,7 @@ export function AgentCreatorChat({
               )}
               <div className="space-y-2 px-4 py-3">
                 {!createdAgentId && isReadyToCreate && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2DDD4] bg-[#EDE8DE] px-3 py-2 text-xs text-[#1A1915] dark:border-[#2E2B25] dark:bg-[#2E2B25] dark:text-[#E8E3D8]">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E5E5E5] bg-[#EFEFED] px-3 py-2 text-xs text-[#1A1A1A] dark:border-[#2A2A2A] dark:bg-[#2A2A2A] dark:text-[#F0F0F0]">
                     <p className="font-switzer">
                       Your agent draft is ready. Say "create it" or click Create
                       Agent.
@@ -544,7 +544,7 @@ export function AgentCreatorChat({
           />
         </div>
       ) : (
-        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#E2DDD4] transition-all duration-300 ease-in-out dark:border-[#2E2B25]">
+        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#E5E5E5] transition-all duration-300 ease-in-out dark:border-[#2A2A2A]">
           <Button
             size="sm"
             variant="ghost"

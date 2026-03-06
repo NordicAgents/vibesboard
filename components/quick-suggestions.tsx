@@ -39,12 +39,12 @@ export function QuickSuggestions({
           transition={{ delay: idx * 0.05, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           whileTap={{ scale: 0.96 }}
           className={cn(
-            'rounded-full border border-[#E2DDD4] bg-[#FDFAF5] px-3.5 py-1.5 text-xs font-medium text-[#6B6560]',
-            'shadow-[0_1px_3px_rgba(26,25,21,0.06)] transition-all duration-150',
-            'hover:border-[#D97757]/30 hover:bg-[#EDE8DE] hover:text-[#1A1915]',
+            'rounded-full border border-[#E5E5E5] bg-[#F7F7F5] px-3.5 py-1.5 text-xs font-medium text-[#5A5A5A]',
+            'shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-all duration-150',
+            'hover:border-[#00C853]/30 hover:bg-[#EFEFED] hover:text-[#1A1A1A]',
             'active:scale-[0.97]',
-            'dark:border-[#2E2B25] dark:bg-[#221F1A] dark:text-[#9D9790]',
-            'dark:hover:bg-[#2E2B25] dark:hover:text-[#E8E3D8]',
+            'dark:border-[#2A2A2A] dark:bg-[#141414] dark:text-[#A0A0A0]',
+            'dark:hover:bg-[#1E1E1E] dark:hover:text-[#F0F0F0]',
             disabled && 'pointer-events-none opacity-50'
           )}
         >

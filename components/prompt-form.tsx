@@ -56,10 +56,10 @@ export function PromptForm({
       <div
         className={cn(
           'duration-[250ms] flex flex-col rounded-[16px] border transition-all',
-          'bg-[#FDFAF5] dark:bg-[#221F1A]',
-          'border-[#E2DDD4] dark:border-[#2E2B25]',
-          'shadow-[0_1px_3px_rgba(26,25,21,0.06),_0_4px_16px_rgba(26,25,21,0.04)]',
-          'focus-within:border-[#D97757]/60 focus-within:shadow-[0_0_0_3px_rgba(217,119,87,0.10),_0_1px_3px_rgba(26,25,21,0.06)]'
+          'bg-[#F7F7F5] dark:bg-[#141414]',
+          'border-[#E5E5E5] dark:border-[#2A2A2A]',
+          'shadow-[0_1px_3px_rgba(0,0,0,0.06),_0_4px_16px_rgba(0,0,0,0.04)]',
+          'focus-within:border-[#00C853]/60 focus-within:shadow-[0_0_0_3px_rgba(0,200,83,0.10),_0_1px_3px_rgba(0,0,0,0.06)]'
         )}
       >
         {/* Textarea */}
@@ -74,7 +74,7 @@ export function PromptForm({
             onChange={e => setInput(e.target.value)}
             placeholder={placeholder}
             spellCheck={false}
-            className="w-full resize-none bg-transparent text-[15px] leading-[1.65] text-[#1A1915] placeholder:text-[#9D9790] focus:outline-none disabled:opacity-50 dark:text-[#E8E3D8] dark:placeholder:text-[#6B6560]"
+            className="w-full resize-none bg-transparent text-[15px] leading-[1.65] text-[#1A1A1A] placeholder:text-[#8A8A8A] focus:outline-none disabled:opacity-50 dark:text-[#F0F0F0] dark:placeholder:text-[#666666]"
           />
         </div>
 
@@ -95,7 +95,7 @@ export function PromptForm({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   whileTap={{ scale: 0.92 }}
-                  className="flex size-8 items-center justify-center rounded-full border border-[#E2DDD4] bg-transparent text-[#9D9790] transition-all duration-150 hover:border-[#D97757]/30 hover:bg-[#EDE8DE] hover:text-[#6B6560] dark:border-[#2E2B25] dark:hover:bg-[#2E2B25]"
+                  className="flex size-8 items-center justify-center rounded-full border border-[#E5E5E5] bg-transparent text-[#8A8A8A] transition-all duration-150 hover:border-[#00C853]/30 hover:bg-[#EFEFED] hover:text-[#5A5A5A] dark:border-[#2A2A2A] dark:hover:bg-[#1E1E1E]"
                   aria-label="Regenerate response"
                 >
                   <svg
@@ -128,7 +128,7 @@ export function PromptForm({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   whileTap={{ scale: 0.92 }}
-                  className="flex size-8 items-center justify-center rounded-full bg-[#1A1915] text-[#FDFAF5] transition-colors duration-150 hover:bg-[#2E2B25] dark:bg-[#E8E3D8] dark:text-[#1A1915]"
+                  className="flex size-8 items-center justify-center rounded-full bg-[#1A1A1A] text-[#F7F7F5] transition-colors duration-150 hover:bg-[#2A2A2A] dark:bg-[#F0F0F0] dark:text-[#0A0A0A]"
                   aria-label="Stop generating"
                 >
                   <span className="size-3 rounded-sm bg-current" />
@@ -147,8 +147,8 @@ export function PromptForm({
                   className={cn(
                     'flex size-8 items-center justify-center rounded-full transition-all duration-150',
                     hasInput
-                      ? 'bg-accent-orange text-white shadow-sm hover:bg-accent-warm active:bg-[#BF6E52]'
-                      : 'cursor-not-allowed bg-[#E2DDD4] text-[#9D9790] dark:bg-[#2E2B25] dark:text-[#6B6560]'
+                      ? 'bg-accent-orange text-white shadow-sm hover:bg-accent-warm active:opacity-80'
+                      : 'cursor-not-allowed bg-[#E5E5E5] text-[#8A8A8A] dark:bg-[#2A2A2A] dark:text-[#666666]'
                   )}
                   aria-label="Send message"
                 >

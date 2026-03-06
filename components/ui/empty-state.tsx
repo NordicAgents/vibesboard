@@ -25,15 +25,15 @@ export function EmptyState({
             )}
         >
             {Icon && (
-                <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-[#EDE8DE] dark:bg-[#2E2B25]">
+                <div className="mb-4 flex size-14 items-center justify-center rounded-none bg-[#F7F7F5] dark:bg-[#1A1A1A]">
                     <Icon className="size-6 text-accent-orange" />
                 </div>
             )}
-            <h3 className="mb-2 font-serif text-lg font-normal text-[#1A1915] dark:text-[#E8E3D8]">
+            <h3 className="mb-2 font-sans text-lg font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
                 {title}
             </h3>
             {description && (
-                <p className="mb-6 max-w-sm text-sm text-[#6B6560] dark:text-[#9D9790]">
+                <p className="mb-6 max-w-sm text-sm text-[#5A5A5A] dark:text-[#A0A0A0]">
                     {description}
                 </p>
             )}

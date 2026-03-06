@@ -98,7 +98,7 @@ export function LoginForm({
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
           <div className="flex flex-col gap-y-1.5">
-            <Label className="text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+            <Label className="text-sm font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
               Email
             </Label>
             <Input
@@ -112,7 +112,7 @@ export function LoginForm({
             />
           </div>
           <div className="flex flex-col gap-y-1.5">
-            <Label className="text-sm font-medium text-[#1A1915] dark:text-[#E8E3D8]">
+            <Label className="text-sm font-medium text-[#1A1A1A] dark:text-[#F0F0F0]">
               Password
             </Label>
             <Input
@@ -132,7 +132,7 @@ export function LoginForm({
             {isLoading && <IconSpinner className="animate-spin" />}
             {action === 'sign-in' ? 'Sign In' : 'Create Account'}
           </Button>
-          <p className="text-center text-sm text-[#6B6560] dark:text-[#9D9790]">
+          <p className="text-center text-sm text-[#5A5A5A] dark:text-[#8A8A8A]">
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}
