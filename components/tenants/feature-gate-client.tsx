@@ -4,68 +4,68 @@ import { useEffect, useState } from 'react'
 import { type FeatureFlagName } from '@/lib/feature-flags'
 
 interface FeatureGateProps {
- feature: FeatureFlagName
- tenantId: string
- children: React.ReactNode
- fallback?: React.ReactNode
- loadingFallback?: React.ReactNode
+  feature: FeatureFlagName
+  tenantId: string
+  children: React.ReactNode
+  fallback?: React.ReactNode
+  loadingFallback?: React.ReactNode
 }
 
 export function FeatureGate({
- feature,
- tenantId,
- children,
- fallback = null,
- loadingFallback = null
+  feature,
+  tenantId,
+  children,
+  fallback = null,
+  loadingFallback = null
 }: FeatureGateProps) {
- const [isEnabled, setIsEnabled] = useState<boolean | null>(null)
- const [isLoading, setIsLoading] = useState(true)
+  const [isEnabled, setIsEnabled] = useState<boolean | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
- useEffect(() => {
- const controller = new AbortController()
+  useEffect(() => {
+    const controller = new AbortController()
 
- async function checkFeature() {
- setIsLoading(true)
- try {
- const response = await fetch(`/api/tenants/${tenantId}/config`, {
- signal: controller.signal
- })
+    async function checkFeature() {
+      setIsLoading(true)
+      try {
+        const response = await fetch(`/api/tenants/${tenantId}/config`, {
+          signal: controller.signal
+        })
 
- if (!response.ok) {
- setIsEnabled(false)
- return
- }
+        if (!response.ok) {
+          setIsEnabled(false)
+          return
+        }
 
- const data = await response.json()
- const features = (data?.features ??
- data?.tenant?.features ??
- []) as Array<{ name: string; isEnabled: boolean }>
+        const data = await response.json()
+        const features = (data?.features ??
+          data?.tenant?.features ??
+          []) as Array<{ name: string; isEnabled: boolean }>
 
- const found = features.find(f => f.name === feature)
- setIsEnabled(Boolean(found?.isEnabled))
- } catch (error) {
- if ((error as any)?.name === 'AbortError') {
- return
- }
- console.error('Failed to check feature flag:', error)
- setIsEnabled(false)
- } finally {
- setIsLoading(false)
- }
- }
+        const found = features.find(f => f.name === feature)
+        setIsEnabled(Boolean(found?.isEnabled))
+      } catch (error) {
+        if ((error as any)?.name === 'AbortError') {
+          return
+        }
+        console.error('Failed to check feature flag:', error)
+        setIsEnabled(false)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
- checkFeature()
- return () => controller.abort()
- }, [feature, tenantId])
+    checkFeature()
+    return () => controller.abort()
+  }, [feature, tenantId])
 
- if (isLoading) {
- return <>{loadingFallback}</>
- }
+  if (isLoading) {
+    return <>{loadingFallback}</>
+  }
 
- if (isEnabled) {
- return <>{children}</>
- }
+  if (isEnabled) {
+    return <>{children}</>
+  }
 
- return <>{fallback}</>
+  return <>{fallback}</>
 }
 

@@ -5,31 +5,31 @@ import { isFeatureEnabled } from '@/lib/features'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export default async function WhatsAppBulkLayout({
- children
+  children
 }: {
- children: React.ReactNode
+  children: React.ReactNode
 }) {
- const session = await auth()
+  const session = await auth()
 
- if (!session?.user) {
- redirect('/sign-in')
- }
+  if (!session?.user) {
+    redirect('/sign-in')
+  }
 
- // Check if feature is enabled for the active tenant
- const tenantId = await getActiveTenant(session.user.id)
- if (!tenantId) {
- redirect('/agents')
- }
+  // Check if feature is enabled for the active tenant
+  const tenantId = await getActiveTenant(session.user.id)
+  if (!tenantId) {
+    redirect('/agents')
+  }
 
- const hasAccess = await isFeatureEnabled(tenantId, 'whatsapp_bulk_messaging')
- if (!hasAccess) {
- redirect('/agents')
- }
+  const hasAccess = await isFeatureEnabled(tenantId, 'whatsapp_bulk_messaging')
+  if (!hasAccess) {
+    redirect('/agents')
+  }
 
- return (
- // @ts-ignore
- <PersistentSidebarLayout userId={session.user.id}>
- {children}
- </PersistentSidebarLayout>
- )
+  return (
+    // @ts-ignore
+    <PersistentSidebarLayout userId={session.user.id}>
+      {children}
+    </PersistentSidebarLayout>
+  )
 }
