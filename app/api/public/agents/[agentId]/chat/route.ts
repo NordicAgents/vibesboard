@@ -36,8 +36,9 @@ export async function POST(
   }
 
   const tenantId = agent.tenantId!
-  const externalId = await ensureExternalSessionId()
   const body = await req.json()
+  const isEmbed = body.embed === true
+  const externalId = await ensureExternalSessionId({ crossOrigin: isEmbed })
   const payload = publicAgentChatRequestSchema.parse({
     ...body,
     externalId
