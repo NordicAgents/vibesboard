@@ -27,6 +27,7 @@ import { IconExternalLink, IconTrash } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
+import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -434,6 +435,9 @@ export function AgentRightbar({
 
         {/* WhatsApp Integration */}
         <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
+
+        {/* Hooks */}
+        <AgentHooksSettings agentId={agent.id} canEdit={canEdit} />
 
         {/* Danger Zone */}
         <Card className="border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20">

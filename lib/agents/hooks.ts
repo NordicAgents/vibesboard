@@ -1,6 +1,7 @@
 import 'server-only'
 import { createHash, timingSafeEqual } from 'crypto'
 import { customAlphabet } from 'nanoid'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type HookDocument } from '@/lib/firestore-types'
 
@@ -145,7 +146,6 @@ export function recordHookUsage(
   agentId: string,
   hookId: string
 ): void {
-  const { FieldValue } = require('firebase-admin/firestore')
   adminDb
     .collection(Collections.hooks(tenantId, agentId))
     .doc(hookId)
