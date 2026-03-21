@@ -1,6 +1,20 @@
 import { cookies } from 'next/headers'
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type TenantDocument, type TenantBrandingDocument } from '@/lib/firestore-types'
+
+/** Lightweight member summary for display in the tenant switcher */
+export interface MemberSummary {
+  userId: string
+  email: string | null
+  name: string | null
+}
+
+/** Tenant document enriched with member info for the switcher UI */
+export interface TenantWithMembers extends TenantDocument {
+  memberCount: number
+  members: MemberSummary[]
+}
 
 const ACTIVE_TENANT_COOKIE = 'active_tenant_id'
 
@@ -37,23 +51,75 @@ export async function getActiveTenant(
 }
 
 export async function getUserTenants(userId: string): Promise<TenantDocument[]> {
-  // Look up the user document to get tenantIds array
-  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
-  if (!userDoc.exists) return []
+  // Try collectionGroup query first (source of truth: actual member docs).
+  // Falls back to tenantIds array if the index isn't deployed yet.
+  let tenantIds: string[]
 
-  const tenantIds: string[] = userDoc.data()?.tenantIds ?? []
-  if (!tenantIds.length) return []
+  try {
+    const membersSnapshot = await adminDb
+      .collectionGroup('members')
+      .where('userId', '==', userId)
+      .where('role', 'in', ['SUPER_ADMIN', 'TENANT_ADMIN', 'MEMBER'])
+      .get()
+
+    if (membersSnapshot.empty) return []
+
+    tenantIds = membersSnapshot.docs.map(
+      (doc: QueryDocumentSnapshot) => doc.data().tenantId as string
+    )
+  } catch {
+    // Fallback: read from user doc's tenantIds array
+    const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+    if (!userDoc.exists) return []
+    tenantIds = userDoc.data()?.tenantIds ?? []
+    if (!tenantIds.length) return []
+  }
 
   // Fetch tenant documents
   const tenantDocs = await Promise.all(
-    tenantIds.map(id =>
+    tenantIds.map((id: string) =>
       adminDb.collection(Collections.tenants).doc(id).get()
     )
   )
 
-  return tenantDocs
+  const tenants = tenantDocs
     .filter(doc => doc.exists)
     .map(doc => doc.data() as TenantDocument)
+
+  // Self-heal: sync tenantIds array on the user document if it has diverged
+  selfHealTenantIds(userId, tenantIds).catch(err =>
+    console.error(`[getUserTenants] self-heal failed for user ${userId}:`, err)
+  )
+
+  return tenants
+}
+
+/**
+ * Reconcile the user's tenantIds array with actual members subcollection.
+ * Only writes when there is an actual difference.
+ */
+async function selfHealTenantIds(userId: string, memberTenantIds: string[]): Promise<void> {
+  const userRef = adminDb.collection(Collections.users).doc(userId)
+  const userDoc = await userRef.get()
+
+  const existingIds: string[] = userDoc.exists
+    ? userDoc.data()?.tenantIds ?? []
+    : []
+
+  const existingSet = new Set(existingIds)
+  const memberSet = new Set(memberTenantIds)
+
+  if (
+    existingSet.size === memberSet.size &&
+    [...memberSet].every(id => existingSet.has(id))
+  ) {
+    return // Already in sync
+  }
+
+  await userRef.set(
+    { tenantIds: memberTenantIds },
+    { merge: true }
+  )
 }
 
 export async function getTenantById(
@@ -218,4 +284,42 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
   await batch.commit()
 
   return tenantId
+}
+
+/**
+ * Enrich tenant documents with member summaries (name + email).
+ * Used by the tenant switcher to show who is in each workspace.
+ */
+export async function enrichTenantsWithMembers(
+  tenants: TenantDocument[]
+): Promise<TenantWithMembers[]> {
+  return Promise.all(
+    tenants.map(async (tenant) => {
+      const membersSnap = await adminDb
+        .collection(Collections.members(tenant.id))
+        .get()
+
+      const memberSummaries = await Promise.all(
+        membersSnap.docs.map(async (memberDoc: QueryDocumentSnapshot) => {
+          const userId = memberDoc.id
+          const userDoc = await adminDb
+            .collection(Collections.users)
+            .doc(userId)
+            .get()
+          const userData = userDoc.exists ? userDoc.data() : null
+          return {
+            userId,
+            email: (userData?.email as string) ?? null,
+            name: (userData?.name as string) ?? null
+          }
+        })
+      )
+
+      return {
+        ...tenant,
+        memberCount: memberSummaries.length,
+        members: memberSummaries
+      }
+    })
+  )
 }

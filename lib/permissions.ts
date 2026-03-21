@@ -1,5 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type TenantDocument } from '@/lib/firestore-types'
+import { Collections } from '@/lib/firestore-types'
 
 export type Role = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 
@@ -57,36 +57,6 @@ export async function canManageTenant(
   tenantId: string
 ): Promise<boolean> {
   return isTenantAdmin(userId, tenantId)
-}
-
-export async function getUserTenants(
-  userId: string
-): Promise<TenantDocument[]> {
-  const userDoc = await adminDb
-    .collection(Collections.users)
-    .doc(userId)
-    .get()
-
-  if (!userDoc.exists) return []
-  const tenantIds: string[] = userDoc.data()?.tenantIds ?? []
-  if (!tenantIds.length) return []
-
-  const docs = await Promise.all(
-    tenantIds.map(id =>
-      adminDb.collection(Collections.tenants).doc(id).get()
-    )
-  )
-
-  return docs
-    .filter(d => d.exists)
-    .map(d => d.data() as TenantDocument)
-}
-
-export async function getUserActiveTenant(
-  userId: string
-): Promise<string | null> {
-  const tenants = await getUserTenants(userId)
-  return tenants.length > 0 ? tenants[0].id : null
 }
 
 export async function isMemberOfTenant(
