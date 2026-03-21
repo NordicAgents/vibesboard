@@ -6,82 +6,82 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ChatMessage } from '@/components/chat-message'
 
 export interface ChatListProps {
- messages: Message[]
- isLoading?: boolean
- agentAvatarGradient?: string
- agentAvatarInitial?: string
+  messages: Message[]
+  isLoading?: boolean
+  agentAvatarGradient?: string
+  agentAvatarInitial?: string
 }
 
 // Typing indicator — warm dots, aligned with AI avatar column
 function TypingIndicator() {
- return (
- <motion.div
- initial={{ opacity: 0, y: 6 }}
- animate={{ opacity: 1, y: 0 }}
- exit={{ opacity: 0, y: 6 }}
- transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
- className="flex items-center gap-3"
- >
- {/* Avatar placeholder to align with AI messages */}
- <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-warm bg-bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
- {/* eslint-disable-next-line @next/next/no-img-element */}
- <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
- </div>
- {/* Dots */}
- <div className="flex items-center gap-1.5 py-1">
- {[0, 1, 2].map(i => (
- <motion.span
- key={i}
- className="size-2 rounded-full bg-[#a7e26e]/50"
- animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
- transition={{
- duration: 0.9,
- repeat: Infinity,
- delay: i * 0.18,
- ease: 'easeInOut'
- }}
- />
- ))}
- </div>
- </motion.div>
- )
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      className="flex items-center gap-3"
+    >
+      {/* Avatar placeholder to align with AI messages */}
+      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
+      </div>
+      {/* Dots */}
+      <div className="flex items-center gap-1.5 py-1">
+        {[0, 1, 2].map(i => (
+          <motion.span
+            key={i}
+            className="size-2 rounded-full bg-[#a7e26e]/50"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+            transition={{
+              duration: 0.9,
+              repeat: Infinity,
+              delay: i * 0.18,
+              ease: 'easeInOut'
+            }}
+          />
+        ))}
+      </div>
+    </motion.div>
+  )
 }
 
 export function ChatList({
- messages,
- isLoading,
- agentAvatarGradient,
- agentAvatarInitial
+  messages,
+  isLoading,
+  agentAvatarGradient,
+  agentAvatarInitial
 }: ChatListProps) {
- if (!messages.length) {
- return null
- }
+  if (!messages.length) {
+    return null
+  }
 
- return (
- <div className="flex flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-5 sm:py-6">
- <AnimatePresence initial={false}>
- {messages.map((message, index) => (
- <motion.div
- key={message.id ?? index}
- initial={{ opacity: 0, y: 10 }}
- animate={{ opacity: 1, y: 0 }}
- transition={{
- duration: 0.28,
- ease: [0.16, 1, 0.3, 1]
- }}
- >
- <ChatMessage
- message={message}
- agentAvatarGradient={agentAvatarGradient}
- agentAvatarInitial={agentAvatarInitial}
- isLastMessage={index === messages.length - 1}
- />
- </motion.div>
- ))}
+  return (
+    <div className="flex flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-5 sm:py-6">
+      <AnimatePresence initial={false}>
+        {messages.map((message, index) => (
+          <motion.div
+            key={message.id ?? index}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.28,
+              ease: [0.16, 1, 0.3, 1]
+            }}
+          >
+            <ChatMessage
+              message={message}
+              agentAvatarGradient={agentAvatarGradient}
+              agentAvatarInitial={agentAvatarInitial}
+              isLastMessage={index === messages.length - 1}
+            />
+          </motion.div>
+        ))}
 
- {/* Typing indicator */}
- {isLoading && <TypingIndicator key="typing" />}
- </AnimatePresence>
- </div>
- )
+        {/* Typing indicator */}
+        {isLoading && <TypingIndicator key="typing" />}
+      </AnimatePresence>
+    </div>
+  )
 }
