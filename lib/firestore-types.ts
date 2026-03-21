@@ -147,6 +147,8 @@ export interface AgentDocument {
   quickSuggestionsCount: number
   mode: AgentMode
   maxMessages?: number
+  googleReviewEnabled?: boolean
+  googlePlaceId?: string | null
   lastEmbeddingsSyncAt?: string
   createdAt: string
   updatedAt: string
