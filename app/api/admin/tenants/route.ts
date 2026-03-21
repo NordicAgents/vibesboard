@@ -1,8 +1,28 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { validateTenantSlug, validateTenantName, generateSlug } from '@/lib/validations'
+
+/** Try to resolve a userId to an email+name, checking Firestore first, then Firebase Auth. */
+async function resolveUserIdentity(userId: string): Promise<{ email: string | null; name: string | null }> {
+    // 1. Firestore user doc
+    const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+    if (userDoc.exists) {
+        const data = userDoc.data()
+        if (data?.email) {
+            return { email: data.email, name: data.name ?? null }
+        }
+    }
+
+    // 2. Firebase Auth record (always exists if the user signed in)
+    try {
+        const authUser = await adminAuth.getUser(userId)
+        return { email: authUser.email ?? null, name: authUser.displayName ?? null }
+    } catch {
+        return { email: null, name: null }
+    }
+}
 
 export const runtime = 'nodejs'
 
@@ -46,9 +66,30 @@ export async function GET(req: Request) {
                 .count()
                 .get()
 
+            // Resolve owner identity: createdBy → first member → give up
+            const createdBy = (tenant as any).createdBy
+            let identity = { email: null as string | null, name: null as string | null }
+
+            if (createdBy) {
+                identity = await resolveUserIdentity(createdBy)
+            }
+
+            // Fallback: try the first member if creator lookup failed
+            if (!identity.email) {
+                const firstMember = await adminDb
+                    .collection(Collections.members(doc.id))
+                    .limit(1)
+                    .get()
+                if (!firstMember.empty) {
+                    identity = await resolveUserIdentity(firstMember.docs[0].id)
+                }
+            }
+
             return {
                 ...tenant,
-                user_count: membersCount.data().count
+                user_count: membersCount.data().count,
+                creator_email: identity.email,
+                creator_name: identity.name
             }
         })
     )

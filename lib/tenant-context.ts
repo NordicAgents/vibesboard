@@ -1,6 +1,20 @@
 import { cookies } from 'next/headers'
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type TenantDocument, type TenantBrandingDocument } from '@/lib/firestore-types'
+
+/** Lightweight member summary for display in the tenant switcher */
+export interface MemberSummary {
+  userId: string
+  email: string | null
+  name: string | null
+}
+
+/** Tenant document enriched with member info for the switcher UI */
+export interface TenantWithMembers extends TenantDocument {
+  memberCount: number
+  members: MemberSummary[]
+}
 
 const ACTIVE_TENANT_COOKIE = 'active_tenant_id'
 
@@ -218,4 +232,42 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
   await batch.commit()
 
   return tenantId
+}
+
+/**
+ * Enrich tenant documents with member summaries (name + email).
+ * Used by the tenant switcher to show who is in each workspace.
+ */
+export async function enrichTenantsWithMembers(
+  tenants: TenantDocument[]
+): Promise<TenantWithMembers[]> {
+  return Promise.all(
+    tenants.map(async (tenant) => {
+      const membersSnap = await adminDb
+        .collection(Collections.members(tenant.id))
+        .get()
+
+      const memberSummaries = await Promise.all(
+        membersSnap.docs.map(async (memberDoc: QueryDocumentSnapshot) => {
+          const userId = memberDoc.id
+          const userDoc = await adminDb
+            .collection(Collections.users)
+            .doc(userId)
+            .get()
+          const userData = userDoc.exists ? userDoc.data() : null
+          return {
+            userId,
+            email: (userData?.email as string) ?? null,
+            name: (userData?.name as string) ?? null
+          }
+        })
+      )
+
+      return {
+        ...tenant,
+        memberCount: memberSummaries.length,
+        members: memberSummaries
+      }
+    })
+  )
 }

@@ -8,7 +8,7 @@ import { auth } from '@/auth'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type TenantDocument } from '@/lib/firestore-types'
 import { TenantSwitcher } from '@/components/tenants'
-import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
+import { getActiveTenant, getTenantById, enrichTenantsWithMembers } from '@/lib/tenant-context'
 import { hasTenantAdminAccess } from '@/lib/permissions'
 import { isFeatureEnabled } from '@/lib/features'
 
@@ -51,10 +51,14 @@ export default async function SettingsLayout({
     redirect('/')
   }
 
-  const [manageableTenants, activeTenantId] = await Promise.all([
+  const [rawManageableTenants, activeTenantId] = await Promise.all([
     getManageableTenants(session.user.id),
     getActiveTenant(session.user.id)
   ])
+
+  const manageableTenants = rawManageableTenants.length > 0
+    ? await enrichTenantsWithMembers(rawManageableTenants)
+    : []
 
   const activeTenant = activeTenantId
     ? await getTenantById(activeTenantId)
