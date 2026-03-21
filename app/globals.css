@@ -57,8 +57,8 @@
   .dark {
     --bg-base: #111918;
     --bg-surface: #192425;
-    --bg-hover: #253435;
-    --bg-muted: #344348;
+    --bg-hover: #344348;
+    --bg-muted: #253435;
     --border-warm: #344348;
     --text-primary: #f5f8f7;
     --text-secondary: #c9cbbe;
