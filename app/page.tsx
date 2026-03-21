@@ -12,25 +12,25 @@ import { LandingFooter } from '@/components/landing/landing-footer'
 export const runtime = 'nodejs'
 
 export default async function IndexPage() {
-  const session = await auth()
+ const session = await auth()
 
-  if (!session?.user) {
-    return (
-      <div className="h-full overflow-y-auto bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
-        <LandingHeader />
-        <LandingHero />
-        <LandingShowcase />
-        <LandingServices />
-        <LandingAbout />
-        <LandingFooter />
-      </div>
-    )
-  }
+ if (!session?.user) {
+ return (
+ <div className="h-full overflow-y-auto bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
+ <LandingHeader />
+ <LandingHero />
+ <LandingShowcase />
+ <LandingServices />
+ <LandingAbout />
+ <LandingFooter />
+ </div>
+ )
+ }
 
-  const agents = await getAgents(session.user.id)
-  if (agents.length > 0) {
-    redirect('/agents')
-  } else {
-    redirect('/agents/create-chat')
-  }
+ const agents = await getAgents(session.user.id)
+ if (agents.length > 0) {
+ redirect('/agents')
+ } else {
+ redirect('/agents/create-chat')
+ }
 }
