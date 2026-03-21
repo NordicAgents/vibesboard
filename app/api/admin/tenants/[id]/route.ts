@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
+import { FieldValue } from 'firebase-admin/firestore'
 
 export const runtime = 'nodejs'
 
@@ -106,15 +107,22 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
 /**
  * DELETE /api/admin/tenants/[id]
- * Soft delete tenant (SUPER_ADMIN only) — marks as suspended
+ * Hard delete tenant and ALL related data (SUPER_ADMIN only).
+ *
+ * Cascade:
+ *  1. Remove tenantId from every member's user.tenantIds array
+ *  2. Delete all invitations for this tenant
+ *  3. Delete the slug reservation
+ *  4. recursiveDelete the tenant doc + every subcollection
+ *     (members, agents, conversations, files, chunks, hooks, branding, etc.)
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
     const auth = await requireSuperAdmin()
     if (!auth.ok) return auth.response
 
-    const { id } = await params
+    const { id: tenantId } = await params
 
-    const tenantRef = adminDb.collection(Collections.tenants).doc(id)
+    const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
     const tenantDoc = await tenantRef.get()
 
     if (!tenantDoc.exists) {
@@ -124,13 +132,50 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         )
     }
 
-    await tenantRef.update({
-        status: 'suspended',
-        updatedAt: new Date().toISOString()
-    })
+    const tenantData = tenantDoc.data()!
+    const slug = tenantData.slug as string | undefined
 
-    const updatedDoc = await tenantRef.get()
-    const tenant = { id: updatedDoc.id, ...updatedDoc.data() }
+    // 1. Remove tenantId from each member's user doc
+    const membersSnap = await adminDb
+        .collection(Collections.members(tenantId))
+        .get()
 
-    return NextResponse.json({ success: true, tenant })
+    const userUpdateBatch = adminDb.batch()
+    for (const memberDoc of membersSnap.docs) {
+        const userId = memberDoc.id
+        userUpdateBatch.update(
+            adminDb.collection(Collections.users).doc(userId),
+            { tenantIds: FieldValue.arrayRemove(tenantId) }
+        )
+    }
+    await userUpdateBatch.commit()
+
+    // 2. Delete all invitations referencing this tenant
+    const invitationsSnap = await adminDb
+        .collection(Collections.invitations)
+        .where('tenantId', '==', tenantId)
+        .get()
+
+    if (!invitationsSnap.empty) {
+        const invBatch = adminDb.batch()
+        for (const invDoc of invitationsSnap.docs) {
+            invBatch.delete(invDoc.ref)
+        }
+        await invBatch.commit()
+    }
+
+    // 3. Delete slug reservation
+    if (slug) {
+        await adminDb
+            .collection(Collections.tenantSlugs)
+            .doc(slug)
+            .delete()
+    }
+
+    // 4. Recursively delete tenant doc + all subcollections
+    //    (members, branding, feature_toggles, agents/*/conversations,
+    //     agents/*/files, agents/*/file_chunks, agents/*/hooks/*/jobs, etc.)
+    await adminDb.recursiveDelete(tenantRef)
+
+    return NextResponse.json({ success: true })
 }
