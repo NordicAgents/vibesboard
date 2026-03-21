@@ -9,7 +9,7 @@ import { type VibeAgent } from '@/lib/types'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
 import { IconCheck } from '@/components/ui/icons'
-import { GoogleReviewButton } from '@/components/google-review-button'
+import { GoogleReviewCard } from '@/components/google-review-card'
 
 interface PublicAgentExperienceProps {
   agent: VibeAgent
@@ -23,6 +23,7 @@ export function PublicAgentExperience({
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
   const [completedMessages, setCompletedMessages] = useState<Message[]>([])
+  const [reviewShared, setReviewShared] = useState(false)
 
   const handleChatComplete = useCallback((messages?: Message[]) => {
     if (messages) setCompletedMessages(messages)
@@ -85,18 +86,24 @@ export function PublicAgentExperience({
               {googleReviewPlaceId &&
                 agent.mode === 'collector' &&
                 completedMessages.length > 0 && (
-                  <GoogleReviewButton
+                  <GoogleReviewCard
+                    agentId={agent.id}
                     placeId={googleReviewPlaceId}
                     messages={completedMessages}
+                    onShare={() => setReviewShared(true)}
                   />
                 )}
-              <Button
-                onClick={handleClose}
-                size="lg"
-                className="rounded-full px-10"
-              >
-                Done
-              </Button>
+              {(!googleReviewPlaceId ||
+                agent.mode !== 'collector' ||
+                reviewShared) && (
+                <Button
+                  onClick={handleClose}
+                  size="lg"
+                  className="rounded-full px-10"
+                >
+                  Done
+                </Button>
+              )}
             </div>
           </div>
         </motion.div>
@@ -145,7 +152,6 @@ export function PublicAgentExperience({
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
-            googleReviewPlaceId={googleReviewPlaceId}
           />
         </motion.div>
       )}
