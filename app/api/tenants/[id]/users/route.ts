@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireTenantMember } from '@/lib/firebase/route-handler'
+import { requireTenantMember, requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 
@@ -18,8 +18,12 @@ type RouteParams = {
 export async function GET(req: Request, { params }: RouteParams) {
     const { id: tenantId } = await params
 
-    const auth = await requireTenantMember(tenantId)
-    if (!auth.ok) return auth.response
+    // Allow super admins to access any tenant's users (e.g. from admin panel)
+    const superAdminAuth = await requireSuperAdmin()
+    if (!superAdminAuth.ok) {
+        const auth = await requireTenantMember(tenantId)
+        if (!auth.ok) return auth.response
+    }
 
     // Get all members
     const membersSnapshot = await adminDb
