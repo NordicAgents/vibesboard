@@ -14,11 +14,13 @@ import { GoogleReviewCard } from '@/components/google-review-card'
 interface PublicAgentExperienceProps {
   agent: VibeAgent
   googleReviewPlaceId?: string | null
+  embed?: boolean
 }
 
 export function PublicAgentExperience({
   agent,
-  googleReviewPlaceId
+  googleReviewPlaceId,
+  embed
 }: PublicAgentExperienceProps) {
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
@@ -31,8 +33,12 @@ export function PublicAgentExperience({
   }, [])
 
   const handleClose = useCallback(() => {
-    router.push('/')
-  }, [router])
+    if (embed) {
+      window.parent.postMessage({ type: 'vibeagent:close' }, '*')
+    } else {
+      router.push('/')
+    }
+  }, [router, embed])
 
   // Generate a consistent avatar gradient from agent name
   const avatarInitial = agent.name?.[0]?.toUpperCase() ?? 'A'
@@ -83,7 +89,8 @@ export function PublicAgentExperience({
               </p>
             </div>
             <div className="mt-2 flex flex-col items-center gap-3">
-              {googleReviewPlaceId &&
+              {!embed &&
+                googleReviewPlaceId &&
                 agent.mode === 'collector' &&
                 completedMessages.length > 0 && (
                   <GoogleReviewCard
@@ -152,6 +159,7 @@ export function PublicAgentExperience({
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
+            embed={embed}
           />
         </motion.div>
       )}
