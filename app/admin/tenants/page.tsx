@@ -13,134 +13,134 @@ import type { TenantDocument } from '@/lib/firestore-types'
 import toast from 'react-hot-toast'
 
 interface TenantWithStats extends TenantDocument {
-    userCount?: number
-    adminEmail?: string
+ userCount?: number
+ adminEmail?: string
 }
 
 export default function TenantsPage() {
-    const router = useRouter()
-    const [tenants, setTenants] = React.useState<TenantWithStats[]>([])
-    const [loading, setLoading] = React.useState(true)
-    const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
+ const router = useRouter()
+ const [tenants, setTenants] = React.useState<TenantWithStats[]>([])
+ const [loading, setLoading] = React.useState(true)
+ const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
 
-    const fetchTenants = React.useCallback(async () => {
-        try {
-            setLoading(true)
-            const response = await fetch('/api/admin/tenants')
+ const fetchTenants = React.useCallback(async () => {
+ try {
+ setLoading(true)
+ const response = await fetch('/api/admin/tenants')
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch tenants')
-            }
+ if (!response.ok) {
+ throw new Error('Failed to fetch tenants')
+ }
 
-            const data = await response.json()
-            setTenants(data.tenants || [])
-        } catch (error) {
-            console.error('Error fetching tenants:', error)
-            toast.error('Failed to load tenants')
-        } finally {
-            setLoading(false)
-        }
-    }, [])
+ const data = await response.json()
+ setTenants(data.tenants || [])
+ } catch (error) {
+ console.error('Error fetching tenants:', error)
+ toast.error('Failed to load tenants')
+ } finally {
+ setLoading(false)
+ }
+ }, [])
 
-    React.useEffect(() => {
-        fetchTenants()
-    }, [fetchTenants])
+ React.useEffect(() => {
+ fetchTenants()
+ }, [fetchTenants])
 
-    const handleRowClick = (tenant: TenantWithStats) => {
-        router.push(`/admin/tenants/${tenant.id}`)
-    }
+ const handleRowClick = (tenant: TenantWithStats) => {
+ router.push(`/admin/tenants/${tenant.id}`)
+ }
 
-    const columns: Column<TenantWithStats>[] = [
-        {
-            key: 'name',
-            label: 'Name',
-            sortable: true,
-            render: (tenant) => (
-                <div className="flex flex-col gap-1">
-                    <span className="font-medium">{tenant.name}</span>
-                    <span className="text-xs text-muted-foreground">/{tenant.slug}</span>
-                </div>
-            ),
-        },
-        {
-            key: 'status',
-            label: 'Status',
-            sortable: true,
-            render: (tenant) => {
-                const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
-                    active: 'default',
-                    trial: 'secondary',
-                    suspended: 'destructive',
-                }
-                return (
-                    <Badge variant={statusColors[tenant.status]} className="capitalize">
-                        {tenant.status}
-                    </Badge>
-                )
-            },
-        },
-        {
-            key: 'adminEmail',
-            label: 'Admin',
-            render: (tenant) => tenant.adminEmail || 'N/A',
-        },
-        {
-            key: 'userCount',
-            label: 'Members',
-            sortable: true,
-            render: (tenant) => tenant.userCount || 0,
-        },
-        {
-            key: 'createdAt',
-            label: 'Created',
-            sortable: true,
-            render: (tenant) => new Date(tenant.createdAt).toLocaleDateString(),
-        },
-    ]
+ const columns: Column<TenantWithStats>[] = [
+ {
+ key: 'name',
+ label: 'Name',
+ sortable: true,
+ render: (tenant) => (
+ <div className="flex flex-col gap-1">
+ <span className="font-medium">{tenant.name}</span>
+ <span className="text-xs text-muted-foreground">/{tenant.slug}</span>
+ </div>
+ ),
+ },
+ {
+ key: 'status',
+ label: 'Status',
+ sortable: true,
+ render: (tenant) => {
+ const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
+ active: 'default',
+ trial: 'secondary',
+ suspended: 'destructive',
+ }
+ return (
+ <Badge variant={statusColors[tenant.status]} className="capitalize">
+ {tenant.status}
+ </Badge>
+ )
+ },
+ },
+ {
+ key: 'adminEmail',
+ label: 'Admin',
+ render: (tenant) => tenant.adminEmail || 'N/A',
+ },
+ {
+ key: 'userCount',
+ label: 'Members',
+ sortable: true,
+ render: (tenant) => tenant.userCount || 0,
+ },
+ {
+ key: 'createdAt',
+ label: 'Created',
+ sortable: true,
+ render: (tenant) => new Date(tenant.createdAt).toLocaleDateString(),
+ },
+ ]
 
-    return (
-        <>
-            <PageHeader
-                title="Tenants"
-                description="Manage all tenants in the system"
-                actions={
-                    <Button onClick={() => setCreateDialogOpen(true)}>
-                        <Plus className="mr-2 size-4" />
-                        Create Tenant
-                    </Button>
-                }
-            />
+ return (
+ <>
+ <PageHeader
+ title="Tenants"
+ description="Manage all tenants in the system"
+ actions={
+ <Button onClick={() => setCreateDialogOpen(true)}>
+ <Plus className="mr-2 size-4" />
+ Create Tenant
+ </Button>
+ }
+ />
 
-            <DataTable
-                data={tenants}
-                columns={columns}
-                searchable
-                searchPlaceholder="Search by name or slug..."
-                searchKeys={['name', 'slug']}
-                pagination
-                pageSize={10}
-                loading={loading}
-                onRowClick={handleRowClick}
-                emptyState={
-                    <EmptyState
-                        icon={Plus}
-                        title="No tenants yet"
-                        description="Get started by creating your first tenant"
-                        action={
-                            <Button onClick={() => setCreateDialogOpen(true)}>
-                                <Plus className="mr-2 size-4" />
-                                Create Tenant
-                            </Button>
-                        }
-                    />
-                }
-            />
+ <DataTable
+ data={tenants}
+ columns={columns}
+ searchable
+ searchPlaceholder="Search by name or slug..."
+ searchKeys={['name', 'slug']}
+ pagination
+ pageSize={10}
+ loading={loading}
+ onRowClick={handleRowClick}
+ emptyState={
+ <EmptyState
+ icon={Plus}
+ title="No tenants yet"
+ description="Get started by creating your first tenant"
+ action={
+ <Button onClick={() => setCreateDialogOpen(true)}>
+ <Plus className="mr-2 size-4" />
+ Create Tenant
+ </Button>
+ }
+ />
+ }
+ />
 
-            <CreateTenantDialog
-                open={createDialogOpen}
-                onOpenChange={setCreateDialogOpen}
-                onSuccess={fetchTenants}
-            />
-        </>
-    )
+ <CreateTenantDialog
+ open={createDialogOpen}
+ onOpenChange={setCreateDialogOpen}
+ onSuccess={fetchTenants}
+ />
+ </>
+ )
 }
