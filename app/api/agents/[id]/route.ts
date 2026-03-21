@@ -76,6 +76,12 @@ export async function PATCH(
     ...(payload.quickSuggestionsCount !== undefined
       ? { quickSuggestionsCount: payload.quickSuggestionsCount }
       : {}),
+    ...(typeof payload.googleReviewEnabled === 'boolean'
+      ? { googleReviewEnabled: payload.googleReviewEnabled }
+      : {}),
+    ...(payload.googlePlaceId !== undefined
+      ? { googlePlaceId: payload.googlePlaceId }
+      : {}),
     updatedAt: new Date().toISOString()
   }
 
