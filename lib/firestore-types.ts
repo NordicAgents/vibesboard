@@ -237,6 +237,7 @@ export interface WhatsAppCampaignDocument {
 
 // ─── Agent hook status ───────────────────────────────────────────────
 export type HookStatus = 'active' | 'inactive'
+export type HookJobStatus = 'pending' | 'running' | 'completed' | 'failed'
 
 // ─── Agent-scoped collections ────────────────────────────────────────
 
@@ -259,6 +260,34 @@ export interface HookDocument {
   lastUsedAt?: string
   createdAt: string
   updatedAt: string
+}
+
+/**
+ * /tenants/{tenantId}/agents/{agentId}/hooks/{hookId}/jobs/{jobId}
+ *
+ * Represents an async agent invocation. The caller submits a message and a
+ * callbackUrl, gets back a jobId immediately (202), and vibeagent POSTs the
+ * reply to callbackUrl when the agent completes. The caller can also poll
+ * GET /api/hooks/{hookId}/jobs/{jobId} for status.
+ */
+export interface HookJobDocument {
+  id: string
+  hookId: string
+  agentId: string
+  tenantId: string
+  message: string
+  externalUserId?: string
+  conversationId?: string
+  callbackUrl: string
+  status: HookJobStatus
+  reply?: string
+  error?: string
+  callbackStatus?: number   // HTTP status returned by the callback endpoint
+  callbackAttempts: number
+  createdAt: string
+  startedAt?: string
+  completedAt?: string
+  failedAt?: string
 }
 
 /** /tenants/{tenantId}/agents/{agentId}/conversations/{id} */
@@ -436,6 +465,8 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/whatsapp_connections` as const,
   hooks: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/hooks` as const,
+  hookJobs: (tenantId: string, agentId: string, hookId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/hooks/${hookId}/jobs` as const,
 
   // Campaign-scoped
   messageQueue: (tenantId: string, campaignId: string) =>
