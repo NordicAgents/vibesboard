@@ -7,16 +7,16 @@ import { nanoid } from '@/lib/utils'
 export const runtime = 'nodejs'
 
 export default async function CreateAgentChatPage() {
-  const session = await auth()
+ const session = await auth()
 
-  if (!session?.user) {
-    redirect('/sign-in?next=/agents/create-chat')
-  }
+ if (!session?.user) {
+ redirect('/sign-in?next=/agents/create-chat')
+ }
 
-  return (
-    <AgentCreatorChat
-      userId={session.user.id}
-      initialChatId={`agent-creator-${nanoid()}`}
-    />
-  )
+ return (
+ <AgentCreatorChat
+ userId={session.user.id}
+ initialChatId={`agent-creator-${nanoid()}`}
+ />
+ )
 }

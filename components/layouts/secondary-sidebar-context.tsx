@@ -3,33 +3,33 @@
 import * as React from 'react'
 
 export type SecondarySidebarSetter = React.Dispatch<
-  React.SetStateAction<React.ReactNode | null>
+ React.SetStateAction<React.ReactNode | null>
 >
 
 const SecondarySidebarSetterContext = React.createContext<
-  SecondarySidebarSetter | undefined
+ SecondarySidebarSetter | undefined
 >(undefined)
 
 export function SecondarySidebarSetterProvider({
-  setSecondarySidebar,
-  children
+ setSecondarySidebar,
+ children
 }: {
-  setSecondarySidebar: SecondarySidebarSetter
-  children: React.ReactNode
+ setSecondarySidebar: SecondarySidebarSetter
+ children: React.ReactNode
 }) {
-  return (
-    <SecondarySidebarSetterContext.Provider value={setSecondarySidebar}>
-      {children}
-    </SecondarySidebarSetterContext.Provider>
-  )
+ return (
+ <SecondarySidebarSetterContext.Provider value={setSecondarySidebar}>
+ {children}
+ </SecondarySidebarSetterContext.Provider>
+ )
 }
 
 export function useSecondarySidebarSetter() {
-  const context = React.useContext(SecondarySidebarSetterContext)
-  if (context === undefined) {
-    throw new Error(
-      'useSecondarySidebarSetter must be used within a SecondarySidebarSetterProvider'
-    )
-  }
-  return context
+ const context = React.useContext(SecondarySidebarSetterContext)
+ if (context === undefined) {
+ throw new Error(
+ 'useSecondarySidebarSetter must be used within a SecondarySidebarSetterProvider'
+ )
+ }
+ return context
 }
