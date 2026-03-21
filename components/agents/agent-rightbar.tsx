@@ -29,6 +29,7 @@ import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
+import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -481,6 +482,13 @@ export function AgentRightbar({
             </div>
           </CardContent>
         </Card>
+
+        {/* Embed Widget */}
+        {agent.tenantId && (
+          <FeatureGate feature="EMBED_WIDGET" tenantId={agent.tenantId}>
+            <AgentEmbedSettings agent={agent} canEdit={canEdit} />
+          </FeatureGate>
+        )}
 
         {/* WhatsApp Integration */}
         {agent.tenantId && (
