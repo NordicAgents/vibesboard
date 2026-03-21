@@ -149,16 +149,16 @@ export default function AgentsPage() {
                   <Card className="duration-[250ms] flex h-full flex-col rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="line-clamp-1 font-sans text-base font-normal text-[#222f30]">
+                        <CardTitle className="line-clamp-1 font-sans text-base font-normal text-[#222f30] dark:text-[#f5f8f7]">
                           {agent.name}
                         </CardTitle>
                         <Bot className="size-5 shrink-0 text-accent-orange" />
                       </div>
-                      <CardDescription className="line-clamp-2 text-sm text-[#445e5f]">
+                      <CardDescription className="line-clamp-2 text-sm text-[#445e5f] dark:text-[#c9cbbe]">
                         {agent.instructions || 'No instructions provided'}
                       </CardDescription>
                       {agent.created_at && (
-                        <p className="mt-auto pt-2 text-xs text-[#6f7f80]">
+                        <p className="mt-auto pt-2 text-xs text-[#6f7f80] dark:text-[#7e8e8f]">
                           {new Date(agent.created_at).toLocaleDateString(
                             'en-US',
                             {
@@ -188,7 +188,7 @@ export default function AgentsPage() {
                   <ChevronLeft className="size-4" />
                   Previous
                 </Button>
-                <div className="px-2 text-sm text-[#445e5f]">
+                <div className="px-2 text-sm text-[#445e5f] dark:text-[#c9cbbe]">
                   Page {page} of {pagination.totalPages}
                 </div>
                 <Button
