@@ -12,95 +12,95 @@ import { canEditAgent } from '@/lib/agents/permissions'
 export const runtime = 'nodejs'
 
 export default async function AgentPageAsChat({
- params,
- searchParams
+  params,
+  searchParams
 }: {
- params: Promise<{ id: string }>
- searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
- const { id } = await params
- const query = await searchParams
- const isConfigure = query.configure === 'true'
- const session = await auth()
+  const { id } = await params
+  const query = await searchParams
+  const isConfigure = query.configure === 'true'
+  const session = await auth()
 
- if (!session?.user) {
- redirect('/sign-in')
- }
+  if (!session?.user) {
+    redirect('/sign-in')
+  }
 
- // Find the agent across all tenants using collection group query
- const agentSnapshot = await adminDb
- .collectionGroup('agents')
- .where('id', '==', id)
- .limit(1)
- .get()
+  // Find the agent across all tenants using collection group query
+  const agentSnapshot = await adminDb
+    .collectionGroup('agents')
+    .where('id', '==', id)
+    .limit(1)
+    .get()
 
- if (agentSnapshot.empty) {
- notFound()
- }
+  if (agentSnapshot.empty) {
+    notFound()
+  }
 
- const agentData = agentSnapshot.docs[0].data()
- const agent = mapAgentDoc(agentData)
+  const agentData = agentSnapshot.docs[0].data()
+  const agent = mapAgentDoc(agentData)
 
- const canEdit = await canEditAgent({
- sessionUserId: session.user.id,
- agentOwnerId: agent.userId,
- tenantId: agent.tenantId ?? null
- })
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId ?? null
+  })
 
- // Fetch conversations for this agent
- const tenantId = agent.tenantId
- let conversations: ReturnType<typeof mapConversationDoc>[] = []
+  // Fetch conversations for this agent
+  const tenantId = agent.tenantId
+  let conversations: ReturnType<typeof mapConversationDoc>[] = []
 
- if (tenantId) {
- const convoSnapshot = await adminDb
- .collection(Collections.conversations(tenantId, agent.id))
- .orderBy('updatedAt', 'desc')
- .get()
+  if (tenantId) {
+    const convoSnapshot = await adminDb
+      .collection(Collections.conversations(tenantId, agent.id))
+      .orderBy('updatedAt', 'desc')
+      .get()
 
- conversations = convoSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
- }
+    conversations = convoSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
+  }
 
- const ownerConversations = conversations.filter(
- conversation => conversation.userId === session.user.id
- )
- const visitorConversations = canEdit
- ? conversations.filter(conversation => conversation.externalId)
- : []
- const lastSync = agent.lastEmbeddingsSyncAt
- ? new Date(agent.lastEmbeddingsSyncAt)
- : null
- const hasUnsyncedConversations = canEdit
- ? visitorConversations.some(conversation =>
- lastSync
- ? new Date(conversation.updatedAt).getTime() > lastSync.getTime()
- : true
- )
- : false
+  const ownerConversations = conversations.filter(
+    conversation => conversation.userId === session.user.id
+  )
+  const visitorConversations = canEdit
+    ? conversations.filter(conversation => conversation.externalId)
+    : []
+  const lastSync = agent.lastEmbeddingsSyncAt
+    ? new Date(agent.lastEmbeddingsSyncAt)
+    : null
+  const hasUnsyncedConversations = canEdit
+    ? visitorConversations.some(conversation =>
+        lastSync
+          ? new Date(conversation.updatedAt).getTime() > lastSync.getTime()
+          : true
+      )
+    : false
 
- const headersList = await headers()
- const rawProto = headersList.get('x-forwarded-proto')
- const protocol =
- (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
- (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
- const rawHost = headersList.get('x-forwarded-host') ?? headersList.get('host')
- const host = rawHost ? rawHost.split(',')[0]?.trim() : null
- const origin =
- (protocol && host
- ? `${protocol}://${host}`
- : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
- const shareUrl = `${origin}/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
- const qrDataUrl = await getQrDataUrl(shareUrl)
+  const headersList = await headers()
+  const rawProto = headersList.get('x-forwarded-proto')
+  const protocol =
+    (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
+    (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
+  const rawHost = headersList.get('x-forwarded-host') ?? headersList.get('host')
+  const host = rawHost ? rawHost.split(',')[0]?.trim() : null
+  const origin =
+    (protocol && host
+      ? `${protocol}://${host}`
+      : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
+  const shareUrl = `${origin}/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
+  const qrDataUrl = await getQrDataUrl(shareUrl)
 
- return (
- <AgentChatWithLayout
- agent={agent}
- ownerId={session.user.id}
- ownerSessions={ownerConversations}
- visitorSessions={visitorConversations}
- hasUnsyncedConversations={hasUnsyncedConversations}
- share={{ url: shareUrl, qrDataUrl }}
- isConfigure={canEdit ? isConfigure : false}
- canEdit={canEdit}
- />
- )
+  return (
+    <AgentChatWithLayout
+      agent={agent}
+      ownerId={session.user.id}
+      ownerSessions={ownerConversations}
+      visitorSessions={visitorConversations}
+      hasUnsyncedConversations={hasUnsyncedConversations}
+      share={{ url: shareUrl, qrDataUrl }}
+      isConfigure={canEdit ? isConfigure : false}
+      canEdit={canEdit}
+    />
+  )
 }

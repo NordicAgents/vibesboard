@@ -3,20 +3,20 @@ import { PersistentSidebarLayout } from '@/components/layouts/persistent-sidebar
 import { redirect } from 'next/navigation'
 
 export default async function AgentsLayout({
- children
+  children
 }: {
- children: React.ReactNode
+  children: React.ReactNode
 }) {
- const session = await auth()
+  const session = await auth()
 
- if (!session?.user) {
- redirect('/sign-in')
- }
+  if (!session?.user) {
+    redirect('/sign-in')
+  }
 
- return (
- // @ts-ignore
- <PersistentSidebarLayout userId={session.user.id}>
- {children}
- </PersistentSidebarLayout>
- )
+  return (
+    // @ts-ignore
+    <PersistentSidebarLayout userId={session.user.id}>
+      {children}
+    </PersistentSidebarLayout>
+  )
 }
