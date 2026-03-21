@@ -235,7 +235,31 @@ export interface WhatsAppCampaignDocument {
   updatedAt: string
 }
 
+// ─── Agent hook status ───────────────────────────────────────────────
+export type HookStatus = 'active' | 'inactive'
+
 // ─── Agent-scoped collections ────────────────────────────────────────
+
+/**
+ * /tenants/{tenantId}/agents/{agentId}/hooks/{hookId}
+ *
+ * Exposes an agent to external callers (other agents, external services)
+ * via a secret-authenticated HTTP endpoint. The secretKey is stored as a
+ * SHA-256 hex digest — it is shown to the user once at creation and never
+ * returned again.
+ */
+export interface HookDocument {
+  id: string            // nanoid(21) — used as the URL token
+  agentId: string
+  tenantId: string
+  name: string          // human label e.g. "Negotiation Service"
+  secretHash: string    // SHA-256 hex of the raw secret
+  status: HookStatus
+  requestCount: number
+  lastUsedAt?: string
+  createdAt: string
+  updatedAt: string
+}
 
 /** /tenants/{tenantId}/agents/{agentId}/conversations/{id} */
 export interface ConversationDocument {
@@ -410,6 +434,8 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/conversation_chunks` as const,
   whatsappConnections: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/whatsapp_connections` as const,
+  hooks: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/hooks` as const,
 
   // Campaign-scoped
   messageQueue: (tenantId: string, campaignId: string) =>
