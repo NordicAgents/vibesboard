@@ -1,0 +1,138 @@
+name: Security & Quality
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  # ── Semgrep SAST ─────────────────────────────────────────────────────
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: >
+          semgrep ci
+          --config auto
+          --config p/typescript
+          --config p/nodejs
+          --config p/owasp-top-ten
+          --config p/secrets
+          --sarif
+          --output semgrep.sarif
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: false
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # ── Lizard Complexity ────────────────────────────────────────────────
+  complexity:
+    name: Lizard Complexity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Lizard
+        run: pip install lizard
+
+      - name: Run Lizard
+        run: |
+          lizard . \
+            --language typescript \
+            --CCN 15 \
+            --length 200 \
+            --arguments 8 \
+            --exclude "node_modules/*" \
+            --exclude ".next/*" \
+            --exclude "*.test.ts" \
+            --exclude "*.spec.ts" \
+            --xml > lizard-report.xml
+        continue-on-error: true
+
+      - name: Fail on threshold violations
+        run: |
+          lizard . \
+            --language typescript \
+            --CCN 15 \
+            --length 200 \
+            --arguments 8 \
+            --exclude "node_modules/*" \
+            --exclude ".next/*" \
+            --exclude "*.test.ts" \
+            --exclude "*.spec.ts" \
+            --warnings_only
+        # Exits non-zero if any function breaches CCN > 15, length > 200, or args > 8
+
+      - name: Upload Lizard report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lizard-report
+          path: lizard-report.xml
+
+  # ── Trivy — container + filesystem scan ─────────────────────────────
+  trivy:
+    name: Trivy Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan (deps + secrets)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: sarif
+          output: trivy-fs.sarif
+          ignore-unfixed: true
+
+      - name: Upload Trivy filesystem SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Build Docker image
+        run: docker build -t vibeagent:${{ github.sha }} .
+        continue-on-error: true
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        if: success()
+        with:
+          scan-type: image
+          image-ref: vibeagent:${{ github.sha }}
+          scanners: vuln,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          format: sarif
+          output: trivy-image.sarif
+          ignore-unfixed: true
+
+      - name: Upload Trivy image SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
