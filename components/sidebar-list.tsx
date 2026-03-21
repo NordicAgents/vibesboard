@@ -5,7 +5,7 @@ import { SidebarAgentGroup } from '@/components/sidebar-agent-group'
 import { TenantSwitcher } from '@/components/tenants'
 import { Button } from '@/components/ui/button'
 import { IconPlus } from '@/components/ui/icons'
-import { getActiveTenant, getUserTenants } from '@/lib/tenant-context'
+import { getActiveTenant, getUserTenants, enrichTenantsWithMembers } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
 import { MessageSquare, FileText, Users, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,7 +16,10 @@ export interface SidebarListProps {
 
 export async function SidebarList({ userId }: SidebarListProps) {
   const currentTenantId = userId ? await getActiveTenant(userId) : null
-  const tenants = userId ? await getUserTenants(userId) : []
+  const rawTenants = userId ? await getUserTenants(userId) : []
+  const tenants = rawTenants.length > 0
+    ? await enrichTenantsWithMembers(rawTenants)
+    : []
 
   const [agents, conversations] = await Promise.all([
     getAgents(userId),
