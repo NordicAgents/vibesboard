@@ -91,9 +91,13 @@ if [ -f ".env" ]; then
     ok "No placeholder values detected"
   fi
 else
-  warn ".env not found — copying from .env.example"
-  cp .env.example .env
-  warn "Created .env from template — fill in your values before running"
+  warn ".env not found — copying from .env.local"
+  if [ -f ".env.local" ]; then
+    cp .env.local .env
+    ok "Created .env from .env.local"
+  else
+    fail ".env.local not found — create it manually from .env.example"
+  fi
 fi
 
 # ── 6. Check optional CLI tools ───────────────────────────────────────
