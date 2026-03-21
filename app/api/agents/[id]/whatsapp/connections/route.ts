@@ -7,6 +7,7 @@ import {
   listAgentConnections
 } from '@/lib/whatsapp/connections'
 import { sendIntroductionMessage } from '@/lib/whatsapp/intro-message'
+import { isFeatureEnabled } from '@/lib/features'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
@@ -74,6 +75,15 @@ export async function POST(
     }
 
     const { agent, tenantId } = agentResult
+
+    // Check feature flag
+    const hasWhatsApp = await isFeatureEnabled(tenantId, 'WHATSAPP_MESSAGING')
+    if (!hasWhatsApp) {
+      return NextResponse.json(
+        { error: 'WhatsApp Messaging is not enabled for this tenant' },
+        { status: 403 }
+      )
+    }
 
     // Parse and validate request body
     const body = await request.json()
@@ -160,6 +170,15 @@ export async function GET(
     }
 
     const { tenantId } = agentResult
+
+    // Check feature flag
+    const hasWhatsApp = await isFeatureEnabled(tenantId, 'WHATSAPP_MESSAGING')
+    if (!hasWhatsApp) {
+      return NextResponse.json(
+        { error: 'WhatsApp Messaging is not enabled for this tenant' },
+        { status: 403 }
+      )
+    }
 
     // Get status filter from query params
     const status = request.nextUrl.searchParams.get('status') || undefined
