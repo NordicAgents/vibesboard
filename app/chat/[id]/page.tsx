@@ -9,42 +9,42 @@ export const runtime = 'nodejs'
 export const preferredRegion = 'home'
 
 export interface ChatPageProps {
- params: {
- id: string
- }
+  params: {
+    id: string
+  }
 }
 
 export async function generateMetadata({
- params
+  params
 }: ChatPageProps): Promise<Metadata> {
- const session = await auth()
+  const session = await auth()
 
- if (!session?.user) {
- return {}
- }
+  if (!session?.user) {
+    return {}
+  }
 
- const chat = await getChat(params.id)
- return {
- title: chat?.title.toString().slice(0, 50) ?? 'Chat'
- }
+  const chat = await getChat(params.id)
+  return {
+    title: chat?.title.toString().slice(0, 50) ?? 'Chat'
+  }
 }
 
 export default async function ChatPage({ params }: ChatPageProps) {
- const session = await auth()
+  const session = await auth()
 
- if (!session?.user) {
- redirect(`/sign-in?next=/chat/${params.id}`)
- }
+  if (!session?.user) {
+    redirect(`/sign-in?next=/chat/${params.id}`)
+  }
 
- const chat = await getChat(params.id)
+  const chat = await getChat(params.id)
 
- if (!chat) {
- notFound()
- }
+  if (!chat) {
+    notFound()
+  }
 
- if (chat?.userId !== session?.user?.id) {
- notFound()
- }
+  if (chat?.userId !== session?.user?.id) {
+    notFound()
+  }
 
- return <Chat id={chat.id} initialMessages={chat.messages} />
+  return <Chat id={chat.id} initialMessages={chat.messages} />
 }
