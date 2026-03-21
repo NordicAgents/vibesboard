@@ -78,6 +78,12 @@ export function AgentRightbar({
   const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(
     agent.quickSuggestionsCount ?? 4
   )
+  const [googleReviewEnabled, setGoogleReviewEnabled] = useState(
+    agent.googleReviewEnabled ?? false
+  )
+  const [googlePlaceId, setGooglePlaceId] = useState(
+    agent.googlePlaceId ?? ''
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -121,7 +127,9 @@ export function AgentRightbar({
       mode,
       maxMessages,
       quickSuggestionsMode,
-      quickSuggestionsCount
+      quickSuggestionsCount,
+      googleReviewEnabled,
+      googlePlaceId: googlePlaceId.trim() || null
     }
 
     try {
@@ -151,7 +159,9 @@ export function AgentRightbar({
     mode !== (agent.mode || 'provider') ||
     maxMessages !== (agent.maxMessages ?? null) ||
     quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
-    quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4)
+    quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
+    googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
+    (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null)
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -395,6 +405,44 @@ export function AgentRightbar({
                     className="h-9 w-20 text-center"
                   />
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Google Review */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Google Review</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Enable Google Review</p>
+                <p className="text-xs text-muted-foreground">
+                  Show review prompt after chat completion.
+                </p>
+              </div>
+              <Switch
+                checked={googleReviewEnabled}
+                disabled={saving || !canEdit}
+                onCheckedChange={setGoogleReviewEnabled}
+              />
+            </div>
+            {googleReviewEnabled && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Google Place ID
+                </label>
+                <Input
+                  value={googlePlaceId}
+                  onChange={e => setGooglePlaceId(e.target.value)}
+                  placeholder="Leave empty to use tenant default"
+                  disabled={saving || !canEdit}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Override the tenant Place ID for this agent.
+                </p>
               </div>
             )}
           </CardContent>
