@@ -3,7 +3,8 @@ export const FEATURE_FLAG_NAMES = [
   'TEAM_COLLABORATION',
   'whatsapp_bulk_messaging',
   'WHATSAPP_MESSAGING',
-  'GOOGLE_REVIEW'
+  'GOOGLE_REVIEW',
+  'EMBED_WIDGET'
 ] as const
 
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
