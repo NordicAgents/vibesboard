@@ -28,6 +28,7 @@ interface AgentChatProps {
   onChatComplete?: (messages?: Message[]) => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
+  embed?: boolean
 }
 
 export function AgentChat({
@@ -38,7 +39,8 @@ export function AgentChat({
   className,
   onChatComplete,
   agentAvatarGradient = 'from-violet-400 to-purple-500',
-  agentAvatarInitial = 'A'
+  agentAvatarInitial = 'A',
+  embed
 }: AgentChatProps) {
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
@@ -117,7 +119,8 @@ export function AgentChat({
     id: chatKey,
     api: endpoint,
     body: {
-      conversationId
+      conversationId,
+      ...(embed ? { embed: true } : {})
     },
     initialMessages: messagesToUse,
     onResponse(response: Response) {

@@ -18,6 +18,7 @@ const RESERVED_SLUGS = new Set([
   'sign-up',
   'terms-of-service',
   'whatsapp-bulk',
+  'widget',
   '_next',
   'public'
 ])
@@ -28,6 +29,11 @@ export async function middleware(req: NextRequest) {
 
   // Allow public access to invitation pages
   if (pathname.startsWith('/invite/')) {
+    return res
+  }
+
+  // Allow public access to widget pages (embedded iframe)
+  if (pathname.startsWith('/widget/')) {
     return res
   }
 
