@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { FieldValue } from 'firebase-admin/firestore'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb, adminAuth } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
@@ -182,6 +183,23 @@ export async function POST(req: Request) {
             createdAt: now,
             updatedAt: now
         }
+    )
+
+    // Add the creator as a TENANT_ADMIN member
+    batch.set(
+        adminDb.collection(Collections.members(tenantId)).doc(createdBy),
+        {
+            userId: createdBy,
+            tenantId,
+            role: 'TENANT_ADMIN',
+            createdAt: now
+        }
+    )
+
+    // Update the creator's tenantIds array
+    batch.update(
+        adminDb.collection(Collections.users).doc(createdBy),
+        { tenantIds: FieldValue.arrayUnion(tenantId) }
     )
 
     await batch.commit()

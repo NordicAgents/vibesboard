@@ -51,23 +51,75 @@ export async function getActiveTenant(
 }
 
 export async function getUserTenants(userId: string): Promise<TenantDocument[]> {
-  // Look up the user document to get tenantIds array
-  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
-  if (!userDoc.exists) return []
+  // Try collectionGroup query first (source of truth: actual member docs).
+  // Falls back to tenantIds array if the index isn't deployed yet.
+  let tenantIds: string[]
 
-  const tenantIds: string[] = userDoc.data()?.tenantIds ?? []
-  if (!tenantIds.length) return []
+  try {
+    const membersSnapshot = await adminDb
+      .collectionGroup('members')
+      .where('userId', '==', userId)
+      .where('role', 'in', ['SUPER_ADMIN', 'TENANT_ADMIN', 'MEMBER'])
+      .get()
+
+    if (membersSnapshot.empty) return []
+
+    tenantIds = membersSnapshot.docs.map(
+      (doc: QueryDocumentSnapshot) => doc.data().tenantId as string
+    )
+  } catch {
+    // Fallback: read from user doc's tenantIds array
+    const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+    if (!userDoc.exists) return []
+    tenantIds = userDoc.data()?.tenantIds ?? []
+    if (!tenantIds.length) return []
+  }
 
   // Fetch tenant documents
   const tenantDocs = await Promise.all(
-    tenantIds.map(id =>
+    tenantIds.map((id: string) =>
       adminDb.collection(Collections.tenants).doc(id).get()
     )
   )
 
-  return tenantDocs
+  const tenants = tenantDocs
     .filter(doc => doc.exists)
     .map(doc => doc.data() as TenantDocument)
+
+  // Self-heal: sync tenantIds array on the user document if it has diverged
+  selfHealTenantIds(userId, tenantIds).catch(err =>
+    console.error(`[getUserTenants] self-heal failed for user ${userId}:`, err)
+  )
+
+  return tenants
+}
+
+/**
+ * Reconcile the user's tenantIds array with actual members subcollection.
+ * Only writes when there is an actual difference.
+ */
+async function selfHealTenantIds(userId: string, memberTenantIds: string[]): Promise<void> {
+  const userRef = adminDb.collection(Collections.users).doc(userId)
+  const userDoc = await userRef.get()
+
+  const existingIds: string[] = userDoc.exists
+    ? userDoc.data()?.tenantIds ?? []
+    : []
+
+  const existingSet = new Set(existingIds)
+  const memberSet = new Set(memberTenantIds)
+
+  if (
+    existingSet.size === memberSet.size &&
+    [...memberSet].every(id => existingSet.has(id))
+  ) {
+    return // Already in sync
+  }
+
+  await userRef.set(
+    { tenantIds: memberTenantIds },
+    { merge: true }
+  )
 }
 
 export async function getTenantById(
