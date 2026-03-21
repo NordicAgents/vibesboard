@@ -48,6 +48,8 @@ export interface VibeAgent {
   ragEnabled?: boolean
   ragChunkCount?: number
   ragSimilarityThreshold?: number
+  googleReviewEnabled?: boolean
+  googlePlaceId?: string | null
   createdAt: string
   updatedAt: string
 }

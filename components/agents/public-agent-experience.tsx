@@ -145,7 +145,6 @@ export function PublicAgentExperience({
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
-            googleReviewPlaceId={googleReviewPlaceId}
           />
         </motion.div>
       )}

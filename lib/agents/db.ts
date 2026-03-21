@@ -105,6 +105,8 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   ragEnabled: data.ragEnabled ?? true,
   ragChunkCount: data.ragChunkCount ?? 5,
   ragSimilarityThreshold: data.ragSimilarityThreshold ?? 0.7,
+  googleReviewEnabled: data.googleReviewEnabled ?? false,
+  googlePlaceId: data.googlePlaceId ?? null,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })

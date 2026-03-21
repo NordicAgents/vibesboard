@@ -40,16 +40,16 @@ export default async function PublicAgentPage({
 
   const agent = mapAgentDoc(agentSnapshot.docs[0].data())
 
-  // Read Google Review config from tenant doc
+  // Read Google Review config: feature flag (tenant gate) + agent-level toggle
   const tenantDoc = await adminDb
     .collection(Collections.tenants)
     .doc(tenantId)
     .get()
   const tenantData = tenantDoc.data()
-  const googleReviewEnabled = await isFeatureEnabled(tenantId, 'GOOGLE_REVIEW')
+  const googleReviewFeatureEnabled = await isFeatureEnabled(tenantId, 'GOOGLE_REVIEW')
   const googleReviewPlaceId =
-    googleReviewEnabled && tenantData?.googlePlaceId
-      ? (tenantData.googlePlaceId as string)
+    googleReviewFeatureEnabled && agent.googleReviewEnabled
+      ? (agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null)
       : null
 
   // fixed inset-0: anchors to viewport, bypassing the parent min-height chain.
