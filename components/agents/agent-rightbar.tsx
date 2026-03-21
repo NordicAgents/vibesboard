@@ -27,6 +27,7 @@ import { IconExternalLink, IconTrash } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
+import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
 import {
   AlertDialog,
@@ -482,7 +483,11 @@ export function AgentRightbar({
         </Card>
 
         {/* WhatsApp Integration */}
-        <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
+        {agent.tenantId && (
+          <FeatureGate feature="WHATSAPP_MESSAGING" tenantId={agent.tenantId}>
+            <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
+          </FeatureGate>
+        )}
 
         {/* Hooks */}
         <AgentHooksSettings agentId={agent.id} canEdit={canEdit} />

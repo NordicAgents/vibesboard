@@ -9,6 +9,7 @@ import {
   resetConnection
 } from '@/lib/whatsapp/connections'
 import { resendIntroductionMessage } from '@/lib/whatsapp/intro-message'
+import { isFeatureEnabled } from '@/lib/features'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
@@ -70,6 +71,15 @@ export async function GET(
 
     const { tenantId } = agentResult
 
+    // Check feature flag
+    const hasWhatsApp = await isFeatureEnabled(tenantId, 'WHATSAPP_MESSAGING')
+    if (!hasWhatsApp) {
+      return NextResponse.json(
+        { error: 'WhatsApp Messaging is not enabled for this tenant' },
+        { status: 403 }
+      )
+    }
+
     const connection = await findConnectionById(tenantId, agentId, connectionId)
 
     if (!connection) {
@@ -110,6 +120,15 @@ export async function PATCH(
     }
 
     const { agent, tenantId } = agentResult
+
+    // Check feature flag
+    const hasWhatsApp = await isFeatureEnabled(tenantId, 'WHATSAPP_MESSAGING')
+    if (!hasWhatsApp) {
+      return NextResponse.json(
+        { error: 'WhatsApp Messaging is not enabled for this tenant' },
+        { status: 403 }
+      )
+    }
 
     const connection = await findConnectionById(tenantId, agentId, connectionId)
 
@@ -262,6 +281,15 @@ export async function DELETE(
     }
 
     const { tenantId } = agentResult
+
+    // Check feature flag
+    const hasWhatsApp = await isFeatureEnabled(tenantId, 'WHATSAPP_MESSAGING')
+    if (!hasWhatsApp) {
+      return NextResponse.json(
+        { error: 'WhatsApp Messaging is not enabled for this tenant' },
+        { status: 403 }
+      )
+    }
 
     const connection = await findConnectionById(tenantId, agentId, connectionId)
 
