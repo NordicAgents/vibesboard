@@ -52,6 +52,17 @@ export async function middleware(req: NextRequest) {
     return res
   }
 
+  // Detect /{tenantSlug}/l/{linkSlug} pattern (agent links):
+  if (
+    segments.length === 3 &&
+    !RESERVED_SLUGS.has(segments[0]) &&
+    !segments[0].startsWith('_') &&
+    segments[1] === 'l'
+  ) {
+    // This is a public agent link page — allow without auth
+    return res
+  }
+
   // Check if user is authenticated for protected routes
   const isProtectedRoute =
     !pathname.includes('/sign-in') &&
