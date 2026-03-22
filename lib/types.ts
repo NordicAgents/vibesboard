@@ -67,6 +67,19 @@ export interface VibeAgentConversation {
   updatedAt: string
 }
 
+export interface AgentLink {
+  id: string
+  tenantId: string
+  slug: string
+  agentId: string
+  name: string
+  description?: string | null
+  isActive: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AgentSharePayload {
   url: string
   qrDataUrl: string
