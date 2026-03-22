@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, Users, Building2 } from 'lucide-react'
+import { Settings, Users, Building2, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
@@ -66,14 +66,16 @@ export default async function SettingsLayout({
 
   const isActivePersonal = Boolean(activeTenant?.isPersonal)
   let teamCollaborationEnabled = true
+  let agentLinksEnabled = false
   if (activeTenantId) {
     try {
-      teamCollaborationEnabled = await isFeatureEnabled(
-        activeTenantId,
-        'TEAM_COLLABORATION'
-      )
+      ;[teamCollaborationEnabled, agentLinksEnabled] = await Promise.all([
+        isFeatureEnabled(activeTenantId, 'TEAM_COLLABORATION'),
+        isFeatureEnabled(activeTenantId, 'AGENT_LINKS')
+      ])
     } catch {
       teamCollaborationEnabled = true
+      agentLinksEnabled = false
     }
   }
 
@@ -95,6 +97,16 @@ export default async function SettingsLayout({
             href: '/settings/tenant/team',
             icon: Users,
             iconName: 'Users' as const
+          }
+        ]
+      : []),
+    ...(!isActivePersonal && agentLinksEnabled
+      ? [
+          {
+            title: 'Agent Links',
+            href: '/settings/tenant/agent-links',
+            icon: Link2,
+            iconName: 'Link2' as const
           }
         ]
       : [])

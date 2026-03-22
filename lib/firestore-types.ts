@@ -100,6 +100,20 @@ export interface ChatDocument {
   payload?: any
 }
 
+/** /tenants/{tenantId}/agent_links/{linkId} */
+export interface AgentLinkDocument {
+  id: string
+  tenantId: string
+  slug: string // unique within tenant, URL-safe
+  agentId: string // currently-connected agent
+  name: string // human label (e.g. "Front Desk QR")
+  description?: string
+  isActive: boolean // soft-disable without deleting
+  createdBy: string // userId
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Tenant-scoped collections ───────────────────────────────────────
 
 /** /tenants/{tenantId}/branding/{tenantId} — single doc */
@@ -440,6 +454,8 @@ export const Collections = {
   chats: 'chats',
 
   // Tenant-scoped
+  agentLinks: (tenantId: string) =>
+    `tenants/${tenantId}/agent_links` as const,
   branding: (tenantId: string) => `tenants/${tenantId}/branding` as const,
   members: (tenantId: string) => `tenants/${tenantId}/members` as const,
   featureToggles: (tenantId: string) =>
