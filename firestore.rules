@@ -118,6 +118,13 @@ service cloud.firestore {
         allow write: if isSuperAdmin();
       }
 
+      // Agent Links: read by members, write by tenant admins
+      match /agent_links/{linkId} {
+        allow read: if isTenantMember(tenantId) || isSuperAdmin();
+        allow create, update: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
+      }
+
       // 10. Agents: read by members, write by agent owner or tenant admins
       match /agents/{agentId} {
         allow read: if isTenantMember(tenantId) || isSuperAdmin();
