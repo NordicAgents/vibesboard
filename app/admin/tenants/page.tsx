@@ -36,6 +36,9 @@ export default function TenantsPage() {
     const [loading, setLoading] = React.useState(true)
     const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
 
+    // Filter state
+    const [typeFilter, setTypeFilter] = React.useState<'all' | 'organization' | 'personal'>('all')
+
     // Delete state
     const [deleteTarget, setDeleteTarget] = React.useState<TenantWithStats | null>(null)
     const [deleteConfirmText, setDeleteConfirmText] = React.useState('')
@@ -63,6 +66,15 @@ export default function TenantsPage() {
     React.useEffect(() => {
         fetchTenants()
     }, [fetchTenants])
+
+    const filteredTenants = React.useMemo(() => {
+        if (typeFilter === 'all') return tenants
+        if (typeFilter === 'personal') return tenants.filter((t) => t.isPersonal)
+        return tenants.filter((t) => !t.isPersonal)
+    }, [tenants, typeFilter])
+
+    const personalCount = React.useMemo(() => tenants.filter((t) => t.isPersonal).length, [tenants])
+    const orgCount = React.useMemo(() => tenants.filter((t) => !t.isPersonal).length, [tenants])
 
     const handleRowClick = (tenant: TenantWithStats) => {
         router.push(`/admin/tenants/${tenant.id}`)
@@ -221,8 +233,39 @@ export default function TenantsPage() {
                 }
             />
 
+            {!loading && tenants.length > 0 && (
+                <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1 w-fit">
+                    {([
+                        { value: 'all' as const, label: 'All', count: tenants.length },
+                        { value: 'organization' as const, label: 'Organization', count: orgCount },
+                        { value: 'personal' as const, label: 'Personal', count: personalCount },
+                    ]).map((option) => (
+                        <button
+                            key={option.value}
+                            onClick={() => setTypeFilter(option.value)}
+                            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                                typeFilter === option.value
+                                    ? 'bg-background text-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            {option.value === 'organization' && <Building2 className="size-3.5" />}
+                            {option.value === 'personal' && <User className="size-3.5" />}
+                            {option.label}
+                            <span className={`text-xs ${
+                                typeFilter === option.value
+                                    ? 'text-muted-foreground'
+                                    : 'text-muted-foreground/60'
+                            }`}>
+                                {option.count}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+
             <DataTable
-                data={tenants}
+                data={filteredTenants}
                 columns={columns}
                 searchable
                 searchPlaceholder="Search by name or slug..."
