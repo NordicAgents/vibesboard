@@ -94,6 +94,20 @@ export async function GET(req: NextRequest) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         console.error('[Admin] File status fetch failed:', errorMessage)
 
+        // Detect missing Firestore index errors
+        const isMissingIndex = errorMessage.includes('FAILED_PRECONDITION') || errorMessage.includes('requires an index')
+        if (isMissingIndex) {
+            return NextResponse.json(
+                {
+                    error: 'Firestore indexes are still building. Please wait a few minutes and try again.',
+                    detail: errorMessage,
+                    files: [],
+                    stats: { total: 0, pending: 0, processing: 0, indexed: 0, failed: 0 }
+                },
+                { status: 503 }
+            )
+        }
+
         return NextResponse.json(
             { error: errorMessage },
             { status: 500 }
