@@ -7,6 +7,8 @@ import { type VibeAgent } from '@/lib/types'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
 import { OPENAI_CHAT_MODEL, completeText, isResponsesModel, streamText } from '@/lib/openai'
 import { retrieveContext, formatRAGPrompt } from './rag-retriever'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -28,6 +30,17 @@ async function getRAGContext(
 
   // Skip if no files uploaded
   if (!agent.fileKeys || agent.fileKeys.length === 0) {
+    return null
+  }
+
+  // Skip if no files are actually indexed (avoids wasted embedding calls
+  // when uploads exist but ingestion failed or is still pending)
+  const filesSnap = await adminDb
+    .collection(Collections.agentFiles(agent.tenantId!, agent.id))
+    .where('status', '==', 'indexed')
+    .limit(1)
+    .get()
+  if (filesSnap.empty) {
     return null
   }
 
