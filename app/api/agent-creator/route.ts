@@ -24,7 +24,7 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration)
 
-const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-4o-mini'
+const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-5.4-nano'
 
 export async function POST(req: Request) {
   const session = await auth()

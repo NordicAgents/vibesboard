@@ -2,20 +2,20 @@ import { Configuration, OpenAIApi } from 'openai-edge'
 
 const cleanEnv = (value?: string) => value?.trim()
 
-const baseModel = cleanEnv(process.env.OPENAI_MODEL) ?? 'gpt-5-nano'
+const baseModel = cleanEnv(process.env.OPENAI_MODEL) ?? 'gpt-5.4-nano'
 
 export const OPENAI_MODEL = baseModel
 export const OPENAI_CHAT_MODEL = baseModel
 
 // Vision-capable model can be overridden separately; defaults to a safe vision model.
 export const OPENAI_VISION_MODEL =
-  cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-4o-mini'
+  cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-5.4-nano'
 
 export const isResponsesModel = (model?: string | null) =>
-  !!model && model.startsWith('gpt-5-nano')
+  !!model && (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
 
 /**
- * Call the Responses API for text-only generations (used for GPT‑5‑nano).
+ * Call the Responses API for text-only generations (used for GPT‑5.4‑nano).
  * Note: this intentionally does NOT send temperature, which is unsupported.
  */
 export async function completeText({
@@ -30,7 +30,7 @@ export async function completeText({
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
-    throw new Error('completeText is only intended for responses-only models like gpt-5-nano.')
+    throw new Error('completeText is only intended for responses-only models like gpt-5.4-nano.')
   }
 
   const key = apiKey ?? process.env.OPENAI_API_KEY
@@ -61,7 +61,7 @@ export async function completeText({
 }
 
 /**
- * Stream text tokens from the Responses API (GPT‑5‑nano) as a web stream.
+ * Stream text tokens from the Responses API (GPT‑5.4‑nano) as a web stream.
  * This is used for real-time UX in chat endpoints.
  */
 export async function streamText({
@@ -80,7 +80,7 @@ export async function streamText({
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
-    throw new Error('streamText is only intended for responses-only models like gpt-5-nano.')
+    throw new Error('streamText is only intended for responses-only models like gpt-5.4-nano.')
   }
 
   const key = apiKey ?? process.env.OPENAI_API_KEY
