@@ -73,6 +73,23 @@ export async function GET(
           }
           break
         }
+        case 'chatwoot': {
+          try {
+            const { listChatwootConnections } = await import(
+              '@/lib/chatwoot/connections'
+            )
+            const connections = await listChatwootConnections(
+              tenantId,
+              agent.id,
+              'active'
+            )
+            summary.activeConnections = connections.length
+            summary.configured = connections.length > 0
+          } catch {
+            // same
+          }
+          break
+        }
         case 'embed_widget': {
           // Embed widget is "configured" if agent allows anonymous chat
           summary.configured = agent.allowAnonymous === true
