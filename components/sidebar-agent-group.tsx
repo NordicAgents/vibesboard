@@ -75,7 +75,7 @@ export function SidebarAgentGroup({
       </div>
 
       {expanded && items.length ? (
-        <div className="ml-5 space-y-0.5 border-l border-[#e4e3e3] pl-2 dark:border-[#344348]">
+        <div className="ml-5 space-y-0.5 overflow-hidden border-l border-[#e4e3e3] pl-2 dark:border-[#344348]">
           {items.map(session => {
             const label = toConversationLabel(
               session.summary || session.messages.at(-1)?.content

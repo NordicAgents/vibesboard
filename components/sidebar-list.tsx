@@ -41,7 +41,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
     : false
 
   return (
-    <div className="flex-1 space-y-4 overflow-auto">
+    <div className="flex-1 space-y-4 overflow-hidden">
       <div className="px-2">
         <TenantSwitcher
           tenants={tenants}
