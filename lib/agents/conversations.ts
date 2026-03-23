@@ -48,6 +48,19 @@ export async function ensureConversation({
     }
   }
 
+  // Look up by externalId if no conversationId was provided
+  if (!conversationId && externalId) {
+    const snapshot = await adminDb
+      .collection(collPath)
+      .where('externalId', '==', externalId)
+      .limit(1)
+      .get()
+
+    if (!snapshot.empty) {
+      return mapConversationDoc(snapshot.docs[0].data())
+    }
+  }
+
   // Create a new conversation
   const ref = conversationId
     ? adminDb.collection(collPath).doc(conversationId)
