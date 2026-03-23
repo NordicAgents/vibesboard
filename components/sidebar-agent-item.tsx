@@ -18,7 +18,7 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
 
   return (
     <Link
-      href={`${path}?configure=true`}
+      href={`${path}?tab=configure`}
       title={agent.name}
       className={cn(
         'group relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors duration-150',
