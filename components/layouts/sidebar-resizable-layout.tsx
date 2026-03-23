@@ -292,6 +292,7 @@ export function SidebarResizableLayout({
                   : 'flex flex-col items-center gap-1'
               )}
             >
+              <ThemeToggle />
               {user && (
                 <UserMenu
                   user={user}
@@ -299,7 +300,6 @@ export function SidebarResizableLayout({
                   canManageTenant={canManageTenant}
                 />
               )}
-              <ThemeToggle />
             </div>
           </div>
         </aside>
