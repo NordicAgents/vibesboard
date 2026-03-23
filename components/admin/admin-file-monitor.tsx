@@ -62,9 +62,17 @@ export function AdminFileMonitor() {
       params.set('limit', '100')
 
       const res = await fetch(`/api/admin/files/process?${params}`)
-      if (!res.ok) throw new Error('Failed to fetch files')
-
       const data = await res.json()
+
+      if (!res.ok) {
+        // Show specific error message from API (e.g. indexes building)
+        toast.error(data.error || 'Failed to fetch files')
+        // Still use any partial data returned (empty defaults)
+        if (data.files) setFiles(data.files)
+        if (data.stats) setStats(data.stats)
+        return
+      }
+
       setFiles(data.files)
       setStats(data.stats)
     } catch (error) {
