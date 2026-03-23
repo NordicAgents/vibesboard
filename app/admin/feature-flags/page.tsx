@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
-import { CreateFeatureFlagDialog } from '@/components/tenants'
+import { CreateFeatureFlagDialog, EditFeatureFlagDialog } from '@/components/tenants'
 import toast from 'react-hot-toast'
 
 interface FeatureFlag {
@@ -38,6 +38,8 @@ export default function FeatureFlagsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+    const [editingFlag, setEditingFlag] = useState<FeatureFlag | null>(null)
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
     useEffect(() => {
         fetchFlags()
@@ -176,6 +178,14 @@ export default function FeatureFlagsPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
+                                                    onClick={() => {
+                                                        setEditingFlag(flag)
+                                                        setIsEditDialogOpen(true)
+                                                    }}
+                                                >
+                                                    Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
                                                     onClick={() => handleArchive(flag.id)}
                                                     className="text-destructive"
                                                 >
@@ -195,6 +205,16 @@ export default function FeatureFlagsPage() {
                 open={isCreateDialogOpen}
                 onOpenChange={setIsCreateDialogOpen}
                 onSuccess={handleCreateSuccess}
+            />
+
+            <EditFeatureFlagDialog
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                flag={editingFlag}
+                onSuccess={() => {
+                    setIsEditDialogOpen(false)
+                    fetchFlags()
+                }}
             />
         </div>
     )
