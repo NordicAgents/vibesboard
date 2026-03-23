@@ -100,7 +100,7 @@ export function TenantSwitcher({
           )}
           disabled={isSwitching}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div
               className={cn(
                 'flex size-6 shrink-0 items-center justify-center rounded-md',
@@ -111,7 +111,7 @@ export function TenantSwitcher({
             >
               <TenantIcon className="size-3.5 text-accent-orange" />
             </div>
-            <div className="flex min-w-0 flex-col items-start">
+            <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
                 {currentTenant
                   ? currentTenant.isPersonal
