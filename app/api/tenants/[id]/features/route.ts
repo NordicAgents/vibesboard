@@ -45,7 +45,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     if (!isSuperAdminUser) {
         return NextResponse.json(
-            { error: 'Super admin access required', userId: authResult.user.id },
+            { error: 'Super admin access required' },
             { status: 403 }
         )
     }

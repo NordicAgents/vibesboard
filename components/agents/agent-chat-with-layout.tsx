@@ -18,11 +18,12 @@ import {
 } from '@/components/layouts/dashboard-sidebar'
 import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
 import { useSidebar } from '@/components/sidebar-context'
-import { AgentRightbar } from '@/components/agents/agent-rightbar'
+import { AgentDashboardTabs } from '@/components/agents/agent-dashboard-tabs'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationView } from '@/components/agents/conversation-modal'
 import { Button } from '@/components/ui/button'
-import { IconRefresh, IconEdit, IconMessage } from '@/components/ui/icons'
+import { IconRefresh, IconMessage } from '@/components/ui/icons'
+import { LayoutDashboard } from 'lucide-react'
 
 const UUID_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
@@ -52,7 +53,7 @@ interface AgentChatWithLayoutProps {
   visitorSessions: VibeAgentConversation[]
   hasUnsyncedConversations: boolean
   share: AgentSharePayload
-  isConfigure?: boolean
+  activeTab?: string | null
   canEdit: boolean
 }
 
@@ -63,7 +64,7 @@ export function AgentChatWithLayout({
   visitorSessions,
   hasUnsyncedConversations,
   share,
-  isConfigure,
+  activeTab,
   canEdit
 }: AgentChatWithLayoutProps) {
   const router = useRouter()
@@ -75,11 +76,11 @@ export function AgentChatWithLayout({
   const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
   const wasConfiguringRef = React.useRef(false)
 
-  // Sync sidebar (Configure vs Ask AI) with the URL
+  // Sync sidebar (Dashboard vs Ask AI) with the URL
   React.useEffect(() => {
     if (!setAgentSidebarOpen) return
-    setAgentSidebarOpen(Boolean(isConfigure) && canEdit)
-  }, [isConfigure, setAgentSidebarOpen, canEdit])
+    setAgentSidebarOpen(Boolean(activeTab) && canEdit)
+  }, [activeTab, setAgentSidebarOpen, canEdit])
 
   // Collapse main sidebar only on the transition into configure mode
   React.useEffect(() => {
@@ -215,6 +216,7 @@ export function AgentChatWithLayout({
               }
               setAgentSidebarOpen?.(false)
               const params = new URLSearchParams(searchParams.toString())
+              params.delete('tab')
               params.delete('configure')
               const query = params.toString()
               router.push(
@@ -235,12 +237,13 @@ export function AgentChatWithLayout({
                 setSelectedConversation(null)
                 setAgentSidebarOpen?.(true)
                 const params = new URLSearchParams(searchParams.toString())
-                params.set('configure', 'true')
+                params.set('tab', 'configure')
+                params.delete('configure')
                 router.push(`/agents/${agent.id}?${params.toString()}`)
               }}
             >
-              <IconEdit className="size-4" />
-              Configure
+              <LayoutDashboard className="size-4" />
+              Dashboard
             </Button>
           )}
         </div>
@@ -389,13 +392,11 @@ export function AgentChatWithLayout({
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (
         <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
-          <AgentRightbar
+          <AgentDashboardTabs
             agent={agent}
             share={share}
-            conversations={visitorSessions}
-            className="mx-auto w-full max-w-5xl"
-            onClose={() => agentPageShell.setIsSidebarOpen(false)}
             canEdit={canEdit}
+            defaultTab={activeTab || 'configure'}
           />
         </div>
       ) : canEdit ? (
