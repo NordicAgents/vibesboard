@@ -20,7 +20,13 @@ export default async function AgentPageAsChat({
 }) {
   const { id } = await params
   const query = await searchParams
-  const isConfigure = query.configure === 'true'
+  // Support both new ?tab= param and legacy ?configure=true
+  const activeTab =
+    typeof query.tab === 'string'
+      ? query.tab
+      : query.configure === 'true'
+        ? 'configure'
+        : null
   const session = await auth()
 
   if (!session?.user) {
@@ -99,7 +105,7 @@ export default async function AgentPageAsChat({
       visitorSessions={visitorConversations}
       hasUnsyncedConversations={hasUnsyncedConversations}
       share={{ url: shareUrl, qrDataUrl }}
-      isConfigure={canEdit ? isConfigure : false}
+      activeTab={canEdit ? activeTab : null}
       canEdit={canEdit}
     />
   )

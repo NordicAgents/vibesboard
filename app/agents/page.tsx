@@ -139,7 +139,7 @@ export default function AgentsPage() {
               {agents.map((agent, index) => (
                 <Link
                   key={agent.id}
-                  href={`/agents/${agent.id}?configure=true`}
+                  href={`/agents/${agent.id}?tab=configure`}
                   className={
                     index < 5
                       ? `stagger- animate-fade-slide-in${index + 1}`
