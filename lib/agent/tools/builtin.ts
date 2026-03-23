@@ -233,7 +233,7 @@ const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
       const formatted = matches
         .map(
           entry =>
-            `File: ${entry.fileName}\nScore: ${entry.score?.toFixed?.(4) ?? '0'}\nSnippet:\n${entry.snippet}`
+            `File: ${entry.fileName}\nSnippet:\n${entry.snippet}`
         )
         .join('\n---\n')
 
