@@ -11,6 +11,7 @@ import type {
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { IntegrationCard } from '@/components/agents/integration-card'
 import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
+import { AgentChatwootSettings } from '@/components/agents/agent-chatwoot-settings'
 import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
 import type { VibeAgent } from '@/lib/types'
@@ -67,6 +68,8 @@ export function AgentIntegrationsTab({
     switch (definition.type) {
       case 'whatsapp':
         return <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
+      case 'chatwoot':
+        return <AgentChatwootSettings agentId={agent.id} canEdit={canEdit} />
       case 'embed_widget':
         return <AgentEmbedSettings agent={agent} canEdit={canEdit} />
       case 'hooks':
