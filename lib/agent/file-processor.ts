@@ -50,8 +50,10 @@ export async function processFile(
     // 3. Link chunks to file_id
     await linkChunksToFile(tenantId, agentId, fileKey, fileId)
 
-    // 4. Estimate token count (approximate: 1 token ~ 4 chars for English)
-    const estimatedTokens = Math.ceil((result.chunksInserted * 1200) / 4)
+    // 4. Estimate token count (approximate: 1 token ~ 4 chars)
+    const estimatedTokens = result.totalChars
+      ? Math.ceil(result.totalChars / 4)
+      : Math.ceil((result.chunksInserted * 1200) / 4)
 
     // 5. Mark file as indexed
     await markFileIndexed(tenantId, agentId, fileId)
@@ -242,9 +244,13 @@ async function linkChunksToFile(
 
   if (snapshot.empty) return
 
-  const batch = adminDb.batch()
-  snapshot.docs.forEach(doc => {
-    batch.update(doc.ref, { fileId })
-  })
-  await batch.commit()
+  // Split into batches of 400 to stay under Firestore's 500-op limit
+  const BATCH_LIMIT = 400
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    snapshot.docs.slice(i, i + BATCH_LIMIT).forEach(doc => {
+      batch.update(doc.ref, { fileId })
+    })
+    await batch.commit()
+  }
 }
