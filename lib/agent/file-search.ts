@@ -287,6 +287,8 @@ const embedChunks = async (values: string[]) => {
  * Delete existing file chunks for a given agent + file key.
  * Requires tenantId to resolve the subcollection path.
  */
+const BATCH_LIMIT = 400
+
 const deleteExistingChunks = async (
   tenantId: string,
   agentId: string,
@@ -300,9 +302,11 @@ const deleteExistingChunks = async (
 
   if (snapshot.empty) return
 
-  const batch = adminDb.batch()
-  snapshot.docs.forEach(doc => batch.delete(doc.ref))
-  await batch.commit()
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    snapshot.docs.slice(i, i + BATCH_LIMIT).forEach(doc => batch.delete(doc.ref))
+    await batch.commit()
+  }
 }
 
 export const ingestFileForAgent = async (args: {
@@ -341,32 +345,44 @@ export const ingestFileForAgent = async (args: {
   await deleteExistingChunks(tenantId, agentId, fileKey)
 
   // Write chunks to Firestore with vector embeddings
+  // Firestore batch writes are limited to 500 operations — split into batches of 400
   const collPath = Collections.fileChunks(tenantId, agentId)
-  const batch = adminDb.batch()
 
-  chunks.forEach((content, index) => {
-    const ref = adminDb.collection(collPath).doc()
-    batch.set(ref, {
-      id: ref.id,
-      agentId,
-      fileKey,
-      fileName,
-      mimeType,
-      chunkIndex: index,
-      content,
-      embedding: FieldValue.vector(embeddings[index] ?? []),
-      createdAt: new Date().toISOString()
+  for (let i = 0; i < chunks.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    const slice = chunks.slice(i, i + BATCH_LIMIT)
+
+    slice.forEach((content, sliceIndex) => {
+      const index = i + sliceIndex
+      const ref = adminDb.collection(collPath).doc()
+      batch.set(ref, {
+        id: ref.id,
+        agentId,
+        fileKey,
+        fileName,
+        mimeType,
+        chunkIndex: index,
+        content,
+        embedding: FieldValue.vector(embeddings[index] ?? []),
+        createdAt: new Date().toISOString()
+      })
     })
-  })
 
-  await batch.commit()
+    await batch.commit()
+  }
+
+  const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 
   return {
     chunksInserted: chunks.length,
+    totalChars,
     message: `Ingested ${chunks.length} chunk(s) for search.`
   }
 }
 
+/**
+ * Search agent file chunks — delegates to rag-retriever for a single search path.
+ */
 export const searchAgentFileChunks = async (args: {
   tenantId: string
   agentId: string
@@ -375,69 +391,23 @@ export const searchAgentFileChunks = async (args: {
 }) => {
   const { tenantId, agentId, query, limit = 8 } = args
 
-  // Generate query embedding
-  const embedResponse = await openai.createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: query
-  })
-  const embedJson = await embedResponse.json()
-  const queryEmbedding = embedJson?.data?.[0]?.embedding
-
-  if (!queryEmbedding) {
-    return { matches: [], error: 'Embedding generation failed.' }
-  }
-
-  // Use Firestore native vector search (findNearest)
-  const collPath = Collections.fileChunks(tenantId, agentId)
   try {
-    const snapshot = await adminDb
-      .collection(collPath)
-      .findNearest('embedding', FieldValue.vector(queryEmbedding), {
-        limit,
-        distanceMeasure: 'COSINE'
-      })
-      .get()
-
-    const matches = snapshot.docs.map(doc => {
-      const data = doc.data()
-      return {
-        fileName: data.fileName,
-        fileKey: data.fileKey,
-        snippet: data.content,
-        score: 0 // Firestore findNearest doesn't return distance yet in all SDKs
-      }
+    const { retrieveContext } = await import('@/lib/agent/rag-retriever')
+    const ragContext = await retrieveContext(tenantId, agentId, query, {
+      topK: limit,
+      enableFallback: true
     })
 
-    if (matches.length > 0) {
-      return { matches }
-    }
+    const matches = ragContext.chunks.map(chunk => ({
+      fileName: chunk.fileName,
+      fileKey: chunk.fileKey,
+      snippet: chunk.content,
+      score: chunk.similarity
+    }))
+
+    return { matches }
   } catch (err: any) {
-    console.warn('[file-search] Vector search failed, trying keyword fallback:', err?.message)
+    console.error('[file-search] Search failed:', err?.message)
+    return { matches: [], error: err?.message ?? 'Search failed.' }
   }
-
-  // Fallback to keyword search — not as elegant in Firestore but we can
-  // do a basic content scan on a limited set of chunks
-  const fallbackSnapshot = await adminDb
-    .collection(collPath)
-    .limit(limit * 5)
-    .get()
-
-  const queryLower = query.toLowerCase()
-  const matches = fallbackSnapshot.docs
-    .filter(doc => {
-      const content: string = doc.data().content ?? ''
-      return content.toLowerCase().includes(queryLower)
-    })
-    .slice(0, limit)
-    .map(doc => {
-      const data = doc.data()
-      return {
-        fileName: data.fileName,
-        fileKey: data.fileKey,
-        snippet: data.content,
-        score: 0
-      }
-    })
-
-  return { matches }
 }
