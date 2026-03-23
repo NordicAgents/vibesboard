@@ -41,7 +41,7 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
             : 'text-[#6f7f80] group-hover:text-accent-orange'
         )}
       />
-      <span className="truncate text-sm font-medium">{agent.name}</span>
+      <span className="min-w-0 truncate text-sm font-medium">{agent.name}</span>
     </Link>
   )
 }
