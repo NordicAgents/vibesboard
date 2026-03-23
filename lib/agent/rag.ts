@@ -1,3 +1,8 @@
+/**
+ * @deprecated Legacy path — bypasses RAG vector search and injects raw file text.
+ * Only used when agent.ragEnabled === false. Prefer the rag-retriever pipeline for
+ * chunked vector search. Non-text files (PDF, DOCX, etc.) are skipped on this path.
+ */
 import { getSignedDownloadUrl } from '@/lib/firebase/storage'
 
 const MAX_FILE_COUNT = 5
