@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { IconPlus } from '@/components/ui/icons'
 import { getActiveTenant, getUserTenants, enrichTenantsWithMembers } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
-import { MessageSquare, FileText, Users, Send, Inbox, Link as LinkIcon } from 'lucide-react'
+import { Inbox, Link as LinkIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface SidebarListProps {
@@ -35,15 +35,10 @@ export async function SidebarList({ userId }: SidebarListProps) {
     {} as Record<string, typeof conversations>
   )
 
-  // Check if WhatsApp features are enabled for this tenant
-  const [whatsappBulkEnabled, whatsappInboxEnabled] = await Promise.all([
-    currentTenantId
-      ? isFeatureEnabled(currentTenantId, 'whatsapp_bulk_messaging')
-      : Promise.resolve(false),
-    currentTenantId
-      ? isFeatureEnabled(currentTenantId, 'WHATSAPP_INBOX')
-      : Promise.resolve(false),
-  ])
+  // Check if WhatsApp Inbox feature is enabled for this tenant
+  const whatsappInboxEnabled = currentTenantId
+    ? await isFeatureEnabled(currentTenantId, 'WHATSAPP_INBOX')
+    : false
 
   return (
     <div className="flex-1 space-y-4 overflow-hidden">
@@ -76,33 +71,6 @@ export async function SidebarList({ userId }: SidebarListProps) {
           </p>
         )}
       </div>
-
-      {whatsappBulkEnabled && (
-        <div className="space-y-2 border-t border-[#e4e3e3] py-4 dark:border-[#344348]">
-          <div className="flex items-center justify-between px-4">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
-              WhatsApp Marketing
-            </span>
-          </div>
-          <div className="space-y-0.5 px-2">
-            <WhatsAppNavLink
-              href="/whatsapp-bulk/business-accounts"
-              icon={MessageSquare}
-            >
-              Business Accounts
-            </WhatsAppNavLink>
-            <WhatsAppNavLink href="/whatsapp-bulk/templates" icon={FileText}>
-              Templates
-            </WhatsAppNavLink>
-            <WhatsAppNavLink href="/whatsapp-bulk/contacts" icon={Users}>
-              Contacts
-            </WhatsAppNavLink>
-            <WhatsAppNavLink href="/whatsapp-bulk/campaigns" icon={Send}>
-              Campaigns
-            </WhatsAppNavLink>
-          </div>
-        </div>
-      )}
 
       {whatsappInboxEnabled && (
         <div className="space-y-2 border-t border-[#e4e3e3] py-4 dark:border-[#344348]">
