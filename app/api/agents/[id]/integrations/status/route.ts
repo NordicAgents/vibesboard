@@ -4,7 +4,6 @@ import { requireAuth } from '@/lib/firebase/route-handler'
 import { getAgentById } from '@/lib/agents/server'
 import { canEditAgent } from '@/lib/agents/permissions'
 import { listHooks } from '@/lib/agents/hooks'
-import { listAgentConnections } from '@/lib/whatsapp/connections'
 import { isFeatureEnabled } from '@/lib/features'
 import { INTEGRATION_REGISTRY } from '@/lib/integrations/registry'
 import type { IntegrationConnectionSummary } from '@/lib/integrations/types'
@@ -49,20 +48,6 @@ export async function GET(
       if (!available) return summary
 
       switch (definition.type) {
-        case 'whatsapp': {
-          try {
-            const connections = await listAgentConnections(
-              tenantId,
-              agent.id,
-              'active'
-            )
-            summary.activeConnections = connections.length
-            summary.configured = connections.length > 0
-          } catch {
-            // If whatsapp module errors, just report unconfigured
-          }
-          break
-        }
         case 'hooks': {
           try {
             const hooks = await listHooks(tenantId, agent.id)

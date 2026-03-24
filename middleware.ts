@@ -17,7 +17,6 @@ const RESERVED_SLUGS = new Set([
   'sign-in',
   'sign-up',
   'terms-of-service',
-  'whatsapp-bulk',
   'whatsapp-inbox',
   'widget',
   '_next',

@@ -9,34 +9,6 @@ export type AgentMode = 'provider' | 'collector'
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
 export type ChatwootConnectionStatus = 'active' | 'disconnected' | 'error'
-export type WhatsAppConnectionStatus =
-  | 'pending'
-  | 'active'
-  | 'disconnected'
-  | 'expired'
-export type CampaignStatus =
-  | 'draft'
-  | 'scheduled'
-  | 'sending'
-  | 'paused'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-export type BusinessAccountStatus =
-  | 'pending'
-  | 'verified'
-  | 'suspended'
-  | 'disconnected'
-export type QualityRating = 'GREEN' | 'YELLOW' | 'RED'
-export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
-export type TemplateStatus = 'pending' | 'approved' | 'rejected'
-export type QueueItemStatus =
-  | 'pending'
-  | 'processing'
-  | 'sent'
-  | 'delivered'
-  | 'read'
-  | 'failed'
 
 // WhatsApp Inbox (OAuth-connected)
 export type InboxAccountStatus = 'active' | 'disconnected' | 'expired'
@@ -188,89 +160,6 @@ export interface AgentDocument {
   updatedAt: string
 }
 
-/** /tenants/{tenantId}/whatsapp_business_accounts/{id} */
-export interface WhatsAppBusinessAccountDocument {
-  id: string
-  tenantId: string
-  phoneNumberId: string
-  businessAccountId: string
-  phoneNumber: string
-  phoneNumberNormalized: string
-  accessToken: string
-  status: BusinessAccountStatus
-  qualityRating?: QualityRating
-  messagingLimit?: string
-  displayName?: string
-  timezone: string
-  verifiedAt?: string
-  webhookVerified: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-/** /tenants/{tenantId}/whatsapp_contacts/{id} */
-export interface WhatsAppContactDocument {
-  id: string
-  tenantId: string
-  phoneNumber: string
-  phoneNumberNormalized: string
-  name?: string
-  email?: string
-  optedIn: boolean
-  optedInAt?: string
-  optedOutAt?: string
-  optInSource?: string
-  customFields: Record<string, any>
-  tags: string[]
-  listIds: string[] // denormalized: which lists this contact belongs to
-  source: string
-  createdAt: string
-  updatedAt: string
-}
-
-/** /tenants/{tenantId}/whatsapp_contact_lists/{id} */
-export interface WhatsAppContactListDocument {
-  id: string
-  tenantId: string
-  name: string
-  description?: string
-  contactIds: string[] // denormalized: which contacts are in this list
-  totalContacts: number
-  optedInCount: number
-  tags: string[]
-  createdBy?: string
-  createdAt: string
-  updatedAt: string
-}
-
-/** /tenants/{tenantId}/whatsapp_campaigns/{id} */
-export interface WhatsAppCampaignDocument {
-  id: string
-  tenantId: string
-  businessAccountId: string
-  name: string
-  description?: string
-  templateId: string
-  templateVariables: Record<string, string>
-  contactListIds: string[]
-  filterCriteria?: any
-  status: CampaignStatus
-  scheduledAt?: string
-  startedAt?: string
-  completedAt?: string
-  pausedAt?: string
-  totalRecipients: number
-  messagesSent: number
-  messagesDelivered: number
-  messagesRead: number
-  messagesFailed: number
-  messagesPending: number
-  maxMessagesPerSecond: number
-  createdBy?: string
-  createdAt: string
-  updatedAt: string
-}
-
 // ─── Agent hook status ───────────────────────────────────────────────
 export type HookStatus = 'active' | 'inactive'
 export type HookJobStatus = 'pending' | 'running' | 'completed' | 'failed'
@@ -414,85 +303,6 @@ export interface ChatwootConnectionDocument {
   updatedAt: string
 }
 
-/** /tenants/{tenantId}/agents/{agentId}/whatsapp_connections/{id} */
-export interface WhatsAppAgentConnectionDocument {
-  id: string
-  agentId: string
-  userId: string
-  phoneNumber: string
-  phoneNumberNormalized: string
-  status: WhatsAppConnectionStatus
-  customIntroMessage?: string
-  introMessageSentAt?: string
-  introMessageId?: string
-  lastMessageReceivedAt?: string
-  totalConversations: number
-  connectedAt?: string
-  disconnectedAt?: string
-  expiresAt?: string
-  disconnectionReason?: string
-  createdAt: string
-  updatedAt: string
-}
-
-// ─── Campaign-scoped collections ─────────────────────────────────────
-
-/** /tenants/{tenantId}/whatsapp_campaigns/{id}/message_queue/{id} */
-export interface MessageQueueDocument {
-  id: string
-  campaignId: string
-  businessAccountId: string
-  contactId?: string
-  toPhoneNumber: string
-  templateId?: string
-  templateName: string
-  templateLanguage: string
-  templateVariables: Record<string, string>
-  status: QueueItemStatus
-  attempts: number
-  maxAttempts: number
-  messageId?: string // WhatsApp message ID once sent
-  error?: string
-  sentAt?: string
-  deliveredAt?: string
-  readAt?: string
-  failedAt?: string
-  createdAt: string
-  updatedAt: string
-}
-
-// ─── WhatsApp templates (stored on business accounts) ────────────────
-
-export interface TemplateButton {
-  type: 'url' | 'phone_number' | 'quick_reply'
-  text: string
-  url?: string
-  phoneNumber?: string
-}
-
-/** /tenants/{tenantId}/whatsapp_business_accounts/{id}/templates/{id} */
-export interface MessageTemplateDocument {
-  id: string
-  businessAccountId: string
-  name: string
-  language: string
-  category: TemplateCategory
-  headerType?: 'text' | 'image' | 'video' | 'document'
-  headerText?: string
-  headerMediaUrl?: string
-  bodyText: string
-  footerText?: string
-  variables: string[]
-  buttons: TemplateButton[]
-  status: TemplateStatus
-  metaTemplateId?: string
-  rejectionReason?: string
-  totalSent: number
-  lastUsedAt?: string
-  createdAt: string
-  updatedAt: string
-}
-
 // ─── WhatsApp Inbox (OAuth-connected) ────────────────────────────────
 
 /** /tenants/{tenantId}/whatsapp_inbox_accounts/{accountId} */
@@ -565,14 +375,6 @@ export const Collections = {
   featureToggles: (tenantId: string) =>
     `tenants/${tenantId}/feature_toggles` as const,
   agents: (tenantId: string) => `tenants/${tenantId}/agents` as const,
-  whatsappBusinessAccounts: (tenantId: string) =>
-    `tenants/${tenantId}/whatsapp_business_accounts` as const,
-  whatsappContacts: (tenantId: string) =>
-    `tenants/${tenantId}/whatsapp_contacts` as const,
-  whatsappContactLists: (tenantId: string) =>
-    `tenants/${tenantId}/whatsapp_contact_lists` as const,
-  whatsappCampaigns: (tenantId: string) =>
-    `tenants/${tenantId}/whatsapp_campaigns` as const,
 
   // Agent-scoped
   conversations: (tenantId: string, agentId: string) =>
@@ -585,20 +387,10 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/conversation_chunks` as const,
   chatwootConnections: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/chatwoot_connections` as const,
-  whatsappConnections: (tenantId: string, agentId: string) =>
-    `tenants/${tenantId}/agents/${agentId}/whatsapp_connections` as const,
   hooks: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/hooks` as const,
   hookJobs: (tenantId: string, agentId: string, hookId: string) =>
     `tenants/${tenantId}/agents/${agentId}/hooks/${hookId}/jobs` as const,
-
-  // Campaign-scoped
-  messageQueue: (tenantId: string, campaignId: string) =>
-    `tenants/${tenantId}/whatsapp_campaigns/${campaignId}/message_queue` as const,
-
-  // Template sub-collection on business accounts
-  templates: (tenantId: string, businessAccountId: string) =>
-    `tenants/${tenantId}/whatsapp_business_accounts/${businessAccountId}/templates` as const,
 
   // WhatsApp Inbox (OAuth-connected)
   whatsappInboxAccounts: (tenantId: string) =>
