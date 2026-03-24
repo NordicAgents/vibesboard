@@ -26,7 +26,6 @@ import { Switch } from '@/components/ui/switch'
 import { IconExternalLink, IconTrash } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
-import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
 import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
@@ -487,13 +486,6 @@ export function AgentRightbar({
         {agent.tenantId && (
           <FeatureGate feature="EMBED_WIDGET" tenantId={agent.tenantId}>
             <AgentEmbedSettings agent={agent} canEdit={canEdit} />
-          </FeatureGate>
-        )}
-
-        {/* WhatsApp Integration */}
-        {agent.tenantId && (
-          <FeatureGate feature="WHATSAPP_MESSAGING" tenantId={agent.tenantId}>
-            <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
           </FeatureGate>
         )}
 
