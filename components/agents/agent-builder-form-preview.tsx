@@ -42,7 +42,6 @@ interface AgentBuilderFormPreviewProps {
   formData: AgentFormData
   onFormChange: (data: AgentFormData) => void
   onCreateAgent: () => void
-  onFileUpload?: (files: FileList | null) => void
   isCreating?: boolean
   isUploading?: boolean
   userId?: string
@@ -54,7 +53,6 @@ export function AgentBuilderFormPreview({
   formData,
   onFormChange,
   onCreateAgent,
-  onFileUpload,
   isCreating = false,
   isUploading = false,
   userId,
@@ -483,84 +481,30 @@ export function AgentBuilderFormPreview({
           </Card>
         )}
 
-        {/* File Upload */}
-        {onFileUpload && userId && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Add Files</CardTitle>
-              <CardDescription className="text-xs">
-                Upload documents to ground your agent's knowledge
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  document.getElementById('form-file-upload')?.click()
-                }
-                disabled={isUploading}
-                className="w-full"
-              >
-                {isUploading ? 'Uploading...' : 'Choose Files'}
-              </Button>
-              <input
-                id="form-file-upload"
-                type="file"
-                multiple
-                className="hidden"
-                onChange={e => onFileUpload(e.target.files)}
-              />
-              {/* Create Agent Button */}
-              <Button
-                onClick={onCreateAgent}
-                disabled={!isValid || isCreating}
-                className="w-full rounded-full font-switzer"
-                size="lg"
-              >
-                {isCreating ? 'Creating Agent...' : 'Create Agent'}
-              </Button>
-              {!isValid && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {!formData.name
-                    ? 'Name is required'
-                    : !formData.instructions
-                      ? 'Instructions are required'
-                      : !formData.greetingText
-                        ? 'Greeting message is required'
-                        : 'Complete all required fields'}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create Agent Button - shown when file upload is not available */}
-        {(!onFileUpload || !userId) && (
-          <Card>
-            <CardContent className="pt-6">
-              <Button
-                onClick={onCreateAgent}
-                disabled={!isValid || isCreating}
-                className="w-full rounded-full font-switzer"
-                size="lg"
-              >
-                {isCreating ? 'Creating Agent...' : 'Create Agent'}
-              </Button>
-              {!isValid && (
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  {!formData.name
-                    ? 'Name is required'
-                    : !formData.instructions
-                      ? 'Instructions are required'
-                      : !formData.greetingText
-                        ? 'Greeting message is required'
-                        : 'Complete all required fields'}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* Create Agent Button */}
+        <Card>
+          <CardContent className="pt-6">
+            <Button
+              onClick={onCreateAgent}
+              disabled={!isValid || isCreating}
+              className="w-full rounded-full font-switzer"
+              size="lg"
+            >
+              {isCreating ? 'Creating Agent...' : 'Create Agent'}
+            </Button>
+            {!isValid && (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {!formData.name
+                  ? 'Name is required'
+                  : !formData.instructions
+                    ? 'Instructions are required'
+                    : !formData.greetingText
+                      ? 'Greeting message is required'
+                      : 'Complete all required fields'}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </aside>
   )
