@@ -54,10 +54,14 @@ export function buildAgentSystemPrompt(
     ? `When the user asks for time-sensitive or up-to-date information (e.g., weather, news, prices, schedules, or requests containing "today", "latest", "current"), call the web_search tool first and answer based on the results. Do not guess.`
     : ''
 
-  const webFetchGuidance = agent.tools.some(
+  const hasWebFetch = agent.tools.some(
     tool => tool.type === 'builtin:web_fetch'
   )
-    ? `When the user provides a specific URL (or you need details from a specific page), call the web_fetch tool with that URL and answer based on the fetched content.`
+  const sourceUrls = agent.sourceUrls ?? []
+
+  const webFetchGuidance = hasWebFetch
+    ? `When the user provides a specific URL (or you need details from a specific page), call the web_fetch tool with that URL and answer based on the fetched content.
+${sourceUrls.length > 0 ? `IMPORTANT — Source websites for this agent:\n${sourceUrls.map(u => `- ${u}`).join('\n')}\nWhen you cannot fully answer a question from your instructions or existing context, AUTOMATICALLY call the web_fetch tool with the relevant source URL above to get up-to-date information. Do NOT ask the user for permission — just fetch it and answer.` : ''}`
     : ''
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
