@@ -11,6 +11,7 @@ function getModeInstructions(agent: VibeAgent): string {
     return `
 IMPORTANT - Information Collection Mode:
 Your primary goal is to gather specific information from the user efficiently.
+- When the user sends their first message (even a brief greeting like "Hi"), immediately ask your first data collection question. Do not ask how you can help — begin collecting right away.
 - Ask clear, focused questions to collect the required data
 - Keep the conversation concise and on-topic
 - Once you have gathered all the information you need, end your response with exactly: ${COMPLETION_MARKERS.COLLECTION_COMPLETE}
