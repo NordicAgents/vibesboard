@@ -30,6 +30,7 @@ export const upsertAgentSchema = z.object({
   maxMessages: z.number().int().min(1).max(50).nullable().optional(),
   quickSuggestionsMode: z.enum(['off', 'smart', 'always']).default('smart'),
   quickSuggestionsCount: z.number().int().min(1).max(5).default(4),
+  sourceUrls: z.array(z.string().url()).default([]),
   googleReviewEnabled: z.boolean().default(false),
   googlePlaceId: z.string().nullable().optional()
 })

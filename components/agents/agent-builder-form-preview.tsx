@@ -32,6 +32,7 @@ export interface AgentFormData {
   allowAnonymous?: boolean
   tools?: AgentToolType[]
   fileKeys?: string[]
+  sourceUrls?: string[]
   mode?: AgentMode
   maxMessages?: number | null
   quickSuggestionsMode?: 'off' | 'smart' | 'always'
