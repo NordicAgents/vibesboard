@@ -141,9 +141,9 @@ export async function createChatwootWebhook(
   accountId: number,
   webhookUrl: string
 ): Promise<ChatwootWebhook> {
-  const data = await chatwootFetch<{ payload: ChatwootWebhook }>(
+  const data = await chatwootFetch<ChatwootWebhook & { payload?: ChatwootWebhook }>(
     chatwootUrl,
-    `/api/v1/accounts/${accountId}/integrations/webhooks`,
+    `/api/v1/accounts/${accountId}/webhooks`,
     apiToken,
     {
       method: 'POST',
@@ -154,7 +154,8 @@ export async function createChatwootWebhook(
     }
   )
 
-  return data.payload
+  // Chatwoot returns the webhook directly, not wrapped in payload
+  return data.payload ?? data
 }
 
 /**
@@ -169,7 +170,7 @@ export async function deleteChatwootWebhook(
   try {
     await chatwootFetch<void>(
       chatwootUrl,
-      `/api/v1/accounts/${accountId}/integrations/webhooks/${webhookId}`,
+      `/api/v1/accounts/${accountId}/webhooks/${webhookId}`,
       apiToken,
       { method: 'DELETE' }
     )
