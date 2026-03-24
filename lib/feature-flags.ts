@@ -6,6 +6,7 @@ export const FEATURE_FLAG_NAMES = [
   'GOOGLE_REVIEW',
   'EMBED_WIDGET',
   'AGENT_LINKS',
+  'WHATSAPP_INBOX',
   'CHATWOOT'
 ] as const
 
