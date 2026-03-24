@@ -4,6 +4,7 @@ import {
   MessageCircle,
   Code2,
   Webhook,
+  Headphones,
   type LucideIcon
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,8 @@ import type { IntegrationDefinition } from '@/lib/integrations/types'
 const ICON_MAP: Record<string, LucideIcon> = {
   MessageCircle,
   Code2,
-  Webhook
+  Webhook,
+  Headphones
 }
 
 interface IntegrationCardProps {

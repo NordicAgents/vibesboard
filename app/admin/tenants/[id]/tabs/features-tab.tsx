@@ -57,7 +57,8 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
             })
 
             if (!response.ok) {
-                throw new Error('Failed to toggle feature')
+                const data = await response.json().catch(() => ({}))
+                throw new Error(data.error || 'Failed to toggle feature')
             }
 
             // Optimistically update UI
@@ -72,7 +73,7 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
             toast.success('Feature updated successfully')
         } catch (error) {
             console.error('Error toggling feature:', error)
-            toast.error('Failed to toggle feature')
+            toast.error(error instanceof Error ? error.message : 'Failed to toggle feature')
             // Revert on error
             fetchFeatures()
         }

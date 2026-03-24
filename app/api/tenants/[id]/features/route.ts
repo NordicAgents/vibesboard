@@ -3,7 +3,7 @@ import { requireAuth, requireTenantAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { toggleFeature, getTenantFeatures } from '@/lib/features'
-import { isSuperAdmin } from '@/lib/permissions'
+import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
 
 export const runtime = 'nodejs'
 
@@ -30,27 +30,30 @@ export async function GET(req: Request, { params }: RouteParams) {
 
 /**
  * PUT /api/tenants/[id]/features
- * Toggle features for a tenant (SUPER_ADMIN only)
+ * Toggle features for a tenant (tenant admin or super admin)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
     const { id: tenantId } = await params
 
-    // Super admins can toggle features for any tenant, even if not a member
     const authResult = await requireAuth()
     if (!authResult.ok) {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const isSuperAdminUser = await isSuperAdmin(authResult.user.id)
+    // Allow super admins (any tenant, even if not a member) or tenant admins (own tenant)
+    const userId = authResult.user.id
+    const isSuperAdminUser = await isSuperAdmin(userId)
+    const hasAccess = isSuperAdminUser || await isTenantAdmin(userId, tenantId)
 
-    if (!isSuperAdminUser) {
+    if (!hasAccess) {
         return NextResponse.json(
-            { error: 'Super admin access required' },
+            { error: 'Admin access required to toggle features' },
             { status: 403 }
         )
     }
 
     // Fetch tenant and block feature changes for personal workspaces
+    // (super admins can still override)
     const tenantDoc = await adminDb
         .collection(Collections.tenants)
         .doc(tenantId)
@@ -61,7 +64,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     const tenantData = tenantDoc.data()!
-    if (tenantData.isPersonal) {
+    if (tenantData.isPersonal && !isSuperAdminUser) {
         return NextResponse.json(
             { error: 'Features cannot be changed for personal workspaces' },
             { status: 403 }

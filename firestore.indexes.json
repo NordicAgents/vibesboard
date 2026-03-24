@@ -161,6 +161,14 @@
         { "fieldPath": "waMessageId", "order": "ASCENDING" },
         { "fieldPath": "direction", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "chatwoot_connections",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -236,6 +244,26 @@
     },
     {
       "collectionGroup": "files",
+      "fieldPath": "status",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "chatwoot_connections",
+      "fieldPath": "id",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "chatwoot_connections",
       "fieldPath": "status",
       "indexes": [
         { "order": "ASCENDING", "queryScope": "COLLECTION" },

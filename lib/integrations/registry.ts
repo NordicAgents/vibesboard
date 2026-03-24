@@ -31,6 +31,16 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     status: 'available'
   },
   {
+    type: 'chatwoot',
+    name: 'Chatwoot',
+    description:
+      'Connect to a Chatwoot inbox to handle customer conversations with your agent',
+    icon: 'Headphones',
+    authType: 'api_key',
+    featureFlag: 'CHATWOOT',
+    status: 'available'
+  },
+  {
     type: 'hooks',
     name: 'API Hooks',
     description:

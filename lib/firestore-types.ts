@@ -8,6 +8,7 @@ export type InvitationStatus = 'pending' | 'accepted' | 'expired'
 export type AgentMode = 'provider' | 'collector'
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
+export type ChatwootConnectionStatus = 'active' | 'disconnected' | 'error'
 export type WhatsAppConnectionStatus =
   | 'pending'
   | 'active'
@@ -383,6 +384,36 @@ export interface ConversationChunkDocument {
   createdAt: string
 }
 
+/** /tenants/{tenantId}/agents/{agentId}/chatwoot_connections/{id} */
+export interface ChatwootConnectionDocument {
+  id: string
+  agentId: string
+  tenantId: string
+  userId: string
+
+  // Chatwoot config
+  chatwootUrl: string
+  chatwootAccountId: number
+  chatwootInboxId: number
+  chatwootInboxName: string
+  encryptedApiToken: string
+  chatwootWebhookId: number | null
+
+  // Webhook security
+  webhookSecretHash: string
+
+  // Status
+  status: ChatwootConnectionStatus
+  lastMessageReceivedAt?: string
+  totalConversations: number
+  disconnectedAt?: string
+  disconnectionReason?: string
+  errorMessage?: string
+
+  createdAt: string
+  updatedAt: string
+}
+
 /** /tenants/{tenantId}/agents/{agentId}/whatsapp_connections/{id} */
 export interface WhatsAppAgentConnectionDocument {
   id: string
@@ -552,6 +583,8 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/file_chunks` as const,
   conversationChunks: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/conversation_chunks` as const,
+  chatwootConnections: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/chatwoot_connections` as const,
   whatsappConnections: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/whatsapp_connections` as const,
   hooks: (tenantId: string, agentId: string) =>
