@@ -14,6 +14,7 @@ import {
 import { upsertAgentSchema } from '@/lib/agents/schema'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
+import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
 import { nanoid } from '@/lib/utils'
 import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   }
 
   const json = await req.json()
-  const { messages = [], previewToken } = json ?? {}
+  const { messages = [], previewToken, fileKeys = [], fileNames = [] } = json ?? {}
 
   configuration.apiKey = previewToken ?? process.env.OPENAI_API_KEY
   if (!configuration.apiKey) {
@@ -83,7 +84,9 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
    - Ask: "What should this agent focus on? Customer support, product info, general questions, or something else?"
 
    If user provides **files**:
-   - Acknowledge the uploaded files
+   - Acknowledge the uploaded files by name
+   - ALWAYS include "builtin:file_search" in the tools when files are uploaded
+   - When calling create_agent with files, ALWAYS include the fileKeys parameter
    - Ask: "What kind of questions should this agent help answer based on these files?"
 
    If user provides a **description**:
@@ -137,6 +140,12 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 - Be brief but helpful
 - ALWAYS ask "Does this look good?" and wait for explicit creation request`
 
+  const fileInfoBlock = (fileKeys as string[]).length > 0
+    ? `\n\n**Uploaded Files:**\nThe user has uploaded ${(fileKeys as string[]).length} file(s):\n${
+        (fileNames as Array<{ fileKey: string; name: string }>).map(f => `- ${f.name}`).join('\n')
+      }\n\nIMPORTANT: When suggesting the agent configuration, ALWAYS include "builtin:file_search" in the tools array.\nWhen calling create_agent, ALWAYS include the fileKeys parameter with these values: ${JSON.stringify(fileKeys)}`
+    : ''
+
   // Detect URLs in user messages and fetch content for the latest one
   const messageList = Array.isArray(messages) ? messages : []
   const urlRegex = /https?:\/\/[^\s)>\]]+/g
@@ -174,7 +183,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
   }
 
   const initialMessages = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt + fileInfoBlock },
     ...messageList
   ]
 
@@ -290,10 +299,18 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         return `I couldn't create the agent automatically (${errorText}). Please review the form and click "Create Agent".`
       }
 
+      // Merge request-level fileKeys if AI omitted them
+      const effectiveFileKeys = (parsed.data.fileKeys?.length ? parsed.data.fileKeys : fileKeys) as string[]
+
       const sanitizedToolIds = (parsed.data.tools ?? []).filter(
         (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS =>
           toolId in BUILTIN_AGENT_TOOLS
       )
+
+      // Auto-enable file_search when files are present
+      if (effectiveFileKeys.length > 0 && !sanitizedToolIds.includes('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)) {
+        sanitizedToolIds.push('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)
+      }
 
       const toolsPayload = sanitizedToolIds.map(toolId => ({
         id: toolId,
@@ -311,7 +328,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         instructions: parsed.data.instructions,
         greetingText: parsed.data.greetingText,
         allowAnonymous: parsed.data.allowAnonymous ?? true,
-        fileKeys: parsed.data.fileKeys ?? [],
+        fileKeys: effectiveFileKeys,
         tools: toolsPayload,
         sourceUrls: allDetectedUrls,
         mode,
@@ -366,6 +383,18 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
       } catch (error: any) {
         console.error('Failed to create agent:', error)
         return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`
+      }
+
+      // Process uploaded files for RAG (fire-and-forget)
+      if (effectiveFileKeys.length > 0) {
+        createAgentFilesAndTriggerProcessing({
+          agentId,
+          tenantId,
+          userId: session.user.id,
+          fileKeys: effectiveFileKeys
+        }).catch(error => {
+          console.error('[Agent Creator] File processing failed:', error)
+        })
       }
 
       return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
