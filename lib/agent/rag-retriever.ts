@@ -246,30 +246,6 @@ async function generateQueryEmbedding(
   }
 }
 
-export async function getAgentRAGConfig(
-  tenantId: string,
-  agentId: string
-): Promise<{
-  enabled: boolean
-  chunkCount: number
-  similarityThreshold: number
-} | null> {
-  const collPath = Collections.agents(tenantId)
-  const doc = await adminDb.collection(collPath).doc(agentId).get()
-
-  if (!doc.exists) {
-    console.error('[RAG] Failed to get agent RAG config: agent not found')
-    return null
-  }
-
-  const data = doc.data()!
-  return {
-    enabled: data.ragEnabled ?? true,
-    chunkCount: data.ragChunkCount ?? 5,
-    similarityThreshold: data.ragSimilarityThreshold ?? 0.7
-  }
-}
-
 export function formatRAGPrompt(ragContext: RAGContext): string {
   if (!ragContext.context || ragContext.chunks.length === 0) {
     return ''
