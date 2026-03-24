@@ -85,7 +85,9 @@ for key in \
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
   NEXT_PUBLIC_FIREBASE_APP_ID \
   NEXT_PUBLIC_AUTH_GOOGLE \
-  NEXT_PUBLIC_APP_URL; do
+  NEXT_PUBLIC_APP_URL \
+  NEXT_PUBLIC_META_APP_ID \
+  NEXT_PUBLIC_FB_LOGIN_CONFIG_ID; do
   val=$(get_env_value "$key" || true)
   add_build_arg "$key" "$val"
 done
@@ -132,7 +134,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --max-instances=3 \
   --timeout=600s \
   --set-env-vars="${ENV_VARS}" \
-  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest,CRON_SECRET=cron-secret:latest"
+  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest,CRON_SECRET=cron-secret:latest,META_APP_SECRET=meta-app-secret:latest,WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo ""
