@@ -42,7 +42,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Allow super admins (any tenant, even if not a member) or tenant admins (own tenant)
     const userId = authResult.user.id
-    const hasAccess = await isSuperAdmin(userId) || await isTenantAdmin(userId, tenantId)
+    const isSuperAdminUser = await isSuperAdmin(userId)
+    const hasAccess = isSuperAdminUser || await isTenantAdmin(userId, tenantId)
 
     if (!hasAccess) {
         return NextResponse.json(
@@ -52,6 +53,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     // Fetch tenant and block feature changes for personal workspaces
+    // (super admins can still override)
     const tenantDoc = await adminDb
         .collection(Collections.tenants)
         .doc(tenantId)
@@ -62,7 +64,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     const tenantData = tenantDoc.data()!
-    if (tenantData.isPersonal) {
+    if (tenantData.isPersonal && !isSuperAdminUser) {
         return NextResponse.json(
             { error: 'Features cannot be changed for personal workspaces' },
             { status: 403 }
