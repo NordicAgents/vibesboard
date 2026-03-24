@@ -15,6 +15,7 @@ import { upsertAgentSchema } from '@/lib/agents/schema'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
 import { nanoid } from '@/lib/utils'
+import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 
 export const runtime = 'nodejs'
 
@@ -77,7 +78,8 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 1. **Gather Information First** - Ask 1-2 clarifying questions based on input type:
 
    If user provides a **website URL**:
-   - Acknowledge you'll analyze it
+   - The website content has been automatically fetched and included in the message
+   - Use the fetched content to understand the business/website and suggest a tailored agent
    - Ask: "What should this agent focus on? Customer support, product info, general questions, or something else?"
 
    If user provides **files**:
@@ -135,9 +137,45 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 - Be brief but helpful
 - ALWAYS ask "Does this look good?" and wait for explicit creation request`
 
+  // Detect URLs in user messages and fetch content for the latest one
+  const messageList = Array.isArray(messages) ? messages : []
+  const urlRegex = /https?:\/\/[^\s)>\]]+/g
+
+  // Collect all URLs from all user messages (for sourceUrls storage)
+  const allDetectedUrls = [...new Set(
+    messageList
+      .filter((m: any) => m.role === 'user')
+      .flatMap((m: any) => m.content?.match(urlRegex) ?? [])
+  )].slice(0, 5)
+
+  // Fetch content for URLs in the last user message
+  const lastUserMsg = [...messageList].reverse().find((m: any) => m.role === 'user')
+
+  if (lastUserMsg?.content) {
+    const urls = (lastUserMsg.content.match(urlRegex) ?? []).slice(0, 3)
+
+    if (urls.length > 0) {
+      const results = await Promise.all(urls.map((u: string) => fetchUrlContent(u)))
+
+      const contentBlocks = results.map(r => {
+        if (r.error) {
+          return `[Website Content from ${r.url}]\nError: Could not fetch content — ${r.error}`
+        }
+        return [
+          `[Website Content from ${r.url}]`,
+          r.title ? `Title: ${r.title}` : null,
+          r.description ? `Description: ${r.description}` : null,
+          `Content:\n${r.textContent}`
+        ].filter(Boolean).join('\n')
+      })
+
+      lastUserMsg.content += '\n\n' + contentBlocks.join('\n\n')
+    }
+  }
+
   const initialMessages = [
     { role: 'system', content: systemPrompt },
-    ...(Array.isArray(messages) ? messages : [])
+    ...messageList
   ]
 
   const createAgentTool = {
@@ -275,6 +313,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         allowAnonymous: parsed.data.allowAnonymous ?? true,
         fileKeys: parsed.data.fileKeys ?? [],
         tools: toolsPayload,
+        sourceUrls: allDetectedUrls,
         mode,
         maxMessages,
         quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
@@ -320,6 +359,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             maxMessages: maxMessages,
             quickSuggestionsMode: payload.quickSuggestionsMode,
             quickSuggestionsCount: payload.quickSuggestionsCount,
+            sourceUrls: payload.sourceUrls,
             createdAt: now,
             updatedAt: now
           })
