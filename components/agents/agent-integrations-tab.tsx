@@ -10,7 +10,6 @@ import type {
 } from '@/lib/integrations/types'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { IntegrationCard } from '@/components/agents/integration-card'
-import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
 import { AgentChatwootSettings } from '@/components/agents/agent-chatwoot-settings'
 import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
@@ -66,8 +65,6 @@ export function AgentIntegrationsTab({
 
   const renderSettingsPanel = (definition: IntegrationDefinition) => {
     switch (definition.type) {
-      case 'whatsapp':
-        return <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
       case 'chatwoot':
         return <AgentChatwootSettings agentId={agent.id} canEdit={canEdit} />
       case 'embed_widget':

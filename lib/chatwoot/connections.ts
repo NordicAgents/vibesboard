@@ -23,7 +23,7 @@ const genSecret = customAlphabet(
   32
 )
 
-// ─── Token encryption (same as whatsapp-bulk) ────────────────────────
+// ─── Token encryption ────────────────────────────────────────────────
 
 function encryptToken(token: string): string {
   const key = process.env.ENCRYPTION_KEY
