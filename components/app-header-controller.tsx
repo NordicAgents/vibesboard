@@ -15,7 +15,6 @@ const SYSTEM_PREFIXES = [
   '/landing',
   '/privacy-policy',
   '/terms-of-service',
-  '/whatsapp-bulk',
 ]
 
 export function AppHeaderController({
