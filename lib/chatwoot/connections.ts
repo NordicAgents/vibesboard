@@ -99,7 +99,7 @@ export async function createChatwootConnection(
     chatwootInboxId: params.inboxId,
     chatwootInboxName: params.inboxName,
     encryptedApiToken: encryptToken(params.apiToken),
-    chatwootWebhookId: params.chatwootWebhookId,
+    chatwootWebhookId: params.chatwootWebhookId ?? null,
     webhookSecretHash: hashSecret(params.webhookSecret),
     status: 'active',
     totalConversations: 0,
