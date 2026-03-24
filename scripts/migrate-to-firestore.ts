@@ -579,10 +579,6 @@ async function migrateAgents() {
         mode: row.mode || 'provider',
         maxMessages: row.max_messages ?? undefined,
         lastEmbeddingsSyncAt: toISOString(row.last_embeddings_sync_at),
-        // RAG configuration
-        ragEnabled: row.rag_enabled ?? true,
-        ragChunkCount: row.rag_chunk_count ?? 5,
-        ragSimilarityThreshold: row.rag_similarity_threshold ?? 0.7,
         createdAt: toISOString(row.created_at)!,
         updatedAt: toISOString(row.updated_at)!,
       }
