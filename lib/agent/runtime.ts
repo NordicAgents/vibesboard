@@ -6,79 +6,12 @@ import { buildAgentSystemPrompt } from './prompts'
 import { type VibeAgent } from '@/lib/types'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
 import { OPENAI_CHAT_MODEL, completeText, isResponsesModel, streamText } from '@/lib/openai'
-import { retrieveContext, formatRAGPrompt } from './rag-retriever'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
 })
 
 const openai = new OpenAIApi(configuration)
-
-/**
- * Retrieve RAG context if enabled for the agent
- */
-async function getRAGContext(
-  agent: VibeAgent,
-  messages: Message[]
-): Promise<string | null> {
-  // Skip if RAG is disabled
-  if (agent.ragEnabled === false) {
-    return null
-  }
-
-  // Skip if no files uploaded
-  if (!agent.fileKeys || agent.fileKeys.length === 0) {
-    return null
-  }
-
-  // Skip if no files are actually indexed (avoids wasted embedding calls
-  // when uploads exist but ingestion failed or is still pending)
-  const filesSnap = await adminDb
-    .collection(Collections.agentFiles(agent.tenantId!, agent.id))
-    .where('status', '==', 'indexed')
-    .limit(1)
-    .get()
-  if (filesSnap.empty) {
-    return null
-  }
-
-  // Get the latest user message as the query
-  const lastUserMessage = [...messages]
-    .reverse()
-    .find(m => m.role === 'user')
-
-  if (!lastUserMessage || typeof lastUserMessage.content !== 'string') {
-    return null
-  }
-
-  const query = lastUserMessage.content
-
-  try {
-    // Retrieve relevant chunks
-    const ragContext = await retrieveContext(agent.tenantId!, agent.id, query, {
-      topK: agent.ragChunkCount ?? 5,
-      minSimilarity: agent.ragSimilarityThreshold ?? 0.7,
-      enableFallback: true,
-      maxContextChars: 6000
-    })
-
-    // Return formatted prompt if we found relevant chunks
-    if (ragContext.totalChunks > 0) {
-      const formattedContext = formatRAGPrompt(ragContext)
-      console.log(
-        `[RAG] Retrieved ${ragContext.totalChunks} chunks for agent ${agent.id} (vector: ${ragContext.usedVectorSearch})`
-      )
-      return formattedContext
-    }
-
-    return null
-  } catch (error) {
-    console.error('[RAG] Context retrieval failed:', error)
-    return null
-  }
-}
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -105,18 +38,8 @@ export async function runAgentStream({
     configuration.apiKey = process.env.OPENAI_API_KEY
   }
 
-  // Retrieve RAG context from uploaded files (Phase 3.2)
-  const ragContext = await getRAGContext(agent, messages)
-
-  // Merge RAG context with existing context (Phase 3.3)
-  const enhancedContext = ragContext
-    ? context
-      ? `${context}\n\n${ragContext}`
-      : ragContext
-    : context
-
   const toolkit = buildToolKit(agent, {
-    fileContext: toolContext?.fileContext ?? enhancedContext
+    fileContext: toolContext?.fileContext ?? context
   })
 
   const model = OPENAI_CHAT_MODEL
@@ -126,7 +49,7 @@ export async function runAgentStream({
     const stream = await runResponsesAgentWithTools({
       agent,
       messages,
-      context: enhancedContext,
+      context,
       toolkit,
       model,
       previewToken,
@@ -136,7 +59,7 @@ export async function runAgentStream({
     return stream
   }
 
-  const systemPrompt = buildAgentSystemPrompt(agent, enhancedContext)
+  const systemPrompt = buildAgentSystemPrompt(agent, context)
   if (isResponses) {
     const conversation = messages
       .map(

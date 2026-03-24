@@ -8,7 +8,6 @@ import {
   ensureConversation,
   updateConversationMessages
 } from '@/lib/agents/conversations'
-import { fetchAgentFileContext } from '@/lib/agent/rag'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { nanoid } from '@/lib/utils'
 import {
@@ -42,20 +41,13 @@ export async function POST(
     id: message.id ?? nanoid()
   })) as Message[]
 
-  const needsFileContext = agent.ragEnabled === false
-
-  const [conversation, context] = await Promise.all([
-    ensureConversation({
-      tenantId: agent.tenantId!,
-      agentId: agent.id,
-      conversationId: payload.conversationId,
-      userId: user.id,
-      initialMessages: normalizedMessages
-    }),
-    needsFileContext
-      ? fetchAgentFileContext({ fileKeys: agent.fileKeys })
-      : Promise.resolve(null)
-  ])
+  const conversation = await ensureConversation({
+    tenantId: agent.tenantId!,
+    agentId: agent.id,
+    conversationId: payload.conversationId,
+    userId: user.id,
+    initialMessages: normalizedMessages
+  })
 
   // Count user messages for max messages check
   const userMessageCount = normalizedMessages.filter(m => m.role === 'user').length
@@ -63,10 +55,6 @@ export async function POST(
   const stream = await runAgentStream({
     agent,
     messages: normalizedMessages,
-    context,
-    toolContext: {
-      fileContext: context
-    },
     onCompletion: async completion => {
       const cleanedCompletion = stripCompletionMarkers(completion)
       const nextMessages = [
