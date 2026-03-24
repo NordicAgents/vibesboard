@@ -1,29 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useChat } from 'ai/react'
 import { useRouter } from 'next/navigation'
 import { ChatList } from '@/components/chat-list'
-import { ChatPanel } from '@/components/chat-panel'
-import { PromptForm } from '@/components/prompt-form'
+import { PromptForm, type AttachedFile } from '@/components/prompt-form'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { cn, nanoid } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import {
   IconPlus,
-  IconLink,
-  IconUpload,
   IconSidebar,
   IconX,
   IconStop,
   IconSpinner
 } from '@/components/ui/icons'
-import { Input } from '@/components/ui/input'
 import {
   AgentBuilderFormPreview,
   type AgentFormData
 } from './agent-builder-form-preview'
+
+const MAX_FILES = 5
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const ACCEPTED_FILE_TYPES =
+  '.pdf,.txt,.doc,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.xlsx,.xls'
 
 interface AgentCreatorChatProps {
   className?: string
@@ -45,8 +46,8 @@ export function AgentCreatorChat({
     quickSuggestionsCount: 4
   })
   const [isCreating, setIsCreating] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(true)
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
@@ -139,15 +140,12 @@ export function AgentCreatorChat({
     setInput('')
     setChatId(`agent-creator-${nanoid()}`)
     setCreatedAgentId(null)
+    setAttachedFiles([])
     setFormData({
       allowAnonymous: true,
       quickSuggestionsMode: 'smart',
       quickSuggestionsCount: 4
     })
-  }
-
-  const handleAddWebsiteUrl = () => {
-    setInput('Analyze this website: ')
   }
 
   const safeFileName = (name: string) =>
@@ -156,74 +154,125 @@ export function AgentCreatorChat({
       .replace(/[^a-z0-9._-]+/g, '-')
       .replace(/^-+|-+$/g, '')
 
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files?.length || !userId) {
-      toast.error('Please sign in to upload files')
-      return
-    }
+  const handleFileSelect = useCallback(
+    async (files: FileList) => {
+      if (!userId) {
+        toast.error('Please sign in to upload files')
+        return
+      }
 
-    setIsUploading(true)
+      const fileArray = Array.from(files)
 
-    try {
-      const uploads = await Promise.all(
-        Array.from(files).map(async file => {
-          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+      // Validate count
+      const currentCount = attachedFiles.length
+      if (currentCount + fileArray.length > MAX_FILES) {
+        toast.error(`Maximum ${MAX_FILES} files allowed. You can add ${MAX_FILES - currentCount} more.`)
+        return
+      }
 
-          // Get a signed upload URL from the API
-          const res = await fetch('/api/files/upload-url', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fileName,
-              contentType: file.type || 'application/octet-stream'
-            })
-          })
+      // Validate sizes
+      const oversized = fileArray.filter(f => f.size > MAX_FILE_SIZE)
+      if (oversized.length > 0) {
+        toast.error(
+          `Files exceed 5MB limit: ${oversized.map(f => f.name).join(', ')}`
+        )
+        return
+      }
 
-          if (!res.ok) {
-            throw new Error('Failed to get upload URL')
-          }
-
-          const { uploadUrl, fileKey } = await res.json()
-
-          // Upload the file directly to GCS
-          const uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': file.type || 'application/octet-stream'
-            },
-            body: file
-          })
-
-          if (!uploadRes.ok) {
-            throw new Error('Upload failed')
-          }
-
-          return { path: fileKey, name: file.name }
-        })
-      )
-
-      const fileKeys = uploads.map(u => u.path)
-      setFormData(prev => ({
-        ...prev,
-        fileKeys: [...(prev.fileKeys || []), ...fileKeys]
+      // Create placeholder entries
+      const newFiles: AttachedFile[] = fileArray.map(file => ({
+        id: nanoid(),
+        name: file.name,
+        fileKey: '',
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        status: 'uploading' as const
       }))
 
-      const fileNames = uploads.map(u => u.name).join(', ')
-      await append({
-        id: nanoid(),
-        content: `I've uploaded these files: ${fileNames}. Please help me create an agent based on these files.`,
-        role: 'user'
-      })
+      setAttachedFiles(prev => [...prev, ...newFiles])
 
-      toast.success('Files uploaded successfully')
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to upload files'
-      toast.error(message)
-    } finally {
-      setIsUploading(false)
-    }
-  }
+      // Upload each file in parallel
+      await Promise.all(
+        fileArray.map(async (file, index) => {
+          const fileEntry = newFiles[index]
+          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+
+          try {
+            const res = await fetch('/api/files/upload-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fileName,
+                contentType: file.type || 'application/octet-stream'
+              })
+            })
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}))
+              throw new Error(err.error || 'Failed to get upload URL')
+            }
+
+            const { uploadUrl, fileKey } = await res.json()
+
+            const uploadRes = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': file.type || 'application/octet-stream'
+              },
+              body: file
+            })
+
+            if (!uploadRes.ok) {
+              throw new Error('Upload to storage failed')
+            }
+
+            // Update file entry to success
+            setAttachedFiles(prev =>
+              prev.map(f =>
+                f.id === fileEntry.id
+                  ? { ...f, fileKey, status: 'success' as const }
+                  : f
+              )
+            )
+
+            // Add to formData.fileKeys
+            setFormData(prev => ({
+              ...prev,
+              fileKeys: [...(prev.fileKeys || []), fileKey]
+            }))
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : 'Upload failed'
+            setAttachedFiles(prev =>
+              prev.map(f =>
+                f.id === fileEntry.id
+                  ? { ...f, status: 'error' as const, error: message }
+                  : f
+              )
+            )
+            toast.error(`Failed to upload ${file.name}`)
+          }
+        })
+      )
+    },
+    [userId, attachedFiles.length]
+  )
+
+  const handleFileRemove = useCallback((fileId: string) => {
+    setAttachedFiles(prev => {
+      const file = prev.find(f => f.id === fileId)
+      if (file?.fileKey) {
+        // Remove from formData.fileKeys
+        setFormData(fd => ({
+          ...fd,
+          fileKeys: (fd.fileKeys || []).filter(k => k !== file.fileKey)
+        }))
+      }
+      return prev.filter(f => f.id !== fileId)
+    })
+  }, [])
+
+  const isUploading = attachedFiles.some(f => f.status === 'uploading')
 
   const isReadyToCreate =
     !!formData.name &&
@@ -289,6 +338,14 @@ export function AgentCreatorChat({
     } finally {
       setIsCreating(false)
     }
+  }
+
+  const promptFormProps = {
+    attachedFiles,
+    onFileSelect: handleFileSelect,
+    onFileRemove: handleFileRemove,
+    maxFiles: MAX_FILES,
+    acceptedFileTypes: ACCEPTED_FILE_TYPES
   }
 
   return (
@@ -384,59 +441,25 @@ export function AgentCreatorChat({
                     </Button>
                   </div>
                   <p className="font-switzer text-lg text-gray-secondary">
-                    Tell me about your agent, share a website URL, or upload
-                    files
+                    Tell me about your agent or upload files to get started
                   </p>
                 </div>
 
                 {/* Input centered below header */}
                 <div className="w-full">
-                  <div className="rounded-2xl border border-[#e4e3e3] bg-[#f5f8f7] px-4 py-3 shadow-soft dark:border-[#344348] dark:bg-[#192425]">
-                    <PromptForm
-                      onSubmit={async (value: string) => {
-                        await append({
-                          id: nanoid(),
-                          content: value,
-                          role: 'user'
-                        })
-                      }}
-                      input={input}
-                      setInput={setInput}
-                      isLoading={isLoading}
-                    />
-                  </div>
-
-                  {/* Action buttons below input */}
-                  <div className="mt-4 flex items-center justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddWebsiteUrl}
-                      className="gap-2"
-                    >
-                      <IconLink className="size-4" />
-                      Add Website
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        document.getElementById('file-upload')?.click()
-                      }
-                      disabled={isUploading || !userId}
-                      className="gap-2"
-                    >
-                      <IconUpload className="size-4" />
-                      {isUploading ? 'Uploading...' : 'Upload Files'}
-                    </Button>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={e => handleFileUpload(e.target.files)}
-                    />
-                  </div>
+                  <PromptForm
+                    onSubmit={async (value: string) => {
+                      await append({
+                        id: nanoid(),
+                        content: value,
+                        role: 'user'
+                      })
+                    }}
+                    input={input}
+                    setInput={setInput}
+                    isLoading={isLoading}
+                    {...promptFormProps}
+                  />
                 </div>
               </div>
             </div>
@@ -464,7 +487,7 @@ export function AgentCreatorChat({
                 {!createdAgentId && isReadyToCreate && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e3e3] bg-[#e6ede6] px-3 py-2 text-xs text-[#222f30] dark:border-[#344348] dark:bg-[#344348] dark:text-[#f5f8f7]">
                     <p className="font-switzer">
-                      Your agent draft is ready. Say "create it" or click Create
+                      Your agent draft is ready. Say &quot;create it&quot; or click Create
                       Agent.
                     </p>
                     <Button
@@ -488,38 +511,8 @@ export function AgentCreatorChat({
                   input={input}
                   setInput={setInput}
                   isLoading={isLoading}
+                  {...promptFormProps}
                 />
-                {/* Action buttons in chat panel */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleAddWebsiteUrl}
-                    className="gap-1 text-xs"
-                  >
-                    <IconLink className="size-3" />
-                    Website
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      document.getElementById('file-upload-chat')?.click()
-                    }
-                    disabled={isUploading || !userId}
-                    className="gap-1 text-xs"
-                  >
-                    <IconUpload className="size-3" />
-                    {isUploading ? 'Uploading...' : 'Files'}
-                  </Button>
-                  <input
-                    id="file-upload-chat"
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={e => handleFileUpload(e.target.files)}
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -533,7 +526,6 @@ export function AgentCreatorChat({
             formData={formData}
             onFormChange={setFormData}
             onCreateAgent={handleCreateAgent}
-            onFileUpload={handleFileUpload}
             isCreating={isCreating}
             isUploading={isUploading}
             userId={userId}
