@@ -5,7 +5,8 @@ export const FEATURE_FLAG_NAMES = [
   'WHATSAPP_MESSAGING',
   'GOOGLE_REVIEW',
   'EMBED_WIDGET',
-  'AGENT_LINKS'
+  'AGENT_LINKS',
+  'WHATSAPP_INBOX'
 ] as const
 
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]

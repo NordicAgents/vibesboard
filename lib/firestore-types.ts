@@ -37,6 +37,25 @@ export type QueueItemStatus =
   | 'read'
   | 'failed'
 
+// WhatsApp Inbox (OAuth-connected)
+export type InboxAccountStatus = 'active' | 'disconnected' | 'expired'
+export type InboxConversationStatus = 'open' | 'resolved' | 'snoozed'
+export type InboxMessageDirection = 'inbound' | 'outbound'
+export type InboxMessageStatus =
+  | 'received'
+  | 'sent'
+  | 'delivered'
+  | 'read'
+  | 'failed'
+export type InboxMessageType =
+  | 'text'
+  | 'image'
+  | 'document'
+  | 'audio'
+  | 'video'
+  | 'location'
+  | 'contacts'
+
 // ─── Top-level collections ───────────────────────────────────────────
 
 /** /users/{userId} */
@@ -443,6 +462,60 @@ export interface MessageTemplateDocument {
   updatedAt: string
 }
 
+// ─── WhatsApp Inbox (OAuth-connected) ────────────────────────────────
+
+/** /tenants/{tenantId}/whatsapp_inbox_accounts/{accountId} */
+export interface WhatsAppInboxAccountDocument {
+  id: string
+  tenantId: string
+  wabaId: string
+  phoneNumberId: string
+  displayPhoneNumber: string
+  businessName: string
+  accessToken: string // AES encrypted
+  scopes: string[]
+  status: InboxAccountStatus
+  connectedBy: string // userId
+  connectedAt: string
+  webhookSubscribed: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** /tenants/{tenantId}/whatsapp_inbox_accounts/{accountId}/conversations/{contactPhone} */
+export interface WhatsAppInboxConversationDocument {
+  id: string // same as contactPhone
+  accountId: string
+  contactName?: string
+  contactPhone: string
+  contactProfileName?: string
+  lastMessageAt: string
+  lastMessagePreview: string
+  unreadCount: number
+  assignedTo?: string // userId
+  status: InboxConversationStatus
+  windowExpiresAt: string // 24h from last inbound message
+  createdAt: string
+  updatedAt: string
+}
+
+/** .../conversations/{contactPhone}/messages/{messageId} */
+export interface WhatsAppInboxMessageDocument {
+  id: string
+  waMessageId: string
+  from: string
+  to: string
+  type: InboxMessageType
+  text?: string
+  mediaUrl?: string
+  caption?: string
+  direction: InboxMessageDirection
+  status: InboxMessageStatus
+  timestamp: string
+  sentBy?: string // userId for outbound
+  createdAt: string
+}
+
 // ─── Collection path helpers ─────────────────────────────────────────
 
 export const Collections = {
@@ -492,5 +565,17 @@ export const Collections = {
 
   // Template sub-collection on business accounts
   templates: (tenantId: string, businessAccountId: string) =>
-    `tenants/${tenantId}/whatsapp_business_accounts/${businessAccountId}/templates` as const
+    `tenants/${tenantId}/whatsapp_business_accounts/${businessAccountId}/templates` as const,
+
+  // WhatsApp Inbox (OAuth-connected)
+  whatsappInboxAccounts: (tenantId: string) =>
+    `tenants/${tenantId}/whatsapp_inbox_accounts` as const,
+  whatsappInboxConversations: (tenantId: string, accountId: string) =>
+    `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations` as const,
+  whatsappInboxMessages: (
+    tenantId: string,
+    accountId: string,
+    contactPhone: string
+  ) =>
+    `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const
 } as const

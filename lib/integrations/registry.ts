@@ -21,6 +21,16 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     status: 'available'
   },
   {
+    type: 'whatsapp_inbox',
+    name: 'WhatsApp Inbox',
+    description:
+      'Connect your WhatsApp Business Account via OAuth and manage conversations',
+    icon: 'Inbox',
+    authType: 'oauth',
+    featureFlag: 'WHATSAPP_INBOX',
+    status: 'available'
+  },
+  {
     type: 'hooks',
     name: 'API Hooks',
     description:
