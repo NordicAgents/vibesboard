@@ -107,11 +107,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const connectionId = generateConnectionId()
     const webhookSecret = generateWebhookSecret()
 
-    const appUrl =
+    let appUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       (process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:3000')
+    // Ensure HTTPS in production — HTTP webhooks get silently dropped by redirects
+    if (!appUrl.startsWith('http://localhost')) {
+      appUrl = appUrl.replace(/^http:\/\//, 'https://')
+    }
     const webhookUrl = `${appUrl}/api/webhooks/chatwoot/${connectionId}?secret=${webhookSecret}`
 
     // 4. Create webhook in Chatwoot
