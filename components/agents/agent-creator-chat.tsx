@@ -326,6 +326,7 @@ export function AgentCreatorChat({
           greetingText: formData.greetingText,
           allowAnonymous: formData.allowAnonymous ?? true,
           fileKeys: formData.fileKeys || [],
+          sourceUrls: formData.sourceUrls || [],
           tools: toolsPayload,
           mode,
           maxMessages,
@@ -461,6 +462,14 @@ export function AgentCreatorChat({
                 <div className="w-full">
                   <PromptForm
                     onSubmit={async (value: string) => {
+                      // Track URLs from user messages for sourceUrls
+                      const detectedUrls = value.match(/https?:\/\/[^\s)>\]]+/g)
+                      if (detectedUrls?.length) {
+                        setFormData(prev => ({
+                          ...prev,
+                          sourceUrls: [...new Set([...(prev.sourceUrls ?? []), ...detectedUrls])].slice(0, 5)
+                        }))
+                      }
                       await append({
                         id: nanoid(),
                         content: value,
@@ -514,6 +523,14 @@ export function AgentCreatorChat({
                 )}
                 <PromptForm
                   onSubmit={async (value: string) => {
+                    // Track URLs from user messages for sourceUrls
+                    const detectedUrls = value.match(/https?:\/\/[^\s)>\]]+/g)
+                    if (detectedUrls?.length) {
+                      setFormData(prev => ({
+                        ...prev,
+                        sourceUrls: [...new Set([...(prev.sourceUrls ?? []), ...detectedUrls])].slice(0, 5)
+                      }))
+                    }
                     await append({
                       id: nanoid(),
                       content: value,
