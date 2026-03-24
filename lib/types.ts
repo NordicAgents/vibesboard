@@ -44,6 +44,7 @@ export interface VibeAgent {
   maxMessages?: number | null
   quickSuggestionsMode?: QuickSuggestionsMode
   quickSuggestionsCount?: number | null
+  sourceUrls?: string[]
   lastEmbeddingsSyncAt?: string | null
   googleReviewEnabled?: boolean
   googlePlaceId?: string | null
