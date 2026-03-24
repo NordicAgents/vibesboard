@@ -6,7 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { downloadFile } from '@/lib/firebase/storage'
 import { Collections } from '@/lib/firestore-types'
-import { OPENAI_VISION_MODEL } from '@/lib/openai'
+import { OPENAI_VISION_MODEL, isResponsesModel } from '@/lib/openai'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
@@ -172,22 +172,67 @@ const extractFromPdf = async (buffer: Buffer) => {
 
 const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   const base64 = buffer.toString('base64')
+  const dataUrl = `data:${mimeType};base64,${base64}`
+  const prompt = 'Extract all visible text from this image and provide a short description. Return plain text only.'
+
+  if (isResponsesModel(VISION_MODEL)) {
+    // Use the Responses API for gpt-5.4-nano and similar models
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) return ''
+
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        input: [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: prompt },
+              { type: 'input_image', image_url: dataUrl }
+            ]
+          }
+        ]
+      })
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '')
+      console.error('[extractTextFromImage] Responses API error', res.status, errorText)
+      return ''
+    }
+
+    const json = await res.json()
+    // Parse Responses API output format
+    const output = json?.output
+    if (Array.isArray(output)) {
+      for (const item of output) {
+        if (item?.type !== 'message' || !Array.isArray(item.content)) continue
+        const parts: string[] = []
+        for (const part of item.content) {
+          if (part?.type === 'output_text' && typeof part.text === 'string') {
+            parts.push(part.text)
+          }
+        }
+        if (parts.length) return cleanText(parts.join(''))
+      }
+    }
+    return ''
+  }
+
+  // Fallback: Chat Completions API for older vision models
   const response = await openai.createChatCompletion({
     model: VISION_MODEL,
     messages: [
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: 'Extract all visible text from this image and provide a short description. Return plain text only.'
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${base64}`
-            }
-          }
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: dataUrl } }
         ]
       }
     ]

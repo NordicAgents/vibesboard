@@ -53,6 +53,12 @@ export function AgentCreatorChat({
     useChat({
       id: chatId,
       api: '/api/agent-creator',
+      body: {
+        fileKeys: formData.fileKeys || [],
+        fileNames: attachedFiles
+          .filter(f => f.status === 'success')
+          .map(f => ({ fileKey: f.fileKey, name: f.name }))
+      },
       onResponse(res: Response) {
         if (res.status === 401) {
           toast.error('Please sign in to create an agent.')
@@ -291,7 +297,13 @@ export function AgentCreatorChat({
     setIsCreating(true)
 
     try {
-      const toolsPayload = (formData.tools || []).map(toolId => ({
+      // Auto-enable file_search when files are uploaded
+      const effectiveTools = [...(formData.tools || [])]
+      if ((formData.fileKeys || []).length > 0 && !effectiveTools.includes('builtin:file_search')) {
+        effectiveTools.push('builtin:file_search')
+      }
+
+      const toolsPayload = effectiveTools.map(toolId => ({
         id: toolId,
         type: toolId,
         name: toolId.replace('builtin:', '')
