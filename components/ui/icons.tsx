@@ -608,7 +608,22 @@ export {
   IconLink,
   IconMicrophone,
   IconImage,
-  IconMenu
+  IconMenu,
+  IconPaperclip
+}
+
+function IconPaperclip({ className, ...props }: React.ComponentProps<'svg'>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      className={cn('size-4', className)}
+      {...props}
+    >
+      <path d="M209.66 122.34a8 8 0 0 1 0 11.32l-82.05 82a56 56 0 0 1-79.2-79.21l99.29-99.29a40 40 0 0 1 56.57 56.56L105 192.96a24 24 0 0 1-33.94-33.94l83.29-83.29a8 8 0 0 1 11.32 11.31L82.37 170.34a8 8 0 0 0 11.31 11.31l99.29-99.28a24 24 0 0 0-33.94-33.94l-99.29 99.29a40 40 0 0 0 56.57 56.56l82.05-82a8 8 0 0 1 11.3.06Z" />
+    </svg>
+  )
 }
 
 function IconMenu({ className, ...props }: React.ComponentProps<'svg'>) {
