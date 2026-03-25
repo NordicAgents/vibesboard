@@ -33,7 +33,7 @@ export const upsertAgentSchema = z.object({
   sourceUrls: z.array(z.string().url()).default([]),
   googleReviewEnabled: z.boolean().default(false),
   googlePlaceId: z.string().nullable().optional(),
-  retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional()
+  retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct')
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
