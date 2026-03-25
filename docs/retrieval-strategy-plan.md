@@ -1,7 +1,7 @@
 # Agent File Retrieval Strategy Plan
 
 **Last Updated:** 2026-03-26
-**Status:** Planning
+**Status:** Implemented (Phases 1–4)
 **Priority:** High
 
 ---
@@ -252,6 +252,52 @@ No other new dependencies. RAG uses existing `openai-edge` + Firestore vector se
 | Direct | Token cost (large files fill context) | 30k char budget, file budget ratio |
 | RAG | Embedding API cost | Ingestion runs once per file, cached in Firestore |
 | Bash | Command execution | Virtual FS only, no host access, no network, execution limits, no Python/JS runtimes |
+
+---
+
+## Agent Creation Flow
+
+When an agent is created (either via the dashboard or the AI agent-creator chat), `retrievalStrategy` defaults to `'direct'` and is written explicitly to Firestore at creation time.
+
+### Dashboard creation (`POST /api/agents`)
+- `upsertAgentSchema` includes `retrievalStrategy` with default `'direct'`
+- Written to Firestore in `agentData`
+- Admin can change it afterwards via the rightbar strategy selector
+
+### AI agent-creator (`POST /api/agent-creator`)
+- Agent is created with `retrievalStrategy: 'direct'` hardcoded
+- The AI creator does not expose strategy selection — agents start with the safe default
+- Admin changes strategy in the rightbar after creation
+
+### Changing strategy (Admin flow)
+1. Open the agent in the dashboard → agent settings rightbar
+2. Scroll to **File Retrieval Strategy** (only visible when the agent has uploaded files)
+3. Click a strategy option — saves immediately via `PATCH /api/agents/[id]`
+4. Takes effect on the next conversation turn (no restart needed)
+
+**Who can change it:** Agent owner, tenant admin, super admin (enforced by `canEditAgent()`)
+
+---
+
+## Implemented Files
+
+| File | Role |
+|---|---|
+| `lib/retrieval/types.ts` | `Retriever`, `RetrieverConfig`, `RetrieverResult` interfaces |
+| `lib/retrieval/index.ts` | `createRetriever()` factory |
+| `lib/retrieval/strategies/direct.ts` | `DirectRetriever` — load files into system prompt |
+| `lib/retrieval/strategies/rag.ts` | `RagRetriever` — vector search via `rag-retriever.ts` |
+| `lib/retrieval/strategies/bash.ts` | `BashRetriever` — just-bash virtual sandbox |
+| `lib/agent/context-builder.ts` | Orchestrator — delegates to retriever, merges toolkit |
+| `lib/types.ts` | `RetrievalStrategy` type, `retrievalStrategy` on `VibeAgent` |
+| `lib/firestore-types.ts` | `retrievalStrategy` on `AgentDocument` |
+| `lib/agents/db.ts` | `mapAgentDoc` — maps field, defaults to `'direct'` |
+| `lib/agents/schema.ts` | Zod schema for create/patch — `retrievalStrategy` enum |
+| `app/api/agents/route.ts` | POST — writes `retrievalStrategy` at creation |
+| `app/api/agents/[id]/route.ts` | PATCH — persists strategy change |
+| `app/api/agent-creator/route.ts` | AI creator — defaults to `'direct'` at creation |
+| `components/agents/agent-retrieval-settings.tsx` | Admin UI — radio selector |
+| `components/agents/agent-rightbar.tsx` | Mounts selector when agent has files |
 
 ---
 

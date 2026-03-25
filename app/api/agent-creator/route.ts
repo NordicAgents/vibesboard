@@ -377,6 +377,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             quickSuggestionsMode: payload.quickSuggestionsMode,
             quickSuggestionsCount: payload.quickSuggestionsCount,
             sourceUrls: payload.sourceUrls,
+            retrievalStrategy: 'direct',
             createdAt: now,
             updatedAt: now
           })
