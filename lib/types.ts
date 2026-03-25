@@ -14,6 +14,7 @@ export interface Chat extends Record<string, any> {
 export type AgentToolType =
   | 'builtin:web_fetch'
   | 'builtin:file_search'
+  | 'builtin:bash'
 
 export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
 
