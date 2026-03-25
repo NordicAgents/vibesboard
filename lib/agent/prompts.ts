@@ -29,19 +29,34 @@ Your primary goal is to provide helpful information to the user.
 - This marker signals that the user has received the information they need`
 }
 
+interface PromptOptions {
+  hasFileOverflow?: boolean
+}
+
 export function buildAgentSystemPrompt(
   agent: VibeAgent,
-  context?: string | null
+  context?: string | null,
+  options?: PromptOptions
 ) {
+  const { hasFileOverflow = false } = options ?? {}
+
   const toolsText = agent.tools.length
     ? agent.tools
         .map(tool => `- ${tool.name}: ${tool.description ?? 'Custom tool'}`)
         .join('\n')
     : 'No external tools are enabled for this agent.'
 
-  const contextBlock = context
-    ? `KNOWLEDGE BASE - Use the following reference material when answering:\n${context}\n\nWhen you reference information from the knowledge base, briefly mention the source file.`
-    : 'No additional reference material is available for this query.'
+  // Context block: adapts wording based on whether content was pre-loaded
+  let contextBlock: string
+  if (context) {
+    contextBlock =
+      `REFERENCE DOCUMENTS — The following documents and sources have been loaded. Use them to answer questions accurately and cite filenames or URLs when relevant.\n${context}`
+    if (hasFileOverflow) {
+      contextBlock += `\n\nNote: Some documents were too large to include in full. Use the file_search tool to query their content when needed.`
+    }
+  } else {
+    contextBlock = 'No additional reference material is available for this query.'
+  }
 
   const fileSearchGuidance = agent.tools.some(
     tool => tool.type === 'builtin:file_search'
@@ -49,20 +64,12 @@ export function buildAgentSystemPrompt(
     ? 'When the question could be answered with the uploaded files, call the file_search tool with a concise query first, then answer using those snippets and cite filenames.'
     : ''
 
-  const webSearchGuidance = agent.tools.some(
-    tool => tool.type === 'builtin:search'
-  )
-    ? `When the user asks for time-sensitive or up-to-date information (e.g., weather, news, prices, schedules, or requests containing "today", "latest", "current"), call the web_search tool first and answer based on the results. Do not guess.`
-    : ''
-
   const hasWebFetch = agent.tools.some(
     tool => tool.type === 'builtin:web_fetch'
   )
-  const sourceUrls = agent.sourceUrls ?? []
 
   const webFetchGuidance = hasWebFetch
-    ? `When the user provides a specific URL (or you need details from a specific page), call the web_fetch tool with that URL and answer based on the fetched content.
-${sourceUrls.length > 0 ? `IMPORTANT — Source websites for this agent:\n${sourceUrls.map(u => `- ${u}`).join('\n')}\nWhen you cannot fully answer a question from your instructions or existing context, AUTOMATICALLY call the web_fetch tool with the relevant source URL above to get up-to-date information. Do NOT ask the user for permission — just fetch it and answer.` : ''}`
+    ? `When the user provides a specific URL (or you need details from a specific page), call the web_fetch tool with that URL and answer based on the fetched content.`
     : ''
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
@@ -91,7 +98,7 @@ ${modeInstructions}
 
 Tooling:
 ${toolsText}
-${fileSearchGuidance ? `\n${fileSearchGuidance}` : ''}${webSearchGuidance ? `\n${webSearchGuidance}` : ''}${webFetchGuidance ? `\n${webFetchGuidance}` : ''}${quickSuggestionsGuidance ? `\n${quickSuggestionsGuidance}` : ''}
+${fileSearchGuidance ? `\n${fileSearchGuidance}` : ''}${webFetchGuidance ? `\n${webFetchGuidance}` : ''}${quickSuggestionsGuidance ? `\n${quickSuggestionsGuidance}` : ''}
 
 Context:
 ${contextBlock}

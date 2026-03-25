@@ -82,6 +82,9 @@ export async function PATCH(
     ...(payload.googlePlaceId !== undefined
       ? { googlePlaceId: payload.googlePlaceId }
       : {}),
+    ...(payload.sourceUrls !== undefined
+      ? { sourceUrls: payload.sourceUrls }
+      : {}),
     updatedAt: new Date().toISOString()
   }
 

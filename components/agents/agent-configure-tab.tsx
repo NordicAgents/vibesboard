@@ -74,6 +74,9 @@ export function AgentConfigureTab({
   const [googlePlaceId, setGooglePlaceId] = useState(
     agent.googlePlaceId ?? ''
   )
+  const [sourceUrls, setSourceUrls] = useState<string[]>(
+    agent.sourceUrls ?? []
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -119,7 +122,8 @@ export function AgentConfigureTab({
       quickSuggestionsMode,
       quickSuggestionsCount,
       googleReviewEnabled,
-      googlePlaceId: googlePlaceId.trim() || null
+      googlePlaceId: googlePlaceId.trim() || null,
+      sourceUrls
     }
 
     try {
@@ -151,7 +155,8 @@ export function AgentConfigureTab({
     quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
     quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
     googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
-    (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null)
+    (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null) ||
+    JSON.stringify(sourceUrls) !== JSON.stringify(agent.sourceUrls ?? [])
 
   return (
     <div>
@@ -432,6 +437,8 @@ export function AgentConfigureTab({
           agent={agent}
           onUpdate={() => router.refresh()}
           canEdit={canEdit}
+          sourceUrls={sourceUrls}
+          onSourceUrlsChange={setSourceUrls}
         />
 
         {/* Share & QR */}

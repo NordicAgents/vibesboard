@@ -41,7 +41,6 @@ export const BUILTIN_TOOL_FACTORIES: Record<
   ToolFactory
 > = {
   'builtin:web_fetch': () => null,
-  'builtin:search': () => null,
   'builtin:file_search': () => null
 }
 
