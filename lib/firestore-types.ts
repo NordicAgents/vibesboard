@@ -155,6 +155,7 @@ export interface AgentDocument {
   maxMessages?: number
   googleReviewEnabled?: boolean
   googlePlaceId?: string | null
+  retrievalStrategy?: 'direct' | 'rag' | 'bash'
   lastEmbeddingsSyncAt?: string
   createdAt: string
   updatedAt: string
