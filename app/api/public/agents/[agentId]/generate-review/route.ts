@@ -74,7 +74,7 @@ export async function POST(
     const prompt = buildReviewPrompt(messages)
     const review = await completeText({ prompt })
 
-    return NextResponse.json({ review: review.trim() })
+    return NextResponse.json({ review: review.text.trim() })
   } catch (error) {
     console.error('[generate-review] Failed:', error)
     return NextResponse.json(

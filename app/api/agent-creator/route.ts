@@ -118,7 +118,7 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "name": "suggested name",
   "instructions": "suggested instructions",
   "greetingText": "suggested greeting",
-  "tools": ["builtin:search"],
+  "tools": ["builtin:web_fetch"],
   "quickSuggestionsMode": "smart",
   "quickSuggestionsCount": 4,
   "mode": "provider",
