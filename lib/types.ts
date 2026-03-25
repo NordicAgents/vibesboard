@@ -15,6 +15,8 @@ export type AgentToolType =
   | 'builtin:web_fetch'
   | 'builtin:file_search'
 
+export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
+
 export type AgentMode = 'provider' | 'collector'
 
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
@@ -44,6 +46,7 @@ export interface VibeAgent {
   quickSuggestionsMode?: QuickSuggestionsMode
   quickSuggestionsCount?: number | null
   sourceUrls?: string[]
+  retrievalStrategy?: RetrievalStrategy
   lastEmbeddingsSyncAt?: string | null
   googleReviewEnabled?: boolean
   googlePlaceId?: string | null
