@@ -85,6 +85,9 @@ export async function PATCH(
     ...(payload.sourceUrls !== undefined
       ? { sourceUrls: payload.sourceUrls }
       : {}),
+    ...(payload.retrievalStrategy !== undefined
+      ? { retrievalStrategy: payload.retrievalStrategy }
+      : {}),
     updatedAt: new Date().toISOString()
   }
 
