@@ -46,7 +46,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
 
     const body = await req.json()
-    const { logo_url, primary_color, secondary_color } = body
+    // Accept both camelCase (UI) and snake_case (API consumers)
+    const logo_url = body.logo_url ?? body.logoUrl
+    const primary_color = body.primary_color ?? body.primaryColor
+    const secondary_color = body.secondary_color ?? body.secondaryColor
 
     // Validate colors if provided
     if ((primary_color || secondary_color) &&
