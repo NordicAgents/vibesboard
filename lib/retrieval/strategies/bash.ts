@@ -6,6 +6,9 @@ import { type Retriever, type RetrieverConfig, type RetrieverResult } from '../t
 
 const MAX_CONTEXT_CHARS = 30_000
 const MAX_OUTPUT_CHARS = 8_000
+const MAX_COMMAND_LENGTH = 4_000
+const MAX_FILE_CHARS = 200_000  // ~200k chars per file in virtual FS
+const EXEC_TIMEOUT_MS = 10_000
 
 const EXECUTION_LIMITS = {
   maxCallDepth: 50,
@@ -13,6 +16,42 @@ const EXECUTION_LIMITS = {
   maxLoopIterations: 5_000,
   maxAwkIterations: 5_000,
   maxSedIterations: 5_000
+}
+
+const PROJECT_DIR = '/home/user/project'
+
+/**
+ * Sanitise a filename so it is safe to use as a path segment.
+ * - Keeps alphanumeric, dots, dashes, underscores
+ * - Strips leading dots (prevents hidden files and path traversal via ..)
+ * - Collapses consecutive dots (prevents ..)
+ * - Falls back to 'file' if nothing remains
+ */
+function sanitiseFileName(name: string): string {
+  return (
+    name
+      .replace(/[^a-zA-Z0-9._-]/g, '_') // allowlist safe chars
+      .replace(/\.{2,}/g, '.')           // collapse .. → .
+      .replace(/^\.+/, '')               // strip leading dots
+    || 'file'
+  )
+}
+
+/**
+ * Run bash.exec with a hard timeout so a slow virtual-FS operation
+ * cannot block the request indefinitely.
+ */
+async function execWithTimeout(
+  bash: Bash,
+  command: string,
+  timeoutMs: number
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return Promise.race([
+    bash.exec(command),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Command timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ])
 }
 
 export class BashRetriever implements Retriever {
@@ -28,7 +67,11 @@ export class BashRetriever implements Retriever {
 
     if (fileKeys.length === 0) return
 
-    // Download all files and write into virtual FS at /home/user/project/
+    // Create project dir once via FS API (no shell invocation)
+    this.bash.fs.mkdir(PROJECT_DIR)
+
+    // Download all files in parallel then write into virtual FS directly
+    // Using fs.writeFile avoids shell heredocs entirely — no injection surface
     const fileResults = await Promise.allSettled(
       fileKeys.map(key => readFullFileContent(key))
     )
@@ -38,11 +81,11 @@ export class BashRetriever implements Retriever {
       const { text, fileName } = result.value
       if (!text.trim()) continue
 
-      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
-      await this.bash.exec(`mkdir -p /home/user/project`)
-      await this.bash.exec(
-        `cat > /home/user/project/${safeName} << 'VIBEAGENT_EOF'\n${text}\nVIBAGENT_EOF`
-      )
+      const safeName = sanitiseFileName(fileName)
+      // Truncate file content to prevent unbounded memory use in virtual FS
+      const content = text.length > MAX_FILE_CHARS ? text.slice(0, MAX_FILE_CHARS) : text
+
+      this.bash.fs.writeFile(`${PROJECT_DIR}/${safeName}`, content)
       this.fileNames.push(safeName)
     }
   }
@@ -78,8 +121,12 @@ export class BashRetriever implements Retriever {
     // Inject a file listing hint into the system context
     let contextText = parts.length > 0 ? parts.join('\n\n---\n\n') : ''
     if (this.fileNames.length > 0) {
-      const listing = this.fileNames.map(f => `  - /home/user/project/${f}`).join('\n')
-      const hint = `[Uploaded files available in sandbox]\nUse the bash tool to analyze them:\n${listing}`
+      const listing = this.fileNames.map(f => `  - ${PROJECT_DIR}/${f}`).join('\n')
+      const hint =
+        `[Uploaded files are available in a sandboxed virtual filesystem]\n` +
+        `Use the bash tool to read and analyze them. Files written during bash calls ` +
+        `are available to subsequent bash calls within this session.\n` +
+        `Available files:\n${listing}`
       contextText = contextText ? `${hint}\n\n---\n\n${contextText}` : hint
     }
 
@@ -90,40 +137,44 @@ export class BashRetriever implements Retriever {
         name: 'bash',
         description:
           'Run a shell command in a sandboxed virtual filesystem containing the uploaded files. ' +
-          'Files are at /home/user/project/. ' +
+          `Files are at ${PROJECT_DIR}/. ` +
           'Supports: grep, rg, awk, sed, head, tail, cat, sort, uniq, wc, cut, tr, jq, xan, yq, find, ls, diff. ' +
-          'No network access. No writes persist after the conversation.',
+          'No network access. No access to the host filesystem. ' +
+          'Files written during bash calls are available to subsequent bash calls within this session.',
         parameters: {
           type: 'object',
           properties: {
             command: {
               type: 'string',
-              description: 'The shell command to run.'
+              description: `The shell command to run. Maximum ${MAX_COMMAND_LENGTH} characters.`
             }
           },
           required: ['command']
         }
       },
       execute: async (args: Record<string, any>) => {
-        const command = String(args?.command ?? '').trim()
-        if (!command) return 'No command provided.'
+        const raw = String(args?.command ?? '').trim()
+        if (!raw) return 'No command provided.'
         if (!bash) return 'Bash sandbox not initialised.'
 
+        // Cap command length to prevent parser abuse
+        const command = raw.length > MAX_COMMAND_LENGTH
+          ? raw.slice(0, MAX_COMMAND_LENGTH)
+          : raw
+
         try {
-          const result = await bash.exec(command)
-          const stdout = result.stdout?.slice(0, MAX_OUTPUT_CHARS) ?? ''
-          const stderr = result.stderr?.slice(0, 500) ?? ''
+          const result = await execWithTimeout(bash, command, EXEC_TIMEOUT_MS)
+          const stdout = (result.stdout ?? '').slice(0, MAX_OUTPUT_CHARS)
+          const stderr = (result.stderr ?? '').slice(0, 500)
 
           if (result.exitCode !== 0 && !stdout) {
             return `Command failed (exit ${result.exitCode})${stderr ? `: ${stderr}` : ''}`
           }
 
           const output = stdout || '(no output)'
-          return stderr
-            ? `${output}\n[stderr]: ${stderr}`
-            : output
+          return stderr ? `${output}\n[stderr]: ${stderr}` : output
         } catch (err: any) {
-          return `Error executing command: ${err?.message ?? err}`
+          return `Error: ${err?.message ?? String(err)}`
         }
       }
     }
@@ -137,7 +188,7 @@ export class BashRetriever implements Retriever {
   }
 
   async dispose(): Promise<void> {
-    // just-bash uses an in-memory virtual FS — no real files to clean up
+    // just-bash uses an in-memory virtual FS — no host files to clean up
     this.bash = null
   }
 }
