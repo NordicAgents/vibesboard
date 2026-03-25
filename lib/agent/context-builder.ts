@@ -36,13 +36,18 @@ export async function buildAgentContext(
       fileContext: toolContext?.fileContext ?? null
     })
 
-    // Merge retriever-provided tools into the toolkit
-    const functions = [...fullToolkit.functions]
-    const executors = { ...fullToolkit.executors }
-
-    for (const tool of result.tools) {
-      functions.push(tool.function)
-      executors[tool.function.name] = tool.execute
+    // Merge retriever-provided tools into the toolkit.
+    // Retriever tools take precedence — deduplicate by name.
+    const retrieverToolNames = new Set(result.tools.map(t => t.function.name))
+    const functions = [
+      ...fullToolkit.functions.filter(fn => !retrieverToolNames.has(fn.name)),
+      ...result.tools.map(t => t.function)
+    ]
+    const executors = {
+      ...Object.fromEntries(
+        Object.entries(fullToolkit.executors).filter(([name]) => !retrieverToolNames.has(name))
+      ),
+      ...Object.fromEntries(result.tools.map(t => [t.function.name, t.execute]))
     }
 
     // For direct strategy: remove file_search if all files fit in context
