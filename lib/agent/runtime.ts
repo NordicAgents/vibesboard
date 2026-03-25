@@ -3,9 +3,16 @@ import { Configuration, OpenAIApi } from 'openai-edge'
 import { type Message } from 'ai'
 
 import { buildAgentSystemPrompt } from './prompts'
+import { buildAgentContext } from './context-builder'
 import { type VibeAgent } from '@/lib/types'
-import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
-import { OPENAI_CHAT_MODEL, completeText, isResponsesModel, streamText } from '@/lib/openai'
+import { type ToolExecutionContext, type ToolKit } from './tools'
+import {
+  OPENAI_CHAT_MODEL,
+  completeText,
+  isResponsesModel,
+  streamText,
+  type ResponsesApiTool
+} from '@/lib/openai'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -38,38 +45,35 @@ export async function runAgentStream({
     configuration.apiKey = process.env.OPENAI_API_KEY
   }
 
-  const toolkit = buildToolKit(agent, {
-    fileContext: toolContext?.fileContext ?? context
-  })
-
   const model = OPENAI_CHAT_MODEL
   const isResponses = isResponsesModel(model)
 
-  if (toolkit.functions.length) {
-    const stream = await runResponsesAgentWithTools({
+  // Build context by pre-loading file content and source URLs.
+  // This also prunes the toolkit (removes file_search if all files fit in context).
+  const agentContext = await buildAgentContext(agent, toolContext)
+  const effectiveContext = agentContext.contextText || context || null
+  const toolkit = agentContext.toolkit
+
+  if (isResponses && toolkit.functions.length) {
+    return runResponsesAgentWithTools({
       agent,
       messages,
-      context,
+      context: effectiveContext,
       toolkit,
       model,
       previewToken,
       onCompletion,
-      toolContext
+      toolContext,
+      hasFileOverflow: agentContext.hasFileOverflow
     })
-    return stream
   }
 
-  const systemPrompt = buildAgentSystemPrompt(agent, context)
-  if (isResponses) {
-    const conversation = messages
-      .map(
-        message =>
-          `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
-            typeof message.content === 'string' ? message.content : ''
-          }`
-      )
-      .join('\n\n')
+  const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
+    hasFileOverflow: agentContext.hasFileOverflow
+  })
 
+  if (isResponses) {
+    const conversation = formatConversation(messages)
     const prompt = `${systemPrompt}\n\n${
       conversation ? `Conversation so far:\n${conversation}` : ''
     }`
@@ -89,8 +93,9 @@ export async function runAgentStream({
     return stream
   }
 
+  const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext)
   const payload = [
-    { role: 'system' as const, content: systemPrompt },
+    { role: 'system' as const, content: systemPromptLegacy },
     ...messages.map(message => ({
       role: message.role,
       content: message.content,
@@ -115,6 +120,17 @@ export async function runAgentStream({
   })
 }
 
+function formatConversation(messages: Message[]): string {
+  return messages
+    .map(
+      message =>
+        `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
+          typeof message.content === 'string' ? message.content : ''
+        }`
+    )
+    .join('\n\n')
+}
+
 interface ResponsesAgentWithToolsArgs {
   agent: VibeAgent
   messages: Message[]
@@ -124,8 +140,15 @@ interface ResponsesAgentWithToolsArgs {
   previewToken?: string | null
   onCompletion?: (completion: string) => Promise<void> | void
   toolContext?: ToolExecutionContext
+  hasFileOverflow?: boolean
 }
 
+/**
+ * Use native OpenAI Responses API tool calling.
+ * 1. Call completeText() with tools — the API decides whether to call a tool.
+ * 2. If a tool was called, execute it and build a follow-up prompt.
+ * 3. Stream the final answer via streamText().
+ */
 const runResponsesAgentWithTools = async ({
   agent,
   messages,
@@ -134,86 +157,59 @@ const runResponsesAgentWithTools = async ({
   model,
   previewToken,
   onCompletion,
-  toolContext
+  toolContext,
+  hasFileOverflow
 }: ResponsesAgentWithToolsArgs) => {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow })
+  const conversation = formatConversation(messages)
 
-  const systemPrompt = buildAgentSystemPrompt(agent, context)
+  // Convert toolkit functions to Responses API tool format
+  const tools: ResponsesApiTool[] = toolkit.functions.map(fn => ({
+    type: 'function' as const,
+    name: fn.name,
+    description: fn.description ?? 'No description.',
+    parameters: fn.parameters && Object.keys(fn.parameters).length
+      ? fn.parameters
+      : { type: 'object', properties: {} }
+  }))
 
-  const toolsDescription = toolkit.functions
-    .map(fn => {
-      const params =
-        fn.parameters && Object.keys(fn.parameters).length
-          ? JSON.stringify(fn.parameters)
-          : '{}'
-      return `- ${fn.name}: ${fn.description ?? 'No description.'} Params: ${params}`
-    })
-    .join('\n')
-
-  const conversation = messages
-    .map(
-      message =>
-        `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
-          typeof message.content === 'string' ? message.content : ''
-        }`
-    )
-    .join('\n\n')
-
-  const planningPrompt =
+  const prompt =
     `${systemPrompt}\n\n` +
-    `You have access to the following tools:\n${toolsDescription || 'No tools.'}\n\n` +
-    `Tool usage protocol:\n` +
-    `- Decide whether you need exactly one tool call to answer the user.\n` +
-    `- If you need a tool, respond with STRICT JSON on a single line with this shape:\n` +
-    `  {"tool": "<tool_name>", "arguments": { ... }}\n` +
-    `- If you do not need any tool, respond with:\n` +
-    `  {"tool": null, "arguments": {}}\n` +
-    `Do not include any other text.\n\n` +
     `Conversation so far:\n` +
     (conversation || '(no prior messages).')
 
-  const decisionText = await completeText({
-    prompt: planningPrompt,
+  // Step 1: Call with native tools — model decides whether to use a tool
+  const decision = await completeText({
+    prompt,
     model,
-    apiKey
+    apiKey,
+    tools
   })
 
+  // Step 2: If model chose a tool, execute it
+  let toolResult: string | null = null
   let chosenTool: string | null = null
   let toolArgs: Record<string, any> = {}
 
-  try {
-    const parsed = JSON.parse(decisionText.trim())
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      Object.prototype.hasOwnProperty.call(parsed, 'tool')
-    ) {
-      if (typeof parsed.tool === 'string' && toolkit.executors[parsed.tool]) {
-        chosenTool = parsed.tool
-        if (parsed.arguments && typeof parsed.arguments === 'object') {
-          toolArgs = parsed.arguments as Record<string, any>
-        }
-      } else {
-        chosenTool = null
+  if (decision.toolCalls.length > 0) {
+    const call = decision.toolCalls[0]
+    chosenTool = call.name
+    toolArgs = call.arguments
+    const executor = toolkit.executors[chosenTool]
+
+    if (executor) {
+      try {
+        toolResult = await executor(toolArgs, {
+          fileContext: toolContext?.fileContext ?? context
+        })
+      } catch (error) {
+        toolResult = `Tool ${chosenTool} failed: ${error}`
       }
     }
-  } catch {
-    chosenTool = null
-    toolArgs = {}
   }
 
-  let toolResult: string | null = null
-  if (chosenTool) {
-    const executor = toolkit.executors[chosenTool]
-    try {
-      toolResult = await executor(toolArgs, {
-        fileContext: toolContext?.fileContext ?? context
-      })
-    } catch (error) {
-      toolResult = `Tool ${chosenTool} failed: ${error}`
-    }
-  }
-
+  // Step 3: Build final prompt and stream the answer
   const finalPromptParts: string[] = [
     systemPrompt,
     '',
@@ -229,12 +225,12 @@ const runResponsesAgentWithTools = async ({
       'Tool result:',
       toolResult,
       '',
-      'Now answer the user. Do not mention internal tool JSON.'
+      'Now answer the user based on the tool result. Do not mention internal tool details.'
     )
   } else {
     finalPromptParts.push(
       '',
-      'You decided that no tools are required. Answer the user directly based on the conversation.'
+      'Answer the user directly based on the conversation.'
     )
   }
 
