@@ -9,13 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
 import {
     IconTrash,
     IconDownload,
     IconFile,
     IconUpload,
     IconCheck,
-    IconX
+    IconX,
+    IconPlus
 } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +25,8 @@ interface ToolsFilesManagerProps {
     agent: VibeAgent
     onUpdate?: () => void
     canEdit: boolean
+    sourceUrls?: string[]
+    onSourceUrlsChange?: (urls: string[]) => void
 }
 
 interface FileUploadProgress {
@@ -32,7 +36,7 @@ interface FileUploadProgress {
     error?: string
 }
 
-export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManagerProps) {
+export function ToolsFilesManager({ agent, onUpdate, canEdit, sourceUrls, onSourceUrlsChange }: ToolsFilesManagerProps) {
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -365,18 +369,95 @@ export function ToolsFilesManager({ agent, onUpdate, canEdit }: ToolsFilesManage
                     </div>
 
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
-                            <div className="pr-4">
-                                <p className="text-sm font-medium">Use web</p>
-                                <p className="text-xs text-muted-foreground">
-                                    Let the agent fetch provided URLs or search when it needs extra context.
-                                </p>
+                        <div className="space-y-2 rounded-md border bg-muted/50">
+                            <div className="flex items-center justify-between p-3">
+                                <div className="pr-4">
+                                    <p className="text-sm font-medium">Web Fetch</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Let the agent fetch content from provided URLs when it needs extra context.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={useWeb}
+                                    disabled={isSaving || !canEdit}
+                                    onCheckedChange={value => setUseWeb(value)}
+                                />
                             </div>
-                            <Switch
-                                checked={useWeb}
-                                disabled={isSaving || !canEdit}
-                                onCheckedChange={value => setUseWeb(value)}
-                            />
+
+                            {/* Source URLs — inline under Web Fetch */}
+                            {sourceUrls && onSourceUrlsChange && (
+                                <div className="border-t px-3 pb-3 pt-2">
+                                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                                        Source URLs
+                                        <span className="ml-1 font-normal">(pre-fetched into context, max 5)</span>
+                                    </p>
+                                    <div className="space-y-1.5">
+                                        {sourceUrls.map((url, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center gap-2 rounded border bg-card px-2 py-1.5"
+                                            >
+                                                <span className="flex-1 truncate text-xs">{url}</span>
+                                                {canEdit && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            onSourceUrlsChange(sourceUrls.filter((_, i) => i !== idx))
+                                                        }
+                                                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                                                        disabled={isSaving}
+                                                    >
+                                                        <IconX className="size-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {sourceUrls.length < 5 && canEdit && (
+                                            <form
+                                                onSubmit={e => {
+                                                    e.preventDefault()
+                                                    const input = e.currentTarget.elements.namedItem(
+                                                        'toolsSourceUrl'
+                                                    ) as HTMLInputElement
+                                                    const value = input?.value?.trim()
+                                                    if (!value) return
+                                                    try {
+                                                        new URL(value)
+                                                    } catch {
+                                                        return
+                                                    }
+                                                    if (sourceUrls.includes(value) || sourceUrls.length >= 5)
+                                                        return
+                                                    onSourceUrlsChange([...sourceUrls, value])
+                                                    input.value = ''
+                                                }}
+                                                className="flex items-center gap-1.5"
+                                            >
+                                                <Input
+                                                    name="toolsSourceUrl"
+                                                    placeholder="https://example.com"
+                                                    className="h-8 flex-1 text-xs"
+                                                    disabled={isSaving}
+                                                />
+                                                <Button
+                                                    type="submit"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 shrink-0 px-2"
+                                                    disabled={isSaving}
+                                                >
+                                                    <IconPlus className="size-3.5" />
+                                                </Button>
+                                            </form>
+                                        )}
+                                        {sourceUrls.length === 0 && (
+                                            <p className="py-1 text-center text-xs text-muted-foreground">
+                                                No source URLs. Add URLs to auto-load content into agent context.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center justify-between rounded-md border bg-muted/50 p-3">
