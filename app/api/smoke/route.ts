@@ -26,10 +26,10 @@ export async function GET(req: Request) {
         description: 'Search uploaded files for matching text.'
       },
       {
-        id: 'builtin:search',
-        type: 'builtin:search',
-        name: 'Search',
-        description: 'Web search via DuckDuckGo.'
+        id: 'builtin:web_fetch',
+        type: 'builtin:web_fetch',
+        name: 'Web Fetch',
+        description: 'Fetches web page content from a given URL.'
       }
     ],
     allowAnonymous: true,
@@ -52,14 +52,13 @@ export async function GET(req: Request) {
             id: 'm1',
             role: 'user',
             content:
-              'Call the web_search tool with query "OpenAI". After receiving the tool result, reply with ONLY the first 8 words of the tool output.'
+              'Call the web_fetch tool with url "https://example.com". After receiving the tool result, reply with ONLY the page title.'
           }
         ]
       : [
           {
             id: 'm1',
             role: 'user',
-            // Strongly nudge the model to call the tool
             content:
               'Please call the file_search tool with query "VibeTestToken" and then reply only with the matching line.'
           }

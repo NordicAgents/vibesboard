@@ -6,11 +6,6 @@ export const BUILTIN_AGENT_TOOLS = {
     name: 'Web Fetch',
     description: 'Fetches web page content from a given URL.'
   },
-  'builtin:search': {
-    id: 'builtin:search' as AgentToolType,
-    name: 'Web Search',
-    description: 'Searches the public web for recent information.'
-  },
   'builtin:file_search': {
     id: 'builtin:file_search' as AgentToolType,
     name: 'File Search',

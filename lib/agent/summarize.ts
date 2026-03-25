@@ -35,7 +35,7 @@ export async function summarizeConversation(
           .join('\n\n')
 
       const completion = await completeText({ prompt })
-      const trimmed = completion?.trim()
+      const trimmed = completion.text?.trim()
       return trimmed || null
     }
 
