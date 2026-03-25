@@ -38,7 +38,7 @@ const cleanText = (value: string) =>
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
-const guessMimeFromPath = (path: string) => {
+export const guessMimeFromPath = (path: string) => {
   const lower = path.toLowerCase()
   if (lower.endsWith('.pdf')) return 'application/pdf'
   if (lower.endsWith('.docx'))
@@ -250,7 +250,7 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   return cleanText(String(content))
 }
 
-const extractTextFromBuffer = async (
+export const extractTextFromBuffer = async (
   buffer: Buffer,
   mimeType: string
 ): Promise<string> => {
@@ -423,6 +423,21 @@ export const ingestFileForAgent = async (args: {
     totalChars,
     message: `Ingested ${chunks.length} chunk(s) for search.`
   }
+}
+
+/**
+ * Read the full text content of an uploaded file (no chunking, no embedding).
+ * Used for direct context injection when files are small enough.
+ */
+export const readFullFileContent = async (
+  fileKey: string,
+  fileName?: string
+): Promise<{ text: string; fileName: string; charCount: number }> => {
+  const name = fileName || fileKey.split('/').pop() || fileKey
+  const mimeType = guessMimeFromPath(name)
+  const buffer = await downloadFile(fileKey)
+  const text = await extractTextFromBuffer(buffer, mimeType)
+  return { text, fileName: name, charCount: text.length }
 }
 
 /**

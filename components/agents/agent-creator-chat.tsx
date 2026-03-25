@@ -103,6 +103,9 @@ export function AgentCreatorChat({
                 }),
                 ...(updates.quickSuggestionsCount !== undefined && {
                   quickSuggestionsCount: updates.quickSuggestionsCount
+                }),
+                ...(updates.sourceUrls !== undefined && {
+                  sourceUrls: updates.sourceUrls
                 })
               }))
             } catch (parseError) {

@@ -14,19 +14,41 @@ export const OPENAI_VISION_MODEL =
 export const isResponsesModel = (model?: string | null) =>
   !!model && (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
 
+// --- Native tool calling types ---
+
+export interface ResponsesApiTool {
+  type: 'function'
+  name: string
+  description: string
+  parameters: Record<string, any>
+}
+
+export interface ToolCallResult {
+  name: string
+  arguments: Record<string, any>
+  callId: string
+}
+
+export interface CompleteTextResult {
+  text: string
+  toolCalls: ToolCallResult[]
+}
+
 /**
- * Call the Responses API for text-only generations (used for GPT‑5.4‑nano).
- * Note: this intentionally does NOT send temperature, which is unsupported.
+ * Call the Responses API (GPT‑5.4‑nano) with optional native tool calling.
+ * When tools are provided, the model may return function_call outputs instead of text.
  */
 export async function completeText({
   prompt,
   model = OPENAI_MODEL,
-  apiKey
+  apiKey,
+  tools
 }: {
   prompt: string
   model?: string | null
   apiKey?: string | null
-}): Promise<string> {
+  tools?: ResponsesApiTool[]
+}): Promise<CompleteTextResult> {
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
@@ -38,16 +60,22 @@ export async function completeText({
     throw new Error('OPENAI_API_KEY is not configured.')
   }
 
+  const body: Record<string, any> = {
+    model: m,
+    input: prompt
+  }
+
+  if (tools && tools.length > 0) {
+    body.tools = tools
+  }
+
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: m,
-      input: prompt
-    })
+    body: JSON.stringify(body)
   })
 
   if (!res.ok) {
@@ -57,12 +85,13 @@ export async function completeText({
   }
 
   const json = await res.json()
-  return extractTextFromResponse(json)
+  return extractFromResponse(json)
 }
 
 /**
  * Stream text tokens from the Responses API (GPT‑5.4‑nano) as a web stream.
  * This is used for real-time UX in chat endpoints.
+ * Does NOT support tools — use completeText() for the tool-decision call.
  */
 export async function streamText({
   prompt,
@@ -180,28 +209,51 @@ export async function streamText({
   })
 }
 
-const extractTextFromResponse = (json: any): string => {
+/**
+ * Parse the Responses API output, extracting both text and function calls.
+ */
+const extractFromResponse = (json: any): CompleteTextResult => {
   const output = json?.output
-  if (!Array.isArray(output)) return ''
+  if (!Array.isArray(output)) return { text: '', toolCalls: [] }
+
+  let text = ''
+  const toolCalls: ToolCallResult[] = []
 
   for (const item of output) {
-    if (item?.type !== 'message' || !Array.isArray(item.content)) continue
-
-    const parts: string[] = []
-    for (const part of item.content) {
-      if (!part || part.type !== 'output_text') continue
-      const text = (part as any).text
-      if (typeof text === 'string') {
-        parts.push(text)
-      } else if (text && typeof text.value === 'string') {
-        parts.push(text.value)
+    // Text message output
+    if (item?.type === 'message' && Array.isArray(item.content)) {
+      const parts: string[] = []
+      for (const part of item.content) {
+        if (!part || part.type !== 'output_text') continue
+        const t = (part as any).text
+        if (typeof t === 'string') {
+          parts.push(t)
+        } else if (t && typeof t.value === 'string') {
+          parts.push(t.value)
+        }
+      }
+      if (parts.length) {
+        text = parts.join('')
       }
     }
 
-    if (parts.length) {
-      return parts.join('')
+    // Function call output
+    if (item?.type === 'function_call') {
+      let args: Record<string, any> = {}
+      try {
+        args = typeof item.arguments === 'string'
+          ? JSON.parse(item.arguments)
+          : (item.arguments ?? {})
+      } catch {
+        args = {}
+      }
+      toolCalls.push({
+        name: item.name,
+        arguments: args,
+        callId: item.call_id ?? ''
+      })
     }
   }
 
-  return ''
+  return { text, toolCalls }
 }
