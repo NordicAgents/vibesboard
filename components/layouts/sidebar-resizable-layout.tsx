@@ -67,8 +67,7 @@ export function SidebarResizableLayout({
 
     const isAgentDetailPage =
       pathname.startsWith('/agents/') &&
-      pathname !== '/agents/create-chat' &&
-      pathname !== '/agents/new'
+      pathname !== '/agents/create-chat'
 
     if (!wasCreatePage && isNowCreatePage) {
       // Entering create page - auto-collapse if sidebar is open
@@ -117,8 +116,7 @@ export function SidebarResizableLayout({
 
     const isAgentDetailPage =
       pathname.startsWith('/agents/') &&
-      pathname !== '/agents/create-chat' &&
-      pathname !== '/agents/new'
+      pathname !== '/agents/create-chat'
 
     if (isAgentDetailPage) {
       setMobileView(prev => (prev === 'agents' ? 'current-agent' : prev))

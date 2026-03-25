@@ -105,7 +105,7 @@ export default function AgentsPage() {
           description="Build Agents for Vibing with People"
           actions={
             <Button asChild className="border-0 shadow-none">
-              <Link href="/agents/new">
+              <Link href="/agents/create-chat">
                 <Plus className="mr-2 size-4" />
                 Create Agent
               </Link>
@@ -126,7 +126,7 @@ export default function AgentsPage() {
             description="Create your first AI agent to get started"
             action={
               <Button asChild className="border-0 shadow-none">
-                <Link href="/agents/new">
+                <Link href="/agents/create-chat">
                   <Plus className="mr-2 size-4" />
                   Create Agent
                 </Link>
