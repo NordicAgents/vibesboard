@@ -1,6 +1,7 @@
 import { type Retriever, type RetrieverConfig, type RetrievalStrategy } from './types'
 import { DirectRetriever } from './strategies/direct'
 import { RagRetriever } from './strategies/rag'
+import { BashRetriever } from './strategies/bash'
 
 export function createRetriever(
   strategy: RetrievalStrategy,
@@ -12,8 +13,7 @@ export function createRetriever(
     case 'rag':
       return new RagRetriever(config)
     case 'bash':
-      // Phase 3 — will return BashRetriever
-      return new DirectRetriever(config)
+      return new BashRetriever(config)
     default:
       return new DirectRetriever(config)
   }
