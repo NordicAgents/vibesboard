@@ -23,8 +23,7 @@ export async function buildAgentContext(
     agentId: agent.id,
     tenantId: agent.tenantId ?? '',
     fileKeys: agent.fileKeys,
-    sourceUrls: agent.sourceUrls,
-    fileContext: toolContext?.fileContext ?? null
+    sourceUrls: agent.sourceUrls
   })
 
   try {

@@ -1,13 +1,13 @@
 import { type RegisteredTool } from '@/lib/agent/tools/base'
+import { type RetrievalStrategy } from '@/lib/types'
 
-export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
+export type { RetrievalStrategy }
 
 export interface RetrieverConfig {
   agentId: string
   tenantId: string
   fileKeys: string[]
   sourceUrls?: string[]
-  fileContext?: string | null
 }
 
 export interface RetrieverResult {
