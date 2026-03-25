@@ -29,6 +29,7 @@ import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
 import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
+import { AgentRetrievalSettings } from '@/components/agents/agent-retrieval-settings'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -454,6 +455,15 @@ export function AgentRightbar({
           onUpdate={() => router.refresh()}
           canEdit={canEdit}
         />
+
+        {/* File Retrieval Strategy — only shown when agent has files */}
+        {agent.fileKeys.length > 0 && (
+          <AgentRetrievalSettings
+            agentId={agent.id}
+            current={agent.retrievalStrategy ?? 'direct'}
+            canEdit={canEdit}
+          />
+        )}
 
         {/* Share & QR */}
         <Card>
