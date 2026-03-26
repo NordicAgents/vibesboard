@@ -39,6 +39,16 @@ export class RagRetriever implements Retriever {
       }
     }
 
+    // Only provide the file_search tool if there are actual files to search
+    if (this.config.fileKeys.length === 0) {
+      return {
+        contextText: parts.length > 0 ? parts.join('\n\n---\n\n') : '',
+        tools: [],
+        sources,
+        hasOverflow: false
+      }
+    }
+
     // Provide a file_search tool that queries the RAG pipeline
     const fileSearchTool: RegisteredTool = {
       function: {
