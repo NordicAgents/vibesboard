@@ -7,6 +7,7 @@ import { patchAgentSchema } from '@/lib/agents/schema'
 import { canEditAgent } from '@/lib/agents/permissions'
 import { getAgentById } from '@/lib/agents/server'
 import { deleteFile } from '@/lib/firebase/storage'
+import { assertSafeCallbackUrl } from '@/lib/agents/webhook-utils'
 
 export const runtime = 'nodejs'
 
@@ -37,6 +38,19 @@ export async function PATCH(
 
   const body = await req.json()
   const payload = patchAgentSchema.parse(body)
+
+  // Validate webhook URL against SSRF at save time
+  const webhookUrl = payload.notificationConfig?.webhook?.url
+  if (webhookUrl) {
+    try {
+      assertSafeCallbackUrl(webhookUrl)
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Invalid webhook URL' },
+        { status: 400 }
+      )
+    }
+  }
 
   // Find agent using collectionGroup query
   const agent = await getAgentById(id)
@@ -88,6 +102,9 @@ export async function PATCH(
     ...(payload.domain !== undefined ? { domain: payload.domain } : {}),
     ...(payload.retrievalStrategy !== undefined
       ? { retrievalStrategy: payload.retrievalStrategy }
+      : {}),
+    ...(payload.notificationConfig !== undefined
+      ? { notificationConfig: payload.notificationConfig }
       : {}),
     updatedAt: new Date().toISOString()
   }

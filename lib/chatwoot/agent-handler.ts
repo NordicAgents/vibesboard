@@ -13,6 +13,7 @@ import {
 } from '@/lib/agents/conversations'
 import { sendChatwootMessage, handoffChatwootConversation } from './api-client'
 import { decryptToken, updateConnectionStats } from './connections'
+import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
 
 export interface ChatwootMessagePayload {
   conversationId: number
@@ -80,7 +81,8 @@ export async function handleChatwootMessage(
       agent: agentForStream,
       messages: allMessages,
       onCompletion: async (completion: string) => {
-        handoffRequested = detectCompletionMarker(completion) === 'handoff_to_human'
+        const reason = detectCompletionMarker(completion)
+        handoffRequested = reason === 'handoff_to_human'
         reply = stripCompletionMarkers(completion)
 
         const nextMessages = [
@@ -95,6 +97,16 @@ export async function handleChatwootMessage(
           messages: nextMessages,
           summary: null
         })
+
+        const event = mapCompletionToEvent(reason)
+        if (event) {
+          dispatchAgentNotification({
+            agent,
+            conversationId: conversation.id,
+            event,
+            messageCount: allMessages.filter(m => m.role === 'user').length
+          })
+        }
       }
     })
 
