@@ -65,6 +65,7 @@ export function AgentRightbar({
 
   // Form State
   const [name, setName] = useState(agent.name)
+  const [domain, setDomain] = useState(agent.domain ?? '')
   const [instructions, setInstructions] = useState(agent.instructions)
   const [greetingText, setGreetingText] = useState(
     agent.greetingText ?? 'Hi How can i help you today'
@@ -122,6 +123,7 @@ export function AgentRightbar({
     setSaving(true)
     const payload: Partial<VibeAgent> = {
       name,
+      domain: domain.trim() || null,
       instructions,
       greetingText: greetingText.trim() || null,
       allowAnonymous,
@@ -153,6 +155,7 @@ export function AgentRightbar({
 
   const hasChanges =
     name !== agent.name ||
+    (domain.trim() || null) !== (agent.domain ?? null) ||
     instructions !== agent.instructions ||
     greetingText.trim() !==
       (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
@@ -207,6 +210,18 @@ export function AgentRightbar({
                   /{agent.tenantSlug ?? 'unknown'}/{agent.agentUrl}
                 </p>
               </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Domain</p>
+              <Input
+                value={domain}
+                disabled={saving || !canEdit}
+                onChange={e => setDomain(e.target.value)}
+                placeholder="e.g. Arcadia Hotel, job openings in TCS"
+              />
+              <p className="text-xs text-muted-foreground">
+                You are only allowed to discuss about this. e.g. &quot;Arcadia Hotel&quot;, &quot;job openings in TCS&quot;
+              </p>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
@@ -456,14 +471,12 @@ export function AgentRightbar({
           canEdit={canEdit}
         />
 
-        {/* File Retrieval Strategy — only shown when agent has files */}
-        {agent.fileKeys.length > 0 && (
-          <AgentRetrievalSettings
-            agentId={agent.id}
-            current={agent.retrievalStrategy ?? 'direct'}
-            canEdit={canEdit}
-          />
-        )}
+        {/* File Retrieval Strategy */}
+        <AgentRetrievalSettings
+          agentId={agent.id}
+          current={agent.retrievalStrategy ?? 'direct'}
+          canEdit={canEdit}
+        />
 
         {/* Share & QR */}
         <Card>
