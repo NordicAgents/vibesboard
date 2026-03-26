@@ -44,7 +44,7 @@
     "lucide-react": "^0.554.0",
     "mammoth": "^1.11.0",
     "nanoid": "^4.0.2",
-    "next": "16.0.7",
+    "next": "16.2.1",
     "next-themes": "^0.4.6",
     "openai-edge": "^0.5.1",
     "pdf-parse": "^2.4.5",
@@ -75,7 +75,7 @@
     "@typescript-eslint/parser": "^8.48.0",
     "autoprefixer": "^10.4.22",
     "eslint": "^9.39.1",
-    "eslint-config-next": "16.0.7",
+    "eslint-config-next": "16.2.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-tailwindcss": "^3.12.0",
     "postcss": "^8.4.23",
@@ -84,5 +84,11 @@
     "tailwindcss": "^3.4.18",
     "tailwindcss-animate": "^1.0.5",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "glob": "^10.5.0",
+    "minimatch": "^9.0.6",
+    "seroval": "^1.4.1",
+    "underscore": "^1.13.8"
   }
 }
