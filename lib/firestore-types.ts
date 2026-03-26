@@ -10,6 +10,17 @@ export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
 export type ChatwootConnectionStatus = 'active' | 'disconnected' | 'error'
 
+// ─── Agent notifications ────────────────────────────────────────────
+export type NotificationEvent = 'completed' | 'handoff'
+
+export interface AgentNotificationConfig {
+  enabled: boolean
+  events: NotificationEvent[]
+  inApp: { enabled: boolean }
+  email: { enabled: boolean; address?: string | null }
+  webhook: { enabled: boolean; url?: string | null; secret?: string | null }
+}
+
 // WhatsApp Inbox (OAuth-connected)
 export type InboxAccountStatus = 'active' | 'disconnected' | 'expired'
 export type InboxConversationStatus = 'open' | 'resolved' | 'snoozed'
@@ -157,8 +168,22 @@ export interface AgentDocument {
   googlePlaceId?: string | null
   retrievalStrategy?: 'direct' | 'rag' | 'bash'
   lastEmbeddingsSyncAt?: string
+  notificationConfig?: AgentNotificationConfig
   createdAt: string
   updatedAt: string
+}
+
+/** /tenants/{tenantId}/notifications/{notificationId} */
+export interface NotificationDocument {
+  id: string
+  tenantId: string
+  agentId: string
+  agentName: string
+  conversationId: string
+  event: NotificationEvent
+  summary?: string | null
+  read: boolean
+  createdAt: string
 }
 
 // ─── Agent hook status ───────────────────────────────────────────────
@@ -447,6 +472,8 @@ export const Collections = {
   featureToggles: (tenantId: string) =>
     `tenants/${tenantId}/feature_toggles` as const,
   agents: (tenantId: string) => `tenants/${tenantId}/agents` as const,
+  notifications: (tenantId: string) =>
+    `tenants/${tenantId}/notifications` as const,
 
   // Agent-scoped
   conversations: (tenantId: string, agentId: string) =>

@@ -52,6 +52,13 @@ export interface VibeAgent {
   lastEmbeddingsSyncAt?: string | null
   googleReviewEnabled?: boolean
   googlePlaceId?: string | null
+  notificationConfig?: {
+    enabled: boolean
+    events: Array<'completed' | 'handoff'>
+    inApp: { enabled: boolean }
+    email: { enabled: boolean; address?: string | null }
+    webhook: { enabled: boolean; url?: string | null; secret?: string | null }
+  }
   createdAt: string
   updatedAt: string
 }

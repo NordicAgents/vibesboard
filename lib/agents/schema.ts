@@ -19,6 +19,25 @@ export const agentToolSchema = z.object({
 
 export const agentModeSchema = z.enum(['provider', 'collector'])
 
+export const notificationEventSchema = z.enum(['completed', 'handoff'])
+
+export const notificationConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  events: z.array(notificationEventSchema).default(['completed', 'handoff']),
+  inApp: z.object({
+    enabled: z.boolean().default(true)
+  }).default({}),
+  email: z.object({
+    enabled: z.boolean().default(false),
+    address: z.string().email().nullable().optional()
+  }).default({}),
+  webhook: z.object({
+    enabled: z.boolean().default(false),
+    url: z.string().url().nullable().optional(),
+    secret: z.string().nullable().optional()
+  }).default({})
+})
+
 export const upsertAgentSchema = z.object({
   name: z.string().min(2).max(120),
   instructions: z.string().min(10),
@@ -34,7 +53,8 @@ export const upsertAgentSchema = z.object({
   domain: z.string().max(100).regex(/^[a-zA-Z0-9\s,.'&\-()/]+$/, 'Invalid characters in domain').nullable().optional(),
   googleReviewEnabled: z.boolean().default(false),
   googlePlaceId: z.string().nullable().optional(),
-  retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct')
+  retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct'),
+  notificationConfig: notificationConfigSchema.optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
