@@ -3,6 +3,7 @@ import { COMPLETION_MARKERS } from './prompts'
 export type CompletionReason =
   | 'collection_complete'
   | 'info_complete'
+  | 'handoff_to_human'
   | 'max_messages'
   | null
 
@@ -18,6 +19,9 @@ export function detectCompletionMarker(text: string): CompletionReason {
   if (text.includes(COMPLETION_MARKERS.INFO_COMPLETE)) {
     return 'info_complete'
   }
+  if (text.includes(COMPLETION_MARKERS.HANDOFF_TO_HUMAN)) {
+    return 'handoff_to_human'
+  }
   return null
 }
 
@@ -28,6 +32,7 @@ export function stripCompletionMarkers(text: string): string {
   return text
     .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
     .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
+    .replace(COMPLETION_MARKERS.HANDOFF_TO_HUMAN, '')
     .replace(SUGGESTIONS_MARKER_REGEX, '')
     .trim()
 }
