@@ -7,7 +7,11 @@ export const FEATURE_FLAG_NAMES = [
   'INBOX',
   'WHATSAPP_INBOX',
   'INSTAGRAM_INBOX',
-  'CHATWOOT'
+  'CHATWOOT',
+  'AGENT_NOTIFICATIONS',
+  'AGENT_NOTIFICATIONS_INAPP',
+  'AGENT_NOTIFICATIONS_EMAIL',
+  'AGENT_NOTIFICATIONS_WEBHOOK'
 ] as const
 
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
@@ -20,6 +24,9 @@ export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
 export const FEATURE_FLAG_HIERARCHY: Partial<Record<FeatureFlagName, FeatureFlagName>> = {
   WHATSAPP_INBOX: 'INBOX',
   INSTAGRAM_INBOX: 'INBOX',
+  AGENT_NOTIFICATIONS_INAPP: 'AGENT_NOTIFICATIONS',
+  AGENT_NOTIFICATIONS_EMAIL: 'AGENT_NOTIFICATIONS',
+  AGENT_NOTIFICATIONS_WEBHOOK: 'AGENT_NOTIFICATIONS',
 }
 
 /** Get the parent flag name for a given flag, or null if it has no parent. */
