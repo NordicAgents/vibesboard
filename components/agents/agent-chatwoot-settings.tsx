@@ -31,7 +31,8 @@ import {
   Power,
   ExternalLink,
   Check,
-  ChevronRight
+  ChevronRight,
+  Bot
 } from 'lucide-react'
 
 interface ChatwootConnection {
@@ -46,6 +47,8 @@ interface ChatwootConnection {
   disconnectedAt?: string
   disconnectionReason?: string
   errorMessage?: string
+  useAgentBot?: boolean
+  agentBotName?: string | null
   createdAt: string
 }
 
@@ -58,11 +61,13 @@ interface ChatwootInbox {
 interface AgentChatwootSettingsProps {
   agentId: string
   canEdit: boolean
+  agentName?: string
 }
 
 export function AgentChatwootSettings({
   agentId,
-  canEdit
+  canEdit,
+  agentName
 }: AgentChatwootSettingsProps) {
   const [loading, setLoading] = useState(true)
   const [connections, setConnections] = useState<ChatwootConnection[]>([])
@@ -70,7 +75,7 @@ export function AgentChatwootSettings({
   // Setup wizard state
   const [showSetupModal, setShowSetupModal] = useState(false)
   const [setupStep, setSetupStep] = useState<
-    'credentials' | 'inbox' | 'connecting' | 'done'
+    'credentials' | 'inbox' | 'bot-config' | 'connecting' | 'done'
   >('credentials')
   const [chatwootUrl, setChatwootUrl] = useState('')
   const [apiToken, setApiToken] = useState('')
@@ -79,6 +84,8 @@ export function AgentChatwootSettings({
   const [selectedInboxId, setSelectedInboxId] = useState<number | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [accountId, setAccountId] = useState<number | null>(null)
+  const [enableAgentBot, setEnableAgentBot] = useState(true)
+  const [botName, setBotName] = useState(agentName || '')
 
   // Action modal states
   const [showDisconnectModal, setShowDisconnectModal] = useState(false)
@@ -116,6 +123,8 @@ export function AgentChatwootSettings({
     setAccountId(null)
     setValidating(false)
     setConnecting(false)
+    setEnableAgentBot(true)
+    setBotName(agentName || '')
   }
 
   const handleValidate = async () => {
@@ -176,7 +185,9 @@ export function AgentChatwootSettings({
           body: JSON.stringify({
             chatwootUrl: chatwootUrl.trim(),
             apiToken: apiToken.trim(),
-            inboxId: selectedInboxId
+            inboxId: selectedInboxId,
+            enableAgentBot,
+            botName: enableAgentBot ? botName.trim() || undefined : undefined
           })
         }
       )
@@ -190,7 +201,7 @@ export function AgentChatwootSettings({
       loadConnections()
     } catch (error: any) {
       toast.error(error.message)
-      setSetupStep('inbox')
+      setSetupStep('bot-config')
     } finally {
       setConnecting(false)
     }
@@ -374,6 +385,12 @@ export function AgentChatwootSettings({
                           <span className="font-medium">
                             {connection.chatwootInboxName}
                           </span>
+                          {connection.useAgentBot && (
+                            <Badge variant="outline" className="gap-1">
+                              <Bot className="size-3" />
+                              {connection.agentBotName || 'Agent Bot'}
+                            </Badge>
+                          )}
                           {getStatusBadge(connection.status)}
                         </div>
                         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -516,6 +533,7 @@ export function AgentChatwootSettings({
             <AlertDialogTitle>
               {setupStep === 'credentials' && 'Connect Chatwoot'}
               {setupStep === 'inbox' && 'Select Inbox'}
+              {setupStep === 'bot-config' && 'Configure Agent Bot'}
               {setupStep === 'connecting' && 'Connecting...'}
               {setupStep === 'done' && 'Connected!'}
             </AlertDialogTitle>
@@ -524,6 +542,8 @@ export function AgentChatwootSettings({
                 'Enter your Chatwoot instance URL and API access token'}
               {setupStep === 'inbox' &&
                 'Choose which inbox this agent should handle'}
+              {setupStep === 'bot-config' &&
+                'Choose how your agent responds in Chatwoot'}
               {setupStep === 'connecting' &&
                 'Setting up the connection...'}
               {setupStep === 'done' &&
@@ -603,7 +623,68 @@ export function AgentChatwootSettings({
             </div>
           )}
 
-          {/* Step 3: Connecting */}
+          {/* Step 3: Bot Config */}
+          {setupStep === 'bot-config' && (
+            <div className="space-y-4 py-4">
+              <button
+                type="button"
+                onClick={() => setEnableAgentBot(!enableAgentBot)}
+                className={`w-full rounded-lg border p-4 text-left transition-colors ${
+                  enableAgentBot
+                    ? 'border-primary bg-primary/5'
+                    : 'hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Bot className="size-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Create Agent Bot</p>
+                      <p className="text-xs text-muted-foreground">
+                        Bot gets its own identity and handles conversations
+                        automatically
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`flex size-5 items-center justify-center rounded-full border-2 transition-colors ${
+                      enableAgentBot
+                        ? 'border-primary bg-primary'
+                        : 'border-muted-foreground'
+                    }`}
+                  >
+                    {enableAgentBot && (
+                      <Check className="size-3 text-primary-foreground" />
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {enableAgentBot && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Bot Name</label>
+                  <Input
+                    value={botName}
+                    onChange={e => setBotName(e.target.value)}
+                    placeholder="e.g. Support Bot"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This name will appear in Chatwoot when the bot replies.
+                    Conversations can be handed off to human agents when needed.
+                  </p>
+                </div>
+              )}
+
+              {!enableAgentBot && (
+                <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                  Replies will appear as your Chatwoot user account. No
+                  automatic routing or handoff to human agents.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Connecting */}
           {setupStep === 'connecting' && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="size-8 animate-spin text-primary" />
@@ -653,8 +734,25 @@ export function AgentChatwootSettings({
                   Back
                 </Button>
                 <Button
+                  onClick={() => setSetupStep('bot-config')}
+                  disabled={!selectedInboxId}
+                >
+                  Continue
+                  <ChevronRight className="ml-1 size-4" />
+                </Button>
+              </>
+            )}
+            {setupStep === 'bot-config' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setSetupStep('inbox')}
+                >
+                  Back
+                </Button>
+                <Button
                   onClick={handleConnect}
-                  disabled={!selectedInboxId || connecting}
+                  disabled={connecting}
                 >
                   {connecting && (
                     <Loader2 className="mr-2 size-4 animate-spin" />

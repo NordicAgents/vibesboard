@@ -3,7 +3,8 @@ import { type VibeAgent } from '@/lib/types'
 // Completion signal markers - used by API to detect when chat should complete
 export const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
-  INFO_COMPLETE: '[INFO_COMPLETE]'
+  INFO_COMPLETE: '[INFO_COMPLETE]',
+  HANDOFF_TO_HUMAN: '[HANDOFF_TO_HUMAN]'
 } as const
 
 function getModeInstructions(agent: VibeAgent): string {

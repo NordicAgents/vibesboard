@@ -7,7 +7,10 @@ import { isFeatureEnabled } from '@/lib/features'
 import {
   validateChatwootCredentials,
   listChatwootInboxes,
-  createChatwootWebhook
+  createChatwootWebhook,
+  createChatwootAgentBot,
+  assignAgentBotToInbox,
+  deleteChatwootWebhook
 } from '@/lib/chatwoot/api-client'
 import {
   createChatwootConnection,
@@ -21,7 +24,9 @@ export const runtime = 'nodejs'
 const CreateConnectionSchema = z.object({
   chatwootUrl: z.string().url('Invalid URL format'),
   apiToken: z.string().min(1, 'API token is required'),
-  inboxId: z.number().int().positive('Invalid inbox ID')
+  inboxId: z.number().int().positive('Invalid inbox ID'),
+  enableAgentBot: z.boolean().optional().default(false),
+  botName: z.string().optional()
 })
 
 type RouteParams = {
@@ -139,7 +144,54 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 5. Store connection in Firestore
+    // 5. Create agent bot if requested
+    let agentBotId: number | null = null
+    let agentBotName: string | null = null
+    let botAccessToken: string | null = null
+
+    if (validated.enableAgentBot) {
+      try {
+        const botName = validated.botName?.trim() || 'AI Agent'
+        const bot = await createChatwootAgentBot(
+          validated.chatwootUrl,
+          validated.apiToken,
+          credResult.accountId,
+          { name: botName }
+        )
+        agentBotId = bot.id
+        agentBotName = botName
+        botAccessToken = bot.access_token
+
+        // 5b. Assign bot to inbox
+        await assignAgentBotToInbox(
+          validated.chatwootUrl,
+          validated.apiToken,
+          credResult.accountId,
+          validated.inboxId,
+          bot.id
+        )
+      } catch (err) {
+        console.error('[chatwoot] Failed to create/assign agent bot:', err)
+        // Roll back webhook
+        if (chatwootWebhookId) {
+          await deleteChatwootWebhook(
+            validated.chatwootUrl,
+            validated.apiToken,
+            credResult.accountId,
+            chatwootWebhookId
+          )
+        }
+        return NextResponse.json(
+          {
+            error:
+              'Failed to create agent bot in Chatwoot. Please ensure your token has admin permissions.'
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    // 6. Store connection in Firestore
     const { connection } = await createChatwootConnection(
       tenantId,
       agentId,
@@ -150,13 +202,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         inboxId: validated.inboxId,
         inboxName: selectedInbox.name,
         chatwootWebhookId,
-        webhookSecret
+        webhookSecret,
+        agentBotId,
+        agentBotName,
+        botToken: botAccessToken,
+        useAgentBot: validated.enableAgentBot
       },
       auth.user.id,
       connectionId
     )
 
-    const { encryptedApiToken, webhookSecretHash, ...safeConnection } = connection
+    const { encryptedApiToken, webhookSecretHash, encryptedBotToken, ...safeConnection } = connection
     return NextResponse.json({ connection: safeConnection }, { status: 201 })
   } catch (error) {
     console.error('Error creating Chatwoot connection:', error)
@@ -206,7 +262,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const connections = await listChatwootConnections(tenantId, agentId)
     const safeConnections = connections.map(
-      ({ encryptedApiToken, webhookSecretHash, ...rest }) => rest
+      ({ encryptedApiToken, webhookSecretHash, encryptedBotToken, ...rest }) => rest
     )
 
     return NextResponse.json({

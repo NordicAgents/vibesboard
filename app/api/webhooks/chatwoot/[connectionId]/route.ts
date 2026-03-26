@@ -61,6 +61,19 @@ export async function POST(
       return NextResponse.json({ ok: true })
     }
 
+    // Skip messages from our own agent bot (echo prevention)
+    if (connection.useAgentBot && body.sender?.type === 'agent_bot') {
+      console.log(`[chatwoot] Ignoring message from agent bot (echo prevention)`)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Agent bot should only handle conversations in 'pending' status;
+    // any other status (open, resolved, snoozed) means a human agent has taken over
+    if (connection.useAgentBot && body.conversation?.status && body.conversation.status !== 'pending') {
+      console.log(`[chatwoot] Conversation status is '${body.conversation.status}' (not pending), skipping bot response`)
+      return NextResponse.json({ ok: true })
+    }
+
     // Only process messages from the connected inbox
     const inboxId = body.inbox?.id ?? body.conversation?.inbox_id
     if (inboxId && inboxId !== connection.chatwootInboxId) {
