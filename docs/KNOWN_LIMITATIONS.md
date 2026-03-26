@@ -32,3 +32,20 @@ An agentic loop that continues executing tool calls until the model stops reques
 **Affected strategies:** Bash, RAG (file_search), Web Fetch
 
 ---
+
+## Retrieval Strategies
+
+### Bash strategy requires files to be uploaded
+
+**Area:** `lib/retrieval/strategies/bash.ts`
+
+**What it means:**
+The Bash retrieval strategy only activates if the agent has at least one file uploaded. If no files exist, the sandbox is never created and no bash tool is registered — the agent falls back to a plain context response with no tools.
+
+**Why:**
+Creating an in-memory virtual filesystem with no files to mount is pointless overhead. The bash tool's entire value is analyzing uploaded files.
+
+**Impact on users:**
+If a user selects the Bash strategy but hasn't uploaded any files, the agent will behave as if no retrieval strategy is set — no bash tool will be available in the conversation.
+
+---
