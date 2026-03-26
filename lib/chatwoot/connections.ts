@@ -64,6 +64,10 @@ export interface CreateChatwootConnectionParams {
   inboxName: string
   chatwootWebhookId: number | null
   webhookSecret: string
+  agentBotId?: number | null
+  agentBotName?: string | null
+  botToken?: string | null
+  useAgentBot?: boolean
 }
 
 export interface CreatedChatwootConnection {
@@ -100,6 +104,10 @@ export async function createChatwootConnection(
     chatwootInboxName: params.inboxName,
     encryptedApiToken: encryptToken(params.apiToken),
     chatwootWebhookId: params.chatwootWebhookId ?? null,
+    agentBotId: params.agentBotId ?? null,
+    agentBotName: params.agentBotName ?? null,
+    encryptedBotToken: params.botToken ? encryptToken(params.botToken) : null,
+    useAgentBot: params.useAgentBot ?? false,
     webhookSecretHash: hashSecret(params.webhookSecret),
     status: 'active',
     totalConversations: 0,

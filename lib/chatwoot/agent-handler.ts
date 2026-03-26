@@ -5,12 +5,13 @@ import type { Message } from 'ai'
 import type { VibeAgent } from '@/lib/types'
 import type { ChatwootConnectionDocument } from '@/lib/firestore-types'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { stripCompletionMarkers } from '@/lib/agent/completion'
+import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
 import {
   ensureConversation,
+  markConversationHandedOff,
   updateConversationMessages
 } from '@/lib/agents/conversations'
-import { sendChatwootMessage } from './api-client'
+import { sendChatwootMessage, handoffChatwootConversation } from './api-client'
 import { decryptToken, updateConnectionStats } from './connections'
 
 export interface ChatwootMessagePayload {
@@ -62,13 +63,24 @@ export async function handleChatwootMessage(
       ? priorMessages
       : [...priorMessages, userMessage]
 
-    // 2. Run agent
+    // 2. Run agent (inject handoff instructions for agent bot connections)
+    const agentForStream = connection.useAgentBot
+      ? {
+          ...agent,
+          instructions:
+            (agent.instructions || '') +
+            '\n\nIMPORTANT: If the customer asks to speak to a human agent, requests escalation, or you cannot resolve their issue, let them know you are connecting them with a human agent and end your response with [HANDOFF_TO_HUMAN].'
+        }
+      : agent
+
     let reply = ''
+    let handoffRequested = false
 
     const stream = await runAgentStream({
-      agent,
+      agent: agentForStream,
       messages: allMessages,
       onCompletion: async (completion: string) => {
+        handoffRequested = detectCompletionMarker(completion) === 'handoff_to_human'
         reply = stripCompletionMarkers(completion)
 
         const nextMessages = [
@@ -93,19 +105,46 @@ export async function handleChatwootMessage(
       if (done) break
     }
 
-    // 3. Send reply back to Chatwoot
+    // 3. Send reply back to Chatwoot (use bot token if available)
     if (reply) {
-      const apiToken = decryptToken(connection.encryptedApiToken)
+      const replyToken =
+        connection.useAgentBot && connection.encryptedBotToken
+          ? decryptToken(connection.encryptedBotToken)
+          : decryptToken(connection.encryptedApiToken)
       await sendChatwootMessage(
         connection.chatwootUrl,
-        apiToken,
+        replyToken,
         connection.chatwootAccountId,
         conversationId,
         reply
       )
     }
 
-    // 4. Update stats (fire-and-forget)
+    // 4. Hand off to human agents if requested
+    if (handoffRequested && connection.useAgentBot) {
+      try {
+        const userToken = decryptToken(connection.encryptedApiToken)
+        await handoffChatwootConversation(
+          connection.chatwootUrl,
+          userToken,
+          connection.chatwootAccountId,
+          conversationId
+        )
+        // Persist handoff state so the webhook handler skips future messages
+        await markConversationHandedOff(
+          agent.tenantId!,
+          agent.id,
+          conversation.id
+        )
+        console.log(
+          `[chatwoot] Handed off conversation ${conversationId} to human agents`
+        )
+      } catch (handoffErr) {
+        console.error('[chatwoot] Failed to hand off conversation:', handoffErr)
+      }
+    }
+
+    // 5. Update stats (fire-and-forget)
     updateConnectionStats(
       connection.tenantId,
       connection.agentId,
@@ -120,10 +159,13 @@ export async function handleChatwootMessage(
 
     // Attempt to send error reply to Chatwoot
     try {
-      const apiToken = decryptToken(connection.encryptedApiToken)
+      const errorToken =
+        connection.useAgentBot && connection.encryptedBotToken
+          ? decryptToken(connection.encryptedBotToken)
+          : decryptToken(connection.encryptedApiToken)
       await sendChatwootMessage(
         connection.chatwootUrl,
-        apiToken,
+        errorToken,
         connection.chatwootAccountId,
         conversationId,
         'Sorry, I encountered an error processing your message. Please try again later.'
