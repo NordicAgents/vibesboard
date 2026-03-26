@@ -47,6 +47,7 @@ export interface VibeAgent {
   quickSuggestionsMode?: QuickSuggestionsMode
   quickSuggestionsCount?: number | null
   sourceUrls?: string[]
+  domain?: string | null
   retrievalStrategy?: RetrievalStrategy
   lastEmbeddingsSyncAt?: string | null
   googleReviewEnabled?: boolean

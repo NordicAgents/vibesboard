@@ -85,6 +85,7 @@ export async function PATCH(
     ...(payload.sourceUrls !== undefined
       ? { sourceUrls: payload.sourceUrls }
       : {}),
+    ...(payload.domain !== undefined ? { domain: payload.domain } : {}),
     ...(payload.retrievalStrategy !== undefined
       ? { retrievalStrategy: payload.retrievalStrategy }
       : {}),

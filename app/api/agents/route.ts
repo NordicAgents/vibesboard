@@ -120,6 +120,8 @@ export async function POST(req: Request) {
     }),
     quickSuggestionsMode: payload.quickSuggestionsMode ?? 'off',
     quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
+    sourceUrls: payload.sourceUrls ?? [],
+    domain: payload.domain ?? null,
     retrievalStrategy: payload.retrievalStrategy ?? 'direct',
     createdAt: now,
     updatedAt: now
