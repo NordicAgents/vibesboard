@@ -50,6 +50,8 @@ export async function runAgentStream({
 
   // Build context by pre-loading file content and source URLs.
   // This also prunes the toolkit (removes file_search if all files fit in context).
+  // NOTE: dispose() must be called after the stream completes — not before — so
+  // that retriever-owned sandboxes (e.g. BashRetriever) remain live during tool execution.
   const agentContext = await buildAgentContext(agent, toolContext)
   const effectiveContext = agentContext.contextText || context || null
   const toolkit = agentContext.toolkit
@@ -62,7 +64,10 @@ export async function runAgentStream({
       toolkit,
       model,
       previewToken,
-      onCompletion,
+      onCompletion: async (completion) => {
+        await agentContext.dispose()
+        if (onCompletion) await onCompletion(completion)
+      },
       toolContext,
       hasFileOverflow: agentContext.hasFileOverflow
     })
@@ -84,9 +89,8 @@ export async function runAgentStream({
       model,
       apiKey,
       async onDone(completion) {
-        if (onCompletion) {
-          await onCompletion(completion)
-        }
+        await agentContext.dispose()
+        if (onCompletion) await onCompletion(completion)
       }
     })
 
@@ -113,9 +117,8 @@ export async function runAgentStream({
 
   return OpenAIStream(response, {
     async onCompletion(completion) {
-      if (onCompletion) {
-        await onCompletion(completion)
-      }
+      await agentContext.dispose()
+      if (onCompletion) await onCompletion(completion)
     }
   })
 }
