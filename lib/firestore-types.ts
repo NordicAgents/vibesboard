@@ -365,6 +365,70 @@ export interface WhatsAppInboxMessageDocument {
   createdAt: string
 }
 
+// ─── Instagram Inbox (OAuth-connected) ───────────────────────────────
+
+export type InstagramInboxMessageType =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'story_mention'
+  | 'story_reply'
+  | 'media_share'
+
+/** /tenants/{tenantId}/instagram_inbox_accounts/{accountId} */
+export interface InstagramInboxAccountDocument {
+  id: string
+  tenantId: string
+  instagramAccountId: string
+  pageId: string
+  pageName: string
+  instagramUsername: string
+  accessToken: string // AES encrypted page token
+  scopes: string[]
+  status: InboxAccountStatus
+  connectedBy: string // userId
+  connectedAt: string
+  webhookSubscribed: boolean
+  connectionMethod?: 'oauth' | 'api_key'
+  createdAt: string
+  updatedAt: string
+}
+
+/** /tenants/{tenantId}/instagram_inbox_accounts/{accountId}/conversations/{contactIgsid} */
+export interface InstagramInboxConversationDocument {
+  id: string // same as contactIgsid
+  accountId: string
+  contactIgsid: string
+  contactName?: string
+  contactUsername?: string
+  contactProfilePic?: string
+  lastMessageAt: string
+  lastMessagePreview: string
+  unreadCount: number
+  assignedTo?: string // userId
+  status: InboxConversationStatus
+  windowExpiresAt: string // 24h from last inbound message
+  createdAt: string
+  updatedAt: string
+}
+
+/** .../conversations/{contactIgsid}/messages/{messageId} */
+export interface InstagramInboxMessageDocument {
+  id: string
+  igMessageId: string // Meta's mid
+  from: string
+  to: string
+  type: InstagramInboxMessageType
+  text?: string
+  mediaUrl?: string
+  caption?: string
+  direction: InboxMessageDirection
+  status: InboxMessageStatus
+  timestamp: string
+  sentBy?: string // userId for outbound
+  createdAt: string
+}
+
 // ─── Collection path helpers ─────────────────────────────────────────
 
 export const Collections = {
@@ -410,5 +474,17 @@ export const Collections = {
     accountId: string,
     contactPhone: string
   ) =>
-    `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const
+    `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const,
+
+  // Instagram Inbox (OAuth-connected)
+  instagramInboxAccounts: (tenantId: string) =>
+    `tenants/${tenantId}/instagram_inbox_accounts` as const,
+  instagramInboxConversations: (tenantId: string, accountId: string) =>
+    `tenants/${tenantId}/instagram_inbox_accounts/${accountId}/conversations` as const,
+  instagramInboxMessages: (
+    tenantId: string,
+    accountId: string,
+    contactId: string
+  ) =>
+    `tenants/${tenantId}/instagram_inbox_accounts/${accountId}/conversations/${contactId}/messages` as const
 } as const
