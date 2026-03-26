@@ -16,6 +16,13 @@ export interface ConnectOAuthParams {
   userId: string
 }
 
+export interface ConnectApiKeyParams {
+  tenantId: string
+  accessToken: string
+  wabaId: string
+  userId: string
+}
+
 export interface StoreInboundParams {
   tenantId: string
   accountId: string

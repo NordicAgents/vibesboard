@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { FacebookSDKProvider } from '@/components/whatsapp-inbox/facebook-sdk-provider'
 import { ConnectWhatsAppButton } from '@/components/whatsapp-inbox/connect-whatsapp-button'
-import { MessageSquare, Trash2 } from 'lucide-react'
+import { ConnectApiKeyDialog } from '@/components/whatsapp-inbox/connect-api-key-dialog'
+import { MessageSquare, Trash2, Key } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface InboxAccount {
@@ -39,6 +40,7 @@ export default function WhatsAppInboxAccountsPage() {
   const [loading, setLoading] = useState(true)
   const [disconnectId, setDisconnectId] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
 
   const fetchAccounts = useCallback(async () => {
     if (!tenantId) return
@@ -151,10 +153,19 @@ export default function WhatsAppInboxAccountsPage() {
           description="Connect your WhatsApp Business Account via Meta to manage conversations."
           actions={
             tenantId ? (
-              <ConnectWhatsAppButton
-                tenantId={tenantId}
-                onSuccess={fetchAccounts}
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setApiKeyDialogOpen(true)}
+                >
+                  <Key className="mr-2 size-4" />
+                  Connect via API Key
+                </Button>
+                <ConnectWhatsAppButton
+                  tenantId={tenantId}
+                  onSuccess={fetchAccounts}
+                />
+              </div>
             ) : undefined
           }
         />
@@ -166,10 +177,19 @@ export default function WhatsAppInboxAccountsPage() {
             description="Connect your WhatsApp Business Account to start receiving and replying to customer messages."
             action={
               tenantId ? (
-                <ConnectWhatsAppButton
-                  tenantId={tenantId}
-                  onSuccess={fetchAccounts}
-                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setApiKeyDialogOpen(true)}
+                  >
+                    <Key className="mr-2 size-4" />
+                    Connect via API Key
+                  </Button>
+                  <ConnectWhatsAppButton
+                    tenantId={tenantId}
+                    onSuccess={fetchAccounts}
+                  />
+                </div>
               ) : undefined
             }
           />
@@ -208,6 +228,12 @@ export default function WhatsAppInboxAccountsPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      <ConnectApiKeyDialog
+        open={apiKeyDialogOpen}
+        onOpenChange={setApiKeyDialogOpen}
+        onSuccess={fetchAccounts}
+      />
     </FacebookSDKProvider>
   )
 }
