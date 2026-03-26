@@ -146,6 +146,40 @@ export async function getConversation(
   return doc.exists ? mapConversationDoc(doc.data()!) : null
 }
 
+/**
+ * Check whether a conversation (by externalId) has been handed off to a human.
+ */
+export async function isConversationHandedOff(
+  tenantId: string,
+  agentId: string,
+  externalId: string
+): Promise<boolean> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  const snapshot = await adminDb
+    .collection(collPath)
+    .where('externalId', '==', externalId)
+    .limit(1)
+    .get()
+
+  if (snapshot.empty) return false
+  return snapshot.docs[0].data().handedOff === true
+}
+
+/**
+ * Mark a conversation as handed off to a human agent.
+ */
+export async function markConversationHandedOff(
+  tenantId: string,
+  agentId: string,
+  conversationId: string
+): Promise<void> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  await adminDb
+    .collection(collPath)
+    .doc(conversationId)
+    .update({ handedOff: true, updatedAt: new Date().toISOString() })
+}
+
 const serializeMessages = (messages: Message[]) =>
   messages.map(message => ({
     id: message.id,

@@ -66,7 +66,7 @@ export function AgentIntegrationsTab({
   const renderSettingsPanel = (definition: IntegrationDefinition) => {
     switch (definition.type) {
       case 'chatwoot':
-        return <AgentChatwootSettings agentId={agent.id} canEdit={canEdit} />
+        return <AgentChatwootSettings agentId={agent.id} canEdit={canEdit} agentName={agent.name} />
       case 'embed_widget':
         return <AgentEmbedSettings agent={agent} canEdit={canEdit} />
       case 'hooks':
