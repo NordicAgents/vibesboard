@@ -18,7 +18,7 @@ jobs:
           args: semgrep scan --error
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e # v0.35.0 — pinned safe SHA (supply chain attack March 19-23 2026)
         with:
           scan-type: "fs"
           scan-ref: "."
