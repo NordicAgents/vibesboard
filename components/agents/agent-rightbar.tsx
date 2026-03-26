@@ -471,14 +471,12 @@ export function AgentRightbar({
           canEdit={canEdit}
         />
 
-        {/* File Retrieval Strategy — only shown when agent has files */}
-        {agent.fileKeys.length > 0 && (
-          <AgentRetrievalSettings
-            agentId={agent.id}
-            current={agent.retrievalStrategy ?? 'direct'}
-            canEdit={canEdit}
-          />
-        )}
+        {/* File Retrieval Strategy */}
+        <AgentRetrievalSettings
+          agentId={agent.id}
+          current={agent.retrievalStrategy ?? 'direct'}
+          canEdit={canEdit}
+        />
 
         {/* Share & QR */}
         <Card>
