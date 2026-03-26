@@ -18,6 +18,7 @@ const RESERVED_SLUGS = new Set([
   'sign-up',
   'terms-of-service',
   'whatsapp-inbox',
+  'instagram-inbox',
   'widget',
   '_next',
   'public'
