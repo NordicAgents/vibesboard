@@ -125,6 +125,7 @@ export const mapConversationDoc = (
   summary: data.summary,
   messages: sanitizeMessages(data.messages),
   closedAt: data.closedAt ?? null,
+  handedOff: data.handedOff ?? false,
   summaryGeneratedAt: data.summaryGeneratedAt ?? null,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt

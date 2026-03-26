@@ -5,9 +5,10 @@ import type { Message } from 'ai'
 import type { VibeAgent } from '@/lib/types'
 import type { ChatwootConnectionDocument } from '@/lib/firestore-types'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { stripCompletionMarkers } from '@/lib/agent/completion'
+import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
 import {
   ensureConversation,
+  markConversationHandedOff,
   updateConversationMessages
 } from '@/lib/agents/conversations'
 import { sendChatwootMessage, handoffChatwootConversation } from './api-client'
@@ -79,7 +80,7 @@ export async function handleChatwootMessage(
       agent: agentForStream,
       messages: allMessages,
       onCompletion: async (completion: string) => {
-        handoffRequested = completion.includes('[HANDOFF_TO_HUMAN]')
+        handoffRequested = detectCompletionMarker(completion) === 'handoff_to_human'
         reply = stripCompletionMarkers(completion)
 
         const nextMessages = [
@@ -128,6 +129,12 @@ export async function handleChatwootMessage(
           userToken,
           connection.chatwootAccountId,
           conversationId
+        )
+        // Persist handoff state so the webhook handler skips future messages
+        await markConversationHandedOff(
+          agent.tenantId!,
+          agent.id,
+          conversation.id
         )
         console.log(
           `[chatwoot] Handed off conversation ${conversationId} to human agents`
