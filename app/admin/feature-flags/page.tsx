@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateFeatureFlagDialog, EditFeatureFlagDialog } from '@/components/tenants'
+import { FEATURE_FLAG_HIERARCHY } from '@/lib/feature-flags'
+import type { FeatureFlagName } from '@/lib/feature-flags'
 import toast from 'react-hot-toast'
 
 interface FeatureFlag {
@@ -31,6 +33,20 @@ interface FeatureFlag {
     default_value: boolean
     created_at: string
     updated_at: string
+}
+
+/** Sort flags so parents appear before their children, then alphabetical */
+function sortFlagsWithHierarchy(flags: FeatureFlag[]): FeatureFlag[] {
+    return [...flags].sort((a, b) => {
+        const aParent = FEATURE_FLAG_HIERARCHY[a.name as FeatureFlagName]
+        const bParent = FEATURE_FLAG_HIERARCHY[b.name as FeatureFlagName]
+        const aGroup = aParent ?? a.name
+        const bGroup = bParent ?? b.name
+        if (aGroup !== bGroup) return aGroup.localeCompare(bGroup)
+        if (aParent && !bParent) return 1
+        if (!aParent && bParent) return -1
+        return a.name.localeCompare(b.name)
+    })
 }
 
 export default function FeatureFlagsPage() {
@@ -90,9 +106,11 @@ export default function FeatureFlagsPage() {
         fetchFlags()
     }
 
-    const filteredFlags = flags.filter(flag =>
-        flag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        flag.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredFlags = sortFlagsWithHierarchy(
+        flags.filter(flag =>
+            flag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            flag.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
     )
 
     return (
@@ -156,10 +174,20 @@ export default function FeatureFlagsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredFlags.map((flag) => (
+                            {filteredFlags.map((flag) => {
+                                const parentName = FEATURE_FLAG_HIERARCHY[flag.name as FeatureFlagName]
+                                return (
                                 <TableRow key={flag.id}>
                                     <TableCell className="font-mono text-sm font-semibold">
+                                        {parentName && (
+                                            <span className="mr-1 text-muted-foreground">└─</span>
+                                        )}
                                         {flag.name}
+                                        {parentName && (
+                                            <Badge variant="outline" className="ml-2 text-xs font-normal">
+                                                {parentName}
+                                            </Badge>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
                                         {flag.description || '—'}
@@ -195,7 +223,8 @@ export default function FeatureFlagsPage() {
                                         </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                                )
+                            })}
                         </TableBody>
                     </Table>
                 </div>
