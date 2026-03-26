@@ -107,6 +107,7 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   lastEmbeddingsSyncAt: data.lastEmbeddingsSyncAt ?? null,
   googleReviewEnabled: data.googleReviewEnabled ?? false,
   googlePlaceId: data.googlePlaceId ?? null,
+  domain: data.domain ?? null,
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
