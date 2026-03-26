@@ -5,8 +5,9 @@ import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
 import { getAgentById } from '@/lib/agents/server'
 import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { stripCompletionMarkers } from '@/lib/agent/completion'
+import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
+import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
 
 export const runtime = 'nodejs'
 
@@ -94,6 +95,7 @@ export async function POST(
     agent,
     messages: allMessages,
     onCompletion: async (completion: string) => {
+      const reason = detectCompletionMarker(completion)
       reply = stripCompletionMarkers(completion)
       const nextMessages = [
         ...allMessages,
@@ -106,6 +108,16 @@ export async function POST(
         messages: nextMessages,
         summary: null
       })
+
+      const event = mapCompletionToEvent(reason)
+      if (event) {
+        dispatchAgentNotification({
+          agent,
+          conversationId: conversation.id,
+          event,
+          messageCount: allMessages.filter(m => m.role === 'user').length
+        })
+      }
     }
   })
 

@@ -114,9 +114,12 @@ GCS_BUCKET_NAME=$(get_env_value GCS_BUCKET_NAME || echo "vibeagent-files")
 WHATSAPP_PHONE_NUMBER_ID=$(get_env_value WHATSAPP_PHONE_NUMBER_ID || true)
 NEXT_PUBLIC_APP_URL_VAL=$(get_env_value NEXT_PUBLIC_APP_URL || echo "https://www.vibesboard.com")
 
+NOTIFICATION_EMAIL_FROM_VAL=$(get_env_value NOTIFICATION_EMAIL_FROM || echo "VibeAgent <notifications@vibeagent.com>")
+
 ENV_VARS="OPENAI_MODEL=${OPENAI_MODEL}"
 ENV_VARS+=",GCS_BUCKET_NAME=${GCS_BUCKET_NAME}"
 ENV_VARS+=",NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL_VAL}"
+ENV_VARS+=",NOTIFICATION_EMAIL_FROM=${NOTIFICATION_EMAIL_FROM_VAL}"
 if [ -n "${WHATSAPP_PHONE_NUMBER_ID}" ]; then
   ENV_VARS+=",WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}"
 fi
@@ -134,7 +137,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --max-instances=3 \
   --timeout=600s \
   --set-env-vars="${ENV_VARS}" \
-  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest,CRON_SECRET=cron-secret:latest,META_APP_SECRET=meta-app-secret:latest,WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest"
+  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest,CRON_SECRET=cron-secret:latest,META_APP_SECRET=meta-app-secret:latest,WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest,RESEND_API_KEY=resend-api-key:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo ""
