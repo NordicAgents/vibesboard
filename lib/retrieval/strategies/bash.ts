@@ -63,6 +63,8 @@ export class BashRetriever implements Retriever {
   async prepare(): Promise<void> {
     const { fileKeys } = this.config
 
+    if (fileKeys.length === 0) return
+
     this.bash = new Bash({ executionLimits: EXECUTION_LIMITS })
 
     if (fileKeys.length === 0) return
@@ -115,6 +117,16 @@ export class BashRetriever implements Retriever {
           sources.push(fetched.url)
           usedChars += content.length
         }
+      }
+    }
+
+    // If no files were loaded, skip the bash tool entirely
+    if (!this.bash) {
+      return {
+        contextText: parts.length > 0 ? parts.join('\n\n---\n\n') : '',
+        tools: [],
+        sources,
+        hasOverflow: false
       }
     }
 
