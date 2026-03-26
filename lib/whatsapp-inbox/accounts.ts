@@ -6,6 +6,7 @@ import {
 import CryptoJS from 'crypto-js'
 import type {
   ConnectOAuthParams,
+  ConnectApiKeyParams,
   PhoneNumberInfo,
   MetaTokenResponse,
   MetaDebugTokenData,
@@ -230,6 +231,7 @@ export async function connectOAuthAccount(
     status: 'active',
     connectedBy: params.userId,
     connectedAt: now,
+    connectionMethod: 'oauth',
     webhookSubscribed: true,
     createdAt: now,
     updatedAt: now,
@@ -237,6 +239,70 @@ export async function connectOAuthAccount(
 
   await docRef.set(account)
 
+  return account
+}
+
+/**
+ * Connect a WhatsApp Business Account using a System User access token.
+ * Validates the token by fetching phone numbers, subscribes to webhooks,
+ * then encrypts and stores the account.
+ */
+export async function connectApiKeyAccount(
+  params: ConnectApiKeyParams
+): Promise<WhatsAppInboxAccountDocument> {
+  const { tenantId, accessToken, wabaId, userId } = params
+
+  // 1. Validate token by fetching phone numbers for this WABA
+  const phones = await getPhoneNumbers(wabaId, accessToken)
+  if (phones.length === 0) {
+    throw new Error(
+      'No phone numbers found on the WhatsApp Business Account. ' +
+        'Please verify your WABA ID and access token.'
+    )
+  }
+  const phone = phones[0]
+
+  // 2. Check for duplicate WABA
+  const collRef = adminDb.collection(
+    Collections.whatsappInboxAccounts(tenantId)
+  )
+  const existingSnap = await collRef
+    .where('wabaId', '==', wabaId)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
+
+  if (!existingSnap.empty) {
+    throw new Error(
+      'This WhatsApp Business Account is already connected to your workspace.'
+    )
+  }
+
+  // 3. Subscribe to webhooks
+  await subscribeToWebhooks(wabaId, accessToken)
+
+  // 4. Encrypt token and store
+  const now = new Date().toISOString()
+  const docRef = collRef.doc()
+  const account: WhatsAppInboxAccountDocument = {
+    id: docRef.id,
+    tenantId,
+    wabaId,
+    phoneNumberId: phone.id,
+    displayPhoneNumber: phone.display_phone_number,
+    businessName: phone.verified_name,
+    accessToken: encryptToken(accessToken),
+    scopes: ['whatsapp_business_messaging', 'whatsapp_business_management'],
+    status: 'active',
+    connectedBy: userId,
+    connectedAt: now,
+    connectionMethod: 'api_key',
+    webhookSubscribed: true,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await docRef.set(account)
   return account
 }
 
