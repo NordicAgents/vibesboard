@@ -64,6 +64,14 @@ export interface ChatwootWebhook {
   account_id: number
 }
 
+export interface ChatwootAgentBot {
+  id: number
+  name: string
+  description?: string
+  outgoing_url?: string
+  access_token: string
+}
+
 // ─── Public API ──────────────────────────────────────────────────────
 
 /**
@@ -203,4 +211,119 @@ export async function sendChatwootMessage(
   )
 
   return data
+}
+
+// ─── Agent Bot API ──────────────────────────────────────────────────
+
+/**
+ * Create an account-level agent bot in Chatwoot.
+ * Requires an admin-level User Access Token.
+ */
+export async function createChatwootAgentBot(
+  chatwootUrl: string,
+  apiToken: string,
+  accountId: number,
+  options: { name: string; description?: string }
+): Promise<ChatwootAgentBot> {
+  const data = await chatwootFetch<ChatwootAgentBot>(
+    chatwootUrl,
+    `/api/v1/accounts/${accountId}/agent_bots`,
+    apiToken,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name: options.name,
+        description: options.description ?? `AI agent powered by VibeAgent`
+      })
+    }
+  )
+
+  return data
+}
+
+/**
+ * Delete an agent bot from Chatwoot. Best-effort — does not throw on failure.
+ */
+export async function deleteChatwootAgentBot(
+  chatwootUrl: string,
+  apiToken: string,
+  accountId: number,
+  botId: number
+): Promise<void> {
+  try {
+    await chatwootFetch<void>(
+      chatwootUrl,
+      `/api/v1/accounts/${accountId}/agent_bots/${botId}`,
+      apiToken,
+      { method: 'DELETE' }
+    )
+  } catch (err) {
+    console.error('[chatwoot] Failed to delete agent bot:', err)
+  }
+}
+
+/**
+ * Assign an agent bot to a Chatwoot inbox.
+ * New conversations will be routed to the bot automatically.
+ */
+export async function assignAgentBotToInbox(
+  chatwootUrl: string,
+  apiToken: string,
+  accountId: number,
+  inboxId: number,
+  botId: number
+): Promise<void> {
+  await chatwootFetch<void>(
+    chatwootUrl,
+    `/api/v1/accounts/${accountId}/inboxes/${inboxId}/set_agent_bot`,
+    apiToken,
+    {
+      method: 'POST',
+      body: JSON.stringify({ agent_bot: botId })
+    }
+  )
+}
+
+/**
+ * Remove agent bot assignment from a Chatwoot inbox.
+ */
+export async function unassignAgentBotFromInbox(
+  chatwootUrl: string,
+  apiToken: string,
+  accountId: number,
+  inboxId: number
+): Promise<void> {
+  try {
+    await chatwootFetch<void>(
+      chatwootUrl,
+      `/api/v1/accounts/${accountId}/inboxes/${inboxId}/set_agent_bot`,
+      apiToken,
+      {
+        method: 'POST',
+        body: JSON.stringify({ agent_bot: null })
+      }
+    )
+  } catch (err) {
+    console.error('[chatwoot] Failed to unassign agent bot from inbox:', err)
+  }
+}
+
+/**
+ * Hand off a conversation from bot to human agents by toggling status to "open".
+ */
+export async function handoffChatwootConversation(
+  chatwootUrl: string,
+  apiToken: string,
+  accountId: number,
+  conversationId: number
+): Promise<void> {
+  await chatwootFetch<void>(
+    chatwootUrl,
+    `/api/v1/accounts/${accountId}/conversations/${conversationId}/toggle_status`,
+    apiToken,
+    {
+      method: 'POST',
+      body: JSON.stringify({ status: 'open' })
+    }
+  )
 }

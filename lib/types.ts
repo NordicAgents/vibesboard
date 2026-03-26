@@ -64,6 +64,7 @@ export interface VibeAgentConversation {
   summary?: string | null
   messages: Message[]
   closedAt?: string | null
+  handedOff?: boolean
   summaryGeneratedAt?: string | null
   createdAt: string
   updatedAt: string
