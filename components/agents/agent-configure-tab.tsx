@@ -37,6 +37,9 @@ import {
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
+import type { AgentNotificationConfig } from '@/lib/firestore-types'
+import { FeatureGate } from '@/components/tenants/feature-gate-client'
+import { AgentNotificationSettings } from '@/components/agents/agent-notification-settings'
 
 interface AgentConfigureTabProps {
   agent: VibeAgent
@@ -77,6 +80,9 @@ export function AgentConfigureTab({
   const [sourceUrls, setSourceUrls] = useState<string[]>(
     agent.sourceUrls ?? []
   )
+  const [notificationConfig, setNotificationConfig] = useState<
+    AgentNotificationConfig | undefined
+  >(agent.notificationConfig as AgentNotificationConfig | undefined)
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -123,7 +129,8 @@ export function AgentConfigureTab({
       quickSuggestionsCount,
       googleReviewEnabled,
       googlePlaceId: googlePlaceId.trim() || null,
-      sourceUrls
+      sourceUrls,
+      notificationConfig
     }
 
     try {
@@ -156,7 +163,9 @@ export function AgentConfigureTab({
     quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
     googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
     (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null) ||
-    JSON.stringify(sourceUrls) !== JSON.stringify(agent.sourceUrls ?? [])
+    JSON.stringify(sourceUrls) !== JSON.stringify(agent.sourceUrls ?? []) ||
+    JSON.stringify(notificationConfig) !==
+      JSON.stringify(agent.notificationConfig ?? undefined)
 
   return (
     <div>
@@ -431,6 +440,18 @@ export function AgentConfigureTab({
             )}
           </CardContent>
         </Card>
+
+        {/* Notifications */}
+        {agent.tenantId && (
+          <FeatureGate feature="AGENT_NOTIFICATIONS" tenantId={agent.tenantId}>
+            <AgentNotificationSettings
+              config={notificationConfig}
+              onChange={setNotificationConfig}
+              disabled={saving || !canEdit}
+              tenantId={agent.tenantId}
+            />
+          </FeatureGate>
+        )}
 
         {/* Tools & files */}
         <ToolsFilesManager
