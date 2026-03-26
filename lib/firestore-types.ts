@@ -320,6 +320,7 @@ export interface WhatsAppInboxAccountDocument {
   connectedBy: string // userId
   connectedAt: string
   webhookSubscribed: boolean
+  connectionMethod?: 'oauth' | 'api_key'
   createdAt: string
   updatedAt: string
 }
