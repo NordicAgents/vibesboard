@@ -33,6 +33,25 @@ An agentic loop that continues executing tool calls until the model stops reques
 
 ---
 
+## Agent Runtime (Low Priority)
+
+### Shared OpenAI configuration object (theoretical race condition)
+
+**Area:** `lib/agent/runtime.ts`
+
+**What it means:**
+The `Configuration` and `OpenAIApi` instances are created at module level and shared across all requests. When a `previewToken` is passed, the code mutates the shared `configuration.apiKey` — meaning concurrent requests could theoretically interfere with each other's API key.
+
+**Why it's low priority:**
+- `previewToken` is a dev/testing feature only, never used in production
+- All production requests use the same `process.env.OPENAI_API_KEY`, so any mutation is effectively a no-op race
+- Worst case: a request briefly uses the wrong key and gets a 401 from OpenAI — it fails cleanly, no security breach
+
+**Ideal fix:**
+Create a new `OpenAIApi` instance per request using the resolved key instead of mutating the shared config.
+
+---
+
 ## Retrieval Strategies
 
 ### Bash strategy requires files to be uploaded
