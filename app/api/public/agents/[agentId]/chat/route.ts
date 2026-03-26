@@ -11,9 +11,14 @@ import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
 import { nanoid } from '@/lib/utils'
 import {
+  detectCompletionMarker,
   stripCompletionMarkers,
   wrapStreamWithCompletionDetection
 } from '@/lib/agent/completion'
+import {
+  dispatchAgentNotification,
+  mapCompletionToEvent
+} from '@/lib/agents/notifications'
 
 export const runtime = 'nodejs'
 
@@ -63,6 +68,7 @@ export async function POST(
     agent,
     messages: normalizedMessages,
     onCompletion: async completion => {
+      const reason = detectCompletionMarker(completion)
       const cleanedCompletion = stripCompletionMarkers(completion)
       const nextMessages = [
         ...normalizedMessages,
@@ -79,6 +85,16 @@ export async function POST(
         messages: nextMessages,
         summary: null
       })
+
+      const event = mapCompletionToEvent(reason)
+      if (event) {
+        dispatchAgentNotification({
+          agent,
+          conversationId: conversation.id,
+          event,
+          messageCount: userMessageCount
+        })
+      }
     }
   })
 
