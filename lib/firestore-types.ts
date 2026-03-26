@@ -289,6 +289,12 @@ export interface ChatwootConnectionDocument {
   encryptedApiToken: string
   chatwootWebhookId: number | null
 
+  // Agent Bot (optional — absent for legacy connections)
+  agentBotId?: number | null
+  agentBotName?: string | null
+  encryptedBotToken?: string | null
+  useAgentBot?: boolean
+
   // Webhook security
   webhookSecretHash: string
 
