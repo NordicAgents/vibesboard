@@ -15,6 +15,8 @@ interface TenantFeatureStatus {
     description: string | null
     isEnabled: boolean
     isOverridden: boolean
+    parentFlagName: string | null
+    isDisabledByParent: boolean
 }
 
 export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
@@ -62,13 +64,26 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
             }
 
             // Optimistically update UI
-            setFeatures((prev) =>
-                prev.map((f) =>
-                    f.id === featureId
-                        ? { ...f, isEnabled: enabled, isOverridden: true }
-                        : f
-                )
-            )
+            setFeatures((prev) => {
+                const toggled = prev.find((f) => f.id === featureId)
+                if (!toggled) return prev
+
+                return prev.map((f) => {
+                    // Update the toggled feature
+                    if (f.id === featureId) {
+                        return { ...f, isEnabled: enabled, isOverridden: true }
+                    }
+                    // If toggling a parent OFF, cascade disable to children
+                    if (!enabled && f.parentFlagName === toggled.name) {
+                        return { ...f, isDisabledByParent: true }
+                    }
+                    // If toggling a parent ON, un-cascade children
+                    if (enabled && f.parentFlagName === toggled.name) {
+                        return { ...f, isDisabledByParent: false }
+                    }
+                    return f
+                })
+            })
 
             toast.success('Feature updated successfully')
         } catch (error) {
@@ -116,6 +131,9 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
                             description={feature.description}
                             isEnabled={feature.isEnabled}
                             isOverridden={feature.isOverridden}
+                            isChild={!!feature.parentFlagName}
+                            isDisabledByParent={feature.isDisabledByParent}
+                            parentFlagName={feature.parentFlagName}
                             onToggle={async (id, enabled) => await handleToggle(id, enabled)}
                         />
                     ))
