@@ -1,0 +1,80 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireTenantMember, requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { isFeatureEnabled } from '@/lib/features'
+import {
+  getInboxAccount,
+  disconnectInboxAccount,
+} from '@/lib/instagram-inbox/accounts'
+
+export const runtime = 'nodejs'
+
+/**
+ * GET — Get a single inbox account.
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string; accountId: string } }
+) {
+  try {
+    const { id: tenantId, accountId } = params
+    const authResult = await requireTenantMember(tenantId)
+    if (!authResult.ok) return authResult.response
+
+    const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX')
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Instagram Inbox feature is not enabled' },
+        { status: 403 }
+      )
+    }
+
+    const account = await getInboxAccount(tenantId, accountId)
+    if (!account) {
+      return NextResponse.json(
+        { error: 'Account not found' },
+        { status: 404 }
+      )
+    }
+
+    // Strip encrypted token
+    const { accessToken, ...safeAccount } = account
+    return NextResponse.json(safeAccount)
+  } catch (error: any) {
+    console.error('Get Instagram inbox account error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to get account' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * DELETE — Disconnect an inbox account.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string; accountId: string } }
+) {
+  try {
+    const { id: tenantId, accountId } = params
+    const authResult = await requireTenantAdmin(tenantId)
+    if (!authResult.ok) return authResult.response
+
+    const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX')
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Instagram Inbox feature is not enabled' },
+        { status: 403 }
+      )
+    }
+
+    await disconnectInboxAccount(tenantId, accountId)
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Disconnect Instagram inbox account error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to disconnect account' },
+      { status: 500 }
+    )
+  }
+}
