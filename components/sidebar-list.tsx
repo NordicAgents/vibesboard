@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { IconPlus } from '@/components/ui/icons'
 import { getActiveTenant, getUserTenants, enrichTenantsWithMembers } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
-import { Inbox, Link as LinkIcon } from 'lucide-react'
+import { Inbox, Instagram, Link as LinkIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface SidebarListProps {
@@ -35,9 +35,13 @@ export async function SidebarList({ userId }: SidebarListProps) {
     {} as Record<string, typeof conversations>
   )
 
-  // Check if WhatsApp Inbox feature is enabled for this tenant
+  // Check if inbox features are enabled for this tenant
   const whatsappInboxEnabled = currentTenantId
     ? await isFeatureEnabled(currentTenantId, 'WHATSAPP_INBOX')
+    : false
+
+  const instagramInboxEnabled = currentTenantId
+    ? await isFeatureEnabled(currentTenantId, 'INSTAGRAM_INBOX')
     : false
 
   return (
@@ -80,18 +84,42 @@ export async function SidebarList({ userId }: SidebarListProps) {
             </span>
           </div>
           <div className="space-y-0.5 px-2">
-            <WhatsAppNavLink
+            <InboxNavLink
               href="/whatsapp-inbox/conversations"
               icon={Inbox}
             >
               Inbox
-            </WhatsAppNavLink>
-            <WhatsAppNavLink
+            </InboxNavLink>
+            <InboxNavLink
               href="/whatsapp-inbox/accounts"
               icon={LinkIcon}
             >
               Accounts
-            </WhatsAppNavLink>
+            </InboxNavLink>
+          </div>
+        </div>
+      )}
+
+      {instagramInboxEnabled && (
+        <div className="space-y-2 border-t border-[#e4e3e3] py-4 dark:border-[#344348]">
+          <div className="flex items-center justify-between px-4">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
+              Instagram Inbox
+            </span>
+          </div>
+          <div className="space-y-0.5 px-2">
+            <InboxNavLink
+              href="/instagram-inbox/conversations"
+              icon={Inbox}
+            >
+              Inbox
+            </InboxNavLink>
+            <InboxNavLink
+              href="/instagram-inbox/accounts"
+              icon={LinkIcon}
+            >
+              Accounts
+            </InboxNavLink>
           </div>
         </div>
       )}
@@ -99,7 +127,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
   )
 }
 
-function WhatsAppNavLink({
+function InboxNavLink({
   href,
   icon: Icon,
   children
