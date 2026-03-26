@@ -9,20 +9,23 @@ import { type VibeAgent } from '@/lib/types'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
 import { IconCheck } from '@/components/ui/icons'
-import { GoogleReviewButton } from '@/components/google-review-button'
+import { GoogleReviewCard } from '@/components/google-review-card'
 
 interface PublicAgentExperienceProps {
   agent: VibeAgent
   googleReviewPlaceId?: string | null
+  embed?: boolean
 }
 
 export function PublicAgentExperience({
   agent,
-  googleReviewPlaceId
+  googleReviewPlaceId,
+  embed
 }: PublicAgentExperienceProps) {
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
   const [completedMessages, setCompletedMessages] = useState<Message[]>([])
+  const [reviewShared, setReviewShared] = useState(false)
 
   const handleChatComplete = useCallback((messages?: Message[]) => {
     if (messages) setCompletedMessages(messages)
@@ -30,8 +33,12 @@ export function PublicAgentExperience({
   }, [])
 
   const handleClose = useCallback(() => {
-    router.push('/')
-  }, [router])
+    if (embed) {
+      window.parent.postMessage({ type: 'vibeagent:close' }, '*')
+    } else {
+      router.push('/')
+    }
+  }, [router, embed])
 
   // Generate a consistent avatar gradient from agent name
   const avatarInitial = agent.name?.[0]?.toUpperCase() ?? 'A'
@@ -82,21 +89,28 @@ export function PublicAgentExperience({
               </p>
             </div>
             <div className="mt-2 flex flex-col items-center gap-3">
-              {googleReviewPlaceId &&
+              {!embed &&
+                googleReviewPlaceId &&
                 agent.mode === 'collector' &&
                 completedMessages.length > 0 && (
-                  <GoogleReviewButton
+                  <GoogleReviewCard
+                    agentId={agent.id}
                     placeId={googleReviewPlaceId}
                     messages={completedMessages}
+                    onShare={() => setReviewShared(true)}
                   />
                 )}
-              <Button
-                onClick={handleClose}
-                size="lg"
-                className="rounded-full px-10"
-              >
-                Done
-              </Button>
+              {(!googleReviewPlaceId ||
+                agent.mode !== 'collector' ||
+                reviewShared) && (
+                <Button
+                  onClick={handleClose}
+                  size="lg"
+                  className="rounded-full px-10"
+                >
+                  Done
+                </Button>
+              )}
             </div>
           </div>
         </motion.div>
@@ -145,7 +159,7 @@ export function PublicAgentExperience({
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
-            googleReviewPlaceId={googleReviewPlaceId}
+            embed={embed}
           />
         </motion.div>
       )}

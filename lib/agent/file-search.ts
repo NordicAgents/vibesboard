@@ -6,7 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { downloadFile } from '@/lib/firebase/storage'
 import { Collections } from '@/lib/firestore-types'
-import { OPENAI_VISION_MODEL } from '@/lib/openai'
+import { OPENAI_VISION_MODEL, isResponsesModel } from '@/lib/openai'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
@@ -38,7 +38,7 @@ const cleanText = (value: string) =>
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
-const guessMimeFromPath = (path: string) => {
+export const guessMimeFromPath = (path: string) => {
   const lower = path.toLowerCase()
   if (lower.endsWith('.pdf')) return 'application/pdf'
   if (lower.endsWith('.docx'))
@@ -172,22 +172,67 @@ const extractFromPdf = async (buffer: Buffer) => {
 
 const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   const base64 = buffer.toString('base64')
+  const dataUrl = `data:${mimeType};base64,${base64}`
+  const prompt = 'Extract all visible text from this image and provide a short description. Return plain text only.'
+
+  if (isResponsesModel(VISION_MODEL)) {
+    // Use the Responses API for gpt-5.4-nano and similar models
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) return ''
+
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        input: [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: prompt },
+              { type: 'input_image', image_url: dataUrl }
+            ]
+          }
+        ]
+      })
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '')
+      console.error('[extractTextFromImage] Responses API error', res.status, errorText)
+      return ''
+    }
+
+    const json = await res.json()
+    // Parse Responses API output format
+    const output = json?.output
+    if (Array.isArray(output)) {
+      for (const item of output) {
+        if (item?.type !== 'message' || !Array.isArray(item.content)) continue
+        const parts: string[] = []
+        for (const part of item.content) {
+          if (part?.type === 'output_text' && typeof part.text === 'string') {
+            parts.push(part.text)
+          }
+        }
+        if (parts.length) return cleanText(parts.join(''))
+      }
+    }
+    return ''
+  }
+
+  // Fallback: Chat Completions API for older vision models
   const response = await openai.createChatCompletion({
     model: VISION_MODEL,
     messages: [
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: 'Extract all visible text from this image and provide a short description. Return plain text only.'
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${base64}`
-            }
-          }
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: dataUrl } }
         ]
       }
     ]
@@ -205,7 +250,7 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   return cleanText(String(content))
 }
 
-const extractTextFromBuffer = async (
+export const extractTextFromBuffer = async (
   buffer: Buffer,
   mimeType: string
 ): Promise<string> => {
@@ -287,6 +332,8 @@ const embedChunks = async (values: string[]) => {
  * Delete existing file chunks for a given agent + file key.
  * Requires tenantId to resolve the subcollection path.
  */
+const BATCH_LIMIT = 400
+
 const deleteExistingChunks = async (
   tenantId: string,
   agentId: string,
@@ -300,9 +347,11 @@ const deleteExistingChunks = async (
 
   if (snapshot.empty) return
 
-  const batch = adminDb.batch()
-  snapshot.docs.forEach(doc => batch.delete(doc.ref))
-  await batch.commit()
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    snapshot.docs.slice(i, i + BATCH_LIMIT).forEach(doc => batch.delete(doc.ref))
+    await batch.commit()
+  }
 }
 
 export const ingestFileForAgent = async (args: {
@@ -341,32 +390,59 @@ export const ingestFileForAgent = async (args: {
   await deleteExistingChunks(tenantId, agentId, fileKey)
 
   // Write chunks to Firestore with vector embeddings
+  // Firestore batch writes are limited to 500 operations — split into batches of 400
   const collPath = Collections.fileChunks(tenantId, agentId)
-  const batch = adminDb.batch()
 
-  chunks.forEach((content, index) => {
-    const ref = adminDb.collection(collPath).doc()
-    batch.set(ref, {
-      id: ref.id,
-      agentId,
-      fileKey,
-      fileName,
-      mimeType,
-      chunkIndex: index,
-      content,
-      embedding: FieldValue.vector(embeddings[index] ?? []),
-      createdAt: new Date().toISOString()
+  for (let i = 0; i < chunks.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    const slice = chunks.slice(i, i + BATCH_LIMIT)
+
+    slice.forEach((content, sliceIndex) => {
+      const index = i + sliceIndex
+      const ref = adminDb.collection(collPath).doc()
+      batch.set(ref, {
+        id: ref.id,
+        agentId,
+        fileKey,
+        fileName,
+        mimeType,
+        chunkIndex: index,
+        content,
+        embedding: FieldValue.vector(embeddings[index] ?? []),
+        createdAt: new Date().toISOString()
+      })
     })
-  })
 
-  await batch.commit()
+    await batch.commit()
+  }
+
+  const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 
   return {
     chunksInserted: chunks.length,
+    totalChars,
     message: `Ingested ${chunks.length} chunk(s) for search.`
   }
 }
 
+/**
+ * Read the full text content of an uploaded file (no chunking, no embedding).
+ * Used for direct context injection when files are small enough.
+ */
+export const readFullFileContent = async (
+  fileKey: string,
+  fileName?: string
+): Promise<{ text: string; fileName: string; charCount: number }> => {
+  const name = fileName || fileKey.split('/').pop() || fileKey
+  const mimeType = guessMimeFromPath(name)
+  const buffer = await downloadFile(fileKey)
+  const text = await extractTextFromBuffer(buffer, mimeType)
+  return { text, fileName: name, charCount: text.length }
+}
+
+/**
+ * Search agent file chunks — delegates to rag-retriever for a single search path.
+ */
 export const searchAgentFileChunks = async (args: {
   tenantId: string
   agentId: string
@@ -375,69 +451,23 @@ export const searchAgentFileChunks = async (args: {
 }) => {
   const { tenantId, agentId, query, limit = 8 } = args
 
-  // Generate query embedding
-  const embedResponse = await openai.createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: query
-  })
-  const embedJson = await embedResponse.json()
-  const queryEmbedding = embedJson?.data?.[0]?.embedding
-
-  if (!queryEmbedding) {
-    return { matches: [], error: 'Embedding generation failed.' }
-  }
-
-  // Use Firestore native vector search (findNearest)
-  const collPath = Collections.fileChunks(tenantId, agentId)
   try {
-    const snapshot = await adminDb
-      .collection(collPath)
-      .findNearest('embedding', FieldValue.vector(queryEmbedding), {
-        limit,
-        distanceMeasure: 'COSINE'
-      })
-      .get()
-
-    const matches = snapshot.docs.map(doc => {
-      const data = doc.data()
-      return {
-        fileName: data.fileName,
-        fileKey: data.fileKey,
-        snippet: data.content,
-        score: 0 // Firestore findNearest doesn't return distance yet in all SDKs
-      }
+    const { retrieveContext } = await import('@/lib/agent/rag-retriever')
+    const ragContext = await retrieveContext(tenantId, agentId, query, {
+      topK: limit,
+      enableFallback: true
     })
 
-    if (matches.length > 0) {
-      return { matches }
-    }
+    const matches = ragContext.chunks.map(chunk => ({
+      fileName: chunk.fileName,
+      fileKey: chunk.fileKey,
+      snippet: chunk.content,
+      score: chunk.similarity
+    }))
+
+    return { matches }
   } catch (err: any) {
-    console.warn('[file-search] Vector search failed, trying keyword fallback:', err?.message)
+    console.error('[file-search] Search failed:', err?.message)
+    return { matches: [], error: err?.message ?? 'Search failed.' }
   }
-
-  // Fallback to keyword search — not as elegant in Firestore but we can
-  // do a basic content scan on a limited set of chunks
-  const fallbackSnapshot = await adminDb
-    .collection(collPath)
-    .limit(limit * 5)
-    .get()
-
-  const queryLower = query.toLowerCase()
-  const matches = fallbackSnapshot.docs
-    .filter(doc => {
-      const content: string = doc.data().content ?? ''
-      return content.toLowerCase().includes(queryLower)
-    })
-    .slice(0, limit)
-    .map(doc => {
-      const data = doc.data()
-      return {
-        fileName: data.fileName,
-        fileKey: data.fileKey,
-        snippet: data.content,
-        score: 0
-      }
-    })
-
-  return { matches }
 }

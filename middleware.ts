@@ -17,7 +17,9 @@ const RESERVED_SLUGS = new Set([
   'sign-in',
   'sign-up',
   'terms-of-service',
-  'whatsapp-bulk',
+  'whatsapp-inbox',
+  'instagram-inbox',
+  'widget',
   '_next',
   'public'
 ])
@@ -28,6 +30,11 @@ export async function middleware(req: NextRequest) {
 
   // Allow public access to invitation pages
   if (pathname.startsWith('/invite/')) {
+    return res
+  }
+
+  // Allow public access to widget pages (embedded iframe)
+  if (pathname.startsWith('/widget/')) {
     return res
   }
 
@@ -43,6 +50,17 @@ export async function middleware(req: NextRequest) {
     !segments[0].startsWith('_')
   ) {
     // This is a public agent page — allow without auth
+    return res
+  }
+
+  // Detect /{tenantSlug}/l/{linkSlug} pattern (agent links):
+  if (
+    segments.length === 3 &&
+    !RESERVED_SLUGS.has(segments[0]) &&
+    !segments[0].startsWith('_') &&
+    segments[1] === 'l'
+  ) {
+    // This is a public agent link page — allow without auth
     return res
   }
 

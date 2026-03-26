@@ -76,6 +76,19 @@ export async function PATCH(
     ...(payload.quickSuggestionsCount !== undefined
       ? { quickSuggestionsCount: payload.quickSuggestionsCount }
       : {}),
+    ...(typeof payload.googleReviewEnabled === 'boolean'
+      ? { googleReviewEnabled: payload.googleReviewEnabled }
+      : {}),
+    ...(payload.googlePlaceId !== undefined
+      ? { googlePlaceId: payload.googlePlaceId }
+      : {}),
+    ...(payload.sourceUrls !== undefined
+      ? { sourceUrls: payload.sourceUrls }
+      : {}),
+    ...(payload.domain !== undefined ? { domain: payload.domain } : {}),
+    ...(payload.retrievalStrategy !== undefined
+      ? { retrievalStrategy: payload.retrievalStrategy }
+      : {}),
     updatedAt: new Date().toISOString()
   }
 

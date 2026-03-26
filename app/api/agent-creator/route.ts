@@ -14,7 +14,9 @@ import {
 import { upsertAgentSchema } from '@/lib/agents/schema'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
+import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
 import { nanoid } from '@/lib/utils'
+import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 
 export const runtime = 'nodejs'
 
@@ -24,7 +26,7 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration)
 
-const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-4o-mini'
+const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-5.4-nano'
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -34,7 +36,7 @@ export async function POST(req: Request) {
   }
 
   const json = await req.json()
-  const { messages = [], previewToken } = json ?? {}
+  const { messages = [], previewToken, fileKeys = [], fileNames = [] } = json ?? {}
 
   configuration.apiKey = previewToken ?? process.env.OPENAI_API_KEY
   if (!configuration.apiKey) {
@@ -77,11 +79,14 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 1. **Gather Information First** - Ask 1-2 clarifying questions based on input type:
 
    If user provides a **website URL**:
-   - Acknowledge you'll analyze it
+   - The website content has been automatically fetched and included in the message
+   - Use the fetched content to understand the business/website and suggest a tailored agent
    - Ask: "What should this agent focus on? Customer support, product info, general questions, or something else?"
 
    If user provides **files**:
-   - Acknowledge the uploaded files
+   - Acknowledge the uploaded files by name
+   - ALWAYS include "builtin:file_search" in the tools when files are uploaded
+   - When calling create_agent with files, ALWAYS include the fileKeys parameter
    - Ask: "What kind of questions should this agent help answer based on these files?"
 
    If user provides a **description**:
@@ -113,7 +118,7 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "name": "suggested name",
   "instructions": "suggested instructions",
   "greetingText": "suggested greeting",
-  "tools": ["builtin:search"],
+  "tools": ["builtin:web_fetch"],
   "quickSuggestionsMode": "smart",
   "quickSuggestionsCount": 4,
   "mode": "provider",
@@ -135,9 +140,51 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 - Be brief but helpful
 - ALWAYS ask "Does this look good?" and wait for explicit creation request`
 
+  const fileInfoBlock = (fileKeys as string[]).length > 0
+    ? `\n\n**Uploaded Files:**\nThe user has uploaded ${(fileKeys as string[]).length} file(s):\n${
+        (fileNames as Array<{ fileKey: string; name: string }>).map(f => `- ${f.name}`).join('\n')
+      }\n\nIMPORTANT: When suggesting the agent configuration, ALWAYS include "builtin:file_search" in the tools array.\nWhen calling create_agent, ALWAYS include the fileKeys parameter with these values: ${JSON.stringify(fileKeys)}`
+    : ''
+
+  // Detect URLs in user messages and fetch content for the latest one
+  const messageList = Array.isArray(messages) ? messages : []
+  const urlRegex = /https?:\/\/[^\s)>\]]+/g
+
+  // Collect all URLs from all user messages (for sourceUrls storage)
+  const allDetectedUrls = [...new Set(
+    messageList
+      .filter((m: any) => m.role === 'user')
+      .flatMap((m: any) => m.content?.match(urlRegex) ?? [])
+  )].slice(0, 5)
+
+  // Fetch content for URLs in the last user message
+  const lastUserMsg = [...messageList].reverse().find((m: any) => m.role === 'user')
+
+  if (lastUserMsg?.content) {
+    const urls = (lastUserMsg.content.match(urlRegex) ?? []).slice(0, 3)
+
+    if (urls.length > 0) {
+      const results = await Promise.all(urls.map((u: string) => fetchUrlContent(u)))
+
+      const contentBlocks = results.map(r => {
+        if (r.error) {
+          return `[Website Content from ${r.url}]\nError: Could not fetch content — ${r.error}`
+        }
+        return [
+          `[Website Content from ${r.url}]`,
+          r.title ? `Title: ${r.title}` : null,
+          r.description ? `Description: ${r.description}` : null,
+          `Content:\n${r.textContent}`
+        ].filter(Boolean).join('\n')
+      })
+
+      lastUserMsg.content += '\n\n' + contentBlocks.join('\n\n')
+    }
+  }
+
   const initialMessages = [
-    { role: 'system', content: systemPrompt },
-    ...(Array.isArray(messages) ? messages : [])
+    { role: 'system', content: systemPrompt + fileInfoBlock },
+    ...messageList
   ]
 
   const createAgentTool = {
@@ -252,10 +299,18 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         return `I couldn't create the agent automatically (${errorText}). Please review the form and click "Create Agent".`
       }
 
+      // Merge request-level fileKeys if AI omitted them
+      const effectiveFileKeys = (parsed.data.fileKeys?.length ? parsed.data.fileKeys : fileKeys) as string[]
+
       const sanitizedToolIds = (parsed.data.tools ?? []).filter(
         (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS =>
           toolId in BUILTIN_AGENT_TOOLS
       )
+
+      // Auto-enable file_search when files are present
+      if (effectiveFileKeys.length > 0 && !sanitizedToolIds.includes('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)) {
+        sanitizedToolIds.push('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)
+      }
 
       const toolsPayload = sanitizedToolIds.map(toolId => ({
         id: toolId,
@@ -273,8 +328,9 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         instructions: parsed.data.instructions,
         greetingText: parsed.data.greetingText,
         allowAnonymous: parsed.data.allowAnonymous ?? true,
-        fileKeys: parsed.data.fileKeys ?? [],
+        fileKeys: effectiveFileKeys,
         tools: toolsPayload,
+        sourceUrls: allDetectedUrls,
         mode,
         maxMessages,
         quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
@@ -320,12 +376,26 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             maxMessages: maxMessages,
             quickSuggestionsMode: payload.quickSuggestionsMode,
             quickSuggestionsCount: payload.quickSuggestionsCount,
+            sourceUrls: payload.sourceUrls,
+            retrievalStrategy: 'direct',
             createdAt: now,
             updatedAt: now
           })
       } catch (error: any) {
         console.error('Failed to create agent:', error)
         return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`
+      }
+
+      // Process uploaded files for RAG (fire-and-forget)
+      if (effectiveFileKeys.length > 0) {
+        createAgentFilesAndTriggerProcessing({
+          agentId,
+          tenantId,
+          userId: session.user.id,
+          fileKeys: effectiveFileKeys
+        }).catch(error => {
+          console.error('[Agent Creator] File processing failed:', error)
+        })
       }
 
       return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(

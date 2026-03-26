@@ -29,7 +29,12 @@ export const upsertAgentSchema = z.object({
   mode: agentModeSchema.default('provider'),
   maxMessages: z.number().int().min(1).max(50).nullable().optional(),
   quickSuggestionsMode: z.enum(['off', 'smart', 'always']).default('smart'),
-  quickSuggestionsCount: z.number().int().min(1).max(5).default(4)
+  quickSuggestionsCount: z.number().int().min(1).max(5).default(4),
+  sourceUrls: z.array(z.string().url()).default([]),
+  domain: z.string().max(100).regex(/^[a-zA-Z0-9\s,.'&\-()/]+$/, 'Invalid characters in domain').nullable().optional(),
+  googleReviewEnabled: z.boolean().default(false),
+  googlePlaceId: z.string().nullable().optional(),
+  retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct')
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()

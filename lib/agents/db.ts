@@ -53,13 +53,15 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
       const rawType = (entry as { type?: string }).type
 
       if (rawType?.startsWith('builtin:')) {
-        let type: AgentToolType | null = null
-
-        if (rawType === 'builtin:web') {
-          type = 'builtin:search'
-        } else if (rawType in BUILTIN_AGENT_TOOLS) {
-          type = rawType as AgentToolType
+        // Silently drop removed tool types for backward compatibility
+        if (rawType === 'builtin:web' || rawType === 'builtin:search') {
+          return null
         }
+
+        const type: AgentToolType | null =
+          rawType in BUILTIN_AGENT_TOOLS
+            ? (rawType as AgentToolType)
+            : null
 
         if (!type) {
           return null
@@ -101,10 +103,12 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   maxMessages: data.maxMessages ?? null,
   quickSuggestionsMode: data.quickSuggestionsMode ?? 'off',
   quickSuggestionsCount: data.quickSuggestionsCount ?? 4,
+  sourceUrls: sanitizeStringArray(data.sourceUrls),
   lastEmbeddingsSyncAt: data.lastEmbeddingsSyncAt ?? null,
-  ragEnabled: data.ragEnabled ?? true,
-  ragChunkCount: data.ragChunkCount ?? 5,
-  ragSimilarityThreshold: data.ragSimilarityThreshold ?? 0.7,
+  googleReviewEnabled: data.googleReviewEnabled ?? false,
+  googlePlaceId: data.googlePlaceId ?? null,
+  domain: data.domain ?? null,
+  retrievalStrategy: data.retrievalStrategy ?? 'direct',
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })

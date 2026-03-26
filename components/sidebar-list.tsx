@@ -5,9 +5,9 @@ import { SidebarAgentGroup } from '@/components/sidebar-agent-group'
 import { TenantSwitcher } from '@/components/tenants'
 import { Button } from '@/components/ui/button'
 import { IconPlus } from '@/components/ui/icons'
-import { getActiveTenant, getUserTenants } from '@/lib/tenant-context'
+import { getActiveTenant, getUserTenants, enrichTenantsWithMembers } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
-import { MessageSquare, FileText, Users, Send } from 'lucide-react'
+import { Inbox, Instagram, Link as LinkIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface SidebarListProps {
@@ -16,7 +16,10 @@ export interface SidebarListProps {
 
 export async function SidebarList({ userId }: SidebarListProps) {
   const currentTenantId = userId ? await getActiveTenant(userId) : null
-  const tenants = userId ? await getUserTenants(userId) : []
+  const rawTenants = userId ? await getUserTenants(userId) : []
+  const tenants = rawTenants.length > 0
+    ? await enrichTenantsWithMembers(rawTenants)
+    : []
 
   const [agents, conversations] = await Promise.all([
     getAgents(userId),
@@ -32,13 +35,17 @@ export async function SidebarList({ userId }: SidebarListProps) {
     {} as Record<string, typeof conversations>
   )
 
-  // Check if WhatsApp bulk messaging is enabled for this tenant
-  const whatsappBulkEnabled = currentTenantId
-    ? await isFeatureEnabled(currentTenantId, 'whatsapp_bulk_messaging')
+  // Check if inbox features are enabled for this tenant
+  const whatsappInboxEnabled = currentTenantId
+    ? await isFeatureEnabled(currentTenantId, 'WHATSAPP_INBOX')
+    : false
+
+  const instagramInboxEnabled = currentTenantId
+    ? await isFeatureEnabled(currentTenantId, 'INSTAGRAM_INBOX')
     : false
 
   return (
-    <div className="flex-1 space-y-4 overflow-auto">
+    <div className="flex-1 space-y-4 overflow-hidden">
       <div className="px-2">
         <TenantSwitcher
           tenants={tenants}
@@ -69,29 +76,50 @@ export async function SidebarList({ userId }: SidebarListProps) {
         )}
       </div>
 
-      {whatsappBulkEnabled && (
+      {whatsappInboxEnabled && (
         <div className="space-y-2 border-t border-[#e4e3e3] py-4 dark:border-[#344348]">
           <div className="flex items-center justify-between px-4">
             <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
-              WhatsApp Marketing
+              WhatsApp Inbox
             </span>
           </div>
           <div className="space-y-0.5 px-2">
-            <WhatsAppNavLink
-              href="/whatsapp-bulk/business-accounts"
-              icon={MessageSquare}
+            <InboxNavLink
+              href="/whatsapp-inbox/conversations"
+              icon={Inbox}
             >
-              Business Accounts
-            </WhatsAppNavLink>
-            <WhatsAppNavLink href="/whatsapp-bulk/templates" icon={FileText}>
-              Templates
-            </WhatsAppNavLink>
-            <WhatsAppNavLink href="/whatsapp-bulk/contacts" icon={Users}>
-              Contacts
-            </WhatsAppNavLink>
-            <WhatsAppNavLink href="/whatsapp-bulk/campaigns" icon={Send}>
-              Campaigns
-            </WhatsAppNavLink>
+              Inbox
+            </InboxNavLink>
+            <InboxNavLink
+              href="/whatsapp-inbox/accounts"
+              icon={LinkIcon}
+            >
+              Accounts
+            </InboxNavLink>
+          </div>
+        </div>
+      )}
+
+      {instagramInboxEnabled && (
+        <div className="space-y-2 border-t border-[#e4e3e3] py-4 dark:border-[#344348]">
+          <div className="flex items-center justify-between px-4">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
+              Instagram Inbox
+            </span>
+          </div>
+          <div className="space-y-0.5 px-2">
+            <InboxNavLink
+              href="/instagram-inbox/conversations"
+              icon={Inbox}
+            >
+              Inbox
+            </InboxNavLink>
+            <InboxNavLink
+              href="/instagram-inbox/accounts"
+              icon={LinkIcon}
+            >
+              Accounts
+            </InboxNavLink>
           </div>
         </div>
       )}
@@ -99,7 +127,7 @@ export async function SidebarList({ userId }: SidebarListProps) {
   )
 }
 
-function WhatsAppNavLink({
+function InboxNavLink({
   href,
   icon: Icon,
   children

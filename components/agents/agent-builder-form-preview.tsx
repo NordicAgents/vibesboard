@@ -20,7 +20,7 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { IconSparkles, IconCheck, IconX } from '@/components/ui/icons'
+import { IconSparkles, IconCheck, IconX, IconPlus } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import { type AgentToolType, type AgentMode } from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
@@ -32,6 +32,7 @@ export interface AgentFormData {
   allowAnonymous?: boolean
   tools?: AgentToolType[]
   fileKeys?: string[]
+  sourceUrls?: string[]
   mode?: AgentMode
   maxMessages?: number | null
   quickSuggestionsMode?: 'off' | 'smart' | 'always'
@@ -42,7 +43,6 @@ interface AgentBuilderFormPreviewProps {
   formData: AgentFormData
   onFormChange: (data: AgentFormData) => void
   onCreateAgent: () => void
-  onFileUpload?: (files: FileList | null) => void
   isCreating?: boolean
   isUploading?: boolean
   userId?: string
@@ -54,7 +54,6 @@ export function AgentBuilderFormPreview({
   formData,
   onFormChange,
   onCreateAgent,
-  onFileUpload,
   isCreating = false,
   isUploading = false,
   userId,
@@ -72,6 +71,7 @@ export function AgentBuilderFormPreview({
     if (formData.tools?.length) newFields.add('tools')
     if (formData.mode) newFields.add('mode')
     if (formData.quickSuggestionsMode) newFields.add('quickSuggestions')
+    if (formData.sourceUrls?.length) newFields.add('sourceUrls')
 
     setAnimatedFields(newFields)
   }, [formData])
@@ -216,7 +216,7 @@ export function AgentBuilderFormPreview({
               AI-suggested tools for your agent
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-2">
               {toolOptions.map(tool => {
                 const isSelected = formData.tools?.includes(
@@ -242,6 +242,83 @@ export function AgentBuilderFormPreview({
                   </Badge>
                 )
               })}
+            </div>
+
+            {/* Source URLs — inline under tools */}
+            <div
+              className={cn(
+                'rounded-md border bg-muted/50 p-3 transition-all duration-500',
+                animatedFields.has('sourceUrls') && 'ring-2 ring-primary/20'
+              )}
+            >
+              <p className="mb-1.5 flex items-center gap-2 text-xs font-medium">
+                Source URLs
+                {(formData.sourceUrls?.length ?? 0) > 0 && (
+                  <IconCheck className="size-3.5 text-green-600" />
+                )}
+                <span className="font-normal text-muted-foreground">(pre-fetched into context, max 5)</span>
+              </p>
+              <div className="space-y-1.5">
+                {(formData.sourceUrls ?? []).map((url, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 rounded border bg-card px-2 py-1.5"
+                  >
+                    <span className="flex-1 truncate text-xs">{url}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = (formData.sourceUrls ?? []).filter(
+                          (_, i) => i !== idx
+                        )
+                        onFormChange({ ...formData, sourceUrls: next })
+                      }}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <IconX className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {(formData.sourceUrls?.length ?? 0) < 5 && (
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault()
+                      const input = e.currentTarget.elements.namedItem(
+                        'newUrl'
+                      ) as HTMLInputElement
+                      const value = input?.value?.trim()
+                      if (!value) return
+                      try {
+                        new URL(value)
+                      } catch {
+                        return
+                      }
+                      const current = formData.sourceUrls ?? []
+                      if (current.includes(value) || current.length >= 5) return
+                      onFormChange({
+                        ...formData,
+                        sourceUrls: [...current, value]
+                      })
+                      input.value = ''
+                    }}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Input
+                      name="newUrl"
+                      placeholder="https://example.com"
+                      className="h-8 flex-1 font-switzer text-xs"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2"
+                    >
+                      <IconPlus className="size-3.5" />
+                    </Button>
+                  </form>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -483,84 +560,30 @@ export function AgentBuilderFormPreview({
           </Card>
         )}
 
-        {/* File Upload */}
-        {onFileUpload && userId && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Add Files</CardTitle>
-              <CardDescription className="text-xs">
-                Upload documents to ground your agent's knowledge
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  document.getElementById('form-file-upload')?.click()
-                }
-                disabled={isUploading}
-                className="w-full"
-              >
-                {isUploading ? 'Uploading...' : 'Choose Files'}
-              </Button>
-              <input
-                id="form-file-upload"
-                type="file"
-                multiple
-                className="hidden"
-                onChange={e => onFileUpload(e.target.files)}
-              />
-              {/* Create Agent Button */}
-              <Button
-                onClick={onCreateAgent}
-                disabled={!isValid || isCreating}
-                className="w-full rounded-full font-switzer"
-                size="lg"
-              >
-                {isCreating ? 'Creating Agent...' : 'Create Agent'}
-              </Button>
-              {!isValid && (
-                <p className="text-center text-xs text-muted-foreground">
-                  {!formData.name
-                    ? 'Name is required'
-                    : !formData.instructions
-                      ? 'Instructions are required'
-                      : !formData.greetingText
-                        ? 'Greeting message is required'
-                        : 'Complete all required fields'}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create Agent Button - shown when file upload is not available */}
-        {(!onFileUpload || !userId) && (
-          <Card>
-            <CardContent className="pt-6">
-              <Button
-                onClick={onCreateAgent}
-                disabled={!isValid || isCreating}
-                className="w-full rounded-full font-switzer"
-                size="lg"
-              >
-                {isCreating ? 'Creating Agent...' : 'Create Agent'}
-              </Button>
-              {!isValid && (
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  {!formData.name
-                    ? 'Name is required'
-                    : !formData.instructions
-                      ? 'Instructions are required'
-                      : !formData.greetingText
-                        ? 'Greeting message is required'
-                        : 'Complete all required fields'}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {/* Create Agent Button */}
+        <Card>
+          <CardContent className="pt-6">
+            <Button
+              onClick={onCreateAgent}
+              disabled={!isValid || isCreating}
+              className="w-full rounded-full font-switzer"
+              size="lg"
+            >
+              {isCreating ? 'Creating Agent...' : 'Create Agent'}
+            </Button>
+            {!isValid && (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {!formData.name
+                  ? 'Name is required'
+                  : !formData.instructions
+                    ? 'Instructions are required'
+                    : !formData.greetingText
+                      ? 'Greeting message is required'
+                      : 'Complete all required fields'}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </aside>
   )

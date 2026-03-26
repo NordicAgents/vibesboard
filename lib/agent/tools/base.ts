@@ -41,8 +41,8 @@ export const BUILTIN_TOOL_FACTORIES: Record<
   ToolFactory
 > = {
   'builtin:web_fetch': () => null,
-  'builtin:search': () => null,
-  'builtin:file_search': () => null
+  'builtin:file_search': () => null,
+  'builtin:bash': () => null  // injected by BashRetriever, not via agent tools array
 }
 
 export const registerBuiltinTool = (

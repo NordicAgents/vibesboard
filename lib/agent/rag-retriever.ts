@@ -30,7 +30,7 @@ export interface RetrievedChunk {
   fileKey: string
   chunkIndex: number
   content: string
-  similarity: number
+  similarity: number | null
   mimeType?: string
 }
 
@@ -53,7 +53,6 @@ export async function retrieveContext(
 ): Promise<RAGContext> {
   const {
     topK = 5,
-    minSimilarity = 0.7,
     enableFallback = true,
     maxContextChars = 6000
   } = config
@@ -63,8 +62,7 @@ export async function retrieveContext(
     tenantId,
     agentId,
     query,
-    topK,
-    minSimilarity
+    topK
   )
 
   if (vectorResults.length > 0) {
@@ -96,8 +94,7 @@ async function vectorSearch(
   tenantId: string,
   agentId: string,
   query: string,
-  topK: number,
-  _minSimilarity: number
+  topK: number
 ): Promise<RetrievedChunk[]> {
   try {
     const embedding = await generateQueryEmbedding(query)
@@ -125,7 +122,7 @@ async function vectorSearch(
         fileKey: data.fileKey,
         chunkIndex: data.chunkIndex,
         content: data.content,
-        similarity: 0.8, // Firestore doesn't always return distance in all SDKs
+        similarity: null, // Firestore findNearest doesn't return distance scores
         mimeType: data.mimeType ?? undefined
       }
     })
@@ -147,10 +144,11 @@ async function keywordSearch(
   try {
     const collPath = Collections.fileChunks(tenantId, agentId)
     // Firestore doesn't support ILIKE / full-text search natively.
-    // Load a broader set and filter in-memory.
+    // Load a broader set and filter in-memory, capped at 200 to avoid full-collection scans.
+    const scanLimit = Math.min(topK * 10, 200)
     const snapshot = await adminDb
       .collection(collPath)
-      .limit(topK * 10)
+      .limit(scanLimit)
       .get()
 
     const queryLower = query.toLowerCase()
@@ -168,7 +166,7 @@ async function keywordSearch(
           fileKey: data.fileKey,
           chunkIndex: data.chunkIndex,
           content: data.content,
-          similarity: 0.5,
+          similarity: null, // keyword fallback — no similarity score available
           mimeType: data.mimeType ?? undefined
         }
       })
@@ -245,30 +243,6 @@ async function generateQueryEmbedding(
   } catch (error) {
     console.error('[RAG] Failed to generate embedding:', error)
     return null
-  }
-}
-
-export async function getAgentRAGConfig(
-  tenantId: string,
-  agentId: string
-): Promise<{
-  enabled: boolean
-  chunkCount: number
-  similarityThreshold: number
-} | null> {
-  const collPath = Collections.agents(tenantId)
-  const doc = await adminDb.collection(collPath).doc(agentId).get()
-
-  if (!doc.exists) {
-    console.error('[RAG] Failed to get agent RAG config: agent not found')
-    return null
-  }
-
-  const data = doc.data()!
-  return {
-    enabled: data.ragEnabled ?? true,
-    chunkCount: data.ragChunkCount ?? 5,
-    similarityThreshold: data.ragSimilarityThreshold ?? 0.7
   }
 }
 

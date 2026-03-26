@@ -8,24 +8,7 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    {
-      "collectionGroup": "conversations",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "whatsappConnectionId", "order": "ASCENDING" },
-        { "fieldPath": "agentId", "order": "ASCENDING" },
-        { "fieldPath": "closedAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "conversations",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "whatsappConnectionId", "order": "ASCENDING" },
-        { "fieldPath": "closedAt", "order": "ASCENDING" }
-      ]
-    },
-    {
+{
       "collectionGroup": "conversations",
       "queryScope": "COLLECTION",
       "fields": [
@@ -41,8 +24,8 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    {
-      "collectionGroup": "message_queue",
+{
+      "collectionGroup": "files",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
@@ -50,7 +33,7 @@
       ]
     },
     {
-      "collectionGroup": "message_queue",
+      "collectionGroup": "files",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
@@ -59,10 +42,10 @@
     },
     {
       "collectionGroup": "files",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
@@ -99,20 +82,59 @@
         { "fieldPath": "userId", "order": "ASCENDING" }
       ]
     },
-    {
-      "collectionGroup": "whatsapp_connections",
+{
+      "collectionGroup": "whatsapp_inbox_accounts",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "phoneNumberNormalized", "order": "ASCENDING" },
+        { "fieldPath": "wabaId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
     {
-      "collectionGroup": "whatsapp_connections",
-      "queryScope": "COLLECTION_GROUP",
+      "collectionGroup": "conversations",
+      "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "waMessageId", "order": "ASCENDING" },
+        { "fieldPath": "direction", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "chatwoot_connections",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "instagram_inbox_accounts",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "pageId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "igMessageId", "order": "ASCENDING" },
+        { "fieldPath": "direction", "order": "ASCENDING" }
       ]
     }
   ],
@@ -147,9 +169,9 @@
         { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
       ]
     },
-    {
-      "collectionGroup": "whatsapp_connections",
-      "fieldPath": "phoneNumberNormalized",
+{
+      "collectionGroup": "members",
+      "fieldPath": "userId",
       "indexes": [
         { "order": "ASCENDING", "queryScope": "COLLECTION" },
         { "order": "DESCENDING", "queryScope": "COLLECTION" },
@@ -158,13 +180,51 @@
       ]
     },
     {
-      "collectionGroup": "whatsapp_connections",
+      "collectionGroup": "files",
+      "fieldPath": "createdAt",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "files",
       "fieldPath": "status",
       "indexes": [
         { "order": "ASCENDING", "queryScope": "COLLECTION" },
         { "order": "DESCENDING", "queryScope": "COLLECTION" },
         { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
         { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "chatwoot_connections",
+      "fieldPath": "id",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "chatwoot_connections",
+      "fieldPath": "status",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "collectionGroup": "agent_links",
+      "fieldPath": "slug",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" }
       ]
     }
   ]

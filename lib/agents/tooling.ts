@@ -1,7 +1,7 @@
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 import { type AgentToolType, type VibeAgentTool } from '@/lib/types'
 
-const WEB_TOOL_TYPES: AgentToolType[] = ['builtin:web_fetch', 'builtin:search']
+const WEB_TOOL_TYPES: AgentToolType[] = ['builtin:web_fetch']
 const FILE_TOOL_TYPE: AgentToolType = 'builtin:file_search'
 
 export const deriveToolToggles = (tools: VibeAgentTool[]) => ({
@@ -16,7 +16,7 @@ export const buildToolsPayload = (toggles: {
   const nextTools: AgentToolType[] = []
 
   if (toggles.useWeb) {
-    nextTools.push('builtin:web_fetch', 'builtin:search')
+    nextTools.push('builtin:web_fetch')
   }
 
   if (toggles.fileSearch) {

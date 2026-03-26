@@ -7,7 +7,6 @@ import {
   ensureConversation,
   updateConversationMessages
 } from '@/lib/agents/conversations'
-import { fetchAgentFileContext } from '@/lib/agent/rag'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
 import { nanoid } from '@/lib/utils'
@@ -36,8 +35,9 @@ export async function POST(
   }
 
   const tenantId = agent.tenantId!
-  const externalId = await ensureExternalSessionId()
   const body = await req.json()
+  const isEmbed = body.embed === true
+  const externalId = await ensureExternalSessionId({ crossOrigin: isEmbed })
   const payload = publicAgentChatRequestSchema.parse({
     ...body,
     externalId
@@ -47,20 +47,13 @@ export async function POST(
     id: message.id ?? nanoid()
   })) as Message[]
 
-  const needsFileContext = agent.ragEnabled === false
-
-  const [conversation, context] = await Promise.all([
-    ensureConversation({
-      tenantId,
-      agentId: agent.id,
-      externalId,
-      conversationId: payload.conversationId,
-      initialMessages: normalizedMessages
-    }),
-    needsFileContext
-      ? fetchAgentFileContext({ fileKeys: agent.fileKeys })
-      : Promise.resolve(null)
-  ])
+  const conversation = await ensureConversation({
+    tenantId,
+    agentId: agent.id,
+    externalId,
+    conversationId: payload.conversationId,
+    initialMessages: normalizedMessages
+  })
 
   const userMessageCount = normalizedMessages.filter(
     m => m.role === 'user'
@@ -69,10 +62,6 @@ export async function POST(
   const stream = await runAgentStream({
     agent,
     messages: normalizedMessages,
-    context,
-    toolContext: {
-      fileContext: context
-    },
     onCompletion: async completion => {
       const cleanedCompletion = stripCompletionMarkers(completion)
       const nextMessages = [

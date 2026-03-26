@@ -34,6 +34,7 @@ const helperText =
 export function AgentBuilder({ userId }: AgentBuilderProps) {
   const router = useRouter()
   const [name, setName] = useState('')
+  const [domain, setDomain] = useState('')
   const [instructions, setInstructions] = useState('')
   const [allowAnonymous, setAllowAnonymous] = useState(true)
   const [selectedTools, setSelectedTools] = useState<AgentToolType[]>([])
@@ -136,6 +137,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
         },
         body: JSON.stringify({
           name,
+          domain: domain.trim() || null,
           instructions,
           allowAnonymous,
           fileKeys,
@@ -180,6 +182,17 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 onChange={event => setName(event.target.value)}
                 placeholder="Studio Support Agent"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Domain</label>
+              <Input
+                value={domain}
+                onChange={event => setDomain(event.target.value)}
+                placeholder="e.g. Arcadia Hotel, job openings in TCS"
+              />
+              <p className="text-xs text-muted-foreground">
+                You are only allowed to discuss about this. e.g. &quot;Arcadia Hotel&quot;, &quot;job openings in TCS&quot;
+              </p>
             </div>
             <div className="space-y-2">
               <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Instructions</label>

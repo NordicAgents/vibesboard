@@ -118,6 +118,13 @@ service cloud.firestore {
         allow write: if isSuperAdmin();
       }
 
+      // Agent Links: read by members, write by tenant admins
+      match /agent_links/{linkId} {
+        allow read: if isTenantMember(tenantId) || isSuperAdmin();
+        allow create, update: if isTenantAdmin(tenantId) || isSuperAdmin();
+        allow delete: if isTenantAdmin(tenantId) || isSuperAdmin();
+      }
+
       // 10. Agents: read by members, write by agent owner or tenant admins
       match /agents/{agentId} {
         allow read: if isTenantMember(tenantId) || isSuperAdmin();
@@ -161,41 +168,6 @@ service cloud.firestore {
           allow write: if false; // Server-only via Admin SDK
         }
 
-        // WhatsApp connections under agents
-        match /whatsapp_connections/{connectionId} {
-          allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
-          allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
-        }
-      }
-
-      // 15. WhatsApp Business Accounts: read/write by tenant admins
-      match /whatsapp_business_accounts/{accountId} {
-        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
-        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
-      }
-
-      // 15. WhatsApp Contacts: read/write by tenant admins
-      match /whatsapp_contacts/{contactId} {
-        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
-        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
-      }
-
-      // 15. WhatsApp Contact Lists: read/write by tenant admins
-      match /whatsapp_contact_lists/{listId} {
-        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
-        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
-      }
-
-      // 15-16. WhatsApp Campaigns: read/write by tenant admins
-      match /whatsapp_campaigns/{campaignId} {
-        allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
-        allow write: if isTenantAdmin(tenantId) || isSuperAdmin();
-
-        // 16. Message queue: read by tenant admins, write only by Cloud Functions
-        match /message_queue/{messageId} {
-          allow read: if isTenantAdmin(tenantId) || isSuperAdmin();
-          allow write: if false; // Server-only via Admin SDK
-        }
       }
     }
 

@@ -15,7 +15,6 @@ const SYSTEM_PREFIXES = [
   '/landing',
   '/privacy-policy',
   '/terms-of-service',
-  '/whatsapp-bulk',
 ]
 
 export function AppHeaderController({
@@ -32,10 +31,11 @@ export function AppHeaderController({
   // e.g. /user-WlgbEdFb/calcbuddy
   const isPublicAgentPage = !isSystemPath && segments.length === 2
 
-  // Also hide on legacy /a paths
+  // Hide on landing page (has its own header) and legacy /a paths
+  const isLandingPage = pathname === '/' || pathname === '/landing'
   const isLegacyAppPage = pathname?.startsWith('/a')
 
-  if (isPublicAgentPage || isLegacyAppPage) {
+  if (isPublicAgentPage || isLandingPage || isLegacyAppPage) {
     return null
   }
 

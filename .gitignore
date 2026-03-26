@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# setup script with secrets
+setup-env.sh
+
 # dependencies
 node_modules
 .pnp
@@ -16,6 +19,7 @@ build
 # misc
 .DS_Store
 *.pem
+tsconfig.tsbuildinfo
 
 # debug
 npm-debug.log*

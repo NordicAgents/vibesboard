@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, Users, Building2 } from 'lucide-react'
+import { Settings, Users, Building2, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
@@ -8,7 +8,7 @@ import { auth } from '@/auth'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type TenantDocument } from '@/lib/firestore-types'
 import { TenantSwitcher } from '@/components/tenants'
-import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
+import { getActiveTenant, getTenantById, enrichTenantsWithMembers } from '@/lib/tenant-context'
 import { hasTenantAdminAccess } from '@/lib/permissions'
 import { isFeatureEnabled } from '@/lib/features'
 
@@ -51,10 +51,14 @@ export default async function SettingsLayout({
     redirect('/')
   }
 
-  const [manageableTenants, activeTenantId] = await Promise.all([
+  const [rawManageableTenants, activeTenantId] = await Promise.all([
     getManageableTenants(session.user.id),
     getActiveTenant(session.user.id)
   ])
+
+  const manageableTenants = rawManageableTenants.length > 0
+    ? await enrichTenantsWithMembers(rawManageableTenants)
+    : []
 
   const activeTenant = activeTenantId
     ? await getTenantById(activeTenantId)
@@ -62,14 +66,16 @@ export default async function SettingsLayout({
 
   const isActivePersonal = Boolean(activeTenant?.isPersonal)
   let teamCollaborationEnabled = true
+  let agentLinksEnabled = false
   if (activeTenantId) {
     try {
-      teamCollaborationEnabled = await isFeatureEnabled(
-        activeTenantId,
-        'TEAM_COLLABORATION'
-      )
+      ;[teamCollaborationEnabled, agentLinksEnabled] = await Promise.all([
+        isFeatureEnabled(activeTenantId, 'TEAM_COLLABORATION'),
+        isFeatureEnabled(activeTenantId, 'AGENT_LINKS')
+      ])
     } catch {
       teamCollaborationEnabled = true
+      agentLinksEnabled = false
     }
   }
 
@@ -91,6 +97,16 @@ export default async function SettingsLayout({
             href: '/settings/tenant/team',
             icon: Users,
             iconName: 'Users' as const
+          }
+        ]
+      : []),
+    ...(!isActivePersonal && agentLinksEnabled
+      ? [
+          {
+            title: 'Agent Links',
+            href: '/settings/tenant/agent-links',
+            icon: Link2,
+            iconName: 'Link2' as const
           }
         ]
       : [])

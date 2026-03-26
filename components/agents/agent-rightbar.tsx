@@ -26,8 +26,10 @@ import { Switch } from '@/components/ui/switch'
 import { IconExternalLink, IconTrash } from '@/components/ui/icons'
 import { QrCode } from '@/components/qr-code'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
-import { AgentWhatsAppSettings } from '@/components/agents/agent-whatsapp-settings'
+import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
+import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
+import { AgentRetrievalSettings } from '@/components/agents/agent-retrieval-settings'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +65,7 @@ export function AgentRightbar({
 
   // Form State
   const [name, setName] = useState(agent.name)
+  const [domain, setDomain] = useState(agent.domain ?? '')
   const [instructions, setInstructions] = useState(agent.instructions)
   const [greetingText, setGreetingText] = useState(
     agent.greetingText ?? 'Hi How can i help you today'
@@ -76,6 +79,12 @@ export function AgentRightbar({
     useState<QuickSuggestionsMode>(agent.quickSuggestionsMode ?? 'off')
   const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(
     agent.quickSuggestionsCount ?? 4
+  )
+  const [googleReviewEnabled, setGoogleReviewEnabled] = useState(
+    agent.googleReviewEnabled ?? false
+  )
+  const [googlePlaceId, setGooglePlaceId] = useState(
+    agent.googlePlaceId ?? ''
   )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -114,13 +123,16 @@ export function AgentRightbar({
     setSaving(true)
     const payload: Partial<VibeAgent> = {
       name,
+      domain: domain.trim() || null,
       instructions,
       greetingText: greetingText.trim() || null,
       allowAnonymous,
       mode,
       maxMessages,
       quickSuggestionsMode,
-      quickSuggestionsCount
+      quickSuggestionsCount,
+      googleReviewEnabled,
+      googlePlaceId: googlePlaceId.trim() || null
     }
 
     try {
@@ -143,6 +155,7 @@ export function AgentRightbar({
 
   const hasChanges =
     name !== agent.name ||
+    (domain.trim() || null) !== (agent.domain ?? null) ||
     instructions !== agent.instructions ||
     greetingText.trim() !==
       (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
@@ -150,7 +163,9 @@ export function AgentRightbar({
     mode !== (agent.mode || 'provider') ||
     maxMessages !== (agent.maxMessages ?? null) ||
     quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
-    quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4)
+    quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
+    googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
+    (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null)
 
   return (
     <aside className={className} aria-label="Agent details sidebar">
@@ -195,6 +210,18 @@ export function AgentRightbar({
                   /{agent.tenantSlug ?? 'unknown'}/{agent.agentUrl}
                 </p>
               </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Domain</p>
+              <Input
+                value={domain}
+                disabled={saving || !canEdit}
+                onChange={e => setDomain(e.target.value)}
+                placeholder="e.g. Arcadia Hotel, job openings in TCS"
+              />
+              <p className="text-xs text-muted-foreground">
+                You are only allowed to discuss about this. e.g. &quot;Arcadia Hotel&quot;, &quot;job openings in TCS&quot;
+              </p>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
               <div>
@@ -399,10 +426,55 @@ export function AgentRightbar({
           </CardContent>
         </Card>
 
+        {/* Google Review */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Google Review</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">Enable Google Review</p>
+                <p className="text-xs text-muted-foreground">
+                  Show review prompt after chat completion.
+                </p>
+              </div>
+              <Switch
+                checked={googleReviewEnabled}
+                disabled={saving || !canEdit}
+                onCheckedChange={setGoogleReviewEnabled}
+              />
+            </div>
+            {googleReviewEnabled && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Google Place ID
+                </label>
+                <Input
+                  value={googlePlaceId}
+                  onChange={e => setGooglePlaceId(e.target.value)}
+                  placeholder="Leave empty to use tenant default"
+                  disabled={saving || !canEdit}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Override the tenant Place ID for this agent.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Tools & files */}
         <ToolsFilesManager
           agent={agent}
           onUpdate={() => router.refresh()}
+          canEdit={canEdit}
+        />
+
+        {/* File Retrieval Strategy */}
+        <AgentRetrievalSettings
+          agentId={agent.id}
+          current={agent.retrievalStrategy ?? 'direct'}
           canEdit={canEdit}
         />
 
@@ -433,8 +505,12 @@ export function AgentRightbar({
           </CardContent>
         </Card>
 
-        {/* WhatsApp Integration */}
-        <AgentWhatsAppSettings agentId={agent.id} canEdit={canEdit} />
+        {/* Embed Widget */}
+        {agent.tenantId && (
+          <FeatureGate feature="EMBED_WIDGET" tenantId={agent.tenantId}>
+            <AgentEmbedSettings agent={agent} canEdit={canEdit} />
+          </FeatureGate>
+        )}
 
         {/* Hooks */}
         <AgentHooksSettings agentId={agent.id} canEdit={canEdit} />

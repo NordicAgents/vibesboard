@@ -28,8 +28,10 @@ interface AgentChatProps {
   onChatComplete?: (messages?: Message[]) => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
-  googleReviewPlaceId?: string | null
+  embed?: boolean
 }
+
+const AUTO_START_PREFIX = '__auto_start__'
 
 export function AgentChat({
   agent,
@@ -40,7 +42,7 @@ export function AgentChat({
   onChatComplete,
   agentAvatarGradient = 'from-violet-400 to-purple-500',
   agentAvatarInitial = 'A',
-  googleReviewPlaceId
+  embed
 }: AgentChatProps) {
   const [conversationId, setConversationId] = useState<string | undefined>(
     initialConversationId
@@ -53,6 +55,7 @@ export function AgentChat({
   )
   const [isChatComplete, setIsChatComplete] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const hasAutoTriggered = useRef(false)
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
   const quickSuggestionsCount = agent.quickSuggestionsCount ?? 4
@@ -82,7 +85,7 @@ export function AgentChat({
   // Check for completion signals in messages
   const checkForCompletion = useCallback(
     (messagesArr: Message[]) => {
-      const userMessageCount = messagesArr.filter(m => m.role === 'user').length
+      const userMessageCount = messagesArr.filter(m => m.role === 'user' && !m.id?.startsWith(AUTO_START_PREFIX)).length
 
       if (maxMessages && userMessageCount >= maxMessages) {
         setIsChatComplete(true)
@@ -119,7 +122,8 @@ export function AgentChat({
     id: chatKey,
     api: endpoint,
     body: {
-      conversationId
+      conversationId,
+      ...(embed ? { embed: true } : {})
     },
     initialMessages: messagesToUse,
     onResponse(response: Response) {
@@ -143,22 +147,42 @@ export function AgentChat({
     }
   })
 
+  // Auto-trigger first AI question in collector mode for new conversations
+  useEffect(() => {
+    if (
+      agent.mode === 'collector' &&
+      !initialConversationId &&
+      (!initialMessages || initialMessages.length === 0) &&
+      !hasAutoTriggered.current &&
+      !isLoading
+    ) {
+      hasAutoTriggered.current = true
+      append({
+        id: `${AUTO_START_PREFIX}${nanoid()}`,
+        role: 'user',
+        content: 'Hi'
+      })
+    }
+  }, [agent.mode, initialConversationId, initialMessages, isLoading, append])
+
   // Clean completion markers from messages for display
   const messages = useMemo(() => {
-    return rawMessages.map(m => {
-      if (m.role === 'assistant' && m.content) {
-        const cleanedContent = m.content
-          .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
-          .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
-          .replace(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX, '')
-          .replace(COMPLETION_MARKERS.SUGGESTIONS_REGEX, '')
-          .trim()
-        if (cleanedContent !== m.content) {
-          return { ...m, content: cleanedContent }
+    return rawMessages
+      .filter(m => !m.id?.startsWith(AUTO_START_PREFIX))
+      .map(m => {
+        if (m.role === 'assistant' && m.content) {
+          const cleanedContent = m.content
+            .replace(COMPLETION_MARKERS.COLLECTION_COMPLETE, '')
+            .replace(COMPLETION_MARKERS.INFO_COMPLETE, '')
+            .replace(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX, '')
+            .replace(COMPLETION_MARKERS.SUGGESTIONS_REGEX, '')
+            .trim()
+          if (cleanedContent !== m.content) {
+            return { ...m, content: cleanedContent }
+          }
         }
-      }
-      return m
-    })
+        return m
+      })
   }, [rawMessages])
 
   const quickSuggestions = useMemo(() => {
@@ -204,7 +228,7 @@ export function AgentChat({
       return suggestions
     }
 
-    const userMessageCount = rawMessages.filter(m => m.role === 'user').length
+    const userMessageCount = rawMessages.filter(m => m.role === 'user' && !m.id?.startsWith(AUTO_START_PREFIX)).length
     const isStart = userMessageCount <= 1
 
     const cleanedAssistantContent = content
@@ -295,7 +319,6 @@ export function AgentChat({
         agentName={agent.name}
         onChatComplete={handleChatComplete}
         quickSuggestions={quickSuggestions}
-        googleReviewPlaceId={googleReviewPlaceId}
       />
     </div>
   )

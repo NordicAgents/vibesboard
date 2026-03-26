@@ -6,15 +6,15 @@ export const BUILTIN_AGENT_TOOLS = {
     name: 'Web Fetch',
     description: 'Fetches web page content from a given URL.'
   },
-  'builtin:search': {
-    id: 'builtin:search' as AgentToolType,
-    name: 'Web Search',
-    description: 'Searches the public web for recent information.'
-  },
   'builtin:file_search': {
     id: 'builtin:file_search' as AgentToolType,
     name: 'File Search',
     description: "Searches the agent's uploaded files for matching snippets."
+  },
+  'builtin:bash': {
+    id: 'builtin:bash' as AgentToolType,
+    name: 'Bash',
+    description: 'Run shell commands against uploaded files in a sandboxed virtual filesystem.'
   }
 } satisfies Record<
   AgentToolType,

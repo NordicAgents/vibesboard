@@ -13,8 +13,10 @@ export interface Chat extends Record<string, any> {
 
 export type AgentToolType =
   | 'builtin:web_fetch'
-  | 'builtin:search'
   | 'builtin:file_search'
+  | 'builtin:bash'
+
+export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
 
 export type AgentMode = 'provider' | 'collector'
 
@@ -44,10 +46,12 @@ export interface VibeAgent {
   maxMessages?: number | null
   quickSuggestionsMode?: QuickSuggestionsMode
   quickSuggestionsCount?: number | null
+  sourceUrls?: string[]
+  domain?: string | null
+  retrievalStrategy?: RetrievalStrategy
   lastEmbeddingsSyncAt?: string | null
-  ragEnabled?: boolean
-  ragChunkCount?: number
-  ragSimilarityThreshold?: number
+  googleReviewEnabled?: boolean
+  googlePlaceId?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -61,6 +65,19 @@ export interface VibeAgentConversation {
   messages: Message[]
   closedAt?: string | null
   summaryGeneratedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AgentLink {
+  id: string
+  tenantId: string
+  slug: string
+  agentId: string
+  name: string
+  description?: string | null
+  isActive: boolean
+  createdBy: string
   createdAt: string
   updatedAt: string
 }
