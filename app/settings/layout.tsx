@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, Users, Building2, Link2 } from 'lucide-react'
+import { Settings, Users, Building2, Link2, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
@@ -148,7 +148,18 @@ export default async function SettingsLayout({
 
         {/* Navigation */}
         <nav className="flex-1 space-y-0.5 p-3">
-          <p className="label-caps mb-2 px-3">Navigation</p>
+          <Link
+            href="/agents"
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
+              'text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30]',
+              'dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]'
+            )}
+          >
+            <ArrowLeft className="size-4 shrink-0 text-[#6f7f80]" />
+            Back to Agents
+          </Link>
+          <p className="label-caps mb-2 mt-4 px-3">Navigation</p>
           {navItems.map(item => (
             <Link
               key={item.href}
