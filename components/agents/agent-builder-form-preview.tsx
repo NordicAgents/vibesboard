@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX, IconPlus } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
-import { type AgentToolType, type AgentMode } from '@/lib/types'
+import { type AgentToolType, type AgentMode, type RetrievalStrategy } from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface AgentFormData {
@@ -37,7 +37,14 @@ export interface AgentFormData {
   maxMessages?: number | null
   quickSuggestionsMode?: 'off' | 'smart' | 'always'
   quickSuggestionsCount?: number
+  retrievalStrategy?: RetrievalStrategy
 }
+
+const RETRIEVAL_OPTIONS: { value: RetrievalStrategy; label: string; hint: string }[] = [
+  { value: 'direct', label: 'Direct', hint: 'Load full files into context.' },
+  { value: 'rag', label: 'RAG', hint: 'Vector search on demand.' },
+  { value: 'bash', label: 'Bash', hint: 'Shell commands in a sandbox.' }
+]
 
 interface AgentBuilderFormPreviewProps {
   formData: AgentFormData
@@ -320,6 +327,55 @@ export function AgentBuilderFormPreview({
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Retrieval Strategy */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">
+              File Retrieval Strategy
+            </CardTitle>
+            <CardDescription className="text-xs">
+              How the agent reads uploaded files
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {RETRIEVAL_OPTIONS.map(opt => {
+              const selected = (formData.retrievalStrategy ?? 'direct') === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() =>
+                    onFormChange({ ...formData, retrievalStrategy: opt.value })
+                  }
+                  className={cn(
+                    'flex w-full items-start gap-2.5 rounded-md border p-2.5 text-left transition-colors',
+                    selected
+                      ? 'border-primary bg-primary/5'
+                      : 'hover:border-muted-foreground/30 hover:bg-muted/40'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border',
+                      selected ? 'border-primary' : 'border-muted-foreground/40'
+                    )}
+                  >
+                    {selected && (
+                      <div className="size-1.5 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-medium">{opt.label}</span>
+                    <p className="text-[10px] text-muted-foreground">
+                      {opt.hint}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
           </CardContent>
         </Card>
 

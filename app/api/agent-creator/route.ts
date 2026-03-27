@@ -109,6 +109,7 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - quickSuggestionsCount (default: 4; options: 1–5)
 - mode (default: "provider"; options: "provider" | "collector")
 - maxMessages (collector only; default: 20)
+- retrievalStrategy (default: "direct"; options: "direct" | "rag" | "bash" — use "rag" for large/many files, "bash" for CSV/JSON/YAML structured data, "direct" for small files)
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -122,7 +123,8 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "quickSuggestionsMode": "smart",
   "quickSuggestionsCount": 4,
   "mode": "provider",
-  "maxMessages": null
+  "maxMessages": null,
+  "retrievalStrategy": "direct"
 }
 ~~~
 
@@ -131,7 +133,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 **Functions to call:**
 
 1. **create_agent** - ONLY when user explicitly says "create it" or similar
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5 }
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5, retrievalStrategy?: "direct" | "rag" | "bash" }
 
 **Interaction style:**
 - Be conversational and encouraging
@@ -233,6 +235,11 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           items: { type: 'string' },
           description:
             "Optional uploaded file keys to ground the agent's knowledge."
+        },
+        retrievalStrategy: {
+          type: 'string',
+          enum: ['direct', 'rag', 'bash'],
+          description: 'File retrieval strategy: direct (full files), rag (vector search), or bash (shell sandbox).'
         }
       },
       required: ['name', 'instructions', 'greetingText']
@@ -262,7 +269,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
     quickSuggestionsCount: z.number().int().min(1).max(5).optional(),
     tools: z.array(z.string()).optional(),
-    fileKeys: z.array(z.string()).optional()
+    fileKeys: z.array(z.string()).optional(),
+    retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional()
   })
 
   const response = await openai.createChatCompletion({
@@ -334,7 +342,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         mode,
         maxMessages,
         quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
-        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4
+        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4,
+        retrievalStrategy: parsed.data.retrievalStrategy ?? 'direct'
       })
 
       // Resolve the tenant the new agent should belong to.
@@ -377,7 +386,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             quickSuggestionsMode: payload.quickSuggestionsMode,
             quickSuggestionsCount: payload.quickSuggestionsCount,
             sourceUrls: payload.sourceUrls,
-            retrievalStrategy: 'direct',
+            retrievalStrategy: payload.retrievalStrategy,
             createdAt: now,
             updatedAt: now
           })
@@ -409,7 +418,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           mode: payload.mode,
           maxMessages: maxMessages,
           quickSuggestionsMode: payload.quickSuggestionsMode,
-          quickSuggestionsCount: payload.quickSuggestionsCount
+          quickSuggestionsCount: payload.quickSuggestionsCount,
+          retrievalStrategy: payload.retrievalStrategy
         },
         null,
         2
