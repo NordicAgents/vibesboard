@@ -8,6 +8,7 @@ import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 import {
   type AgentToolType,
   type QuickSuggestionsMode,
+  type RetrievalStrategy,
   type VibeAgentTool
 } from '@/lib/types'
 import { AgentBuilderHelper } from './agent-builder-helper'
@@ -23,6 +24,13 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+
+const RETRIEVAL_OPTIONS: { value: RetrievalStrategy; label: string; hint: string }[] = [
+  { value: 'direct', label: 'Direct', hint: 'Load full file content into every conversation.' },
+  { value: 'rag', label: 'RAG', hint: 'Search relevant sections on demand using vector search.' },
+  { value: 'bash', label: 'Bash', hint: 'Give the agent shell commands to analyze files in a sandbox.' }
+]
 
 interface AgentBuilderProps {
   userId: string
@@ -41,6 +49,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   const [quickSuggestionsMode, setQuickSuggestionsMode] =
     useState<QuickSuggestionsMode>('smart')
   const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(4)
+  const [retrievalStrategy, setRetrievalStrategy] = useState<RetrievalStrategy>('direct')
   const [fileKeys, setFileKeys] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -143,7 +152,8 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           fileKeys,
           tools: toolsPayload,
           quickSuggestionsMode,
-          quickSuggestionsCount
+          quickSuggestionsCount,
+          retrievalStrategy
         })
       })
 
@@ -289,6 +299,50 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
             </CardContent>
           </Card>
         )}
+
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
+          <CardHeader>
+            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">File Retrieval Strategy</CardTitle>
+            <CardDescription className="font-switzer text-gray-secondary">
+              Controls how this agent reads its uploaded files during conversations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {RETRIEVAL_OPTIONS.map(opt => {
+              const selected = retrievalStrategy === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setRetrievalStrategy(opt.value)}
+                  className={cn(
+                    'flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors',
+                    selected
+                      ? 'border-primary bg-primary/5'
+                      : 'hover:border-muted-foreground/30 hover:bg-muted/40'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border',
+                      selected ? 'border-primary' : 'border-muted-foreground/40'
+                    )}
+                  >
+                    {selected && (
+                      <div className="size-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium">{opt.label}</span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {opt.hint}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </CardContent>
+        </Card>
 
         <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
           <CardHeader>
