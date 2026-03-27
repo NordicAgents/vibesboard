@@ -237,7 +237,7 @@ export function AgentChatWithLayout({
                 setSelectedConversation(null)
                 setAgentSidebarOpen?.(true)
                 const params = new URLSearchParams(searchParams.toString())
-                params.set('tab', 'configure')
+                params.set('tab', 'setup')
                 params.delete('configure')
                 router.push(`/agents/${agent.id}?${params.toString()}`)
               }}
@@ -396,7 +396,7 @@ export function AgentChatWithLayout({
             agent={agent}
             share={share}
             canEdit={canEdit}
-            defaultTab={activeTab || 'configure'}
+            defaultTab={activeTab || 'setup'}
           />
         </div>
       ) : canEdit ? (
