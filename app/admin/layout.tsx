@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
-import { Building2, Flag, FileText, ShieldCheck } from 'lucide-react'
+import { Building2, Flag, FileText, ShieldCheck, ArrowLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { AdminMobileSidebar, type NavItem } from './admin-mobile-sidebar'
 
@@ -49,7 +49,10 @@ export default async function AdminLayout({
         </div>
 
         <nav className="flex-1 space-y-0.5 p-3">
-          <p className="label-caps mb-2 px-3">Management</p>
+          <NavLink href="/agents" icon={ArrowLeft}>
+            Back to Agents
+          </NavLink>
+          <p className="label-caps mb-2 mt-4 px-3">Management</p>
           {navItems.map(item => {
             const Icon = iconMap[item.iconName]
             return (
