@@ -31,11 +31,11 @@ export function AppHeaderController({
   // e.g. /user-WlgbEdFb/calcbuddy
   const isPublicAgentPage = !isSystemPath && segments.length === 2
 
-  // Hide on landing page (has its own header) and legacy /a paths
+  // Hide on landing page (has its own header) and routes with their own nav
   const isLandingPage = pathname === '/' || pathname === '/landing'
-  const isLegacyAppPage = pathname?.startsWith('/a')
+  const hasOwnNavigation = pathname?.startsWith('/agents')
 
-  if (isPublicAgentPage || isLandingPage || isLegacyAppPage) {
+  if (isPublicAgentPage || isLandingPage || hasOwnNavigation) {
     return null
   }
 
