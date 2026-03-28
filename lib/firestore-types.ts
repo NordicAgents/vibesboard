@@ -11,7 +11,7 @@ export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
 export type ChatwootConnectionStatus = 'active' | 'disconnected' | 'error'
 
 // ─── Agent notifications ────────────────────────────────────────────
-export type NotificationEvent = 'completed' | 'handoff'
+export type NotificationEvent = 'completed' | 'handoff' | 'agent_handoff'
 
 export interface AgentNotificationConfig {
   enabled: boolean
@@ -171,8 +171,18 @@ export interface AgentDocument {
   retrievalStrategy?: 'direct' | 'rag' | 'bash'
   lastEmbeddingsSyncAt?: string
   notificationConfig?: AgentNotificationConfig
+  handoffTargets?: string[]
   createdAt: string
   updatedAt: string
+}
+
+/** Handoff chain entry — tracks agent-to-agent transfers */
+export interface HandoffChainEntry {
+  fromAgentId: string
+  fromAgentName: string
+  toAgentId: string
+  toAgentName: string
+  timestamp: string
 }
 
 /** /tenants/{tenantId}/notifications/{notificationId} */
@@ -253,8 +263,25 @@ export interface ConversationDocument {
   summary?: string
   closedAt?: string
   summaryGeneratedAt?: string
+  handedOff?: boolean
+  handoffChain?: HandoffChainEntry[]
+  responseCounts?: Record<string, number>
+  activeAgentId?: string
   createdAt: string
   updatedAt: string
+}
+
+/** /tenants/{tenantId}/agents/{agentId}/conversation_refs/{sourceConversationId} */
+export interface ConversationRefDocument {
+  id: string
+  sourceAgentId: string
+  sourceAgentName: string
+  sourceConversationId: string
+  role: 'active' | 'completed'
+  responseCount: number
+  summary?: string | null
+  lastMessageAt: string
+  createdAt: string
 }
 
 /** /tenants/{tenantId}/agents/{agentId}/files/{id} */
@@ -504,6 +531,10 @@ export const Collections = {
     contactPhone: string
   ) =>
     `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const,
+
+  // Conversation refs (handoff visibility)
+  conversationRefs: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/conversation_refs` as const,
 
   // Instagram Inbox (OAuth-connected)
   instagramInboxAccounts: (tenantId: string) =>
