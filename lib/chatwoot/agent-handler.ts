@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { nanoid } from 'nanoid'
-import type { Message } from 'ai'
+import type { Message } from '@/lib/types/message'
 import type { VibeAgent } from '@/lib/types'
 import type { ChatwootConnectionDocument } from '@/lib/firestore-types'
 import { runAgentStream } from '@/lib/agent/runtime'

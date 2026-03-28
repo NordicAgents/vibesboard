@@ -1,4 +1,4 @@
-import { Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 
@@ -7,6 +7,7 @@ import { CodeBlock } from '@/components/ui/codeblock'
 import { MemoizedReactMarkdown } from '@/components/markdown'
 import { ChatMessageActions } from '@/components/chat-message-actions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ChartWidget, parseChartConfig } from '@/components/ui/chart-widget'
 
 export interface ChatMessageProps {
   message: Message
@@ -92,6 +93,11 @@ const ChatMarkdown = ({
         }
 
         const match = /language-(\w+)/.exec(className || '')
+
+        if (match && match[1] === 'chart') {
+          const config = parseChartConfig(String(children).replace(/\n$/, ''))
+          if (config) return <ChartWidget config={config} />
+        }
 
         if (inline) {
           return (

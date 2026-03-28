@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 import { useCompletion } from 'ai/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 

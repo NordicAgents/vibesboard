@@ -1,4 +1,4 @@
-import { type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 import { Configuration, OpenAIApi } from 'openai-edge'
 
 import { adminDb } from '@/lib/firebase/admin'

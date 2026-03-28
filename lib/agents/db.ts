@@ -1,4 +1,4 @@
-import { type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type AgentDocument } from '@/lib/firestore-types'
