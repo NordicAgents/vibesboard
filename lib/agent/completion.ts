@@ -68,18 +68,36 @@ export function createCompletionTransformStream(
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   let buffer = ''
+  let held = ''
+  // Hold back enough chars to cover the longest marker ([COLLECTION_COMPLETE] = 21 chars)
+  const HOLD_BACK = 30
 
   return new TransformStream({
     transform(chunk, controller) {
       // Decode and buffer the chunk
-      buffer += decoder.decode(chunk, { stream: true })
+      const text = decoder.decode(chunk, { stream: true })
+      buffer += text
+      held += text
 
-      // Stream the chunk as-is for now (we'll handle markers at flush)
-      controller.enqueue(chunk)
+      // Release everything except the last HOLD_BACK chars to prevent
+      // completion markers from flashing on the client during streaming
+      if (held.length > HOLD_BACK) {
+        const toRelease = held.slice(0, held.length - HOLD_BACK)
+        controller.enqueue(encoder.encode(toRelease))
+        held = held.slice(held.length - HOLD_BACK)
+      }
     },
     flush(controller) {
       // After stream completes, check for completion markers
       const completionReason = detectCompletionMarker(buffer)
+
+      // Release the held tail, stripped of any completion markers
+      if (held) {
+        const cleanedHeld = stripCompletionMarkers(held)
+        if (cleanedHeld) {
+          controller.enqueue(encoder.encode(cleanedHeld))
+        }
+      }
 
       // Check max responses threshold
       const maxResponsesReached =

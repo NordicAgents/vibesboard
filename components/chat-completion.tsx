@@ -9,12 +9,14 @@ import { IconCheck, IconClose } from '@/components/ui/icons'
 interface ChatCompletionProps {
   mode: AgentMode
   onComplete: () => void
+  onCorrect?: () => void
   agentName?: string
 }
 
 export function ChatCompletion({
   mode,
   onComplete,
+  onCorrect,
   agentName
 }: ChatCompletionProps) {
   if (mode === 'collector') {
@@ -33,13 +35,25 @@ export function ChatCompletion({
             We&apos;ve collected your response.
           </p>
         </div>
-        <Button
-          onClick={onComplete}
-          className="mt-2 rounded-full px-6"
-          size="lg"
-        >
-          Submit
-        </Button>
+        <div className="mt-2 flex items-center gap-3">
+          {onCorrect && (
+            <Button
+              onClick={onCorrect}
+              variant="outline"
+              className="rounded-full px-6"
+              size="lg"
+            >
+              Correct an answer
+            </Button>
+          )}
+          <Button
+            onClick={onComplete}
+            className="rounded-full px-6"
+            size="lg"
+          >
+            Submit
+          </Button>
+        </div>
       </motion.div>
     )
   }
@@ -71,6 +85,7 @@ interface ChatCompletionBannerProps {
   mode: AgentMode
   isAgentDisabled?: boolean
   onComplete: () => void
+  onCorrect?: () => void
 }
 
 /**
@@ -79,7 +94,8 @@ interface ChatCompletionBannerProps {
 export function ChatCompletionBanner({
   mode,
   isAgentDisabled,
-  onComplete
+  onComplete,
+  onCorrect
 }: ChatCompletionBannerProps) {
   if (isAgentDisabled) {
     return (
@@ -110,9 +126,21 @@ export function ChatCompletionBanner({
             Thanks for vibing! We&apos;ve collected your response.
           </span>
         </div>
-        <Button onClick={onComplete} size="sm" className="rounded-full">
-          Submit
-        </Button>
+        <div className="flex items-center gap-2">
+          {onCorrect && (
+            <Button
+              onClick={onCorrect}
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+            >
+              Correct an answer
+            </Button>
+          )}
+          <Button onClick={onComplete} size="sm" className="rounded-full">
+            Submit
+          </Button>
+        </div>
       </motion.div>
     )
   }

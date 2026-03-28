@@ -8,17 +8,59 @@ export const COMPLETION_MARKERS = {
   HANDOFF_TO_AGENT_PREFIX: '[HANDOFF_TO_AGENT:'
 } as const
 
+function getCollectionFieldsPrompt(agent: VibeAgent): string {
+  const fields = agent.collectionFields
+  if (!fields || fields.length === 0) return ''
+
+  const sorted = [...fields].sort((a, b) => a.order - b.order)
+  const required = sorted.filter(f => f.required)
+  const optional = sorted.filter(f => !f.required)
+
+  let prompt = '\n## Information to Collect\nYou MUST collect the following fields from the user:\n'
+
+  if (required.length) {
+    prompt += '\n**Required fields (must collect all before completing):**\n'
+    for (const f of required) {
+      const hint = f.description ? ` — ${f.description}` : ''
+      const choices = f.choices?.length ? ` (options: ${f.choices.join(', ')})` : ''
+      prompt += `- **${f.label}** (${f.type})${hint}${choices}\n`
+    }
+  }
+
+  if (optional.length) {
+    prompt += '\n**Optional fields (ask if conversation allows):**\n'
+    for (const f of optional) {
+      const hint = f.description ? ` — ${f.description}` : ''
+      const choices = f.choices?.length ? ` (options: ${f.choices.join(', ')})` : ''
+      prompt += `- ${f.label} (${f.type})${hint}${choices}\n`
+    }
+  }
+
+  prompt += `
+Rules for structured collection:
+- Ask questions one at a time in the order listed above
+- Do NOT skip required fields
+- You may combine closely related fields into one question if it feels natural
+- Track which fields you have collected — do NOT emit the completion marker until ALL required fields have valid answers
+- After collecting all required fields, ask about optional fields if the conversation allows
+- When validating: "email" fields should look like valid emails, "phone" fields should look like phone numbers, "number" fields should be numeric`
+
+  return prompt
+}
+
 function getModeInstructions(agent: VibeAgent): string {
   if (agent.mode === 'collector') {
+    const fieldsPrompt = getCollectionFieldsPrompt(agent)
     return `
 IMPORTANT - Information Collection Mode:
 Your primary goal is to gather specific information from the user efficiently.
-- When the user sends their first message (even a brief greeting like "Hi"), immediately ask your first data collection question. Do not ask how you can help — begin collecting right away.
-- Ask clear, focused questions to collect the required data
+- A greeting message has already been shown to the user. Your first response should immediately begin with your first data collection question. Do not repeat the greeting or ask how you can help.
+- Ask clear, focused questions to collect the required data — one question at a time
 - Keep the conversation concise and on-topic
-- Once you have gathered all the information you need, end your response with exactly: ${COMPLETION_MARKERS.COLLECTION_COMPLETE}
+- Do NOT emit the completion marker until you have collected ALL necessary information specified in your instructions${fieldsPrompt ? ' and the required fields listed below' : ''}
+- Once you have gathered all the information you need, thank the user briefly and end your response with exactly: ${COMPLETION_MARKERS.COLLECTION_COMPLETE}
 - This marker signals that the data collection is complete
-- Do not include this marker until you have collected all necessary information`
+- If the user wants to correct a previous answer after collection is complete, help them make the correction, then re-emit ${COMPLETION_MARKERS.COLLECTION_COMPLETE}${fieldsPrompt}`
   }
 
   // Provider mode (default)
@@ -27,7 +69,11 @@ IMPORTANT - Information Providing Mode:
 Your primary goal is to provide helpful information to the user.
 - Answer questions thoroughly but concisely
 - After providing substantive information, occasionally ask: "Is there anything else you'd like to know?"
-- If the user indicates they are done (e.g., "no", "thanks", "that's all", "I'm good"), end your response with exactly: ${COMPLETION_MARKERS.INFO_COMPLETE}
+- Only emit the completion marker when the user EXPLICITLY indicates they are done with the conversation. Casual acknowledgments like "thanks", "ok", "got it" after a single answer are NOT done signals — they are polite responses.
+- Emit the completion marker ONLY when the user clearly says something like: "no more questions", "that's all I needed", "I'm done", "nothing else", or a clear "no" in response to "Is there anything else?"
+- Do NOT emit the completion marker after a single Q&A exchange unless the user explicitly says they are done.
+- If in doubt, ask "Is there anything else I can help with?" before completing.
+- When the user is done, end your response with exactly: ${COMPLETION_MARKERS.INFO_COMPLETE}
 - This marker signals that the user has received the information they need`
 }
 
@@ -70,11 +116,9 @@ function getWrapUpInstructions(
 - End your response with exactly: ${COMPLETION_MARKERS.COLLECTION_COMPLETE}
 - Do NOT ask any further questions.`
     }
-    // remainingResponses === 2
-    return `
-⚠️ SESSION LIMIT — You have 2 responses remaining (including this one). Begin wrapping up.
-- Ask only your most important remaining question (if any).
-- Prepare to conclude in your next response.`
+    // For collector mode, keep asking questions until the very last response.
+    // No intermediate "wrap up" stage — maximize data collection.
+    return ''
   }
 
   // Provider mode

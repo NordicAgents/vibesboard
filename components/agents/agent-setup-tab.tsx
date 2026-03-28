@@ -1,6 +1,6 @@
 'use client'
 
-import type { AgentMode, QuickSuggestionsMode } from '@/lib/types'
+import type { AgentMode, CollectionField, QuickSuggestionsMode } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { CollectionFieldsEditor } from './collection-fields-editor'
 
 interface AgentSetupTabProps {
   name: string
@@ -33,6 +34,8 @@ interface AgentSetupTabProps {
   onQuickSuggestionsModeChange: (value: QuickSuggestionsMode) => void
   quickSuggestionsCount: number
   onQuickSuggestionsCountChange: (value: number) => void
+  collectionFields: CollectionField[]
+  onCollectionFieldsChange: (value: CollectionField[]) => void
   tenantSlug?: string
   agentUrl: string
   saving: boolean
@@ -59,6 +62,8 @@ export function AgentSetupTab({
   onQuickSuggestionsModeChange,
   quickSuggestionsCount,
   onQuickSuggestionsCountChange,
+  collectionFields,
+  onCollectionFieldsChange,
   tenantSlug,
   agentUrl,
   saving,
@@ -176,6 +181,15 @@ export function AgentSetupTab({
           </p>
         </CardContent>
       </Card>
+
+      {/* Collection Fields (collector mode only) */}
+      {mode === 'collector' && (
+        <CollectionFieldsEditor
+          fields={collectionFields}
+          onChange={onCollectionFieldsChange}
+          disabled={saving || !canEdit}
+        />
+      )}
 
       {/* Response Limits */}
       <Card>
