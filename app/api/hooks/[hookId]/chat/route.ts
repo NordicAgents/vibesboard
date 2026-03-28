@@ -22,6 +22,8 @@ import { nanoid } from '@/lib/utils'
 import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
 import { validateHandoff, buildHandoffContext, MAX_HANDOFF_DEPTH } from '@/lib/agent/handoff'
 import { Collections } from '@/lib/firestore-types'
+import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -97,13 +99,25 @@ export async function POST(
     ? priorMessages
     : [...priorMessages, userMessage]
 
-  // ── 5. Run agent with handoff loop ─────────────────────────────────
+  // ── 5. Check tenant usage limit ────────────────────────────────────
+  const usageCheck = await checkUsageLimit(agent.tenantId!)
+  if (!usageCheck.allowed) {
+    return usageLimitResponse(usageCheck)
+  }
+
+  // ── 6. Run agent with handoff loop ─────────────────────────────────
   let currentAgent = agent
   let reply = ''
 
   for (let depth = 0; depth <= MAX_HANDOFF_DEPTH; depth++) {
     reply = ''
     let handoffTargetId: string | null = null
+
+    // Re-check usage limit on each handoff hop (except first — already checked)
+    if (depth > 0) {
+      const hopCheck = await checkUsageLimit(agent.tenantId!)
+      if (!hopCheck.allowed) return usageLimitResponse(hopCheck)
+    }
 
     // Resolve handoff target names for the current agent
     let handoffTargetNames: Record<string, string> = {}
@@ -141,6 +155,16 @@ export async function POST(
           .catch((e: unknown) =>
             console.error('[hooks] Failed to increment response count:', e)
           )
+
+        // Record usage for metering (fire-and-forget)
+        recordUsage({
+          tenantId: agent.tenantId!,
+          agentId: currentAgent.id,
+          conversationId: conversation.id,
+          userId: null,
+          source: 'hook_chat',
+          model: OPENAI_CHAT_MODEL,
+        })
 
         const event = mapCompletionToEvent(reason)
         if (event) {
@@ -216,10 +240,10 @@ export async function POST(
     currentAgent = validation.targetAgent
   }
 
-  // ── 6. Record usage (fire-and-forget) ────────────────────────────────
+  // ── 7. Record hook usage (fire-and-forget) ──────────────────────────
   recordHookUsage(agent.tenantId!, agent.id, hookId)
 
-  // ── 7. Return JSON response ──────────────────────────────────────────
+  // ── 8. Return JSON response ──────────────────────────────────────────
   return NextResponse.json({
     reply,
     conversationId: conversation.id,
