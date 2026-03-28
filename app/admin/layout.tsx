@@ -37,6 +37,12 @@ export default async function AdminLayout({
       {/* Desktop Sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-[#e4e3e3] bg-[#f5f8f7] dark:border-[#344348] dark:bg-[#192425] md:flex md:flex-col">
         <div className="flex h-16 items-center gap-2.5 border-b border-[#e4e3e3] px-5 dark:border-[#344348]">
+          <Link
+            href="/agents"
+            className="flex size-7 items-center justify-center rounded-lg text-[#6f7f80] transition-colors hover:bg-[#e6ede6] hover:text-[#222f30] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
           <div className="flex size-7 items-center justify-center rounded-lg bg-[#e6ede6] dark:bg-[#344348]">
             <ShieldCheck className="size-3.5 text-accent-orange" />
           </div>
@@ -49,10 +55,7 @@ export default async function AdminLayout({
         </div>
 
         <nav className="flex-1 space-y-0.5 p-3">
-          <NavLink href="/agents" icon={ArrowLeft}>
-            Back to Agents
-          </NavLink>
-          <p className="label-caps mb-2 mt-4 px-3">Management</p>
+          <p className="label-caps mb-2 px-3">Management</p>
           {navItems.map(item => {
             const Icon = iconMap[item.iconName]
             return (
