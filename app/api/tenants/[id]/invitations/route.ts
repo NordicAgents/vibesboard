@@ -58,7 +58,17 @@ export async function GET(req: Request, { params }: RouteParams) {
         .orderBy('createdAt', 'desc')
         .get()
 
-    const invitations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    const invitations = snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+        const data = doc.data()
+        return {
+            id: doc.id,
+            email: data.email,
+            role: data.role,
+            status: data.status,
+            created_at: data.createdAt,
+            expires_at: data.expiresAt,
+        }
+    })
 
     return NextResponse.json({ invitations })
 }
