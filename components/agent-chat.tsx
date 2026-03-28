@@ -64,6 +64,7 @@ export function AgentChat({
   const [maxResponses, setMaxResponses] = useState<number | null>(
     agent.maxResponses ?? null
   )
+  const [remainingResponses, setRemainingResponses] = useState<number | null>(null)
   const [isAgentDisabled, setIsAgentDisabled] = useState(
     !!(agent.maxAgentResponses && (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses)
   )
@@ -111,10 +112,8 @@ export function AgentChat({
         return
       }
 
-      // Count assistant responses (subtract 1 to exclude the greeting message)
-      const assistantCount = messagesArr.filter(m => m.role === 'assistant').length - 1
-
-      if (maxResponses && assistantCount >= maxResponses) {
+      // Trust the server's remaining responses header
+      if (remainingResponses !== null && remainingResponses <= 0) {
         setIsChatComplete(true)
         return
       }
@@ -147,7 +146,7 @@ export function AgentChat({
         }
       }
     },
-    [maxResponses, isAgentDisabled]
+    [remainingResponses, isAgentDisabled]
   )
 
   const {
@@ -192,6 +191,10 @@ export function AgentChat({
       const maxRespHeader = response.headers.get('x-max-responses')
       if (maxRespHeader) {
         setMaxResponses(parseInt(maxRespHeader, 10) || null)
+      }
+      const remainingRespHeader = response.headers.get('x-remaining-responses')
+      if (remainingRespHeader !== null && remainingRespHeader !== '') {
+        setRemainingResponses(parseInt(remainingRespHeader, 10))
       }
       const maxAgentRespHeader = response.headers.get('x-max-agent-responses')
       const totalRespHeader = response.headers.get('x-total-response-count')
@@ -270,12 +273,16 @@ export function AgentChat({
       setActiveAgentName(meta.targetAgentName)
       setHandoffAgentId(meta.targetAgentId)
 
-      // Auto-send a continuation message to trigger the target agent
+      // Auto-send a continuation message to trigger the target agent,
+      // then clear handoffAgentId so subsequent messages don't re-trigger
+      // the continuation path on the server.
       setTimeout(() => {
         append({
           id: `${HANDOFF_CONTINUE_PREFIX}${nanoid()}`,
           role: 'user',
           content: 'Continue'
+        }).then(() => {
+          setHandoffAgentId(undefined)
         })
       }, 500)
     } catch {

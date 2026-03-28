@@ -265,8 +265,23 @@ export interface ConversationDocument {
   summaryGeneratedAt?: string
   handedOff?: boolean
   handoffChain?: HandoffChainEntry[]
+  responseCounts?: Record<string, number>
+  activeAgentId?: string
   createdAt: string
   updatedAt: string
+}
+
+/** /tenants/{tenantId}/agents/{agentId}/conversation_refs/{sourceConversationId} */
+export interface ConversationRefDocument {
+  id: string
+  sourceAgentId: string
+  sourceAgentName: string
+  sourceConversationId: string
+  role: 'active' | 'completed'
+  responseCount: number
+  summary?: string | null
+  lastMessageAt: string
+  createdAt: string
 }
 
 /** /tenants/{tenantId}/agents/{agentId}/files/{id} */
@@ -516,6 +531,10 @@ export const Collections = {
     contactPhone: string
   ) =>
     `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const,
+
+  // Conversation refs (handoff visibility)
+  conversationRefs: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/conversation_refs` as const,
 
   // Instagram Inbox (OAuth-connected)
   instagramInboxAccounts: (tenantId: string) =>

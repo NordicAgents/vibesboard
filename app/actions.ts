@@ -124,7 +124,8 @@ export async function getAgentConversations(
 
     const conversations: VibeAgentConversation[] = []
 
-    // For each agent, get conversations for this user
+    // For each agent, get conversations for this user + handoff refs
+    const seenIds = new Set<string>()
     for (const agentDoc of agentsSnapshot.docs) {
       const convSnapshot = await adminDb
         .collection(
@@ -134,9 +135,38 @@ export async function getAgentConversations(
         .orderBy('updatedAt', 'desc')
         .get()
 
-      conversations.push(
-        ...convSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
-      )
+      for (const doc of convSnapshot.docs) {
+        const conv = mapConversationDoc(doc.data())
+        if (!seenIds.has(conv.id)) {
+          seenIds.add(conv.id)
+          conversations.push(conv)
+        }
+      }
+
+      // Also fetch conversation refs (conversations handed off to this agent)
+      const refsSnapshot = await adminDb
+        .collection(Collections.conversationRefs(activeTenantId, agentDoc.id))
+        .orderBy('lastMessageAt', 'desc')
+        .limit(10)
+        .get()
+
+      for (const refDoc of refsSnapshot.docs) {
+        const ref = refDoc.data()
+        if (seenIds.has(ref.sourceConversationId)) continue
+        try {
+          const srcConvoDoc = await adminDb
+            .collection(Collections.conversations(activeTenantId, ref.sourceAgentId))
+            .doc(ref.sourceConversationId)
+            .get()
+          if (srcConvoDoc.exists) {
+            const conv = mapConversationDoc(srcConvoDoc.data()!)
+            seenIds.add(conv.id)
+            conversations.push(conv)
+          }
+        } catch {
+          // Source conversation may have been deleted
+        }
+      }
     }
 
     // Sort all conversations by updatedAt descending

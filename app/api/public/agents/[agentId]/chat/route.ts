@@ -9,7 +9,8 @@ import {
   ensureConversation,
   updateConversationMessages,
   getConversation,
-  recordConversationHandoff
+  recordConversationHandoff,
+  updateConversationRef
 } from '@/lib/agents/conversations'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
@@ -149,6 +150,18 @@ export async function POST(
     }
   }
 
+  // Check active agent's lifetime limit
+  if (
+    activeAgent.id !== agent.id &&
+    activeAgent.maxAgentResponses &&
+    (activeAgent.totalResponseCount ?? 0) >= activeAgent.maxAgentResponses
+  ) {
+    return NextResponse.json(
+      { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
+      { status: 403 }
+    )
+  }
+
   // Resolve handoff target names for the active agent's system prompt
   if (activeAgent.handoffTargets?.length) {
     handoffTargetNames = await getAgentNames(activeAgent.handoffTargets)
@@ -161,14 +174,12 @@ export async function POST(
       ]
     : normalizedMessages
 
-  // Count assistant responses for max responses check
-  // +1 for the response being streamed, -1 to exclude the greeting message
-  const assistantCount =
-    normalizedMessages.filter(m => m.role === 'assistant').length
+  // Use per-agent response counts from the conversation document
+  const agentResponseCount = conversation.responseCounts?.[activeAgent.id] ?? 0
 
-  // Calculate remaining responses so the AI can wrap up gracefully
-  const remainingResponses = agent.maxResponses
-    ? agent.maxResponses - assistantCount + 1
+  // Calculate remaining responses using the active agent's config
+  const remainingResponses = activeAgent.maxResponses
+    ? activeAgent.maxResponses - agentResponseCount
     : null
 
   const stream = await runAgentStream({
@@ -192,38 +203,81 @@ export async function POST(
         agentId: agent.id,
         conversationId: conversation.id,
         messages: nextMessages,
-        summary: null
+        summary: null,
+        respondingAgentId: activeAgent.id
       })
 
       if (reason === 'handoff_to_agent') {
         const targetId = extractHandoffTarget(completion)
         if (targetId) {
-          const targetName = handoffTargetNames[targetId] ?? targetId
-          await recordConversationHandoff(tenantId, agent.id, conversation.id, {
-            fromAgentId: activeAgent.id,
-            fromAgentName: activeAgent.name,
-            toAgentId: targetId,
-            toAgentName: targetName
+          const existingConvForHandoff = await getConversation(
+            tenantId,
+            agent.id,
+            conversation.id
+          )
+          const validation = await validateHandoff({
+            sourceAgent: activeAgent,
+            targetAgentId: targetId,
+            handoffChain: existingConvForHandoff?.handoffChain ?? []
           })
+          if (validation.valid && validation.targetAgent) {
+            await recordConversationHandoff(tenantId, agent.id, conversation.id, {
+              fromAgentId: activeAgent.id,
+              fromAgentName: activeAgent.name,
+              toAgentId: validation.targetAgent.id,
+              toAgentName: validation.targetAgent.name
+            })
+          }
         }
       }
 
-      // Increment agent-level response counter
-      adminDb
-        .collection(Collections.agents(tenantId))
-        .doc(agent.id)
-        .update({ totalResponseCount: FieldValue.increment(1) })
-        .catch(err =>
-          console.error('[chat] Failed to increment response count:', err)
+      // Increment active agent's lifetime response counter
+      if (
+        activeAgent.maxAgentResponses &&
+        (activeAgent.totalResponseCount ?? 0) + 5 >= activeAgent.maxAgentResponses
+      ) {
+        const agentRef = adminDb
+          .collection(Collections.agents(activeAgent.tenantId!))
+          .doc(activeAgent.id)
+        adminDb.runTransaction(async (tx: any) => {
+          const snap = await tx.get(agentRef)
+          const current = (snap.data() as Record<string, any> | undefined)?.totalResponseCount ?? 0
+          tx.update(agentRef, { totalResponseCount: current + 1 })
+        }).catch((e: unknown) =>
+          console.error('[chat] Failed to increment response count (tx):', e)
         )
+      } else {
+        adminDb
+          .collection(Collections.agents(activeAgent.tenantId!))
+          .doc(activeAgent.id)
+          .update({ totalResponseCount: FieldValue.increment(1) })
+          .catch((e: unknown) =>
+            console.error('[chat] Failed to increment response count:', e)
+          )
+      }
+
+      // Update conversation ref if this is a handoff target agent
+      if (activeAgent.id !== agent.id) {
+        updateConversationRef(
+          tenantId,
+          activeAgent.id,
+          conversation.id,
+          {
+            responseCount: agentResponseCount + 1,
+            lastMessageAt: new Date().toISOString()
+          }
+        ).catch(err =>
+          console.error('[chat] Failed to update conversation ref:', err)
+        )
+      }
 
       const event = mapCompletionToEvent(reason)
       if (event) {
         dispatchAgentNotification({
-          agent,
+          agent: activeAgent,
           conversationId: conversation.id,
           event,
-          messageCount: assistantCount
+          messageCount: agentResponseCount
         })
       }
     }
@@ -231,20 +285,25 @@ export async function POST(
 
   const transformedStream = wrapStreamWithCompletionDetection(
     stream,
-    agent.maxResponses,
-    assistantCount,
+    activeAgent.maxResponses,
+    agentResponseCount,
     handoffTargetNames
   )
+
+  const currentRemainingResponses = activeAgent.maxResponses
+    ? activeAgent.maxResponses - agentResponseCount - 1
+    : null
 
   return new StreamingTextResponse(transformedStream, {
     headers: {
       'x-conversation-id': conversation.id,
       'x-agent-mode': activeAgent.mode,
-      'x-max-responses': String(agent.maxResponses ?? ''),
-      'x-max-agent-responses': String(agent.maxAgentResponses ?? ''),
-      'x-total-response-count': String((agent.totalResponseCount ?? 0) + 1),
+      'x-max-responses': String(activeAgent.maxResponses ?? ''),
+      'x-max-agent-responses': String(activeAgent.maxAgentResponses ?? ''),
+      'x-total-response-count': String((activeAgent.totalResponseCount ?? 0) + 1),
       'x-agent-id': activeAgent.id,
-      'x-agent-name': activeAgent.name
+      'x-agent-name': activeAgent.name,
+      'x-remaining-responses': String(currentRemainingResponses ?? '')
     }
   })
 }

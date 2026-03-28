@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Message } from 'ai'
+import { FieldValue } from 'firebase-admin/firestore'
 
+import { adminDb } from '@/lib/firebase/admin'
 import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
 import { getAgentById, getAgentNames } from '@/lib/agents/server'
 import {
@@ -19,6 +21,7 @@ import {
 import { nanoid } from '@/lib/utils'
 import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
 import { validateHandoff, buildHandoffContext, MAX_HANDOFF_DEPTH } from '@/lib/agent/handoff'
+import { Collections } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -126,13 +129,23 @@ export async function POST(
           agentId: agent.id,
           conversationId: conversation.id,
           messages: nextMessages,
-          summary: null
+          summary: null,
+          respondingAgentId: currentAgent.id
         })
+
+        // Increment current agent's lifetime response counter
+        adminDb
+          .collection(Collections.agents(currentAgent.tenantId!))
+          .doc(currentAgent.id)
+          .update({ totalResponseCount: FieldValue.increment(1) })
+          .catch((e: unknown) =>
+            console.error('[hooks] Failed to increment response count:', e)
+          )
 
         const event = mapCompletionToEvent(reason)
         if (event) {
           dispatchAgentNotification({
-            agent,
+            agent: currentAgent,
             conversationId: conversation.id,
             event,
             messageCount: allMessages.filter(m => m.role === 'user').length
@@ -180,6 +193,12 @@ export async function POST(
       }
     )
 
+    // Append the assistant reply so the next agent sees what the current agent said
+    allMessages = [
+      ...allMessages,
+      { id: nanoid(), role: 'assistant' as const, content: reply }
+    ]
+
     // Build context for the target agent and continue the loop
     const context = buildHandoffContext({
       sourceAgentName: currentAgent.name,
@@ -187,9 +206,12 @@ export async function POST(
       summary: existingConv?.summary
     })
 
+    // Replace allMessages with just the context + original user/assistant messages
+    // (avoid accumulating redundant system messages on each hop)
+    const nonSystemMessages = allMessages.filter(m => m.role !== 'system')
     allMessages = [
       { id: nanoid(), role: 'system' as const, content: context },
-      ...allMessages
+      ...nonSystemMessages
     ]
     currentAgent = validation.targetAgent
   }

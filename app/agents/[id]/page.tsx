@@ -56,6 +56,7 @@ export default async function AgentPageAsChat({
   // Fetch conversations for this agent
   const tenantId = agent.tenantId
   let conversations: ReturnType<typeof mapConversationDoc>[] = []
+  let handoffConversations: ReturnType<typeof mapConversationDoc>[] = []
 
   if (tenantId) {
     const convoSnapshot = await adminDb
@@ -64,6 +65,28 @@ export default async function AgentPageAsChat({
       .get()
 
     conversations = convoSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
+
+    // Fetch conversation refs (conversations handed off to this agent)
+    const refsSnapshot = await adminDb
+      .collection(Collections.conversationRefs(tenantId, agent.id))
+      .orderBy('lastMessageAt', 'desc')
+      .limit(10)
+      .get()
+
+    for (const refDoc of refsSnapshot.docs) {
+      const ref = refDoc.data()
+      try {
+        const srcConvoDoc = await adminDb
+          .collection(Collections.conversations(tenantId, ref.sourceAgentId))
+          .doc(ref.sourceConversationId)
+          .get()
+        if (srcConvoDoc.exists) {
+          handoffConversations.push(mapConversationDoc(srcConvoDoc.data()!))
+        }
+      } catch {
+        // Source conversation may have been deleted
+      }
+    }
   }
 
   const ownerConversations = conversations.filter(
@@ -103,6 +126,7 @@ export default async function AgentPageAsChat({
       ownerId={session.user.id}
       ownerSessions={ownerConversations}
       visitorSessions={visitorConversations}
+      handoffConversations={handoffConversations}
       hasUnsyncedConversations={hasUnsyncedConversations}
       share={{ url: shareUrl, qrDataUrl }}
       activeTab={canEdit ? activeTab : null}

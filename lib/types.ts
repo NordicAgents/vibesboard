@@ -82,6 +82,7 @@ export interface VibeAgentConversation {
     toAgentName: string
     timestamp: string
   }>
+  responseCounts?: Record<string, number>
   summaryGeneratedAt?: string | null
   createdAt: string
   updatedAt: string

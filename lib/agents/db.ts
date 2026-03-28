@@ -132,6 +132,8 @@ export const mapConversationDoc = (
   closedAt: data.closedAt ?? null,
   handedOff: data.handedOff ?? false,
   handoffChain: Array.isArray(data.handoffChain) ? data.handoffChain : undefined,
+  responseCounts: typeof data.responseCounts === 'object' && data.responseCounts !== null
+    ? data.responseCounts : undefined,
   summaryGeneratedAt: data.summaryGeneratedAt ?? null,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
