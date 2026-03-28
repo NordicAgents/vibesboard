@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { type VibeAgent } from '@/lib/types'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
-import { IconCheck } from '@/components/ui/icons'
+import { IconCheck, IconClose } from '@/components/ui/icons'
 import { GoogleReviewCard } from '@/components/google-review-card'
 
 interface PublicAgentExperienceProps {
@@ -144,11 +144,16 @@ export function PublicAgentExperience({
                 </p>
               </div>
 
-              {/* Online indicator */}
-              <div className="flex items-center gap-1.5">
-                <div className="size-2 rounded-full bg-primary shadow-[0_0_6px_rgba(167,226,110,0.6)]" />
-                <span className="text-xs text-[#6f7f80]">Online</span>
-              </div>
+              {/* Close button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClose}
+                aria-label="Close chat"
+                className="size-8 rounded-full text-[#6f7f80] hover:bg-[#e4e3e3]/60 hover:text-[#222f30] dark:hover:bg-[#344348]/60 dark:hover:text-[#f5f8f7]"
+              >
+                <IconClose className="size-4" />
+              </Button>
             </div>
           </div>
 

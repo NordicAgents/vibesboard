@@ -86,15 +86,19 @@ export function AgentChat({
     () => initialConversationId ?? nanoid(),
     [initialConversationId]
   )
+  const defaultGreeting = agent.mode === 'collector'
+    ? 'Hi! I have a few questions for you.'
+    : 'Hi! How can I help you today?'
+
   const defaultInitialMessages: Message[] = useMemo(
     () => [
       {
         id: nanoid(),
         role: 'assistant',
-        content: agent.greetingText || 'Hi! How can I help you today?'
+        content: agent.greetingText || defaultGreeting
       }
     ],
-    [chatKey, agent.greetingText]
+    [chatKey, agent.greetingText, defaultGreeting]
   )
   const messagesToUse = useMemo(
     () =>
@@ -432,6 +436,15 @@ export function AgentChat({
     onChatComplete?.(messages)
   }, [onChatComplete, messages])
 
+  const handleCorrection = useCallback(() => {
+    setIsChatComplete(false)
+    append({
+      id: nanoid(),
+      role: 'user',
+      content: 'I need to correct one of my previous answers.'
+    })
+  }, [append])
+
   return (
     <div
       className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}
@@ -497,6 +510,7 @@ export function AgentChat({
         agentMode={agentMode}
         agentName={activeAgentName}
         onChatComplete={handleChatComplete}
+        onCorrect={handleCorrection}
         quickSuggestions={quickSuggestions}
       />
     </div>
