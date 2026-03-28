@@ -22,6 +22,18 @@ export type AgentMode = 'provider' | 'collector'
 
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 
+export type CollectionFieldType = 'text' | 'email' | 'phone' | 'number' | 'long_text' | 'choice'
+
+export interface CollectionField {
+  id: string
+  label: string
+  type: CollectionFieldType
+  required: boolean
+  description?: string
+  choices?: string[]
+  order: number
+}
+
 export interface VibeAgentTool {
   id: string
   type: AgentToolType
@@ -62,6 +74,7 @@ export interface VibeAgent {
     webhook: { enabled: boolean; url?: string | null; secret?: string | null }
   }
   handoffTargets?: string[]
+  collectionFields?: CollectionField[]
   createdAt: string
   updatedAt: string
 }

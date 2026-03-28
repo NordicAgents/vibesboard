@@ -113,6 +113,7 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
   notificationConfig: data.notificationConfig ?? undefined,
   handoffTargets: sanitizeStringArray(data.handoffTargets),
+  collectionFields: Array.isArray(data.collectionFields) ? data.collectionFields : undefined,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })

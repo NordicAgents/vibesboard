@@ -249,6 +249,15 @@ export interface AgentDocument {
   lastEmbeddingsSyncAt?: string
   notificationConfig?: AgentNotificationConfig
   handoffTargets?: string[]
+  collectionFields?: Array<{
+    id: string
+    label: string
+    type: 'text' | 'email' | 'phone' | 'number' | 'long_text' | 'choice'
+    required: boolean
+    description?: string
+    choices?: string[]
+    order: number
+  }>
   createdAt: string
   updatedAt: string
 }
