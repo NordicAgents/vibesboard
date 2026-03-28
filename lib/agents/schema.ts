@@ -40,7 +40,7 @@ export const notificationConfigSchema = z.object({
 
 export const upsertAgentSchema = z.object({
   name: z.string().min(2).max(120),
-  instructions: z.string().min(10),
+  instructions: z.string().min(10).max(20_000),
   fileKeys: z.array(z.string()).default([]),
   tools: z.array(agentToolSchema).default([]),
   allowAnonymous: z.boolean().default(true),
@@ -64,11 +64,11 @@ export const patchAgentSchema = upsertAgentSchema.partial()
 export const agentChatMessageSchema = z.object({
   id: z.string().optional(),
   role: z.enum(['system', 'user', 'assistant']),
-  content: z.string()
+  content: z.string().max(2_000)
 })
 
 export const agentChatRequestSchema = z.object({
-  messages: z.array(agentChatMessageSchema),
+  messages: z.array(agentChatMessageSchema).max(100),
   conversationId: z.string().min(1).optional(),
   handoffAgentId: z.string().min(1).optional()
 })
@@ -79,7 +79,7 @@ export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
 
 export const agentAskRequestSchema = z.object({
   // Allow any non-empty question; frontend already trims/blocks empty input
-  question: z.string().min(1),
+  question: z.string().min(1).max(2_000),
   contextConversationId: z.string().min(1).optional(),
   sessionId: z.string().uuid().optional()
 })
