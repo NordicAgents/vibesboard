@@ -28,6 +28,7 @@ interface RunAgentStreamArgs {
   temperature?: number
   onCompletion?: (completion: string) => Promise<void> | void
   toolContext?: ToolExecutionContext
+  handoffTargetNames?: Record<string, string>
   remainingResponses?: number | null
 }
 
@@ -39,6 +40,7 @@ export async function runAgentStream({
   temperature = 0.1,
   onCompletion,
   toolContext,
+  handoffTargetNames,
   remainingResponses
 }: RunAgentStreamArgs) {
   if (previewToken) {
@@ -72,12 +74,14 @@ export async function runAgentStream({
       },
       toolContext,
       hasFileOverflow: agentContext.hasFileOverflow,
+      handoffTargetNames,
       remainingResponses
     })
   }
 
   const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
     hasFileOverflow: agentContext.hasFileOverflow,
+    handoffTargetNames,
     remainingResponses
   })
 
@@ -150,6 +154,7 @@ interface ResponsesAgentWithToolsArgs {
   onCompletion?: (completion: string) => Promise<void> | void
   toolContext?: ToolExecutionContext
   hasFileOverflow?: boolean
+  handoffTargetNames?: Record<string, string>
   remainingResponses?: number | null
 }
 
@@ -169,10 +174,11 @@ const runResponsesAgentWithTools = async ({
   onCompletion,
   toolContext,
   hasFileOverflow,
+  handoffTargetNames,
   remainingResponses
 }: ResponsesAgentWithToolsArgs) => {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
-  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow, remainingResponses })
+  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow, handoffTargetNames, remainingResponses })
   const conversation = formatConversation(messages)
 
   // Convert toolkit functions to Responses API tool format

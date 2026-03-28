@@ -51,6 +51,7 @@ interface AgentChatWithLayoutProps {
   ownerId: string
   ownerSessions: VibeAgentConversation[]
   visitorSessions: VibeAgentConversation[]
+  handoffConversations?: VibeAgentConversation[]
   hasUnsyncedConversations: boolean
   share: AgentSharePayload
   activeTab?: string | null
@@ -62,6 +63,7 @@ export function AgentChatWithLayout({
   ownerId,
   ownerSessions,
   visitorSessions,
+  handoffConversations = [],
   hasUnsyncedConversations,
   share,
   activeTab,
@@ -286,8 +288,15 @@ export function AgentChatWithLayout({
                   className="bg-[#f5f8f7] dark:bg-[#192425]"
                   onClick={() => handleOpenConversation(session)}
                 >
-                  <div className="truncate font-medium" title={label}>
-                    {label}
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {session.handedOff && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Handoff
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-gray-secondary">
                     Updated {formatDate(session.updatedAt)}
@@ -324,6 +333,40 @@ export function AgentChatWithLayout({
                 </Button>
               </div>
             )}
+          </DashboardSidebarSection>
+        )}
+
+        {/* Handoff Conversations */}
+        {canEdit && handoffConversations.length > 0 && (
+          <DashboardSidebarSection title="Handoff Conversations">
+            {handoffConversations.map(session => {
+              const label = toConversationLabel(
+                session.summary || session.messages.at(-1)?.content
+              )
+              const sourceAgent = session.handoffChain?.at(-1)
+
+              return (
+                <DashboardSidebarItem
+                  key={session.id}
+                  className="bg-[#f5f8f7] dark:bg-[#192425]"
+                  onClick={() => handleOpenConversation(session)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {sourceAgent && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        From {sourceAgent.fromAgentName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-secondary">
+                    Updated {formatDate(session.updatedAt)}
+                  </div>
+                </DashboardSidebarItem>
+              )
+            })}
           </DashboardSidebarSection>
         )}
 
@@ -365,6 +408,7 @@ export function AgentChatWithLayout({
       handleOpenConversation,
       handleRefreshSummaries,
       handleSelectSession,
+      handoffConversations,
       ownerSessions,
       paginatedVisitorSessions,
       refreshingSummaries,
