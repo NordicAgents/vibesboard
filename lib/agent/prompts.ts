@@ -4,7 +4,8 @@ import { type VibeAgent } from '@/lib/types'
 export const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
   INFO_COMPLETE: '[INFO_COMPLETE]',
-  HANDOFF_TO_HUMAN: '[HANDOFF_TO_HUMAN]'
+  HANDOFF_TO_HUMAN: '[HANDOFF_TO_HUMAN]',
+  HANDOFF_TO_AGENT_PREFIX: '[HANDOFF_TO_AGENT:'
 } as const
 
 function getModeInstructions(agent: VibeAgent): string {
@@ -28,6 +29,30 @@ Your primary goal is to provide helpful information to the user.
 - After providing substantive information, occasionally ask: "Is there anything else you'd like to know?"
 - If the user indicates they are done (e.g., "no", "thanks", "that's all", "I'm good"), end your response with exactly: ${COMPLETION_MARKERS.INFO_COMPLETE}
 - This marker signals that the user has received the information they need`
+}
+
+function getHandoffInstructions(
+  handoffTargetNames: Record<string, string>
+): string {
+  const targetList = Object.entries(handoffTargetNames)
+    .map(([id, name]) => `- "${name}" (ID: ${id})`)
+    .join('\n')
+
+  return `
+## Agent Handoff
+You can transfer this conversation to another specialized agent when the user's request is outside your expertise or better handled by a different agent.
+
+Available agents:
+${targetList}
+
+To transfer, end your response with exactly: [HANDOFF_TO_AGENT:agentId]
+Replace "agentId" with the actual agent ID from the list above.
+
+Rules:
+- Only hand off when the request is clearly outside your scope or better suited to another agent
+- Briefly explain to the user why you are transferring them before including the marker
+- Only use agent IDs from the list above — do not invent IDs
+- Include the marker on a separate line at the end of your message`
 }
 
 function getWrapUpInstructions(
@@ -69,6 +94,7 @@ function getWrapUpInstructions(
 
 interface PromptOptions {
   hasFileOverflow?: boolean
+  handoffTargetNames?: Record<string, string>
   remainingResponses?: number | null
 }
 
@@ -91,7 +117,7 @@ export function buildAgentSystemPrompt(
     contextBlock =
       `REFERENCE DOCUMENTS — The following documents and sources have been loaded. Use them to answer questions accurately and cite filenames or URLs when relevant.\n${context}`
     if (hasFileOverflow) {
-      contextBlock += `\n\nNote: Some documents were too large to include in full. Use the file_search tool to query their content when needed.`
+      contextBlock += `\nNote: Some documents were too large to include in full. Use the file_search tool to query their content when needed.`
     }
   } else {
     contextBlock = 'No additional reference material is available for this query.'
@@ -129,6 +155,14 @@ export function buildAgentSystemPrompt(
 
   const modeInstructions = getModeInstructions(agent)
 
+  const handoffInstructions =
+    agent.handoffTargets?.length && options?.handoffTargetNames &&
+    Object.keys(options.handoffTargetNames).length > 0
+      ? getHandoffInstructions(options.handoffTargetNames)
+      : ''
+
+  const wrapUpInstructions = getWrapUpInstructions(agent.mode, remainingResponses)
+
   const domainScope = agent.domain?.trim() || agent.name
 
   const groundingPreamble = `You are "${agent.name}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
@@ -143,13 +177,12 @@ export function buildAgentSystemPrompt(
   const groundingClosure = `## Boundary Reminder
 You are ONLY allowed to discuss topics related to **${domainScope}**. When in doubt about whether a question is in scope, default to declining and explaining what you CAN help with.`
 
-  const wrapUpInstructions = getWrapUpInstructions(agent.mode, remainingResponses)
-
   return `${groundingPreamble}
 
 ## Your Instructions
 ${agent.instructions}
 ${modeInstructions}
+${handoffInstructions}
 ${wrapUpInstructions}
 
 Tooling:

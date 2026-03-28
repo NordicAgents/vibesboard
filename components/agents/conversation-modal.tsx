@@ -1,11 +1,61 @@
 'use client'
 
 import * as React from 'react'
+import { type Message } from 'ai'
 import { type VibeAgentConversation } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { Button } from '@/components/ui/button'
 import { IconArrowLeft } from '@/components/ui/icons'
+
+const HANDOFF_INDICATOR_PREFIX = '__handoff_indicator__'
+
+const MARKER_PATTERNS = {
+  COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
+  INFO_COMPLETE: '[INFO_COMPLETE]',
+  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/g,
+  SUGGESTIONS_REGEX: /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g,
+  AGENT_HANDOFF_REGEX: /<!--AGENT_HANDOFF:(\{.*?\})-->/,
+  HANDOFF_TO_AGENT_MARKER: /\[HANDOFF_TO_AGENT:[a-zA-Z0-9_-]+\]/g
+}
+
+function cleanConversationMessages(raw: Message[]): Message[] {
+  const cleaned: Message[] = []
+
+  for (const m of raw) {
+    if (m.role === 'assistant' && m.content) {
+      const handoffMatch = m.content.match(MARKER_PATTERNS.AGENT_HANDOFF_REGEX)
+
+      let cleanedContent = m.content
+        .replace(MARKER_PATTERNS.COLLECTION_COMPLETE, '')
+        .replace(MARKER_PATTERNS.INFO_COMPLETE, '')
+        .replace(MARKER_PATTERNS.CHAT_COMPLETE_REGEX, '')
+        .replace(MARKER_PATTERNS.SUGGESTIONS_REGEX, '')
+        .replace(MARKER_PATTERNS.AGENT_HANDOFF_REGEX, '')
+        .replace(MARKER_PATTERNS.HANDOFF_TO_AGENT_MARKER, '')
+        .trim()
+
+      cleaned.push({ ...m, content: cleanedContent })
+
+      if (handoffMatch) {
+        try {
+          const meta = JSON.parse(handoffMatch[1])
+          cleaned.push({
+            id: `${HANDOFF_INDICATOR_PREFIX}${m.id}`,
+            role: 'system',
+            content: meta.targetAgentName
+          })
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      cleaned.push(m)
+    }
+  }
+
+  return cleaned
+}
 
 interface ConversationViewProps {
   conversation: VibeAgentConversation
@@ -17,7 +67,11 @@ export function ConversationView({
   onClose
 }: ConversationViewProps) {
   const summary = conversation.summary || 'Untitled conversation'
-  const messages = conversation.messages || []
+  const rawMessages = conversation.messages || []
+  const messages = React.useMemo(
+    () => cleanConversationMessages(rawMessages),
+    [rawMessages]
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -48,7 +102,10 @@ export function ConversationView({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl">
           {messages.length > 0 ? (
-            <ChatList messages={messages} />
+            <ChatList
+              messages={messages}
+              handoffIndicatorPrefix={HANDOFF_INDICATOR_PREFIX}
+            />
           ) : (
             <div className="py-8 text-center font-switzer text-sm text-[#6f7f80]">
               No messages in this conversation yet.

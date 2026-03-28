@@ -56,11 +56,12 @@ export interface VibeAgent {
   googlePlaceId?: string | null
   notificationConfig?: {
     enabled: boolean
-    events: Array<'completed' | 'handoff'>
+    events: Array<'completed' | 'handoff' | 'agent_handoff'>
     inApp: { enabled: boolean }
     email: { enabled: boolean; address?: string | null }
     webhook: { enabled: boolean; url?: string | null; secret?: string | null }
   }
+  handoffTargets?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -74,6 +75,14 @@ export interface VibeAgentConversation {
   messages: Message[]
   closedAt?: string | null
   handedOff?: boolean
+  handoffChain?: Array<{
+    fromAgentId: string
+    fromAgentName: string
+    toAgentId: string
+    toAgentName: string
+    timestamp: string
+  }>
+  responseCounts?: Record<string, number>
   summaryGeneratedAt?: string | null
   createdAt: string
   updatedAt: string

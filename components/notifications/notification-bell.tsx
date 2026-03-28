@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, CheckCircle2, ArrowRightCircle } from 'lucide-react'
+import { Bell, CheckCircle2, ArrowRightCircle, ArrowRightLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { NotificationDocument } from '@/lib/firestore-types'
 import { Button } from '@/components/ui/button'
@@ -98,7 +98,20 @@ export function NotificationBell({ tenantId }: Props) {
 
   const handleClickNotification = (notification: NotificationDocument) => {
     setIsOpen(false)
-    router.push(`/agents/${notification.agentId}`)
+    if (!notification.read) {
+      fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [notification.id] })
+      }).catch(() => {})
+      setNotifications(prev =>
+        prev.map(n => (n.id === notification.id ? { ...n, read: true } : n))
+      )
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
+    router.push(
+      `/agents/${notification.agentId}/conversations/${notification.conversationId}`
+    )
   }
 
   const timeAgo = (isoDate: string) => {
@@ -167,6 +180,8 @@ export function NotificationBell({ tenantId }: Props) {
                   <div className="mt-0.5 flex-shrink-0">
                     {notification.event === 'handoff' ? (
                       <ArrowRightCircle className="size-4 text-amber-500" />
+                    ) : notification.event === 'agent_handoff' ? (
+                      <ArrowRightLeft className="size-4 text-blue-500" />
                     ) : (
                       <CheckCircle2 className="size-4 text-green-500" />
                     )}
@@ -183,7 +198,9 @@ export function NotificationBell({ tenantId }: Props) {
                     <p className="text-xs text-muted-foreground">
                       {notification.event === 'handoff'
                         ? 'Needs human handoff'
-                        : 'Conversation completed'}
+                        : notification.event === 'agent_handoff'
+                          ? 'Transferred to another agent'
+                          : 'Conversation completed'}
                     </p>
                     {notification.summary && (
                       <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
