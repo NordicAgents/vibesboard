@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { RoleBadge } from '@/components/tenants'
-import type { TenantMemberDocument } from '@/lib/firestore-types'
+import type { TenantRole } from '@/lib/firestore-types'
 import { UserPlus, MoreHorizontal, Loader2, Copy } from 'lucide-react'
 import {
     DropdownMenu,
@@ -33,8 +33,14 @@ import {
 } from '@/components/ui/select'
 import toast from 'react-hot-toast'
 
-interface TenantUserWithEmail extends TenantMemberDocument {
-    email?: string
+interface TenantUserFromAPI {
+    user_id: string
+    tenant_id: string
+    role: TenantRole
+    created_at: string
+    email: string | null
+    name: string | null
+    image: string | null
 }
 
 interface TenantUsersTabProps {
@@ -43,7 +49,7 @@ interface TenantUsersTabProps {
 }
 
 export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
-    const [users, setUsers] = React.useState<TenantUserWithEmail[]>([])
+    const [users, setUsers] = React.useState<TenantUserFromAPI[]>([])
     const [loading, setLoading] = React.useState(true)
     const [inviteOpen, setInviteOpen] = React.useState(false)
     const [inviteEmail, setInviteEmail] = React.useState('')
@@ -163,12 +169,12 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
         }
     }
 
-    const columns: Column<TenantUserWithEmail>[] = [
+    const columns: Column<TenantUserFromAPI>[] = [
         {
             key: 'email',
             label: 'Email',
             sortable: true,
-            render: (user) => user.email || user.userId,
+            render: (user) => user.email || user.user_id,
         },
         {
             key: 'role',
@@ -177,10 +183,10 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
             render: (user) => <RoleBadge role={user.role} />,
         },
         {
-            key: 'createdAt',
+            key: 'created_at',
             label: 'Joined',
             sortable: true,
-            render: (user) => new Date(user.createdAt).toLocaleDateString(),
+            render: (user) => user.created_at ? new Date(user.created_at).toLocaleDateString() : '—',
         },
         {
             key: 'actions',
@@ -196,7 +202,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                         <DropdownMenuItem
                             onClick={() =>
                                 handleChangeRole(
-                                    user.userId,
+                                    user.user_id,
                                     user.role === 'TENANT_ADMIN' ? 'MEMBER' : 'TENANT_ADMIN'
                                 )
                             }
@@ -205,7 +211,7 @@ export function TenantUsersTab({ tenantId, tenantName }: TenantUsersTabProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => handleRemoveUser(user.userId)}
+                            onClick={() => handleRemoveUser(user.user_id)}
                         >
                             Remove User
                         </DropdownMenuItem>
