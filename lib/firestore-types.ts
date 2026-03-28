@@ -11,7 +11,7 @@ export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
 export type ChatwootConnectionStatus = 'active' | 'disconnected' | 'error'
 
 // ─── Agent notifications ────────────────────────────────────────────
-export type NotificationEvent = 'completed' | 'handoff'
+export type NotificationEvent = 'completed' | 'handoff' | 'agent_handoff'
 
 export interface AgentNotificationConfig {
   enabled: boolean
@@ -169,8 +169,18 @@ export interface AgentDocument {
   retrievalStrategy?: 'direct' | 'rag' | 'bash'
   lastEmbeddingsSyncAt?: string
   notificationConfig?: AgentNotificationConfig
+  handoffTargets?: string[]
   createdAt: string
   updatedAt: string
+}
+
+/** Handoff chain entry — tracks agent-to-agent transfers */
+export interface HandoffChainEntry {
+  fromAgentId: string
+  fromAgentName: string
+  toAgentId: string
+  toAgentName: string
+  timestamp: string
 }
 
 /** /tenants/{tenantId}/notifications/{notificationId} */
@@ -252,6 +262,7 @@ export interface ConversationDocument {
   closedAt?: string
   summaryGeneratedAt?: string
   handedOff?: boolean
+  handoffChain?: HandoffChainEntry[]
   createdAt: string
   updatedAt: string
 }

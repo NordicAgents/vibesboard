@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { StreamingTextResponse, type Message } from 'ai'
 
-import { getAgentById } from '@/lib/agents/server'
+import { getAgentById, getAgentNames } from '@/lib/agents/server'
 import { publicAgentChatRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
-  updateConversationMessages
+  updateConversationMessages,
+  getConversation,
+  recordConversationHandoff
 } from '@/lib/agents/conversations'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
 import { nanoid } from '@/lib/utils'
 import {
   detectCompletionMarker,
+  extractHandoffTarget,
   stripCompletionMarkers,
   wrapStreamWithCompletionDetection
 } from '@/lib/agent/completion'
@@ -19,6 +22,7 @@ import {
   dispatchAgentNotification,
   mapCompletionToEvent
 } from '@/lib/agents/notifications'
+import { validateHandoff, buildHandoffContext } from '@/lib/agent/handoff'
 
 export const runtime = 'nodejs'
 
@@ -60,13 +64,97 @@ export async function POST(
     initialMessages: normalizedMessages
   })
 
+  // Determine which agent actually handles this request
+  let activeAgent = agent
+  let handoffContext: string | undefined
+  let handoffTargetNames: Record<string, string> = {}
+
+  // If client requested handoff to another agent
+  if (payload.handoffAgentId) {
+    const existingConv = await getConversation(tenantId, agent.id, conversation.id)
+    const chain = existingConv?.handoffChain ?? []
+    const lastEntry = chain[chain.length - 1]
+    const isContinuation =
+      lastEntry?.toAgentId === payload.handoffAgentId
+
+    if (isContinuation) {
+      // This is a continuation — the handoff was already recorded.
+      // Just load the target agent and route to it.
+      const targetAgent = await getAgentById(payload.handoffAgentId)
+      if (!targetAgent) {
+        return NextResponse.json({ error: 'Target agent not found' }, { status: 404 })
+      }
+      if (!targetAgent.allowAnonymous) {
+        return NextResponse.json(
+          { error: 'Target agent does not allow anonymous chat' },
+          { status: 403 }
+        )
+      }
+      activeAgent = targetAgent
+      handoffContext = buildHandoffContext({
+        sourceAgentName: agent.name,
+        messages: normalizedMessages,
+        summary: existingConv?.summary
+      })
+    } else {
+      // New handoff — validate and record
+      const validation = await validateHandoff({
+        sourceAgent: agent,
+        targetAgentId: payload.handoffAgentId,
+        handoffChain: chain
+      })
+
+      if (!validation.valid || !validation.targetAgent) {
+        return NextResponse.json(
+          { error: validation.error ?? 'Handoff not allowed' },
+          { status: 400 }
+        )
+      }
+
+      // Target agent must also allow anonymous for public endpoint
+      if (!validation.targetAgent.allowAnonymous) {
+        return NextResponse.json(
+          { error: 'Target agent does not allow anonymous chat' },
+          { status: 403 }
+        )
+      }
+
+      activeAgent = validation.targetAgent
+      handoffContext = buildHandoffContext({
+        sourceAgentName: agent.name,
+        messages: normalizedMessages,
+        summary: existingConv?.summary
+      })
+
+      await recordConversationHandoff(tenantId, agent.id, conversation.id, {
+        fromAgentId: agent.id,
+        fromAgentName: agent.name,
+        toAgentId: activeAgent.id,
+        toAgentName: activeAgent.name
+      })
+    }
+  }
+
+  // Resolve handoff target names for the active agent's system prompt
+  if (activeAgent.handoffTargets?.length) {
+    handoffTargetNames = await getAgentNames(activeAgent.handoffTargets)
+  }
+
+  const agentMessages = handoffContext
+    ? [
+        { id: nanoid(), role: 'system' as const, content: handoffContext },
+        ...normalizedMessages
+      ]
+    : normalizedMessages
+
   const userMessageCount = normalizedMessages.filter(
     m => m.role === 'user'
   ).length
 
   const stream = await runAgentStream({
-    agent,
-    messages: normalizedMessages,
+    agent: activeAgent,
+    messages: agentMessages,
+    handoffTargetNames,
     onCompletion: async completion => {
       const reason = detectCompletionMarker(completion)
       const cleanedCompletion = stripCompletionMarkers(completion)
@@ -86,6 +174,19 @@ export async function POST(
         summary: null
       })
 
+      if (reason === 'handoff_to_agent') {
+        const targetId = extractHandoffTarget(completion)
+        if (targetId) {
+          const targetName = handoffTargetNames[targetId] ?? targetId
+          await recordConversationHandoff(tenantId, agent.id, conversation.id, {
+            fromAgentId: activeAgent.id,
+            fromAgentName: activeAgent.name,
+            toAgentId: targetId,
+            toAgentName: targetName
+          })
+        }
+      }
+
       const event = mapCompletionToEvent(reason)
       if (event) {
         dispatchAgentNotification({
@@ -101,14 +202,17 @@ export async function POST(
   const transformedStream = wrapStreamWithCompletionDetection(
     stream,
     agent.maxMessages,
-    userMessageCount
+    userMessageCount,
+    handoffTargetNames
   )
 
   return new StreamingTextResponse(transformedStream, {
     headers: {
       'x-conversation-id': conversation.id,
-      'x-agent-mode': agent.mode,
-      'x-max-messages': String(agent.maxMessages ?? '')
+      'x-agent-mode': activeAgent.mode,
+      'x-max-messages': String(agent.maxMessages ?? ''),
+      'x-agent-id': activeAgent.id,
+      'x-agent-name': activeAgent.name
     }
   })
 }

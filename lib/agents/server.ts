@@ -54,6 +54,25 @@ export async function getAgentById(
 }
 
 /**
+ * Batch-fetch agent names by IDs.
+ * Used to populate handoff target names in system prompts and stream metadata.
+ */
+export async function getAgentNames(
+  agentIds: string[]
+): Promise<Record<string, string>> {
+  if (!agentIds.length) return {}
+
+  const names: Record<string, string> = {}
+  await Promise.all(
+    agentIds.map(async id => {
+      const agent = await getAgentById(id)
+      if (agent) names[id] = agent.name
+    })
+  )
+  return names
+}
+
+/**
  * Get agent by slug within a specific tenant
  */
 export async function getAgentBySlug(

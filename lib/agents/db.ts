@@ -110,6 +110,7 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   domain: data.domain ?? null,
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
   notificationConfig: data.notificationConfig ?? undefined,
+  handoffTargets: sanitizeStringArray(data.handoffTargets),
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })
@@ -128,6 +129,7 @@ export const mapConversationDoc = (
   messages: sanitizeMessages(data.messages),
   closedAt: data.closedAt ?? null,
   handedOff: data.handedOff ?? false,
+  handoffChain: Array.isArray(data.handoffChain) ? data.handoffChain : undefined,
   summaryGeneratedAt: data.summaryGeneratedAt ?? null,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt

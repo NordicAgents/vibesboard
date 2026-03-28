@@ -11,6 +11,7 @@ import { AgentNotificationSettings } from '@/components/agents/agent-notificatio
 import { AgentReviewsTab } from '@/components/agents/agent-reviews-tab'
 import { AgentShareTab } from '@/components/agents/agent-share-tab'
 import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab'
+import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import type {
   AgentSharePayload,
@@ -71,6 +72,9 @@ export function AgentDashboardTabs({
   const [notificationConfig, setNotificationConfig] = useState<
     AgentNotificationConfig | undefined
   >(agent.notificationConfig as AgentNotificationConfig | undefined)
+  const [handoffTargets, setHandoffTargets] = useState<string[]>(
+    agent.handoffTargets ?? []
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -89,7 +93,9 @@ export function AgentDashboardTabs({
     (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null) ||
     JSON.stringify(sourceUrls) !== JSON.stringify(agent.sourceUrls ?? []) ||
     JSON.stringify(notificationConfig) !==
-      JSON.stringify(agent.notificationConfig ?? undefined)
+      JSON.stringify(agent.notificationConfig ?? undefined) ||
+    JSON.stringify(handoffTargets) !==
+      JSON.stringify(agent.handoffTargets ?? [])
 
   // ── Save all ──
   const handleSaveAll = async () => {
@@ -106,7 +112,8 @@ export function AgentDashboardTabs({
       googleReviewEnabled,
       googlePlaceId: googlePlaceId.trim() || null,
       sourceUrls,
-      notificationConfig
+      notificationConfig,
+      handoffTargets
     }
 
     try {
@@ -213,6 +220,22 @@ export function AgentDashboardTabs({
             saving={saving}
             canEdit={canEdit}
           />
+          {agent.tenantId && (
+            <FeatureGate
+              feature="AGENT_HANDOFF"
+              tenantId={agent.tenantId}
+            >
+              <div className="mt-5">
+                <AgentHandoffSettings
+                  agentId={agent.id}
+                  tenantId={agent.tenantId}
+                  handoffTargets={handoffTargets}
+                  onChange={setHandoffTargets}
+                  disabled={saving || !canEdit}
+                />
+              </div>
+            </FeatureGate>
+          )}
         </TabsContent>
 
         <TabsContent value="knowledge">

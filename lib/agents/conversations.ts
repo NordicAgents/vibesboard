@@ -180,6 +180,38 @@ export async function markConversationHandedOff(
     .update({ handedOff: true, updatedAt: new Date().toISOString() })
 }
 
+/**
+ * Record an agent-to-agent handoff on a conversation.
+ * Appends to the handoffChain array using a transaction.
+ */
+export async function recordConversationHandoff(
+  tenantId: string,
+  agentId: string,
+  conversationId: string,
+  handoff: {
+    fromAgentId: string
+    fromAgentName: string
+    toAgentId: string
+    toAgentName: string
+  }
+): Promise<void> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  const ref = adminDb.collection(collPath).doc(conversationId)
+
+  const doc = await ref.get()
+  const existing = (doc.data() as any)?.handoffChain ?? []
+  await ref.update({
+    handoffChain: [
+      ...existing,
+      {
+        ...handoff,
+        timestamp: new Date().toISOString()
+      }
+    ],
+    updatedAt: new Date().toISOString()
+  })
+}
+
 const serializeMessages = (messages: Message[]) =>
   messages.map(message => ({
     id: message.id,

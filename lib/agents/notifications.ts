@@ -36,6 +36,8 @@ export function mapCompletionToEvent(
       return 'completed'
     case 'handoff_to_human':
       return 'handoff'
+    case 'handoff_to_agent':
+      return 'agent_handoff'
     default:
       return null
   }
@@ -164,7 +166,12 @@ async function sendEmailNotification(
   const { Resend } = await import('resend')
   const resend = new Resend(apiKey)
 
-  const eventLabel = event === 'handoff' ? 'needs human handoff' : 'completed'
+  const eventLabel =
+    event === 'handoff'
+      ? 'needs human handoff'
+      : event === 'agent_handoff'
+        ? 'transferred to another agent'
+        : 'completed'
   const subject = `[${agent.name}] Conversation ${eventLabel}`
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
