@@ -286,8 +286,15 @@ export function AgentChatWithLayout({
                   className="bg-[#f5f8f7] dark:bg-[#192425]"
                   onClick={() => handleOpenConversation(session)}
                 >
-                  <div className="truncate font-medium" title={label}>
-                    {label}
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {session.handedOff && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Handoff
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-gray-secondary">
                     Updated {formatDate(session.updatedAt)}

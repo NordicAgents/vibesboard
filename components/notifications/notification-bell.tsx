@@ -98,7 +98,20 @@ export function NotificationBell({ tenantId }: Props) {
 
   const handleClickNotification = (notification: NotificationDocument) => {
     setIsOpen(false)
-    router.push(`/agents/${notification.agentId}`)
+    if (!notification.read) {
+      fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [notification.id] })
+      }).catch(() => {})
+      setNotifications(prev =>
+        prev.map(n => (n.id === notification.id ? { ...n, read: true } : n))
+      )
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
+    router.push(
+      `/agents/${notification.agentId}/conversations/${notification.conversationId}`
+    )
   }
 
   const timeAgo = (isoDate: string) => {

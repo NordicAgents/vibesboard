@@ -143,7 +143,7 @@ async function sendEmailNotification(
   payload: NotificationPayload,
   configuredAddress?: string | null
 ): Promise<void> {
-  const { agent, event, summary } = payload
+  const { agent, conversationId, event, summary } = payload
 
   let toAddress = configuredAddress
   if (!toAddress) {
@@ -167,10 +167,14 @@ async function sendEmailNotification(
   const eventLabel = event === 'handoff' ? 'needs human handoff' : 'completed'
   const subject = `[${agent.name}] Conversation ${eventLabel}`
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const conversationUrl = `${appUrl}/agents/${agent.id}/conversations/${conversationId}`
+
   const lines = [
     `Agent: ${agent.name}`,
     `Event: ${eventLabel}`,
-    summary ? `\nSummary:\n${summary}` : null
+    summary ? `\nSummary:\n${summary}` : null,
+    `\nView conversation:\n${conversationUrl}`
   ]
     .filter(Boolean)
     .join('\n')

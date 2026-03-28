@@ -251,6 +251,7 @@ export interface ConversationDocument {
   summary?: string
   closedAt?: string
   summaryGeneratedAt?: string
+  handedOff?: boolean
   createdAt: string
   updatedAt: string
 }
