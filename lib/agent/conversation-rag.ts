@@ -259,11 +259,12 @@ async function buildFallbackContext({
         .limit(1)
         .get()
     } else {
+      // Fetch recent conversations sorted by updatedAt and filter for visitor
+      // conversations (those with externalId) in memory to avoid a composite index.
       snapshot = await adminDb
         .collection(convCollPath)
-        .where('externalId', '!=', null)
         .orderBy('updatedAt', 'desc')
-        .limit(FALLBACK_CONVERSATIONS)
+        .limit(FALLBACK_CONVERSATIONS * 3)
         .get()
     }
   } catch (error) {
@@ -271,7 +272,10 @@ async function buildFallbackContext({
     return ''
   }
 
-  const conversations = snapshot.docs.map(doc => mapConversationRow(doc.data()!))
+  const conversations = snapshot.docs
+    .map(doc => mapConversationRow(doc.data()!))
+    .filter(c => contextConversationId || c.externalId)
+    .slice(0, FALLBACK_CONVERSATIONS)
   if (!conversations.length) {
     return ''
   }
