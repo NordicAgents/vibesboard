@@ -2,14 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, Settings, Building2, Users, Link2 } from 'lucide-react'
+import { Menu, Settings, Building2, Users, Link2, BarChart3 } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Building2,
   Users,
-  Link2
+  Link2,
+  BarChart3,
 }
 
 interface NavItem {

@@ -27,6 +27,8 @@ import {
 } from '@/lib/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@/lib/agent/handoff'
 import { Collections } from '@/lib/firestore-types'
+import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -56,6 +58,12 @@ export async function POST(
       { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
       { status: 403 }
     )
+  }
+
+  // Check tenant usage limit
+  const usageCheck = await checkUsageLimit(agent.tenantId!)
+  if (!usageCheck.allowed) {
+    return usageLimitResponse(usageCheck)
   }
 
   const tenantId = agent.tenantId!
@@ -255,6 +263,16 @@ export async function POST(
             console.error('[chat] Failed to increment response count:', e)
           )
       }
+
+      // Record usage for metering (fire-and-forget)
+      recordUsage({
+        tenantId,
+        agentId: activeAgent.id,
+        conversationId: conversation.id,
+        userId: null,
+        source: isEmbed ? 'embed' : 'public_chat',
+        model: OPENAI_CHAT_MODEL,
+      })
 
       // Update conversation ref if this is a handoff target agent
       if (activeAgent.id !== agent.id) {

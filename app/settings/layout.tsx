@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, Users, Building2, Link2, ArrowLeft } from 'lucide-react'
+import { Settings, Users, Building2, Link2, BarChart3, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
@@ -89,6 +89,12 @@ export default async function SettingsLayout({
       href: '/settings/tenant',
       icon: Building2,
       iconName: 'Building2' as const
+    },
+    {
+      title: 'Usage',
+      href: '/settings/tenant/usage',
+      icon: BarChart3,
+      iconName: 'BarChart3' as const
     },
     ...(!isActivePersonal && teamCollaborationEnabled
       ? [
