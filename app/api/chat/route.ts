@@ -21,7 +21,10 @@ export async function POST(req: Request) {
   }
 
   const model = OPENAI_CHAT_MODEL
-  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? ''
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return new Response('OPENAI_API_KEY is not configured.', { status: 500 })
+  }
 
   const saveChat = async (completion: string) => {
     const title = json.messages[0].content.substring(0, 100)
