@@ -47,6 +47,7 @@ export function AgentCreatorChat({
   })
   const [isCreating, setIsCreating] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(true)
+  const [mobileView, setMobileView] = useState<'chat' | 'form'>('chat')
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
@@ -370,12 +371,43 @@ export function AgentCreatorChat({
   return (
     <div
       className={cn(
-        'flex h-full flex-1 bg-[#f7f7f5] dark:bg-[#222f30]',
+        'flex h-full flex-1 flex-col lg:flex-row bg-[#f7f7f5] dark:bg-[#222f30]',
         className
       )}
     >
+      {/* Mobile View Switcher */}
+      <div className="flex shrink-0 border-b border-[#e4e3e3] dark:border-[#344348] lg:hidden">
+        <div className="flex w-full rounded-lg bg-[#e6ede6] m-2 p-1 dark:bg-[#344348]">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={cn(
+              'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
+              mobileView === 'chat'
+                ? 'bg-[#f5f8f7] text-[#222f30] shadow-sm dark:bg-[#192425] dark:text-[#f5f8f7]'
+                : 'text-[#6f7f80] hover:bg-[#f5f8f7]/50 dark:text-[#7e8e8f] dark:hover:bg-[#192425]/50'
+            )}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => { setMobileView('form'); setIsPreviewOpen(true) }}
+            className={cn(
+              'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
+              mobileView === 'form'
+                ? 'bg-[#f5f8f7] text-[#222f30] shadow-sm dark:bg-[#192425] dark:text-[#f5f8f7]'
+                : 'text-[#6f7f80] hover:bg-[#f5f8f7]/50 dark:text-[#7e8e8f] dark:hover:bg-[#192425]/50'
+            )}
+          >
+            Form
+          </button>
+        </div>
+      </div>
+
       {/* Left Side: Chat Interface (70%) */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className={cn(
+        'flex flex-1 flex-col overflow-hidden',
+        mobileView === 'form' ? 'hidden lg:flex' : 'flex'
+      )}>
         <div className="relative flex min-h-0 flex-1 flex-col">
           {messages.length > 0 ? (
             <>
@@ -556,7 +588,10 @@ export function AgentCreatorChat({
 
       {/* Right Side: Form Preview (30%) */}
       {isPreviewOpen ? (
-        <div className="transition-all duration-300 ease-in-out">
+        <div className={cn(
+          'transition-all duration-300 ease-in-out',
+          mobileView === 'chat' ? 'hidden lg:block' : 'flex flex-1 lg:flex-none'
+        )}>
           <AgentBuilderFormPreview
             formData={formData}
             onFormChange={setFormData}
@@ -564,12 +599,12 @@ export function AgentCreatorChat({
             isCreating={isCreating}
             isUploading={isUploading}
             userId={userId}
-            className="w-[400px] shrink-0"
+            className="w-full lg:w-[400px] shrink-0"
             onClose={() => setIsPreviewOpen(false)}
           />
         </div>
       ) : (
-        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
+        <div className="hidden lg:flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
           <Button
             size="sm"
             variant="ghost"
