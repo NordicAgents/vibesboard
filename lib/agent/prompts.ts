@@ -30,8 +30,46 @@ Your primary goal is to provide helpful information to the user.
 - This marker signals that the user has received the information they need`
 }
 
+function getWrapUpInstructions(
+  mode: VibeAgent['mode'],
+  remainingResponses?: number | null
+): string {
+  if (remainingResponses == null || remainingResponses > 2) return ''
+
+  if (mode === 'collector') {
+    if (remainingResponses <= 1) {
+      return `
+⚠️ SESSION LIMIT — This is your FINAL response in this conversation.
+- Thank the user warmly for their time and participation.
+- Briefly summarize the key information you have collected so far.
+- End your response with exactly: ${COMPLETION_MARKERS.COLLECTION_COMPLETE}
+- Do NOT ask any further questions.`
+    }
+    // remainingResponses === 2
+    return `
+⚠️ SESSION LIMIT — You have 2 responses remaining (including this one). Begin wrapping up.
+- Ask only your most important remaining question (if any).
+- Prepare to conclude in your next response.`
+  }
+
+  // Provider mode
+  if (remainingResponses <= 1) {
+    return `
+⚠️ SESSION LIMIT — This is your FINAL response in this conversation.
+- Provide a complete, helpful answer to the user's current question.
+- Let them know this is the last response in this session.
+- End your response with exactly: ${COMPLETION_MARKERS.INFO_COMPLETE}`
+  }
+  // remainingResponses === 2
+  return `
+⚠️ SESSION LIMIT — You have 2 responses remaining (including this one). Begin wrapping up.
+- Answer the current question fully.
+- Let the user know you have one more response available after this.`
+}
+
 interface PromptOptions {
   hasFileOverflow?: boolean
+  remainingResponses?: number | null
 }
 
 export function buildAgentSystemPrompt(
@@ -39,7 +77,7 @@ export function buildAgentSystemPrompt(
   context?: string | null,
   options?: PromptOptions
 ) {
-  const { hasFileOverflow = false } = options ?? {}
+  const { hasFileOverflow = false, remainingResponses } = options ?? {}
 
   const toolsText = agent.tools.length
     ? agent.tools
@@ -105,11 +143,14 @@ export function buildAgentSystemPrompt(
   const groundingClosure = `## Boundary Reminder
 You are ONLY allowed to discuss topics related to **${domainScope}**. When in doubt about whether a question is in scope, default to declining and explaining what you CAN help with.`
 
+  const wrapUpInstructions = getWrapUpInstructions(agent.mode, remainingResponses)
+
   return `${groundingPreamble}
 
 ## Your Instructions
 ${agent.instructions}
 ${modeInstructions}
+${wrapUpInstructions}
 
 Tooling:
 ${toolsText}
