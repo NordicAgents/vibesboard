@@ -23,7 +23,7 @@ interface Props {
 
 const DEFAULT_CONFIG: AgentNotificationConfig = {
   enabled: false,
-  events: ['completed', 'handoff'],
+  events: ['completed', 'handoff', 'agent_handoff'],
   inApp: { enabled: true },
   email: { enabled: false },
   webhook: { enabled: false }
@@ -31,7 +31,8 @@ const DEFAULT_CONFIG: AgentNotificationConfig = {
 
 const EVENT_LABELS: Record<NotificationEvent, string> = {
   completed: 'Completed',
-  handoff: 'Handoff'
+  handoff: 'Handoff to Human',
+  agent_handoff: 'Agent Transfer'
 }
 
 export function AgentNotificationSettings({

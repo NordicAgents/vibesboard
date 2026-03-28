@@ -46,20 +46,32 @@ export default async function AgentConversationPage({
   let initialMessages
 
   if (cid !== 'new' && tenantId) {
-    const convoDoc = await adminDb
+    let convoDoc = await adminDb
       .collection(Collections.conversations(tenantId, agent.id))
       .doc(cid)
       .get()
 
+    // If not found directly, check if this agent has a conversation ref for it
     if (!convoDoc.exists) {
-      notFound()
+      const refDoc = await adminDb
+        .collection(Collections.conversationRefs(tenantId, agent.id))
+        .doc(cid)
+        .get()
+
+      if (refDoc.exists) {
+        const refData = refDoc.data()!
+        convoDoc = await adminDb
+          .collection(Collections.conversations(tenantId, refData.sourceAgentId))
+          .doc(refData.sourceConversationId)
+          .get()
+      }
+
+      if (!convoDoc.exists) {
+        notFound()
+      }
     }
 
     const convoData = convoDoc.data()!
-    if (convoData.agentId !== agent.id) {
-      notFound()
-    }
-
     const conversation = mapConversationDoc(convoData)
     conversationId = conversation.id
     initialMessages = conversation.messages

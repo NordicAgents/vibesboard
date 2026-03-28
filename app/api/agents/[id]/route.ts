@@ -52,11 +52,36 @@ export async function PATCH(
     }
   }
 
+  // Validate handoff targets: no self-reference
+  if (payload.handoffTargets?.length) {
+    for (const targetId of payload.handoffTargets) {
+      if (targetId === id) {
+        return NextResponse.json(
+          { error: 'Agent cannot hand off to itself' },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
   // Find agent using collectionGroup query
   const agent = await getAgentById(id)
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })
+  }
+
+  // Validate that all handoff targets exist and are in the same tenant
+  if (payload.handoffTargets?.length) {
+    for (const targetId of payload.handoffTargets) {
+      const target = await getAgentById(targetId)
+      if (!target || target.tenantId !== agent.tenantId) {
+        return NextResponse.json(
+          { error: `Invalid handoff target: ${targetId}` },
+          { status: 400 }
+        )
+      }
+    }
   }
 
   const canEdit = await canEditAgent({
@@ -108,6 +133,9 @@ export async function PATCH(
       : {}),
     ...(payload.notificationConfig !== undefined
       ? { notificationConfig: payload.notificationConfig }
+      : {}),
+    ...(payload.handoffTargets !== undefined
+      ? { handoffTargets: payload.handoffTargets }
       : {}),
     updatedAt: new Date().toISOString()
   }

@@ -19,7 +19,7 @@ export const agentToolSchema = z.object({
 
 export const agentModeSchema = z.enum(['provider', 'collector'])
 
-export const notificationEventSchema = z.enum(['completed', 'handoff'])
+export const notificationEventSchema = z.enum(['completed', 'handoff', 'agent_handoff'])
 
 export const notificationConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -55,7 +55,8 @@ export const upsertAgentSchema = z.object({
   googleReviewEnabled: z.boolean().default(false),
   googlePlaceId: z.string().nullable().optional(),
   retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct'),
-  notificationConfig: notificationConfigSchema.optional()
+  notificationConfig: notificationConfigSchema.optional(),
+  handoffTargets: z.array(z.string()).default([])
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
@@ -68,7 +69,8 @@ export const agentChatMessageSchema = z.object({
 
 export const agentChatRequestSchema = z.object({
   messages: z.array(agentChatMessageSchema),
-  conversationId: z.string().min(1).optional()
+  conversationId: z.string().min(1).optional(),
+  handoffAgentId: z.string().min(1).optional()
 })
 
 export const publicAgentChatRequestSchema = agentChatRequestSchema.extend({
