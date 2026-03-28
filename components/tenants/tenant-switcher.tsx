@@ -69,6 +69,7 @@ export function TenantSwitcher({
 
       if (response.ok) {
         router.refresh()
+        window.dispatchEvent(new CustomEvent('tenantChanged', { detail: { tenantId } }))
         setOpen(false)
       } else {
         toast.error('Failed to switch workspace. Please try again.')
