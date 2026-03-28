@@ -18,7 +18,10 @@ export async function POST(req: Request) {
   const { messages, previewToken } = json
 
   const model = OPENAI_CHAT_MODEL
-  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return new Response('OPENAI_API_KEY is not configured.', { status: 500 })
+  }
 
   const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
 

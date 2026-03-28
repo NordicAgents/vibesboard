@@ -108,12 +108,19 @@ export async function runAgentStream({
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? ''
   const openaiClient = createOpenAI({ apiKey })
 
+  let disposed = false
+  const safeDispose = async () => {
+    if (disposed) return
+    disposed = true
+    await agentContext.dispose()
+  }
+
   const result = await aiStreamText({
     model: openaiClient(model),
     messages: payload,
     temperature,
     async onFinish({ text }) {
-      await agentContext.dispose()
+      await safeDispose()
       if (onCompletion) await onCompletion(text)
     }
   })
@@ -131,6 +138,10 @@ export async function runAgentStream({
       } catch (err) {
         controller.error(err)
       }
+    },
+    cancel() {
+      // Client disconnected mid-stream — ensure retriever resources are freed
+      safeDispose().catch(() => {})
     }
   })
 }
