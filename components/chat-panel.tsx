@@ -15,6 +15,7 @@ export interface ChatPanelProps extends Pick<
 > {
   id?: string
   isChatComplete?: boolean
+  isAgentDisabled?: boolean
   agentMode?: AgentMode
   agentName?: string
   onChatComplete?: () => void
@@ -31,6 +32,7 @@ export function ChatPanel({
   setInput,
   messages,
   isChatComplete,
+  isAgentDisabled,
   agentMode = 'provider',
   agentName,
   onChatComplete,
@@ -65,6 +67,7 @@ export function ChatPanel({
             >
               <ChatCompletionBanner
                 mode={agentMode}
+                isAgentDisabled={isAgentDisabled}
                 onComplete={onChatComplete ?? (() => {})}
               />
             </motion.div>

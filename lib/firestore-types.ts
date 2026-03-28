@@ -163,7 +163,9 @@ export interface AgentDocument {
   quickSuggestionsMode: QuickSuggestionsMode
   quickSuggestionsCount: number
   mode: AgentMode
-  maxMessages?: number
+  maxResponses?: number
+  maxAgentResponses?: number
+  totalResponseCount?: number
   googleReviewEnabled?: boolean
   googlePlaceId?: string | null
   retrievalStrategy?: 'direct' | 'rag' | 'bash'
