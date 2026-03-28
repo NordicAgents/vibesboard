@@ -17,6 +17,7 @@ import type {
   AgentSharePayload,
   VibeAgent,
   AgentMode,
+  CollectionField,
   QuickSuggestionsMode
 } from '@/lib/types'
 import type { AgentNotificationConfig } from '@/lib/firestore-types'
@@ -78,6 +79,9 @@ export function AgentDashboardTabs({
   const [handoffTargets, setHandoffTargets] = useState<string[]>(
     agent.handoffTargets ?? []
   )
+  const [collectionFields, setCollectionFields] = useState<CollectionField[]>(
+    agent.collectionFields ?? []
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -99,7 +103,9 @@ export function AgentDashboardTabs({
     JSON.stringify(notificationConfig) !==
       JSON.stringify(agent.notificationConfig ?? undefined) ||
     JSON.stringify(handoffTargets) !==
-      JSON.stringify(agent.handoffTargets ?? [])
+      JSON.stringify(agent.handoffTargets ?? []) ||
+    JSON.stringify(collectionFields) !==
+      JSON.stringify(agent.collectionFields ?? [])
 
   // ── Save all ──
   const handleSaveAll = async () => {
@@ -118,7 +124,8 @@ export function AgentDashboardTabs({
       googlePlaceId: googlePlaceId.trim() || null,
       sourceUrls,
       notificationConfig,
-      handoffTargets
+      handoffTargets,
+      collectionFields: mode === 'collector' ? collectionFields : []
     }
 
     try {
@@ -223,6 +230,8 @@ export function AgentDashboardTabs({
             onQuickSuggestionsModeChange={setQuickSuggestionsMode}
             quickSuggestionsCount={quickSuggestionsCount}
             onQuickSuggestionsCountChange={setQuickSuggestionsCount}
+            collectionFields={collectionFields}
+            onCollectionFieldsChange={setCollectionFields}
             tenantSlug={agent.tenantSlug}
             agentUrl={agent.agentUrl}
             saving={saving}
