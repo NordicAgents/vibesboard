@@ -1,4 +1,5 @@
 import type { FieldValue } from 'firebase-admin/firestore'
+import type { PlanId } from './plans'
 
 // ─── Shared enums / unions ───────────────────────────────────────────
 export type TenantRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
@@ -40,6 +41,81 @@ export type InboxMessageType =
   | 'location'
   | 'contacts'
 
+// ─── Usage metering ─────────────────────────────────────────────────
+export type UsageSource =
+  | 'chat'           // in-app agent chat
+  | 'ask_ai'         // conversation analysis
+  | 'public_chat'    // anonymous agent link
+  | 'hook_chat'      // hook /chat endpoint
+  | 'hook_stream'    // hook /stream endpoint
+  | 'hook_async'     // hook /async endpoint
+  | 'whatsapp'       // WhatsApp messages
+  | 'instagram'      // Instagram messages
+  | 'embed'          // embed widget
+
+export interface TenantSubscription {
+  planId: PlanId
+  seatCount: number                   // 1 for Free/Pro, 3+ for Team
+  billingCycleStart: string           // ISO date, start of current billing cycle
+  billingCycleEnd: string             // ISO date, end of current billing cycle
+  messageCount: number                // messages used in current cycle
+  messageLimit: number                // computed: plan.includedMessages or seatCount * plan.includedMessagesPerSeat
+  overageCount: number                // messages beyond limit in current cycle
+  customMessageLimit?: number | null  // admin override — null = use plan default
+  customOverageRate?: number | null   // admin override — null = use plan default
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  stripePriceId: string | null
+  trialEndsAt: string | null          // ISO date, null if not on trial
+}
+
+/** /plan_templates/{planId} */
+export interface PlanTemplateDocument {
+  id: string
+  name: string
+  price: number                       // monthly price in cents
+  pricePerSeat?: number | null        // cents per seat (Team only)
+  minSeats?: number | null            // minimum seats (Team only)
+  includedMessages: number            // per month
+  includedMessagesPerSeat?: number | null // Team only
+  overageRate: number                 // cents per message (0 = hard cap)
+  featureFlags: string[]              // FeatureFlagName[] stored as strings
+  createdAt: string
+  updatedAt: string
+}
+
+/** /tenants/{tenantId}/usage_logs/{logId} */
+export interface UsageLogDocument {
+  id: string
+  tenantId: string
+  agentId: string
+  conversationId: string | null
+  userId: string | null               // null for anonymous/public chat
+  timestamp: string                   // ISO datetime
+  source: UsageSource
+  model: string                       // e.g. 'gpt-4o-mini', 'gpt-4o'
+  inputTokens: number                 // from API response usage
+  outputTokens: number                // from API response usage
+  totalTokens: number
+  retrievalStrategy: 'direct' | 'rag' | 'bash' | null
+  toolCalled: string | null
+  latencyMs: number
+  billingCycleId: string              // YYYY-MM format for easy querying
+}
+
+/** /tenants/{tenantId}/usage_rollups/{billingCycleId} */
+export interface UsageRollupDocument {
+  tenantId: string
+  billingCycleId: string              // YYYY-MM
+  totalMessages: number
+  totalInputTokens: number
+  totalOutputTokens: number
+  bySource: Partial<Record<UsageSource, number>>
+  byAgent: Record<string, number>
+  byModel: Record<string, number>
+  updatedAt: string
+}
+
 // ─── Top-level collections ───────────────────────────────────────────
 
 /** /users/{userId} */
@@ -63,6 +139,7 @@ export interface TenantDocument {
   createdBy: string
   isPersonal: boolean
   googlePlaceId?: string | null
+  subscription?: TenantSubscription
   createdAt: string
   updatedAt: string
 }
@@ -492,6 +569,7 @@ export const Collections = {
   featureFlags: 'feature_flags',
   invitations: 'invitations',
   chats: 'chats',
+  planTemplates: 'plan_templates',
 
   // Tenant-scoped
   agentLinks: (tenantId: string) =>
@@ -531,6 +609,12 @@ export const Collections = {
     contactPhone: string
   ) =>
     `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const,
+
+  // Usage metering
+  usageLogs: (tenantId: string) =>
+    `tenants/${tenantId}/usage_logs` as const,
+  usageRollups: (tenantId: string) =>
+    `tenants/${tenantId}/usage_rollups` as const,
 
   // Conversation refs (handoff visibility)
   conversationRefs: (tenantId: string, agentId: string) =>

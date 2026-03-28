@@ -9,6 +9,8 @@ import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/comp
 import { nanoid } from '@/lib/utils'
 import { assertSafeCallbackUrl, signPayload } from './webhook-utils'
 import { dispatchAgentNotification, mapCompletionToEvent } from './notifications'
+import { checkUsageLimit, recordUsage } from '@/lib/usage'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 const genJobId = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
@@ -166,6 +168,12 @@ export async function runJobAsync(
       ? priorMessages
       : [...priorMessages, userMessage]
 
+    // Check tenant usage limit before running LLM
+    const usageCheck = await checkUsageLimit(tenantId)
+    if (!usageCheck.allowed) {
+      throw new Error(`Usage limit reached: ${usageCheck.used}/${usageCheck.limit} messages used`)
+    }
+
     const agentStream = await runAgentStream({
       agent,
       messages: allMessages,
@@ -182,6 +190,16 @@ export async function runJobAsync(
           conversationId: conversation.id,
           messages: nextMessages,
           summary: null
+        })
+
+        // Record usage for metering (fire-and-forget)
+        recordUsage({
+          tenantId,
+          agentId,
+          conversationId: conversation.id,
+          userId: null,
+          source: 'hook_async',
+          model: OPENAI_CHAT_MODEL,
         })
 
         const event = mapCompletionToEvent(reason)

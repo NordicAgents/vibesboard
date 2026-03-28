@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Flag, FileText, ArrowRight } from 'lucide-react'
+import { Building2, Flag, FileText, CreditCard, ArrowRight } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -22,6 +22,13 @@ const adminCards = [
     title: 'Feature Flags',
     description: 'Control feature rollouts and experiments',
     detail: 'Enable or disable features globally'
+  },
+  {
+    href: '/admin/plans',
+    icon: CreditCard,
+    title: 'Plans',
+    description: 'Configure plan templates and pricing',
+    detail: 'Manage message limits, feature flags, and overage rates'
   },
   {
     href: '/admin/files',
