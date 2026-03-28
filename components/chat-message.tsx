@@ -1,13 +1,19 @@
 import { type Message } from '@/lib/types/message'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
+import dynamic from 'next/dynamic'
 
 import { cn } from '@/lib/utils'
 import { CodeBlock } from '@/components/ui/codeblock'
 import { MemoizedReactMarkdown } from '@/components/markdown'
 import { ChatMessageActions } from '@/components/chat-message-actions'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ChartWidget, parseChartConfig } from '@/components/ui/chart-widget'
+import { parseChartConfig } from '@/components/ui/chart-config'
+
+const ChartWidget = dynamic(
+  () => import('@/components/ui/chart-widget').then(m => m.ChartWidget),
+  { ssr: false }
+)
 
 export interface ChatMessageProps {
   message: Message

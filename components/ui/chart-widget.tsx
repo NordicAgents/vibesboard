@@ -13,6 +13,7 @@ import {
   Legend,
 } from 'chart.js'
 import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2'
+import type { ChartConfig } from './chart-config'
 
 ChartJS.register(
   CategoryScale,
@@ -26,16 +27,7 @@ ChartJS.register(
   Legend
 )
 
-export interface ChartConfig {
-  type: 'bar' | 'line' | 'pie' | 'doughnut'
-  title: string
-  labels: string[]
-  datasets: {
-    label: string
-    data: number[]
-    color?: string
-  }[]
-}
+export type { ChartConfig }
 
 const COLORS = [
   '#a7e26e', '#6dbfd4', '#f4a261', '#e76f51',
@@ -79,18 +71,5 @@ export function ChartWidget({ config }: { config: ChartConfig }) {
   )
 }
 
-export function parseChartConfig(raw: string): ChartConfig | null {
-  try {
-    const parsed = JSON.parse(raw.trim())
-    if (
-      !parsed.type ||
-      !Array.isArray(parsed.labels) ||
-      !Array.isArray(parsed.datasets)
-    ) {
-      return null
-    }
-    return parsed as ChartConfig
-  } catch {
-    return null
-  }
-}
+// parseChartConfig lives in ./chart-config.ts (no Chart.js dependency)
+export { parseChartConfig } from './chart-config'
