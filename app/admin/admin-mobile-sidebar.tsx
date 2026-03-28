@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, ShieldCheck, Building2, Flag, FileText } from 'lucide-react'
+import { Menu, ShieldCheck, Building2, Flag, FileText, CreditCard } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import type { LucideIcon } from 'lucide-react'
@@ -10,7 +10,8 @@ import type { LucideIcon } from 'lucide-react'
 const iconMap: Record<string, LucideIcon> = {
   Building2,
   Flag,
-  FileText
+  FileText,
+  CreditCard
 }
 
 export interface NavItem {

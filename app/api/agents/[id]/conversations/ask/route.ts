@@ -14,6 +14,7 @@ import { summarizeConversation } from '@/lib/agent/summarize'
 import { buildAskAiConversationContext } from '@/lib/agent/conversation-rag'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 import { canEditAgent } from '@/lib/agents/permissions'
+import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY
@@ -53,6 +54,12 @@ export async function POST(
 
   if (!canEdit) {
     return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  // Check tenant usage limit
+  const usageCheck = await checkUsageLimit(agent.tenantId)
+  if (!usageCheck.allowed) {
+    return usageLimitResponse(usageCheck)
   }
 
   let json: Record<string, unknown> | null = null
@@ -132,6 +139,15 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
           messages: nextMessages,
           summary
         })
+
+        recordUsage({
+          tenantId: agent.tenantId,
+          agentId: agent.id,
+          conversationId: askConversation.id,
+          userId: user.id,
+          source: 'ask_ai',
+          model,
+        })
       }
     })
 
@@ -169,6 +185,15 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
         conversationId: askConversation.id,
         messages: nextMessages,
         summary
+      })
+
+      recordUsage({
+        tenantId: agent.tenantId,
+        agentId: agent.id,
+        conversationId: askConversation.id,
+        userId: user.id,
+        source: 'ask_ai',
+        model,
       })
     }
   })

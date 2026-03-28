@@ -7,6 +7,8 @@ import { ensureConversation, updateConversationMessages } from '@/lib/agents/con
 import { runAgentStream } from '@/lib/agent/runtime'
 import { stripCompletionMarkers } from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
+import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -88,7 +90,13 @@ export async function POST(
 
   const { message, externalUserId, conversationId } = parsed.data
 
-  // ── 4. Ensure conversation ────────────────────────────────────────────
+  // ── 4. Check tenant usage limit ──────────────────────────────────────
+  const usageCheck = await checkUsageLimit(agent.tenantId!)
+  if (!usageCheck.allowed) {
+    return usageLimitResponse(usageCheck)
+  }
+
+  // ── 5. Ensure conversation ────────────────────────────────────────────
   const userMessage = { id: nanoid(), role: 'user' as const, content: message }
 
   const conversation = await ensureConversation({
@@ -129,6 +137,16 @@ export async function POST(
               conversationId: conversation.id,
               messages: nextMessages,
               summary: null
+            })
+
+            // Record usage for metering (fire-and-forget)
+            recordUsage({
+              tenantId: agent.tenantId!,
+              agentId: agent.id,
+              conversationId: conversation.id,
+              userId: null,
+              source: 'hook_stream',
+              model: OPENAI_CHAT_MODEL,
             })
           }
         })
