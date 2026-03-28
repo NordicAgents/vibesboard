@@ -95,8 +95,11 @@ export function AgentCreatorChat({
                   fileKeys: updates.fileKeys
                 }),
                 ...(updates.mode !== undefined && { mode: updates.mode }),
-                ...(updates.maxMessages !== undefined && {
-                  maxMessages: updates.maxMessages
+                ...(updates.maxResponses !== undefined && {
+                  maxResponses: updates.maxResponses
+                }),
+                ...(updates.maxAgentResponses !== undefined && {
+                  maxAgentResponses: updates.maxAgentResponses
                 }),
                 ...(updates.quickSuggestionsMode !== undefined && {
                   quickSuggestionsMode: updates.quickSuggestionsMode
@@ -312,11 +315,10 @@ export function AgentCreatorChat({
         name: toolId.replace('builtin:', '')
       }))
 
-      // Explicitly set mode and maxMessages
+      // Explicitly set mode and response limits
       const mode = formData.mode ?? 'provider'
-      // If provider, no limit (null). If collector, use form value or default to 20.
-      const maxMessages =
-        mode === 'provider' ? null : (formData.maxMessages ?? 20)
+      const maxResponses = formData.maxResponses ?? null
+      const maxAgentResponses = formData.maxAgentResponses ?? null
 
       const res = await fetch('/api/agents', {
         method: 'POST',
@@ -332,7 +334,8 @@ export function AgentCreatorChat({
           sourceUrls: formData.sourceUrls || [],
           tools: toolsPayload,
           mode,
-          maxMessages,
+          maxResponses,
+          maxAgentResponses,
           quickSuggestionsMode: formData.quickSuggestionsMode ?? 'smart',
           quickSuggestionsCount: formData.quickSuggestionsCount ?? 4
         })

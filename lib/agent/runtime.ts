@@ -28,6 +28,7 @@ interface RunAgentStreamArgs {
   temperature?: number
   onCompletion?: (completion: string) => Promise<void> | void
   toolContext?: ToolExecutionContext
+  remainingResponses?: number | null
 }
 
 export async function runAgentStream({
@@ -37,7 +38,8 @@ export async function runAgentStream({
   previewToken,
   temperature = 0.1,
   onCompletion,
-  toolContext
+  toolContext,
+  remainingResponses
 }: RunAgentStreamArgs) {
   if (previewToken) {
     configuration.apiKey = previewToken
@@ -69,12 +71,14 @@ export async function runAgentStream({
         if (onCompletion) await onCompletion(completion)
       },
       toolContext,
-      hasFileOverflow: agentContext.hasFileOverflow
+      hasFileOverflow: agentContext.hasFileOverflow,
+      remainingResponses
     })
   }
 
   const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
-    hasFileOverflow: agentContext.hasFileOverflow
+    hasFileOverflow: agentContext.hasFileOverflow,
+    remainingResponses
   })
 
   if (isResponses) {
@@ -97,7 +101,9 @@ export async function runAgentStream({
     return stream
   }
 
-  const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext)
+  const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
+    remainingResponses
+  })
   const payload = [
     { role: 'system' as const, content: systemPromptLegacy },
     ...messages.map(message => ({
@@ -144,6 +150,7 @@ interface ResponsesAgentWithToolsArgs {
   onCompletion?: (completion: string) => Promise<void> | void
   toolContext?: ToolExecutionContext
   hasFileOverflow?: boolean
+  remainingResponses?: number | null
 }
 
 /**
@@ -161,10 +168,11 @@ const runResponsesAgentWithTools = async ({
   previewToken,
   onCompletion,
   toolContext,
-  hasFileOverflow
+  hasFileOverflow,
+  remainingResponses
 }: ResponsesAgentWithToolsArgs) => {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
-  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow })
+  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow, remainingResponses })
   const conversation = formatConversation(messages)
 
   // Convert toolkit functions to Responses API tool format

@@ -115,9 +115,13 @@ export async function POST(req: Request) {
       greetingText: payload.greetingText
     }),
     mode: payload.mode ?? 'provider',
-    ...(payload.maxMessages !== undefined && {
-      maxMessages: payload.maxMessages
+    ...(payload.maxResponses !== undefined && {
+      maxResponses: payload.maxResponses
     }),
+    ...(payload.maxAgentResponses !== undefined && {
+      maxAgentResponses: payload.maxAgentResponses
+    }),
+    totalResponseCount: 0,
     quickSuggestionsMode: payload.quickSuggestionsMode ?? 'off',
     quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
     sourceUrls: payload.sourceUrls ?? [],
