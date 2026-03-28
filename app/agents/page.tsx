@@ -41,6 +41,18 @@ export default function AgentsPage() {
 
   useEffect(() => {
     fetchActiveTenant()
+
+    const handleTenantChanged = (e: Event) => {
+      const tenantId = (e as CustomEvent).detail?.tenantId
+      if (tenantId) {
+        setTenantId(tenantId)
+        setPage(1)
+      } else {
+        fetchActiveTenant()
+      }
+    }
+    window.addEventListener('tenantChanged', handleTenantChanged)
+    return () => window.removeEventListener('tenantChanged', handleTenantChanged)
   }, [])
 
   useEffect(() => {

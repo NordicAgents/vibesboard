@@ -19,7 +19,9 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { CreateTenantDialog } from '@/components/tenants'
-import type { TenantDocument } from '@/lib/firestore-types'
+import { UsageProgress } from '@/components/usage-progress'
+import type { TenantDocument, TenantSubscription } from '@/lib/firestore-types'
+import type { PlanId } from '@/lib/plans'
 import toast from 'react-hot-toast'
 
 interface TenantWithStats extends TenantDocument {
@@ -189,6 +191,41 @@ export default function TenantsPage() {
             label: 'Members',
             sortable: true,
             render: (tenant) => tenant.user_count ?? tenant.userCount ?? 0,
+        },
+        {
+            key: 'plan',
+            label: 'Plan',
+            render: (tenant) => {
+                const planId = tenant.subscription?.planId as PlanId | undefined
+                if (!planId) return <span className="text-xs text-muted-foreground">—</span>
+                const planColors: Record<string, 'default' | 'secondary'> = {
+                    free: 'secondary',
+                    pro: 'default',
+                    team: 'default',
+                    enterprise: 'default',
+                }
+                return (
+                    <Badge variant={planColors[planId] ?? 'secondary'} className="capitalize">
+                        {planId}
+                    </Badge>
+                )
+            },
+        },
+        {
+            key: 'usage',
+            label: 'Usage',
+            render: (tenant) => {
+                const sub = tenant.subscription as TenantSubscription | undefined
+                if (!sub) return <span className="text-xs text-muted-foreground">—</span>
+                return (
+                    <UsageProgress
+                        used={sub.messageCount ?? 0}
+                        limit={sub.messageLimit ?? 0}
+                        planId={sub.planId}
+                        compact
+                    />
+                )
+            },
         },
         {
             key: 'createdAt',
