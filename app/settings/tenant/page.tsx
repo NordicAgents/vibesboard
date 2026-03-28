@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ColorPicker } from '@/components/tenants/color-picker'
 import { BrandingPreview } from '@/components/tenants/branding-preview'
+import { FeatureToggle } from '@/components/tenants/feature-toggle'
 import { Badge } from '@/components/ui/badge'
 import toast from 'react-hot-toast'
 import { Loader2 } from 'lucide-react'
@@ -40,6 +41,8 @@ interface TenantFeatureStatus {
   description: string | null
   isEnabled: boolean
   isOverridden: boolean
+  parentFlagName: string | null
+  isDisabledByParent: boolean
 }
 
 export default function TenantSettingsPage() {
@@ -174,6 +177,55 @@ export default function TenantSettingsPage() {
       toast.error('Failed to update Google Review settings')
     } finally {
       setIsSavingGoogleReview(false)
+    }
+  }
+
+  const handleFeatureToggle = async (featureId: string, enabled: boolean) => {
+    if (!tenant) return
+    try {
+      const response = await fetch(`/api/tenants/${tenant.id}/features`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feature_flag_id: featureId,
+          is_enabled: enabled
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to toggle feature')
+      }
+
+      // Optimistically update UI
+      setFeatures(prev => {
+        const toggled = prev.find(f => f.id === featureId)
+        if (!toggled) return prev
+
+        return prev.map(f => {
+          if (f.id === featureId) {
+            return { ...f, isEnabled: enabled, isOverridden: true }
+          }
+          // Cascade disable children when parent toggled off
+          if (!enabled && f.parentFlagName === toggled.name) {
+            return { ...f, isDisabledByParent: true }
+          }
+          // Un-cascade children when parent toggled on
+          if (enabled && f.parentFlagName === toggled.name) {
+            return { ...f, isDisabledByParent: false }
+          }
+          return f
+        })
+      })
+
+      toast.success('Feature updated successfully')
+    } catch (error) {
+      console.error('Error toggling feature:', error)
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to toggle feature'
+      )
+      // Revert on error
+      fetchTenantData()
     }
   }
 
@@ -360,40 +412,36 @@ export default function TenantSettingsPage() {
             <CardHeader>
               <CardTitle>Feature Flags</CardTitle>
               <CardDescription>
-                Features enabled for your tenant (managed by super admin)
+                Enable or disable features for your workspace
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {isPersonal && (
+                <div className="mb-4 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Feature toggles are disabled for personal workspaces.
+                </div>
+              )}
               {features.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No features available
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {features.map(feature => {
-                    return (
-                      <div
-                        key={feature.id}
-                        className="flex items-center justify-between rounded-lg border p-4"
-                      >
-                        <div className="space-y-1">
-                          <p className="font-mono text-sm font-semibold">
-                            {feature.name}
-                          </p>
-                          {feature.description && (
-                            <p className="text-sm text-muted-foreground">
-                              {feature.description}
-                            </p>
-                          )}
-                        </div>
-                        <Badge
-                          variant={feature.isEnabled ? 'default' : 'secondary'}
-                        >
-                          {feature.isEnabled ? 'Enabled' : 'Disabled'}
-                        </Badge>
-                      </div>
-                    )
-                  })}
+                  {features.map(feature => (
+                    <FeatureToggle
+                      key={feature.id}
+                      id={feature.id}
+                      name={feature.name}
+                      description={feature.description}
+                      isEnabled={feature.isEnabled}
+                      isOverridden={feature.isOverridden}
+                      isChild={!!feature.parentFlagName}
+                      isDisabledByParent={feature.isDisabledByParent}
+                      parentFlagName={feature.parentFlagName}
+                      onToggle={handleFeatureToggle}
+                      disabled={isPersonal}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>
