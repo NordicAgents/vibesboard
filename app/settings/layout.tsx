@@ -124,6 +124,12 @@ export default async function SettingsLayout({
       <aside className="hidden w-64 shrink-0 border-r border-[#e4e3e3] bg-[#f5f8f7] dark:border-[#344348] dark:bg-[#192425] md:flex md:flex-col">
         {/* Header */}
         <div className="flex h-16 items-center gap-2.5 border-b border-[#e4e3e3] px-5 dark:border-[#344348]">
+          <Link
+            href="/agents"
+            className="flex size-7 items-center justify-center rounded-lg text-[#6f7f80] transition-colors hover:bg-[#e6ede6] hover:text-[#222f30] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
           <div className="flex size-7 items-center justify-center rounded-lg bg-[#e6ede6] dark:bg-[#344348]">
             <Settings className="size-3.5 text-accent-orange" />
           </div>
@@ -148,18 +154,7 @@ export default async function SettingsLayout({
 
         {/* Navigation */}
         <nav className="flex-1 space-y-0.5 p-3">
-          <Link
-            href="/agents"
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150',
-              'text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30]',
-              'dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]'
-            )}
-          >
-            <ArrowLeft className="size-4 shrink-0 text-[#6f7f80]" />
-            Back to Agents
-          </Link>
-          <p className="label-caps mb-2 mt-4 px-3">Navigation</p>
+          <p className="label-caps mb-2 px-3">Navigation</p>
           {navItems.map(item => (
             <Link
               key={item.href}
