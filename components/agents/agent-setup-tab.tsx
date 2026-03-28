@@ -24,8 +24,11 @@ interface AgentSetupTabProps {
   onAllowAnonymousChange: (value: boolean) => void
   mode: AgentMode
   onModeChange: (value: AgentMode) => void
-  maxMessages: number | null
-  onMaxMessagesChange: (value: number | null) => void
+  maxResponses: number | null
+  onMaxResponsesChange: (value: number | null) => void
+  maxAgentResponses: number | null
+  onMaxAgentResponsesChange: (value: number | null) => void
+  totalResponseCount?: number
   quickSuggestionsMode: QuickSuggestionsMode
   onQuickSuggestionsModeChange: (value: QuickSuggestionsMode) => void
   quickSuggestionsCount: number
@@ -47,8 +50,11 @@ export function AgentSetupTab({
   onAllowAnonymousChange,
   mode,
   onModeChange,
-  maxMessages,
-  onMaxMessagesChange,
+  maxResponses,
+  onMaxResponsesChange,
+  maxAgentResponses,
+  onMaxAgentResponsesChange,
+  totalResponseCount,
   quickSuggestionsMode,
   onQuickSuggestionsModeChange,
   quickSuggestionsCount,
@@ -144,7 +150,6 @@ export function AgentSetupTab({
               onClick={() => {
                 if (!canEdit) return
                 onModeChange('provider')
-                onMaxMessagesChange(null)
               }}
             >
               Info Provider
@@ -159,7 +164,6 @@ export function AgentSetupTab({
               onClick={() => {
                 if (!canEdit) return
                 onModeChange('collector')
-                onMaxMessagesChange(20)
               }}
             >
               Info Collector
@@ -170,24 +174,62 @@ export function AgentSetupTab({
               ? 'Agent will gather information from users'
               : 'Agent will provide information to users'}
           </p>
-          {mode === 'collector' && (
-            <div className="pt-2">
-              <label className="text-xs font-medium text-muted-foreground">
-                Max messages before completion
-              </label>
-              <Input
-                type="number"
-                min={1}
-                max={50}
-                value={maxMessages ?? 20}
-                onChange={e =>
-                  onMaxMessagesChange(parseInt(e.target.value, 10) || 20)
-                }
-                className="mt-1"
-                disabled={saving || !canEdit}
-              />
-            </div>
-          )}
+        </CardContent>
+      </Card>
+
+      {/* Response Limits */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Response Limits</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Max responses per session
+            </label>
+            <Input
+              type="number"
+              min={1}
+              max={500}
+              value={maxResponses ?? ''}
+              onChange={e => {
+                const val = parseInt(e.target.value, 10)
+                onMaxResponsesChange(val > 0 ? val : null)
+              }}
+              className="mt-1"
+              disabled={saving || !canEdit}
+              placeholder="Unlimited"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Max AI responses in a single conversation. Leave empty for unlimited.
+            </p>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Max responses per agent
+            </label>
+            <Input
+              type="number"
+              min={1}
+              max={100000}
+              value={maxAgentResponses ?? ''}
+              onChange={e => {
+                const val = parseInt(e.target.value, 10)
+                onMaxAgentResponsesChange(val > 0 ? val : null)
+              }}
+              className="mt-1"
+              disabled={saving || !canEdit}
+              placeholder="Unlimited"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Total AI responses across all sessions. Agent is disabled when reached.
+            </p>
+            {maxAgentResponses != null && totalResponseCount != null && (
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                Used: {totalResponseCount} / {maxAgentResponses}
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
