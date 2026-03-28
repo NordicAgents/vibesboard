@@ -81,8 +81,11 @@ export async function PATCH(
       ? { greetingText: payload.greetingText }
       : {}),
     ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
-    ...(payload.maxMessages !== undefined
-      ? { maxMessages: payload.maxMessages }
+    ...(payload.maxResponses !== undefined
+      ? { maxResponses: payload.maxResponses }
+      : {}),
+    ...(payload.maxAgentResponses !== undefined
+      ? { maxAgentResponses: payload.maxAgentResponses }
       : {}),
     ...(payload.quickSuggestionsMode !== undefined
       ? { quickSuggestionsMode: payload.quickSuggestionsMode }

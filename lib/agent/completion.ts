@@ -4,7 +4,8 @@ export type CompletionReason =
   | 'collection_complete'
   | 'info_complete'
   | 'handoff_to_human'
-  | 'max_messages'
+  | 'max_responses'
+  | 'max_messages' // backward compat
   | null
 
 const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
@@ -42,8 +43,8 @@ export function stripCompletionMarkers(text: string): string {
  * strips completion markers, and appends completion metadata
  */
 export function createCompletionTransformStream(
-  maxMessages?: number | null,
-  currentMessageCount?: number
+  maxResponses?: number | null,
+  currentResponseCount?: number
 ): TransformStream<Uint8Array, Uint8Array> {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
@@ -61,15 +62,15 @@ export function createCompletionTransformStream(
       // After stream completes, check for completion markers
       const completionReason = detectCompletionMarker(buffer)
 
-      // Check max messages threshold
-      const maxMessagesReached =
-        maxMessages && currentMessageCount && currentMessageCount >= maxMessages
+      // Check max responses threshold
+      const maxResponsesReached =
+        maxResponses && currentResponseCount && currentResponseCount >= maxResponses
 
       // If there's a completion signal, append metadata
-      if (completionReason || maxMessagesReached) {
+      if (completionReason || maxResponsesReached) {
         const metadata = {
           chatComplete: true,
-          reason: completionReason || 'max_messages'
+          reason: completionReason || 'max_responses'
         }
         // Append a special delimiter and metadata
         const metadataStr = `\n<!--CHAT_COMPLETE:${JSON.stringify(metadata)}-->`
@@ -84,12 +85,12 @@ export function createCompletionTransformStream(
  */
 export function wrapStreamWithCompletionDetection(
   stream: ReadableStream<Uint8Array>,
-  maxMessages?: number | null,
-  currentMessageCount?: number
+  maxResponses?: number | null,
+  currentResponseCount?: number
 ): ReadableStream<Uint8Array> {
   const transformStream = createCompletionTransformStream(
-    maxMessages,
-    currentMessageCount
+    maxResponses,
+    currentResponseCount
   )
   return stream.pipeThrough(transformStream)
 }
