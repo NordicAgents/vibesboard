@@ -43,7 +43,9 @@ export interface VibeAgent {
   allowAnonymous: boolean
   greetingText?: string | null
   mode: AgentMode
-  maxMessages?: number | null
+  maxResponses?: number | null
+  maxAgentResponses?: number | null
+  totalResponseCount?: number
   quickSuggestionsMode?: QuickSuggestionsMode
   quickSuggestionsCount?: number | null
   sourceUrls?: string[]

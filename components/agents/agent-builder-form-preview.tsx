@@ -34,7 +34,8 @@ export interface AgentFormData {
   fileKeys?: string[]
   sourceUrls?: string[]
   mode?: AgentMode
-  maxMessages?: number | null
+  maxResponses?: number | null
+  maxAgentResponses?: number | null
   quickSuggestionsMode?: 'off' | 'smart' | 'always'
   quickSuggestionsCount?: number
   retrievalStrategy?: RetrievalStrategy
@@ -406,8 +407,7 @@ export function AgentBuilderFormPreview({
                 onClick={() =>
                   onFormChange({
                     ...formData,
-                    mode: 'provider',
-                    maxMessages: null
+                    mode: 'provider'
                   })
                 }
               >
@@ -425,8 +425,7 @@ export function AgentBuilderFormPreview({
                 onClick={() =>
                   onFormChange({
                     ...formData,
-                    mode: 'collector',
-                    maxMessages: 20
+                    mode: 'collector'
                   })
                 }
               >
@@ -438,26 +437,48 @@ export function AgentBuilderFormPreview({
                 ? 'Agent will gather information from users (e.g., surveys, feedback)'
                 : 'Agent will answer questions and provide information to users'}
             </p>
-            {formData.mode === 'collector' && (
-              <div className="pt-2">
+            <div className="space-y-3 pt-2">
+              <div>
                 <label className="text-xs font-medium text-muted-foreground">
-                  Max messages before completion
+                  Max responses per session
                 </label>
                 <Input
                   type="number"
                   min={1}
-                  max={50}
-                  value={formData.maxMessages ?? 20}
-                  onChange={e =>
+                  max={500}
+                  value={formData.maxResponses ?? ''}
+                  onChange={e => {
+                    const val = parseInt(e.target.value, 10)
                     onFormChange({
                       ...formData,
-                      maxMessages: parseInt(e.target.value, 10) || 20
+                      maxResponses: val > 0 ? val : null
                     })
-                  }
+                  }}
                   className="mt-1 font-switzer"
+                  placeholder="Unlimited"
                 />
               </div>
-            )}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Max responses per agent
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={100000}
+                  value={formData.maxAgentResponses ?? ''}
+                  onChange={e => {
+                    const val = parseInt(e.target.value, 10)
+                    onFormChange({
+                      ...formData,
+                      maxAgentResponses: val > 0 ? val : null
+                    })
+                  }}
+                  className="mt-1 font-switzer"
+                  placeholder="Unlimited"
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
