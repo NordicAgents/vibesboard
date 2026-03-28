@@ -1,7 +1,8 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useChat, type Message } from 'ai/react'
+import { useChat } from 'ai/react'
+import { type Message } from '@/lib/types/message'
 import { ChevronRight } from 'lucide-react'
 
 import { type AgentMode, type VibeAgent } from '@/lib/types'

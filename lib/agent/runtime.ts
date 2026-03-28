@@ -1,6 +1,6 @@
-import { OpenAIStream } from 'ai'
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { type Message } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import { streamText as aiStreamText } from 'ai'
+import { type Message } from '@/lib/types/message'
 
 import { buildAgentSystemPrompt } from './prompts'
 import { buildAgentContext } from './context-builder'
@@ -14,11 +14,6 @@ import {
   type ResponsesApiTool
 } from '@/lib/openai'
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -43,12 +38,6 @@ export async function runAgentStream({
   handoffTargetNames,
   remainingResponses
 }: RunAgentStreamArgs) {
-  if (previewToken) {
-    configuration.apiKey = previewToken
-  } else if (process.env.OPENAI_API_KEY) {
-    configuration.apiKey = process.env.OPENAI_API_KEY
-  }
-
   const model = OPENAI_CHAT_MODEL
   const isResponses = isResponsesModel(model)
 
@@ -111,24 +100,37 @@ export async function runAgentStream({
   const payload = [
     { role: 'system' as const, content: systemPromptLegacy },
     ...messages.map(message => ({
-      role: message.role,
-      content: message.content,
-      name: message.name,
-      function_call: message.function_call
+      role: message.role as 'system' | 'user' | 'assistant',
+      content: typeof message.content === 'string' ? message.content : ''
     }))
   ]
 
-  const response = await openai.createChatCompletion({
-    model,
-    stream: true,
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? ''
+  const openaiClient = createOpenAI({ apiKey })
+
+  const result = await aiStreamText({
+    model: openaiClient(model),
+    messages: payload,
     temperature,
-    messages: payload as any
+    async onFinish({ text }) {
+      await agentContext.dispose()
+      if (onCompletion) await onCompletion(text)
+    }
   })
 
-  return OpenAIStream(response, {
-    async onCompletion(completion) {
-      await agentContext.dispose()
-      if (onCompletion) await onCompletion(completion)
+  // Convert AsyncIterableStream<string> → ReadableStream<Uint8Array>
+  // so it remains compatible with wrapStreamWithCompletionDetection
+  const encoder = new TextEncoder()
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const chunk of result.textStream) {
+          controller.enqueue(encoder.encode(chunk))
+        }
+        controller.close()
+      } catch (err) {
+        controller.error(err)
+      }
     }
   })
 }
