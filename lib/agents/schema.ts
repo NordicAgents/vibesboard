@@ -19,6 +19,16 @@ export const agentToolSchema = z.object({
 
 export const agentModeSchema = z.enum(['provider', 'collector'])
 
+export const collectionFieldSchema = z.object({
+  id: z.string(),
+  label: z.string().min(1).max(100),
+  type: z.enum(['text', 'email', 'phone', 'number', 'long_text', 'choice']),
+  required: z.boolean().default(true),
+  description: z.string().max(200).optional(),
+  choices: z.array(z.string()).optional(),
+  order: z.number().int().min(0)
+})
+
 export const notificationEventSchema = z.enum(['completed', 'handoff', 'agent_handoff'])
 
 export const notificationConfigSchema = z.object({
@@ -56,7 +66,8 @@ export const upsertAgentSchema = z.object({
   googlePlaceId: z.string().nullable().optional(),
   retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct'),
   notificationConfig: notificationConfigSchema.optional(),
-  handoffTargets: z.array(z.string()).default([])
+  handoffTargets: z.array(z.string()).default([]),
+  collectionFields: z.array(collectionFieldSchema).max(20).default([])
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
