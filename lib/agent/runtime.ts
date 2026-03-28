@@ -29,6 +29,7 @@ interface RunAgentStreamArgs {
   onCompletion?: (completion: string) => Promise<void> | void
   toolContext?: ToolExecutionContext
   handoffTargetNames?: Record<string, string>
+  remainingResponses?: number | null
 }
 
 export async function runAgentStream({
@@ -39,7 +40,8 @@ export async function runAgentStream({
   temperature = 0.1,
   onCompletion,
   toolContext,
-  handoffTargetNames
+  handoffTargetNames,
+  remainingResponses
 }: RunAgentStreamArgs) {
   if (previewToken) {
     configuration.apiKey = previewToken
@@ -72,13 +74,15 @@ export async function runAgentStream({
       },
       toolContext,
       hasFileOverflow: agentContext.hasFileOverflow,
-      handoffTargetNames
+      handoffTargetNames,
+      remainingResponses
     })
   }
 
   const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
     hasFileOverflow: agentContext.hasFileOverflow,
-    handoffTargetNames
+    handoffTargetNames,
+    remainingResponses
   })
 
   if (isResponses) {
@@ -101,7 +105,9 @@ export async function runAgentStream({
     return stream
   }
 
-  const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext)
+  const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
+    remainingResponses
+  })
   const payload = [
     { role: 'system' as const, content: systemPromptLegacy },
     ...messages.map(message => ({
@@ -149,6 +155,7 @@ interface ResponsesAgentWithToolsArgs {
   toolContext?: ToolExecutionContext
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
+  remainingResponses?: number | null
 }
 
 /**
@@ -167,10 +174,11 @@ const runResponsesAgentWithTools = async ({
   onCompletion,
   toolContext,
   hasFileOverflow,
-  handoffTargetNames
+  handoffTargetNames,
+  remainingResponses
 }: ResponsesAgentWithToolsArgs) => {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
-  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow, handoffTargetNames })
+  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow, handoffTargetNames, remainingResponses })
   const conversation = formatConversation(messages)
 
   // Convert toolkit functions to Responses API tool format

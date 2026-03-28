@@ -52,8 +52,11 @@ export function AgentDashboardTabs({
   )
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
   const [mode, setMode] = useState<AgentMode>(agent.mode || 'provider')
-  const [maxMessages, setMaxMessages] = useState<number | null>(
-    agent.maxMessages ?? null
+  const [maxResponses, setMaxResponses] = useState<number | null>(
+    agent.maxResponses ?? null
+  )
+  const [maxAgentResponses, setMaxAgentResponses] = useState<number | null>(
+    agent.maxAgentResponses ?? null
   )
   const [quickSuggestionsMode, setQuickSuggestionsMode] =
     useState<QuickSuggestionsMode>(agent.quickSuggestionsMode ?? 'off')
@@ -86,7 +89,8 @@ export function AgentDashboardTabs({
       (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
     allowAnonymous !== agent.allowAnonymous ||
     mode !== (agent.mode || 'provider') ||
-    maxMessages !== (agent.maxMessages ?? null) ||
+    maxResponses !== (agent.maxResponses ?? null) ||
+    maxAgentResponses !== (agent.maxAgentResponses ?? null) ||
     quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
     quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
     googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
@@ -106,7 +110,8 @@ export function AgentDashboardTabs({
       greetingText: greetingText.trim() || null,
       allowAnonymous,
       mode,
-      maxMessages,
+      maxResponses,
+      maxAgentResponses,
       quickSuggestionsMode,
       quickSuggestionsCount,
       googleReviewEnabled,
@@ -209,8 +214,11 @@ export function AgentDashboardTabs({
             onAllowAnonymousChange={setAllowAnonymous}
             mode={mode}
             onModeChange={setMode}
-            maxMessages={maxMessages}
-            onMaxMessagesChange={setMaxMessages}
+            maxResponses={maxResponses}
+            onMaxResponsesChange={setMaxResponses}
+            maxAgentResponses={maxAgentResponses}
+            onMaxAgentResponsesChange={setMaxAgentResponses}
+            totalResponseCount={agent.totalResponseCount}
             quickSuggestionsMode={quickSuggestionsMode}
             onQuickSuggestionsModeChange={setQuickSuggestionsMode}
             quickSuggestionsCount={quickSuggestionsCount}

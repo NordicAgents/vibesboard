@@ -61,10 +61,13 @@ export function AgentChat({
   const [agentMode, setAgentMode] = useState<AgentMode>(
     agent.mode || 'provider'
   )
-  const [maxMessages, setMaxMessages] = useState<number | null>(
-    agent.maxMessages ?? null
+  const [maxResponses, setMaxResponses] = useState<number | null>(
+    agent.maxResponses ?? null
   )
-  const [isChatComplete, setIsChatComplete] = useState(false)
+  const [isAgentDisabled, setIsAgentDisabled] = useState(
+    !!(agent.maxAgentResponses && (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses)
+  )
+  const [isChatComplete, setIsChatComplete] = useState(isAgentDisabled)
   const scrollRef = useRef<HTMLDivElement>(null)
   const hasAutoTriggered = useRef(false)
 
@@ -103,9 +106,15 @@ export function AgentChat({
   // Check for completion signals in messages
   const checkForCompletion = useCallback(
     (messagesArr: Message[]) => {
-      const userMessageCount = messagesArr.filter(m => m.role === 'user' && !m.id?.startsWith(AUTO_START_PREFIX) && !m.id?.startsWith(HANDOFF_CONTINUE_PREFIX)).length
+      if (isAgentDisabled) {
+        setIsChatComplete(true)
+        return
+      }
 
-      if (maxMessages && userMessageCount >= maxMessages) {
+      // Count assistant responses (subtract 1 to exclude the greeting message)
+      const assistantCount = messagesArr.filter(m => m.role === 'assistant').length - 1
+
+      if (maxResponses && assistantCount >= maxResponses) {
         setIsChatComplete(true)
         return
       }
@@ -138,7 +147,7 @@ export function AgentChat({
         }
       }
     },
-    [maxMessages]
+    [maxResponses, isAgentDisabled]
   )
 
   const {
@@ -159,6 +168,17 @@ export function AgentChat({
     },
     initialMessages: messagesToUse,
     onResponse(response: Response) {
+      if (!response.ok) {
+        if (response.status === 403) {
+          response.clone().json().then(data => {
+            if (data?.code === 'AGENT_LIMIT_REACHED') {
+              setIsAgentDisabled(true)
+              setIsChatComplete(true)
+            }
+          }).catch(() => {})
+        }
+        return
+      }
       const headerId = response.headers.get('x-conversation-id')
       if (headerId) {
         setConversationId(headerId)
@@ -169,9 +189,19 @@ export function AgentChat({
       if (modeHeader) {
         setAgentMode(modeHeader)
       }
-      const maxMsgsHeader = response.headers.get('x-max-messages')
-      if (maxMsgsHeader) {
-        setMaxMessages(parseInt(maxMsgsHeader, 10) || null)
+      const maxRespHeader = response.headers.get('x-max-responses')
+      if (maxRespHeader) {
+        setMaxResponses(parseInt(maxRespHeader, 10) || null)
+      }
+      const maxAgentRespHeader = response.headers.get('x-max-agent-responses')
+      const totalRespHeader = response.headers.get('x-total-response-count')
+      if (maxAgentRespHeader && totalRespHeader) {
+        const maxAgent = parseInt(maxAgentRespHeader, 10)
+        const totalResp = parseInt(totalRespHeader, 10)
+        if (maxAgent && totalResp >= maxAgent) {
+          setIsAgentDisabled(true)
+          setIsChatComplete(true)
+        }
       }
       // Track which agent responded
       const agentIdHeader = response.headers.get('x-agent-id')
@@ -456,6 +486,7 @@ export function AgentChat({
         input={input}
         setInput={setInput}
         isChatComplete={isChatComplete}
+        isAgentDisabled={isAgentDisabled}
         agentMode={agentMode}
         agentName={activeAgentName}
         onChatComplete={handleChatComplete}

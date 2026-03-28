@@ -72,8 +72,11 @@ export function AgentRightbar({
   )
   const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
   const [mode, setMode] = useState<AgentMode>(agent.mode || 'provider')
-  const [maxMessages, setMaxMessages] = useState<number | null>(
-    agent.maxMessages ?? null
+  const [maxResponses, setMaxResponses] = useState<number | null>(
+    agent.maxResponses ?? null
+  )
+  const [maxAgentResponses, setMaxAgentResponses] = useState<number | null>(
+    agent.maxAgentResponses ?? null
   )
   const [quickSuggestionsMode, setQuickSuggestionsMode] =
     useState<QuickSuggestionsMode>(agent.quickSuggestionsMode ?? 'off')
@@ -128,7 +131,8 @@ export function AgentRightbar({
       greetingText: greetingText.trim() || null,
       allowAnonymous,
       mode,
-      maxMessages,
+      maxResponses,
+      maxAgentResponses,
       quickSuggestionsMode,
       quickSuggestionsCount,
       googleReviewEnabled,
@@ -161,7 +165,8 @@ export function AgentRightbar({
       (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
     allowAnonymous !== agent.allowAnonymous ||
     mode !== (agent.mode || 'provider') ||
-    maxMessages !== (agent.maxMessages ?? null) ||
+    maxResponses !== (agent.maxResponses ?? null) ||
+    maxAgentResponses !== (agent.maxAgentResponses ?? null) ||
     quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
     quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
     googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
@@ -288,7 +293,6 @@ export function AgentRightbar({
                 onClick={() => {
                   if (!canEdit) return
                   setMode('provider')
-                  setMaxMessages(null)
                 }}
               >
                 Info Provider
@@ -303,7 +307,6 @@ export function AgentRightbar({
                 onClick={() => {
                   if (!canEdit) return
                   setMode('collector')
-                  setMaxMessages(20)
                 }}
               >
                 Info Collector
@@ -314,24 +317,62 @@ export function AgentRightbar({
                 ? 'Agent will gather information from users'
                 : 'Agent will provide information to users'}
             </p>
-            {mode === 'collector' && (
-              <div className="pt-2">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Max messages before completion
-                </label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={maxMessages ?? 20}
-                  onChange={e =>
-                    setMaxMessages(parseInt(e.target.value, 10) || 20)
-                  }
-                  className="mt-1"
-                  disabled={saving || !canEdit}
-                />
-              </div>
-            )}
+          </CardContent>
+        </Card>
+
+        {/* Response Limits */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Response Limits</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">
+                Max responses per session
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={500}
+                value={maxResponses ?? ''}
+                onChange={e => {
+                  const val = parseInt(e.target.value, 10)
+                  setMaxResponses(val > 0 ? val : null)
+                }}
+                className="mt-1"
+                disabled={saving || !canEdit}
+                placeholder="Unlimited"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Max AI responses in a single conversation. Leave empty for unlimited.
+              </p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">
+                Max responses per agent
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={100000}
+                value={maxAgentResponses ?? ''}
+                onChange={e => {
+                  const val = parseInt(e.target.value, 10)
+                  setMaxAgentResponses(val > 0 ? val : null)
+                }}
+                className="mt-1"
+                disabled={saving || !canEdit}
+                placeholder="Unlimited"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Total AI responses across all sessions. Agent is disabled when reached.
+              </p>
+              {maxAgentResponses != null && agent.totalResponseCount != null && (
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
+                  Used: {agent.totalResponseCount} / {maxAgentResponses}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
 

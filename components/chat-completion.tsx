@@ -69,6 +69,7 @@ export function ChatCompletion({
 
 interface ChatCompletionBannerProps {
   mode: AgentMode
+  isAgentDisabled?: boolean
   onComplete: () => void
 }
 
@@ -77,8 +78,23 @@ interface ChatCompletionBannerProps {
  */
 export function ChatCompletionBanner({
   mode,
+  isAgentDisabled,
   onComplete
 }: ChatCompletionBannerProps) {
+  if (isAgentDisabled) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex items-center justify-center gap-3 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-950/30"
+      >
+        <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+          This agent has reached its response limit and is no longer accepting conversations.
+        </span>
+      </motion.div>
+    )
+  }
+
   if (mode === 'collector') {
     return (
       <motion.div

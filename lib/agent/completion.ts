@@ -5,7 +5,8 @@ export type CompletionReason =
   | 'info_complete'
   | 'handoff_to_human'
   | 'handoff_to_agent'
-  | 'max_messages'
+  | 'max_responses'
+  | 'max_messages' // backward compat
   | null
 
 const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
@@ -60,8 +61,8 @@ export function stripCompletionMarkers(text: string): string {
  * AGENT_HANDOFF metadata with the target agent info.
  */
 export function createCompletionTransformStream(
-  maxMessages?: number | null,
-  currentMessageCount?: number,
+  maxResponses?: number | null,
+  currentResponseCount?: number,
   handoffTargetNames?: Record<string, string>
 ): TransformStream<Uint8Array, Uint8Array> {
   const decoder = new TextDecoder()
@@ -80,9 +81,9 @@ export function createCompletionTransformStream(
       // After stream completes, check for completion markers
       const completionReason = detectCompletionMarker(buffer)
 
-      // Check max messages threshold
-      const maxMessagesReached =
-        maxMessages && currentMessageCount && currentMessageCount >= maxMessages
+      // Check max responses threshold
+      const maxResponsesReached =
+        maxResponses && currentResponseCount && currentResponseCount >= maxResponses
 
       // Emit handoff metadata if an agent-to-agent handoff is detected
       if (completionReason === 'handoff_to_agent') {
@@ -98,11 +99,11 @@ export function createCompletionTransformStream(
       }
 
       // If there's a completion signal, append metadata
-      if (completionReason || maxMessagesReached) {
+      if (completionReason || maxResponsesReached) {
         const metadata = {
           // Don't mark chat as complete for agent handoff — conversation continues
           chatComplete: completionReason !== 'handoff_to_agent',
-          reason: completionReason || 'max_messages'
+          reason: completionReason || 'max_responses'
         }
         // Append a special delimiter and metadata
         const metadataStr = `\n<!--CHAT_COMPLETE:${JSON.stringify(metadata)}-->`
@@ -117,13 +118,13 @@ export function createCompletionTransformStream(
  */
 export function wrapStreamWithCompletionDetection(
   stream: ReadableStream<Uint8Array>,
-  maxMessages?: number | null,
-  currentMessageCount?: number,
+  maxResponses?: number | null,
+  currentResponseCount?: number,
   handoffTargetNames?: Record<string, string>
 ): ReadableStream<Uint8Array> {
   const transformStream = createCompletionTransformStream(
-    maxMessages,
-    currentMessageCount,
+    maxResponses,
+    currentResponseCount,
     handoffTargetNames
   )
   return stream.pipeThrough(transformStream)

@@ -55,9 +55,47 @@ Rules:
 - Include the marker on a separate line at the end of your message`
 }
 
+function getWrapUpInstructions(
+  mode: VibeAgent['mode'],
+  remainingResponses?: number | null
+): string {
+  if (remainingResponses == null || remainingResponses > 2) return ''
+
+  if (mode === 'collector') {
+    if (remainingResponses <= 1) {
+      return `
+⚠️ SESSION LIMIT — This is your FINAL response in this conversation.
+- Thank the user warmly for their time and participation.
+- Briefly summarize the key information you have collected so far.
+- End your response with exactly: ${COMPLETION_MARKERS.COLLECTION_COMPLETE}
+- Do NOT ask any further questions.`
+    }
+    // remainingResponses === 2
+    return `
+⚠️ SESSION LIMIT — You have 2 responses remaining (including this one). Begin wrapping up.
+- Ask only your most important remaining question (if any).
+- Prepare to conclude in your next response.`
+  }
+
+  // Provider mode
+  if (remainingResponses <= 1) {
+    return `
+⚠️ SESSION LIMIT — This is your FINAL response in this conversation.
+- Provide a complete, helpful answer to the user's current question.
+- Let them know this is the last response in this session.
+- End your response with exactly: ${COMPLETION_MARKERS.INFO_COMPLETE}`
+  }
+  // remainingResponses === 2
+  return `
+⚠️ SESSION LIMIT — You have 2 responses remaining (including this one). Begin wrapping up.
+- Answer the current question fully.
+- Let the user know you have one more response available after this.`
+}
+
 interface PromptOptions {
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
+  remainingResponses?: number | null
 }
 
 export function buildAgentSystemPrompt(
@@ -65,7 +103,7 @@ export function buildAgentSystemPrompt(
   context?: string | null,
   options?: PromptOptions
 ) {
-  const { hasFileOverflow = false } = options ?? {}
+  const { hasFileOverflow = false, remainingResponses } = options ?? {}
 
   const toolsText = agent.tools.length
     ? agent.tools
@@ -79,7 +117,7 @@ export function buildAgentSystemPrompt(
     contextBlock =
       `REFERENCE DOCUMENTS — The following documents and sources have been loaded. Use them to answer questions accurately and cite filenames or URLs when relevant.\n${context}`
     if (hasFileOverflow) {
-      contextBlock += `\n\nNote: Some documents were too large to include in full. Use the file_search tool to query their content when needed.`
+      contextBlock += `\nNote: Some documents were too large to include in full. Use the file_search tool to query their content when needed.`
     }
   } else {
     contextBlock = 'No additional reference material is available for this query.'
@@ -123,6 +161,8 @@ export function buildAgentSystemPrompt(
       ? getHandoffInstructions(options.handoffTargetNames)
       : ''
 
+  const wrapUpInstructions = getWrapUpInstructions(agent.mode, remainingResponses)
+
   const domainScope = agent.domain?.trim() || agent.name
 
   const groundingPreamble = `You are "${agent.name}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
@@ -143,6 +183,7 @@ You are ONLY allowed to discuss topics related to **${domainScope}**. When in do
 ${agent.instructions}
 ${modeInstructions}
 ${handoffInstructions}
+${wrapUpInstructions}
 
 Tooling:
 ${toolsText}

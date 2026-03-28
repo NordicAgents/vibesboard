@@ -32,6 +32,7 @@ export function mapCompletionToEvent(
   switch (reason) {
     case 'collection_complete':
     case 'info_complete':
+    case 'max_responses':
     case 'max_messages':
       return 'completed'
     case 'handoff_to_human':

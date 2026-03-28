@@ -1,7 +1,9 @@
 import { StreamingTextResponse, type Message } from 'ai'
 import { NextRequest, NextResponse } from 'next/server'
+import { FieldValue } from 'firebase-admin/firestore'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
 import { getAgentById, getAgentNames } from '@/lib/agents/server'
 import { agentChatRequestSchema } from '@/lib/agents/schema'
 import {
@@ -23,6 +25,7 @@ import {
   mapCompletionToEvent
 } from '@/lib/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@/lib/agent/handoff'
+import { Collections } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -41,6 +44,17 @@ export async function POST(
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
+  }
+
+  // Check agent-level response limit
+  if (
+    agent.maxAgentResponses &&
+    (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses
+  ) {
+    return NextResponse.json(
+      { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
+      { status: 403 }
+    )
   }
 
   const body = await req.json()
@@ -137,13 +151,21 @@ export async function POST(
       ]
     : normalizedMessages
 
-  // Count user messages for max messages check
-  const userMessageCount = normalizedMessages.filter(m => m.role === 'user').length
+  // Count assistant responses for max responses check
+  // +1 for the response being streamed, -1 to exclude the greeting message
+  const assistantCount =
+    normalizedMessages.filter(m => m.role === 'assistant').length
+
+  // Calculate remaining responses so the AI can wrap up gracefully
+  const remainingResponses = agent.maxResponses
+    ? agent.maxResponses - assistantCount + 1
+    : null
 
   const stream = await runAgentStream({
     agent: activeAgent,
     messages: agentMessages,
     handoffTargetNames,
+    remainingResponses,
     onCompletion: async completion => {
       const reason = detectCompletionMarker(completion)
       const cleanedCompletion = stripCompletionMarkers(completion)
@@ -182,13 +204,22 @@ export async function POST(
         }
       }
 
+      // Increment agent-level response counter
+      adminDb
+        .collection(Collections.agents(agent.tenantId!))
+        .doc(agent.id)
+        .update({ totalResponseCount: FieldValue.increment(1) })
+        .catch(err =>
+          console.error('[chat] Failed to increment response count:', err)
+        )
+
       const event = mapCompletionToEvent(reason)
       if (event) {
         dispatchAgentNotification({
           agent,
           conversationId: conversation.id,
           event,
-          messageCount: userMessageCount
+          messageCount: assistantCount
         })
       }
     }
@@ -196,8 +227,8 @@ export async function POST(
 
   const transformedStream = wrapStreamWithCompletionDetection(
     stream,
-    agent.maxMessages,
-    userMessageCount,
+    agent.maxResponses,
+    assistantCount,
     handoffTargetNames
   )
 
@@ -205,7 +236,9 @@ export async function POST(
     headers: {
       'x-conversation-id': conversation.id,
       'x-agent-mode': activeAgent.mode,
-      'x-max-messages': String(agent.maxMessages ?? ''),
+      'x-max-responses': String(agent.maxResponses ?? ''),
+      'x-max-agent-responses': String(agent.maxAgentResponses ?? ''),
+      'x-total-response-count': String((agent.totalResponseCount ?? 0) + 1),
       'x-agent-id': activeAgent.id,
       'x-agent-name': activeAgent.name
     }
