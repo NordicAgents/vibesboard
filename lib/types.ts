@@ -97,6 +97,11 @@ export interface VibeAgentConversation {
   }>
   responseCounts?: Record<string, number>
   summaryGeneratedAt?: string | null
+  feedback?: {
+    rating: 'positive' | 'negative'
+    comment?: string
+    createdAt: string
+  }
   createdAt: string
   updatedAt: string
 }
