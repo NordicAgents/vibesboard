@@ -20,6 +20,15 @@ import {
   AgentBuilderFormPreview,
   type AgentFormData
 } from './agent-builder-form-preview'
+import { AgentCreationSuccess } from './agent-creation-success'
+import { QuickSuggestions } from '@/components/quick-suggestions'
+
+const STARTER_PROMPTS = [
+  'Customer support agent for my business',
+  'Lead collection bot that captures visitor info',
+  'FAQ assistant that answers from my documents',
+  'Feedback collection bot for visitor reviews'
+]
 
 const MAX_FILES = 5
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -40,6 +49,7 @@ export function AgentCreatorChat({
   const router = useRouter()
   const [chatId, setChatId] = useState<string>(initialChatId || 'agent-creator')
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState<AgentFormData>({
     allowAnonymous: true,
     quickSuggestionsMode: 'smart',
@@ -133,9 +143,7 @@ export function AgentCreatorChat({
 
               if (created?.id && !createdAgentId) {
                 setCreatedAgentId(created.id)
-                toast.success('Agent created successfully!')
-                router.push(`/agents/${created.id}`)
-                router.refresh()
+                setShowSuccess(true)
                 break
               }
             } catch (parseError) {
@@ -348,9 +356,8 @@ export function AgentCreatorChat({
       }
 
       const json = await res.json()
-      toast.success('Agent created successfully!')
-      router.push(`/agents/${json.agent.id}`)
-      router.refresh()
+      setCreatedAgentId(json.agent.id)
+      setShowSuccess(true)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to create agent'
@@ -366,6 +373,15 @@ export function AgentCreatorChat({
     onFileRemove: handleFileRemove,
     maxFiles: MAX_FILES,
     acceptedFileTypes: ACCEPTED_FILE_TYPES
+  }
+
+  if (showSuccess && createdAgentId) {
+    return (
+      <AgentCreationSuccess
+        agentId={createdAgentId}
+        agentName={formData.name || 'Your Agent'}
+      />
+    )
   }
 
   return (
@@ -494,6 +510,22 @@ export function AgentCreatorChat({
                   <p className="font-switzer text-lg text-gray-secondary">
                     Tell me about your agent or upload files to get started
                   </p>
+                </div>
+
+                {/* Starter prompts */}
+                <div className="mx-auto w-full max-w-xl">
+                  <QuickSuggestions
+                    suggestions={STARTER_PROMPTS}
+                    onSelect={async (value) => {
+                      await append({
+                        id: nanoid(),
+                        content: value,
+                        role: 'user'
+                      })
+                    }}
+                    disabled={isLoading}
+                    className="grid grid-cols-2 gap-2.5"
+                  />
                 </div>
 
                 {/* Input centered below header */}
