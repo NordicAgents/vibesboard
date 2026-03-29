@@ -158,6 +158,12 @@ export async function checkUsageLimit(
   }
 
   const tenant = tenantDoc.data()
+
+  // Block tenants in pending or suspended state
+  if (tenant?.status === 'pending' || tenant?.status === 'suspended') {
+    return { allowed: false, remaining: 0, limit: 0, used: 0, planId: 'free' }
+  }
+
   const subscription = tenant?.subscription
 
   // No subscription yet — tenant hasn't been migrated, allow by default

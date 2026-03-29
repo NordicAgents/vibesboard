@@ -14,7 +14,17 @@ import { Badge } from '@/components/ui/badge'
 import { PlanCard } from '@/components/plan-card'
 import { BillingStatus } from '@/components/billing-status'
 import { UsageProgress } from '@/components/usage-progress'
-import { CreditCard, ExternalLink, FileText, Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { CreditCard, ExternalLink, FileText, Loader2, Users } from 'lucide-react'
 import type { TenantSubscription } from '@/lib/firestore-types'
 import type { PlanDefinition, PlanId } from '@/lib/plans'
 
@@ -23,6 +33,7 @@ interface BillingData {
   plan: PlanDefinition | null
   allPlans: PlanDefinition[]
   hasPaymentMethod: boolean
+  isPersonal: boolean
   invoices: Array<{
     id: string
     date: string
@@ -39,6 +50,10 @@ export default function BillingPage() {
   const [upgrading, setUpgrading] = React.useState<string | null>(null)
   const [portalLoading, setPortalLoading] = React.useState(false)
   const [tenantId, setTenantId] = React.useState<string | null>(null)
+  const [showTeamDialog, setShowTeamDialog] = React.useState(false)
+  const [teamName, setTeamName] = React.useState('')
+  const [teamSeatCount, setTeamSeatCount] = React.useState(3)
+  const [creatingTeam, setCreatingTeam] = React.useState(false)
 
   // Check for success/cancel in URL
   const searchParams =
@@ -47,6 +62,7 @@ export default function BillingPage() {
       : null
   const checkoutSuccess = searchParams?.get('success') === 'true'
   const checkoutCanceled = searchParams?.get('canceled') === 'true'
+  const actionParam = searchParams?.get('action')
 
   const fetchBilling = React.useCallback(async () => {
     try {
@@ -77,6 +93,14 @@ export default function BillingPage() {
   React.useEffect(() => {
     fetchBilling()
   }, [fetchBilling])
+
+  // Auto-open team creation dialog when navigated with ?action=create-team
+  React.useEffect(() => {
+    if (actionParam === 'create-team' && !loading && data?.isPersonal) {
+      setShowTeamDialog(true)
+      window.history.replaceState({}, '', '/settings/tenant/billing')
+    }
+  }, [actionParam, loading, data?.isPersonal])
 
   // Poll for subscription update after successful checkout
   React.useEffect(() => {
@@ -115,6 +139,21 @@ export default function BillingPage() {
 
   async function handleUpgrade(planId: string) {
     if (!tenantId) return
+
+    // If upgrading to team from a personal workspace, show the team creation dialog
+    if (planId === 'team' && data?.isPersonal) {
+      setShowTeamDialog(true)
+      return
+    }
+
+    await startCheckout(tenantId, planId, planId === 'team' ? 3 : undefined)
+  }
+
+  async function startCheckout(
+    checkoutTenantId: string,
+    planId: string,
+    seatCount?: number
+  ) {
     setUpgrading(planId)
 
     try {
@@ -122,9 +161,9 @@ export default function BillingPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantId,
+          tenantId: checkoutTenantId,
           planId,
-          seatCount: planId === 'team' ? 3 : undefined,
+          seatCount,
         }),
       })
 
@@ -139,6 +178,47 @@ export default function BillingPage() {
       setError('Failed to start upgrade')
     } finally {
       setUpgrading(null)
+    }
+  }
+
+  async function handleCreateTeamAndCheckout() {
+    if (!teamName.trim()) return
+    setCreatingTeam(true)
+    setError(null)
+
+    try {
+      // 1. Create team workspace
+      const createRes = await fetch('/api/tenants/create-team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: teamName.trim() }),
+      })
+
+      const createResult = await createRes.json()
+      if (!createRes.ok) {
+        setError(createResult.error ?? 'Failed to create team workspace')
+        return
+      }
+
+      const newTenantId = createResult.tenant.id
+
+      // 2. Switch active tenant to the new workspace
+      await fetch('/api/user/active-tenant', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: newTenantId }),
+      })
+
+      setTenantId(newTenantId)
+      setShowTeamDialog(false)
+
+      // 3. Start Stripe checkout for the new workspace
+      await startCheckout(newTenantId, 'team', teamSeatCount)
+    } catch (err) {
+      console.error(err)
+      setError('Failed to create team workspace')
+    } finally {
+      setCreatingTeam(false)
     }
   }
 
@@ -362,6 +442,70 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Create Team Workspace Dialog */}
+      <Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Team Workspace</DialogTitle>
+            <DialogDescription>
+              A new team workspace will be created and subscribed to the Team
+              plan. Your personal workspace will remain separate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="team-name">Team name</Label>
+              <Input
+                id="team-name"
+                placeholder="My Team"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                disabled={creatingTeam}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="seat-count">Seats (minimum 3)</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="seat-count"
+                  type="number"
+                  min={3}
+                  max={100}
+                  value={teamSeatCount}
+                  onChange={(e) =>
+                    setTeamSeatCount(Math.max(3, parseInt(e.target.value) || 3))
+                  }
+                  className="w-24"
+                  disabled={creatingTeam}
+                />
+                <span className="text-sm text-[#6f7f80]">
+                  <Users className="mr-1 inline-block size-3.5" />
+                  ${teamSeatCount * 10}/mo
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setShowTeamDialog(false)}
+              disabled={creatingTeam}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateTeamAndCheckout}
+              disabled={creatingTeam || !teamName.trim()}
+            >
+              {creatingTeam ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : null}
+              Continue to Checkout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
