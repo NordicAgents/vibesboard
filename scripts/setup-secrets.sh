@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Create/update secrets in Google Secret Manager from .env file
 # Idempotent — safe to re-run. Creates new versions if values change.
+#
+# Usage:
+#   ./scripts/setup-secrets.sh          # reads from .env
+#   ./scripts/setup-secrets.sh .env.prod # reads from specific file
 
 set -euo pipefail
 
@@ -17,13 +21,16 @@ if ! command -v gcloud >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${SCRIPT_DIR}/../.env"
+ENV_FILE="${1:-${SCRIPT_DIR}/../.env}"
 
 if [ ! -f "${ENV_FILE}" ]; then
-  echo "Error: .env file not found at ${ENV_FILE}" >&2
+  echo "Error: env file not found at ${ENV_FILE}" >&2
   echo "Create a .env file with the required values first." >&2
   exit 1
 fi
+
+echo "Reading from: ${ENV_FILE}"
+echo ""
 
 gcloud config set project "${PROJECT_ID}" --quiet
 
@@ -43,7 +50,7 @@ upsert_secret() {
   value=$(read_env "${env_var}")
 
   if [ -z "${value}" ]; then
-    echo "  SKIP ${secret_name} — ${env_var} not found in .env"
+    echo "  SKIP ${secret_name} — ${env_var} not found in env file"
     return
   fi
 
@@ -70,15 +77,42 @@ upsert_secret() {
 echo "Creating/updating secrets..."
 echo ""
 
+# Core
+echo "--- Core ---"
 upsert_secret "openai-api-key"                "OPENAI_API_KEY"
 upsert_secret "firebase-service-account-key"  "FIREBASE_SERVICE_ACCOUNT_KEY"
-upsert_secret "whatsapp-access-token"         "WHATSAPP_ACCESS_TOKEN"
-upsert_secret "whatsapp-verify-token"         "VERIFY_TOKEN"
 upsert_secret "encryption-key"                "ENCRYPTION_KEY"
 upsert_secret "cron-secret"                   "CRON_SECRET"
-
 echo ""
+
+# WhatsApp / Meta
+echo "--- WhatsApp & Meta ---"
+upsert_secret "whatsapp-access-token"         "WHATSAPP_ACCESS_TOKEN"
+upsert_secret "whatsapp-verify-token"         "VERIFY_TOKEN"
+upsert_secret "whatsapp-inbox-verify-token"   "WHATSAPP_INBOX_VERIFY_TOKEN"
+upsert_secret "instagram-inbox-verify-token"  "INSTAGRAM_INBOX_VERIFY_TOKEN"
+upsert_secret "meta-app-secret"               "META_APP_SECRET"
+echo ""
+
+# Email
+echo "--- Email ---"
+upsert_secret "resend-api-key"                "RESEND_API_KEY"
+echo ""
+
+# Stripe
+echo "--- Stripe ---"
+upsert_secret "stripe-secret-key"             "STRIPE_SECRET_KEY"
+upsert_secret "stripe-webhook-secret"         "STRIPE_WEBHOOK_SECRET"
+upsert_secret "stripe-price-pro-base"         "STRIPE_PRICE_PRO_BASE"
+upsert_secret "stripe-price-pro-overage"      "STRIPE_PRICE_PRO_OVERAGE"
+upsert_secret "stripe-price-team-base"        "STRIPE_PRICE_TEAM_BASE"
+upsert_secret "stripe-price-team-overage"     "STRIPE_PRICE_TEAM_OVERAGE"
+echo ""
+
 echo "=== Secrets Setup Complete ==="
 echo ""
 echo "Verify with: gcloud secrets list --project=${PROJECT_ID}"
+echo ""
+echo "Note: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is NOT a secret."
+echo "      It is embedded at build time via Dockerfile build args."
 echo ""
