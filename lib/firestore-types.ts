@@ -66,7 +66,7 @@ export interface TenantSubscription {
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   stripePriceId: string | null
-  trialEndsAt: string | null          // ISO date, null if not on trial
+  stripeOverageItemId: string | null   // Stripe subscription item ID for metered overage line
 }
 
 /** /plan_templates/{planId} */
@@ -82,6 +82,17 @@ export interface PlanTemplateDocument {
   featureFlags: string[]              // FeatureFlagName[] stored as strings
   createdAt: string
   updatedAt: string
+  // Stripe integration
+  stripeProductId?: string | null
+  stripeBasePriceId?: string | null
+  stripeOveragePriceId?: string | null
+  pendingPriceMigration?: {
+    oldBasePriceId: string
+    oldOveragePriceId: string
+    newBasePriceId: string
+    newOveragePriceId: string
+    createdAt: string
+  } | null
 }
 
 /** /tenants/{tenantId}/usage_logs/{logId} */

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
+import { ExternalLink, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface PlanOption {
@@ -37,7 +38,6 @@ interface SubscriptionData {
   billingCycleEnd: string
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
-  trialEndsAt: string | null
 }
 
 interface RollupData {
@@ -57,6 +57,7 @@ export function TenantSubscriptionTab({ tenantId }: TenantSubscriptionTabProps) 
   const [isLoading, setIsLoading] = React.useState(true)
   const [isEditing, setIsEditing] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [isSyncing, setIsSyncing] = React.useState(false)
 
   const [subscription, setSubscription] = React.useState<SubscriptionData | null>(null)
   const [rollup, setRollup] = React.useState<RollupData | null>(null)
@@ -158,6 +159,26 @@ export function TenantSubscriptionTab({ tenantId }: TenantSubscriptionTabProps) 
       toast.error(err instanceof Error ? err.message : 'Failed to update')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleStripeSync = async () => {
+    try {
+      setIsSyncing(true)
+      const res = await fetch(`/api/admin/tenants/${tenantId}/stripe-sync`, {
+        method: 'POST',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to sync from Stripe')
+      }
+      toast.success('Subscription synced from Stripe')
+      fetchData()
+    } catch (err: unknown) {
+      console.error('Error syncing from Stripe:', err)
+      toast.error(err instanceof Error ? err.message : 'Failed to sync')
+    } finally {
+      setIsSyncing(false)
     }
   }
 
@@ -455,22 +476,54 @@ export function TenantSubscriptionTab({ tenantId }: TenantSubscriptionTabProps) 
                 </div>
               </div>
 
-              {(subscription.stripeCustomerId || subscription.trialEndsAt) && (
+              {(subscription.stripeCustomerId || subscription.stripeSubscriptionId) && (
                 <>
                   <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {subscription.stripeCustomerId && (
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Stripe Customer</p>
-                        <p className="font-mono text-sm">{subscription.stripeCustomerId}</p>
-                      </div>
-                    )}
-                    {subscription.trialEndsAt && (
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Trial Ends</p>
-                        <p className="text-sm">{new Date(subscription.trialEndsAt).toLocaleDateString()}</p>
-                      </div>
-                    )}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-muted-foreground">Stripe Integration</p>
+                      {subscription.stripeSubscriptionId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStripeSync}
+                          disabled={isSyncing}
+                        >
+                          <RefreshCw className={`mr-1.5 size-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                          {isSyncing ? 'Syncing...' : 'Sync from Stripe'}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {subscription.stripeCustomerId && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Stripe Customer</p>
+                          <a
+                            href={`https://dashboard.stripe.com/customers/${subscription.stripeCustomerId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-sm text-accent-orange hover:underline"
+                          >
+                            {subscription.stripeCustomerId}
+                            <ExternalLink className="size-3" />
+                          </a>
+                        </div>
+                      )}
+                      {subscription.stripeSubscriptionId && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Stripe Subscription</p>
+                          <a
+                            href={`https://dashboard.stripe.com/subscriptions/${subscription.stripeSubscriptionId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-sm text-accent-orange hover:underline"
+                          >
+                            {subscription.stripeSubscriptionId}
+                            <ExternalLink className="size-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
