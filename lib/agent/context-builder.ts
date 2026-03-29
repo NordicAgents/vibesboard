@@ -1,6 +1,11 @@
 import { type VibeAgent } from '@/lib/types'
 import { createRetriever } from '@/lib/retrieval'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
+import { isFeatureEnabled } from '@/lib/features'
+import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/connections'
+import { buildSchedulingTools } from './tools/scheduling'
+import { getDataConnection } from '@/lib/data/connections'
+import { buildDataTools } from './tools/data-actions'
 
 export interface ContextBuildResult {
   contextText: string
@@ -57,6 +62,66 @@ export async function buildAgentContext(
       executors: Object.fromEntries(
         Object.entries(executors).filter(([name]) => name !== 'file_search')
       )
+    }
+  }
+
+  // Inject scheduling tools if the agent has scheduling enabled
+  if (
+    agent.schedulingConfig?.enabled &&
+    agent.schedulingConfig.calendarConnectionId &&
+    agent.tenantId
+  ) {
+    try {
+      const scheduleEnabled = await isFeatureEnabled(
+        agent.tenantId,
+        'AGENT_ACTIONS_SCHEDULE'
+      )
+      if (scheduleEnabled) {
+        const connection = await getCalendarConnection(
+          agent.tenantId,
+          agent.schedulingConfig.calendarConnectionId
+        )
+        if (connection && connection.status === 'active') {
+          const schedulingTools = buildSchedulingTools(agent, connection)
+          for (const tool of schedulingTools) {
+            toolkit.functions.push(tool.function)
+            toolkit.executors[tool.function.name] = tool.execute
+          }
+        }
+      }
+    } catch (err) {
+      // Scheduling injection failure should not block the chat
+      console.error('Failed to inject scheduling tools:', err)
+    }
+  }
+
+  // Inject data action tools if the agent has data actions enabled
+  if (
+    agent.dataConfig?.enabled &&
+    agent.dataConfig.dataConnectionId &&
+    agent.tenantId
+  ) {
+    try {
+      const dataEnabled = await isFeatureEnabled(
+        agent.tenantId,
+        'AGENT_ACTIONS_DATA'
+      )
+      if (dataEnabled) {
+        const dataConnection = await getDataConnection(
+          agent.tenantId,
+          agent.dataConfig.dataConnectionId
+        )
+        if (dataConnection && dataConnection.status === 'active') {
+          const dataTools = buildDataTools(agent, dataConnection)
+          for (const tool of dataTools) {
+            toolkit.functions.push(tool.function)
+            toolkit.executors[tool.function.name] = tool.execute
+          }
+        }
+      }
+    } catch (err) {
+      // Data action injection failure should not block the chat
+      console.error('Failed to inject data action tools:', err)
     }
   }
 
