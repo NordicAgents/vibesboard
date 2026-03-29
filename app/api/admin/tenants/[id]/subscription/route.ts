@@ -126,7 +126,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
   if (currentSub.stripeCustomerId === undefined) updates['subscription.stripeCustomerId'] = null
   if (currentSub.stripeSubscriptionId === undefined) updates['subscription.stripeSubscriptionId'] = null
   if (currentSub.stripePriceId === undefined) updates['subscription.stripePriceId'] = null
-  if (currentSub.trialEndsAt === undefined) updates['subscription.trialEndsAt'] = null
+  if (currentSub.stripeOverageItemId === undefined) updates['subscription.stripeOverageItemId'] = null
 
   // Reset usage if requested
   if (body.resetUsage) {
