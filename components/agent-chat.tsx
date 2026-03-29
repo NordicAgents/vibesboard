@@ -36,7 +36,7 @@ interface AgentChatProps {
   conversationId?: string
   initialMessages?: Message[]
   className?: string
-  onChatComplete?: (messages?: Message[]) => void
+  onChatComplete?: (messages?: Message[], conversationId?: string) => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
   embed?: boolean
@@ -433,8 +433,8 @@ export function AgentChat({
   }, [messages.length, isLoading])
 
   const handleChatComplete = useCallback(() => {
-    onChatComplete?.(messages)
-  }, [onChatComplete, messages])
+    onChatComplete?.(messages, conversationId)
+  }, [onChatComplete, messages, conversationId])
 
   const handleCorrection = useCallback(() => {
     setIsChatComplete(false)
