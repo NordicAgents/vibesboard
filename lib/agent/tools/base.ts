@@ -1,4 +1,4 @@
-import { type AgentToolType, type VibeAgent, type VibeAgentTool } from '@/lib/types'
+import { type AgentToolType, type BuiltinToolType, type VibeAgent, type VibeAgentTool } from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface ToolExecutionContext {
@@ -37,7 +37,7 @@ export type ToolFactory = (
 ) => RegisteredTool | null
 
 export const BUILTIN_TOOL_FACTORIES: Record<
-  AgentToolType,
+  BuiltinToolType,
   ToolFactory
 > = {
   'builtin:web_fetch': () => null,
@@ -46,7 +46,7 @@ export const BUILTIN_TOOL_FACTORIES: Record<
 }
 
 export const registerBuiltinTool = (
-  type: Extract<AgentToolType, `builtin:${string}`>,
+  type: BuiltinToolType,
   factory: ToolFactory
 ) => {
   BUILTIN_TOOL_FACTORIES[type] = factory

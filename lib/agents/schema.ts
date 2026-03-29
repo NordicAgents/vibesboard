@@ -48,6 +48,35 @@ export const notificationConfigSchema = z.object({
   }).default({})
 })
 
+export const schedulingConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  calendarConnectionId: z.string().nullable().default(null),
+  defaultDurationMinutes: z.number().int().min(5).max(480).default(30),
+  bufferMinutes: z.number().int().min(0).max(120).default(0),
+  timezone: z.string().default('UTC'),
+  availableHours: z.object({
+    start: z.string().regex(/^\d{2}:\d{2}$/),
+    end: z.string().regex(/^\d{2}:\d{2}$/)
+  }).default({ start: '09:00', end: '17:00' }),
+  availableDays: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
+  meetingTitleTemplate: z.string().max(200).default('Meeting with {{name}}'),
+  meetingDescription: z.string().max(1000).optional(),
+  createMeetLink: z.boolean().default(true)
+})
+
+export const dataFieldMappingSchema = z.object({
+  collectionFieldId: z.string(),
+  targetColumn: z.string().min(1).max(200)
+})
+
+export const dataConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  dataConnectionId: z.string().nullable().default(null),
+  fieldMappings: z.array(dataFieldMappingSchema).max(50).default([]),
+  autoSubmitOnComplete: z.boolean().default(true),
+  updateKeyField: z.string().nullable().optional()
+})
+
 export const upsertAgentSchema = z.object({
   name: z.string().min(2).max(120),
   instructions: z.string().min(10).max(20_000),
@@ -67,7 +96,9 @@ export const upsertAgentSchema = z.object({
   retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct'),
   notificationConfig: notificationConfigSchema.optional(),
   handoffTargets: z.array(z.string()).default([]),
-  collectionFields: z.array(collectionFieldSchema).max(20).default([])
+  collectionFields: z.array(collectionFieldSchema).max(20).default([]),
+  schedulingConfig: schedulingConfigSchema.optional(),
+  dataConfig: dataConfigSchema.optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
