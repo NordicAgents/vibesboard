@@ -4,7 +4,7 @@ import type { PlanId } from './plans'
 // ─── Shared enums / unions ───────────────────────────────────────────
 export type TenantRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 export type InvitationRole = 'TENANT_ADMIN' | 'MEMBER'
-export type TenantStatus = 'active' | 'trial' | 'suspended'
+export type TenantStatus = 'active' | 'pending' | 'trial' | 'suspended'
 export type InvitationStatus = 'pending' | 'accepted' | 'expired'
 export type AgentMode = 'provider' | 'collector'
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
