@@ -109,7 +109,6 @@ export interface TenantSubscription {
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   stripePriceId: string | null
-  trialEndsAt: string | null          // ISO date, null if not on trial
 }
 ```
 
@@ -369,7 +368,6 @@ Use Stripe's **metered billing** (usage records):
 | `customer.subscription.deleted` | Downgrade to Free, disable gated features |
 | `invoice.payment_succeeded` | Reset billing cycle, clear overage |
 | `invoice.payment_failed` | Grace period → suspend tenant |
-| `customer.subscription.trial_will_end` | Send notification (3 days before) |
 
 ---
 

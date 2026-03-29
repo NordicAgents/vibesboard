@@ -82,7 +82,7 @@ export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const planCache = new Map<string, { data: PlanDefinition; expiresAt: number }>()
 
-function toPlanDefinition(doc: PlanTemplateDocument): PlanDefinition {
+export function toPlanDefinition(doc: PlanTemplateDocument): PlanDefinition {
   return {
     id: doc.id as PlanId,
     name: doc.name,
@@ -144,6 +144,15 @@ export async function getAllPlanTemplates(): Promise<PlanDefinition[]> {
   }
 
   return Object.values(DEFAULT_PLANS)
+}
+
+/** Invalidate the in-memory plan template cache (e.g. after admin edits a plan). */
+export function invalidatePlanCache(planId?: PlanId): void {
+  if (planId) {
+    planCache.delete(planId)
+  } else {
+    planCache.clear()
+  }
 }
 
 /** Compute the effective message limit for a plan + seat count */
