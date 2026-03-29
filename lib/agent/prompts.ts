@@ -136,6 +136,90 @@ function getWrapUpInstructions(
 - Let the user know you have one more response available after this.`
 }
 
+function getSchedulingInstructions(agent: VibeAgent): string {
+  const config = agent.schedulingConfig
+  if (!config?.enabled) return ''
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const availableDaysList = config.availableDays
+    .sort((a, b) => a - b)
+    .map(d => dayNames[d])
+    .join(', ')
+
+  return `
+## Calendar & Scheduling
+You have access to scheduling tools. Use them to help users book, reschedule, or cancel meetings.
+
+BOOKING FLOW:
+1. Always call check_availability FIRST to see open slots before booking
+2. Present 3-5 available time options in a clear, human-readable format
+3. Only call book_meeting AFTER the user explicitly confirms a specific time slot
+4. After booking, confirm: time, duration, and meeting link (if any)
+
+RESCHEDULING FLOW:
+1. Ask for the attendee's email and current meeting time to locate the booking
+2. Check availability for the new preferred time
+3. Only reschedule after the user confirms
+
+CANCELLATION FLOW:
+1. Ask for the attendee's email and meeting time to locate the booking
+2. Always confirm with the user before cancelling
+
+RULES:
+- Format all dates/times in a human-readable way for the ${config.timezone} timezone
+- Default meeting duration: ${config.defaultDurationMinutes} minutes
+- If the user doesn't specify a date, suggest the next available day
+- Never offer times outside ${config.availableHours.start}–${config.availableHours.end}
+- Available days: ${availableDaysList}
+- When the user says "tomorrow", "next Tuesday", etc., convert to a concrete YYYY-MM-DD date before calling tools
+- Always collect the attendee's name and email before booking`
+}
+
+function getDataActionInstructions(agent: VibeAgent): string {
+  const config = agent.dataConfig
+  if (!config?.enabled) return ''
+
+  let fieldMappingDesc: string
+  if (config.fieldMappings.length > 0 && agent.collectionFields?.length) {
+    fieldMappingDesc = config.fieldMappings
+      .map(m => {
+        const field = agent.collectionFields?.find(f => f.id === m.collectionFieldId)
+        return field ? `- "${field.label}" → "${m.targetColumn}"` : null
+      })
+      .filter(Boolean)
+      .join('\n')
+  } else {
+    fieldMappingDesc = 'Fields are mapped automatically by label.'
+  }
+
+  let prompt = `
+## Data Submission
+You have access to data action tools. After collecting information from the user, submit it to the configured data store.
+
+FIELD MAPPINGS:
+${fieldMappingDesc}
+
+SUBMISSION FLOW:
+1. Collect all required fields from the user first
+2. Confirm the collected data with the user before submitting
+3. Call submit_data with the collected key-value pairs
+4. Report the result to the user`
+
+  if (config.autoSubmitOnComplete) {
+    prompt += `
+
+AUTO-SUBMIT: This agent is configured to automatically submit data when collection is complete. Call submit_data immediately after all required fields are gathered.`
+  }
+
+  if (config.updateKeyField) {
+    prompt += `
+
+UPDATING RECORDS: You can update existing records using the update_record tool. The key field for lookups is: "${config.updateKeyField}". Ask the user for this value to find and update existing records.`
+  }
+
+  return prompt
+}
+
 interface PromptOptions {
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
@@ -207,6 +291,9 @@ export function buildAgentSystemPrompt(
 
   const wrapUpInstructions = getWrapUpInstructions(agent.mode, remainingResponses)
 
+  const schedulingInstructions = getSchedulingInstructions(agent)
+  const dataActionInstructions = getDataActionInstructions(agent)
+
   const domainScope = agent.domain?.trim() || agent.name
 
   const groundingPreamble = `You are "${agent.name}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
@@ -227,6 +314,8 @@ You are ONLY allowed to discuss topics related to **${domainScope}**. When in do
 ${agent.instructions}
 ${modeInstructions}
 ${handoffInstructions}
+${schedulingInstructions}
+${dataActionInstructions}
 ${wrapUpInstructions}
 
 Tooling:
