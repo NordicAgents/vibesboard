@@ -11,6 +11,8 @@ import { AgentReviewsTab } from '@/components/agents/agent-reviews-tab'
 import { AgentShareTab } from '@/components/agents/agent-share-tab'
 import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab'
 import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
+import { AgentSchedulingSettings } from '@/components/agents/agent-scheduling-settings'
+import { AgentDataSettings } from '@/components/agents/agent-data-settings'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import type { AgentSharePayload, VibeAgent } from '@/lib/types'
@@ -24,7 +26,7 @@ interface AgentDashboardTabsProps {
   onSwitchToFocus?: () => void
 }
 
-const SAVEABLE_TABS = ['setup', 'knowledge', 'notifications', 'reviews']
+const SAVEABLE_TABS = ['setup', 'knowledge', 'notifications', 'reviews', 'scheduling', 'data']
 
 export function AgentDashboardTabs({
   agent,
@@ -85,6 +87,8 @@ export function AgentDashboardTabs({
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
+          <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="share">Share</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
@@ -190,6 +194,47 @@ export function AgentDashboardTabs({
             saving={saving}
             canEdit={canEdit}
           />
+        </TabsContent>
+
+        <TabsContent value="scheduling">
+          {agent.tenantId ? (
+            <FeatureGate
+              feature="AGENT_ACTIONS_SCHEDULE"
+              tenantId={agent.tenantId}
+            >
+              <AgentSchedulingSettings
+                config={fields.schedulingConfig}
+                onChange={setters.setSchedulingConfig}
+                disabled={saving || !canEdit}
+                tenantId={agent.tenantId}
+              />
+            </FeatureGate>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Scheduling requires a tenant. Assign this agent to a tenant first.
+            </p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="data">
+          {agent.tenantId ? (
+            <FeatureGate
+              feature="AGENT_ACTIONS_DATA"
+              tenantId={agent.tenantId}
+            >
+              <AgentDataSettings
+                config={fields.dataConfig}
+                onChange={setters.setDataConfig}
+                disabled={saving || !canEdit}
+                tenantId={agent.tenantId}
+                collectionFields={fields.collectionFields}
+              />
+            </FeatureGate>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Data actions require a tenant. Assign this agent to a tenant first.
+            </p>
+          )}
         </TabsContent>
 
         <TabsContent value="share">
