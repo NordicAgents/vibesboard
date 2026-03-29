@@ -10,6 +10,7 @@ import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
 import { IconCheck, IconClose } from '@/components/ui/icons'
 import { GoogleReviewCard } from '@/components/google-review-card'
+import { ThumbsUp, ThumbsDown } from 'lucide-react'
 
 interface PublicAgentExperienceProps {
   agent: VibeAgent
@@ -25,12 +26,36 @@ export function PublicAgentExperience({
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
   const [completedMessages, setCompletedMessages] = useState<Message[]>([])
+  const [completedConversationId, setCompletedConversationId] = useState<string | null>(null)
   const [reviewShared, setReviewShared] = useState(false)
+  const [feedbackRating, setFeedbackRating] = useState<'positive' | 'negative' | null>(null)
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
 
-  const handleChatComplete = useCallback((messages?: Message[]) => {
+  const handleChatComplete = useCallback((messages?: Message[], conversationId?: string) => {
     if (messages) setCompletedMessages(messages)
+    if (conversationId) setCompletedConversationId(conversationId)
     setShowThankYou(true)
   }, [])
+
+  const handleFeedback = useCallback(async (rating: 'positive' | 'negative') => {
+    if (!completedConversationId || feedbackRating) return
+    setFeedbackSubmitting(true)
+    try {
+      await fetch(
+        `/api/public/agents/${agent.id}/conversations/${completedConversationId}/feedback`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating })
+        }
+      )
+      setFeedbackRating(rating)
+    } catch {
+      // Silently fail — feedback is non-critical
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }, [agent.id, completedConversationId, feedbackRating])
 
   const handleClose = useCallback(() => {
     if (embed) {
@@ -88,6 +113,44 @@ export function PublicAgentExperience({
                   : 'We hope you found what you were looking for!'}
               </p>
             </div>
+            {/* Feedback */}
+            {completedConversationId && (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-xs text-[#6f7f80]">
+                  {feedbackRating
+                    ? 'Thanks for your feedback!'
+                    : 'How was your experience?'}
+                </p>
+                {!feedbackRating && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleFeedback('positive')}
+                      disabled={feedbackSubmitting}
+                      className="flex size-10 items-center justify-center rounded-full border border-[#e4e3e3] bg-white transition-colors hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-50 dark:border-[#344348] dark:bg-[#1a2425] dark:hover:border-emerald-600 dark:hover:bg-emerald-900/20"
+                    >
+                      <ThumbsUp className="size-4 text-[#445e5f] dark:text-[#c9cbbe]" />
+                    </button>
+                    <button
+                      onClick={() => handleFeedback('negative')}
+                      disabled={feedbackSubmitting}
+                      className="flex size-10 items-center justify-center rounded-full border border-[#e4e3e3] bg-white transition-colors hover:border-red-300 hover:bg-red-50 disabled:opacity-50 dark:border-[#344348] dark:bg-[#1a2425] dark:hover:border-red-600 dark:hover:bg-red-900/20"
+                    >
+                      <ThumbsDown className="size-4 text-[#445e5f] dark:text-[#c9cbbe]" />
+                    </button>
+                  </div>
+                )}
+                {feedbackRating && (
+                  <div className="flex size-8 items-center justify-center">
+                    {feedbackRating === 'positive' ? (
+                      <ThumbsUp className="size-5 text-emerald-500" />
+                    ) : (
+                      <ThumbsDown className="size-5 text-red-400" />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mt-2 flex flex-col items-center gap-3">
               {!embed &&
                 googleReviewPlaceId &&
