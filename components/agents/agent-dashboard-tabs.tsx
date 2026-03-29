@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { toast } from 'react-hot-toast'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { AgentSetupTab } from '@/components/agents/agent-setup-tab'
@@ -13,20 +12,16 @@ import { AgentShareTab } from '@/components/agents/agent-share-tab'
 import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab'
 import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
-import type {
-  AgentSharePayload,
-  VibeAgent,
-  AgentMode,
-  CollectionField,
-  QuickSuggestionsMode
-} from '@/lib/types'
-import type { AgentNotificationConfig } from '@/lib/firestore-types'
+import { useAgentForm } from '@/lib/hooks/use-agent-form'
+import type { AgentSharePayload, VibeAgent } from '@/lib/types'
+import { ArrowLeft } from 'lucide-react'
 
 interface AgentDashboardTabsProps {
   agent: VibeAgent
   share: AgentSharePayload
   canEdit: boolean
   defaultTab?: string
+  onSwitchToFocus?: () => void
 }
 
 const SAVEABLE_TABS = ['setup', 'knowledge', 'notifications', 'reviews']
@@ -35,7 +30,8 @@ export function AgentDashboardTabs({
   agent,
   share,
   canEdit,
-  defaultTab = 'setup'
+  defaultTab = 'setup',
+  onSwitchToFocus
 }: AgentDashboardTabsProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -45,123 +41,8 @@ export function AgentDashboardTabs({
     defaultTab === 'configure' ? 'setup' : defaultTab
   const [activeTab, setActiveTab] = useState(resolvedDefault)
 
-  // ── Form state ──
-  const [name, setName] = useState(agent.name)
-  const [instructions, setInstructions] = useState(agent.instructions)
-  const [greetingText, setGreetingText] = useState(
-    agent.greetingText ?? 'Hi How can i help you today'
-  )
-  const [allowAnonymous, setAllowAnonymous] = useState(agent.allowAnonymous)
-  const [mode, setMode] = useState<AgentMode>(agent.mode || 'provider')
-  const [maxResponses, setMaxResponses] = useState<number | null>(
-    agent.maxResponses ?? null
-  )
-  const [maxAgentResponses, setMaxAgentResponses] = useState<number | null>(
-    agent.maxAgentResponses ?? null
-  )
-  const [quickSuggestionsMode, setQuickSuggestionsMode] =
-    useState<QuickSuggestionsMode>(agent.quickSuggestionsMode ?? 'off')
-  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(
-    agent.quickSuggestionsCount ?? 4
-  )
-  const [googleReviewEnabled, setGoogleReviewEnabled] = useState(
-    agent.googleReviewEnabled ?? false
-  )
-  const [googlePlaceId, setGooglePlaceId] = useState(
-    agent.googlePlaceId ?? ''
-  )
-  const [sourceUrls, setSourceUrls] = useState<string[]>(
-    agent.sourceUrls ?? []
-  )
-  const [notificationConfig, setNotificationConfig] = useState<
-    AgentNotificationConfig | undefined
-  >(agent.notificationConfig as AgentNotificationConfig | undefined)
-  const [handoffTargets, setHandoffTargets] = useState<string[]>(
-    agent.handoffTargets ?? []
-  )
-  const [collectionFields, setCollectionFields] = useState<CollectionField[]>(
-    agent.collectionFields ?? []
-  )
-  const [saving, setSaving] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  // ── Change detection ──
-  const hasChanges =
-    name !== agent.name ||
-    instructions !== agent.instructions ||
-    greetingText.trim() !==
-      (agent.greetingText?.trim() ?? 'Hi How can i help you today') ||
-    allowAnonymous !== agent.allowAnonymous ||
-    mode !== (agent.mode || 'provider') ||
-    maxResponses !== (agent.maxResponses ?? null) ||
-    maxAgentResponses !== (agent.maxAgentResponses ?? null) ||
-    quickSuggestionsMode !== (agent.quickSuggestionsMode ?? 'off') ||
-    quickSuggestionsCount !== (agent.quickSuggestionsCount ?? 4) ||
-    googleReviewEnabled !== (agent.googleReviewEnabled ?? false) ||
-    (googlePlaceId.trim() || null) !== (agent.googlePlaceId ?? null) ||
-    JSON.stringify(sourceUrls) !== JSON.stringify(agent.sourceUrls ?? []) ||
-    JSON.stringify(notificationConfig) !==
-      JSON.stringify(agent.notificationConfig ?? undefined) ||
-    JSON.stringify(handoffTargets) !==
-      JSON.stringify(agent.handoffTargets ?? []) ||
-    JSON.stringify(collectionFields) !==
-      JSON.stringify(agent.collectionFields ?? [])
-
-  // ── Save all ──
-  const handleSaveAll = async () => {
-    setSaving(true)
-    const payload: Partial<VibeAgent> = {
-      name,
-      instructions,
-      greetingText: greetingText.trim() || null,
-      allowAnonymous,
-      mode,
-      maxResponses,
-      maxAgentResponses,
-      quickSuggestionsMode,
-      quickSuggestionsCount,
-      googleReviewEnabled,
-      googlePlaceId: googlePlaceId.trim() || null,
-      sourceUrls,
-      notificationConfig,
-      handoffTargets,
-      collectionFields: mode === 'collector' ? collectionFields : []
-    }
-
-    try {
-      const res = await fetch(`/api/agents/${agent.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}))
-        throw new Error(error.error ?? 'Failed to update')
-      }
-      router.refresh()
-    } catch {
-      // keep silent
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // ── Delete ──
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
-      const res = await fetch(`/api/agents/${agent.id}`, {
-        method: 'DELETE'
-      })
-      if (!res.ok) throw new Error('Failed to delete agent')
-      toast.success('Agent deleted')
-      router.push('/')
-      router.refresh()
-    } catch {
-      toast.error('Failed to delete agent')
-      setIsDeleting(false)
-    }
-  }
+  const form = useAgentForm(agent)
+  const { fields, setters, hasChanges, saving, isDeleting, handleSaveAll, handleDelete } = form
 
   // ── Tab navigation ──
   const handleTabChange = (value: string) => {
@@ -176,8 +57,21 @@ export function AgentDashboardTabs({
   return (
     <div>
       <div className="mb-2">
-        <p className="text-xs uppercase text-muted-foreground">Agent</p>
-        <h2 className="text-lg font-semibold">{agent.name}</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase text-muted-foreground">Agent</p>
+            <h2 className="text-lg font-semibold">{agent.name}</h2>
+          </div>
+          {onSwitchToFocus && (
+            <button
+              onClick={onSwitchToFocus}
+              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="size-3" />
+              Simple view
+            </button>
+          )}
+        </div>
         {!canEdit && (
           <p className="mt-1 text-xs text-muted-foreground">
             Read-only (ask a tenant admin to edit).
@@ -211,27 +105,27 @@ export function AgentDashboardTabs({
 
         <TabsContent value="setup">
           <AgentSetupTab
-            name={name}
-            onNameChange={setName}
-            instructions={instructions}
-            onInstructionsChange={setInstructions}
-            greetingText={greetingText}
-            onGreetingTextChange={setGreetingText}
-            allowAnonymous={allowAnonymous}
-            onAllowAnonymousChange={setAllowAnonymous}
-            mode={mode}
-            onModeChange={setMode}
-            maxResponses={maxResponses}
-            onMaxResponsesChange={setMaxResponses}
-            maxAgentResponses={maxAgentResponses}
-            onMaxAgentResponsesChange={setMaxAgentResponses}
+            name={fields.name}
+            onNameChange={setters.setName}
+            instructions={fields.instructions}
+            onInstructionsChange={setters.setInstructions}
+            greetingText={fields.greetingText}
+            onGreetingTextChange={setters.setGreetingText}
+            allowAnonymous={fields.allowAnonymous}
+            onAllowAnonymousChange={setters.setAllowAnonymous}
+            mode={fields.mode}
+            onModeChange={setters.setMode}
+            maxResponses={fields.maxResponses}
+            onMaxResponsesChange={setters.setMaxResponses}
+            maxAgentResponses={fields.maxAgentResponses}
+            onMaxAgentResponsesChange={setters.setMaxAgentResponses}
             totalResponseCount={agent.totalResponseCount}
-            quickSuggestionsMode={quickSuggestionsMode}
-            onQuickSuggestionsModeChange={setQuickSuggestionsMode}
-            quickSuggestionsCount={quickSuggestionsCount}
-            onQuickSuggestionsCountChange={setQuickSuggestionsCount}
-            collectionFields={collectionFields}
-            onCollectionFieldsChange={setCollectionFields}
+            quickSuggestionsMode={fields.quickSuggestionsMode}
+            onQuickSuggestionsModeChange={setters.setQuickSuggestionsMode}
+            quickSuggestionsCount={fields.quickSuggestionsCount}
+            onQuickSuggestionsCountChange={setters.setQuickSuggestionsCount}
+            collectionFields={fields.collectionFields}
+            onCollectionFieldsChange={setters.setCollectionFields}
             tenantSlug={agent.tenantSlug}
             agentUrl={agent.agentUrl}
             saving={saving}
@@ -246,8 +140,8 @@ export function AgentDashboardTabs({
                 <AgentHandoffSettings
                   agentId={agent.id}
                   tenantId={agent.tenantId}
-                  handoffTargets={handoffTargets}
-                  onChange={setHandoffTargets}
+                  handoffTargets={fields.handoffTargets}
+                  onChange={setters.setHandoffTargets}
                   disabled={saving || !canEdit}
                 />
               </div>
@@ -259,8 +153,8 @@ export function AgentDashboardTabs({
           <AgentKnowledgeTab
             agent={agent}
             canEdit={canEdit}
-            sourceUrls={sourceUrls}
-            onSourceUrlsChange={setSourceUrls}
+            sourceUrls={fields.sourceUrls}
+            onSourceUrlsChange={setters.setSourceUrls}
           />
         </TabsContent>
 
@@ -272,8 +166,8 @@ export function AgentDashboardTabs({
                 tenantId={agent.tenantId}
               >
                 <AgentNotificationSettings
-                  config={notificationConfig}
-                  onChange={setNotificationConfig}
+                  config={fields.notificationConfig}
+                  onChange={setters.setNotificationConfig}
                   disabled={saving || !canEdit}
                   tenantId={agent.tenantId}
                 />
@@ -289,10 +183,10 @@ export function AgentDashboardTabs({
 
         <TabsContent value="reviews">
           <AgentReviewsTab
-            googleReviewEnabled={googleReviewEnabled}
-            onGoogleReviewEnabledChange={setGoogleReviewEnabled}
-            googlePlaceId={googlePlaceId}
-            onGooglePlaceIdChange={setGooglePlaceId}
+            googleReviewEnabled={fields.googleReviewEnabled}
+            onGoogleReviewEnabledChange={setters.setGoogleReviewEnabled}
+            googlePlaceId={fields.googlePlaceId}
+            onGooglePlaceIdChange={setters.setGooglePlaceId}
             saving={saving}
             canEdit={canEdit}
           />
