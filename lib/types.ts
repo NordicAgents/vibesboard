@@ -11,10 +11,20 @@ export interface Chat extends Record<string, any> {
   sharePath?: string // Refactor to use RLS
 }
 
-export type AgentToolType =
+export type BuiltinToolType =
   | 'builtin:web_fetch'
   | 'builtin:file_search'
   | 'builtin:bash'
+
+export type ActionToolType =
+  | 'action:check_availability'
+  | 'action:book_meeting'
+  | 'action:reschedule_meeting'
+  | 'action:cancel_meeting'
+  | 'action:submit_data'
+  | 'action:update_record'
+
+export type AgentToolType = BuiltinToolType | ActionToolType
 
 export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
 
@@ -75,6 +85,25 @@ export interface VibeAgent {
   }
   handoffTargets?: string[]
   collectionFields?: CollectionField[]
+  schedulingConfig?: {
+    enabled: boolean
+    calendarConnectionId: string | null
+    defaultDurationMinutes: number
+    bufferMinutes: number
+    timezone: string
+    availableHours: { start: string; end: string }
+    availableDays: number[]
+    meetingTitleTemplate: string
+    meetingDescription?: string
+    createMeetLink: boolean
+  }
+  dataConfig?: {
+    enabled: boolean
+    dataConnectionId: string | null
+    fieldMappings: Array<{ collectionFieldId: string; targetColumn: string }>
+    autoSubmitOnComplete: boolean
+    updateKeyField?: string | null
+  }
   createdAt: string
   updatedAt: string
 }
