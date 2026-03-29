@@ -351,6 +351,12 @@ export interface HookJobDocument {
 }
 
 /** /tenants/{tenantId}/agents/{agentId}/conversations/{id} */
+export interface ConversationFeedback {
+  rating: 'positive' | 'negative'
+  comment?: string
+  createdAt: string
+}
+
 export interface ConversationDocument {
   id: string
   agentId: string
@@ -364,6 +370,7 @@ export interface ConversationDocument {
   handoffChain?: HandoffChainEntry[]
   responseCounts?: Record<string, number>
   activeAgentId?: string
+  feedback?: ConversationFeedback
   createdAt: string
   updatedAt: string
 }
