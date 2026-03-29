@@ -152,6 +152,7 @@ export async function handleSubscriptionChange(
 
   const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
   await tenantRef.update({
+    status: 'active',
     'subscription.planId': planId,
     'subscription.seatCount': seatCount,
     'subscription.messageLimit': messageLimit,
