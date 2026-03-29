@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/plans'
 
@@ -71,12 +72,18 @@ export function UsageProgress({
       )}
       {isFree && percentage >= 90 && !isOverLimit && (
         <p className="text-xs text-red-600 dark:text-red-400">
-          Approaching your free plan limit. Upgrade for more messages.
+          Approaching your free plan limit.{' '}
+          <Link href="/settings/tenant/billing" className="underline text-accent-orange hover:text-accent-warm">
+            Upgrade for more messages.
+          </Link>
         </p>
       )}
       {isFree && isOverLimit && (
         <p className="text-xs text-red-600 dark:text-red-400">
-          Free plan limit reached. Upgrade to continue using your agents.
+          Free plan limit reached.{' '}
+          <Link href="/settings/tenant/billing" className="underline text-accent-orange hover:text-accent-warm">
+            Upgrade to continue using your agents.
+          </Link>
         </p>
       )}
     </div>

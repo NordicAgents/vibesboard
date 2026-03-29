@@ -59,6 +59,11 @@ const groupedFlags = getGroupedFlags()
 
 export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlanDialogProps) {
   const [isSaving, setIsSaving] = React.useState(false)
+  const [migrationPrompt, setMigrationPrompt] = React.useState<{
+    planId: string
+    subscribersToMigrate: number
+  } | null>(null)
+  const [isMigrating, setIsMigrating] = React.useState(false)
   const [form, setForm] = React.useState({
     name: '',
     price: 0,
@@ -120,7 +125,29 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || 'Failed to update plan')
       }
-      toast.success(`${form.name} plan updated`)
+      const data = await res.json()
+      const p = data.propagation
+      if (p && (p.featureFlagsSynced || p.messageLimitsUpdated)) {
+        const parts: string[] = []
+        if (p.featureFlagsSynced) parts.push('feature flags synced')
+        if (p.messageLimitsUpdated) parts.push('message limits updated')
+        toast.success(`${form.name} plan updated. ${p.tenantsAffected} tenant${p.tenantsAffected === 1 ? '' : 's'}: ${parts.join(', ')}.`)
+        if (p.errors.length > 0) {
+          toast.error(`${p.errors.length} tenant${p.errors.length === 1 ? '' : 's'} failed to sync`)
+        }
+      } else {
+        toast.success(`${form.name} plan updated`)
+      }
+
+      // If price was rotated, prompt for migration
+      if (p?.priceRotated && p.pendingMigration) {
+        setMigrationPrompt({
+          planId: plan.id,
+          subscribersToMigrate: p.pendingMigration.subscribersToMigrate,
+        })
+        return // Don't close dialog yet
+      }
+
       onSuccess()
     } catch (err: unknown) {
       console.error('Error updating plan:', err)
@@ -128,6 +155,46 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleMigrate = async () => {
+    if (!migrationPrompt) return
+    try {
+      setIsMigrating(true)
+      const res = await fetch(
+        `/api/admin/plans/${migrationPrompt.planId}/migrate-prices`,
+        { method: 'POST' }
+      )
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Migration failed')
+      }
+      const data = await res.json()
+      toast.success(
+        `Migrated ${data.migrated} subscriber${data.migrated === 1 ? '' : 's'} with proration`
+      )
+      if (data.errors?.length > 0) {
+        toast.error(
+          `${data.errors.length} subscription${data.errors.length === 1 ? '' : 's'} failed to migrate`
+        )
+      }
+    } catch (err: unknown) {
+      console.error('Error migrating prices:', err)
+      toast.error(err instanceof Error ? err.message : 'Migration failed')
+    } finally {
+      setIsMigrating(false)
+      setMigrationPrompt(null)
+      onSuccess()
+    }
+  }
+
+  const handleSkipMigration = () => {
+    toast(
+      'New price active for new subscribers. Existing subscribers stay on old price.',
+      { icon: 'ℹ️' }
+    )
+    setMigrationPrompt(null)
+    onSuccess()
   }
 
   if (!plan) return null
@@ -138,7 +205,7 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         <DialogHeader>
           <DialogTitle>Edit {plan.name} Plan</DialogTitle>
           <DialogDescription>
-            Update plan configuration. Changes apply to new subscriptions only.
+            Update plan configuration. Changes propagate to all existing tenants on this plan.
           </DialogDescription>
         </DialogHeader>
 
@@ -310,18 +377,47 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSaving}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
+        {migrationPrompt ? (
+          <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Price updated in Stripe. Migrate {migrationPrompt.subscribersToMigrate} existing
+              subscriber{migrationPrompt.subscribersToMigrate === 1 ? '' : 's'} to the new price?
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              This will prorate their current billing period.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSkipMigration}
+                disabled={isMigrating}
+              >
+                Skip
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleMigrate}
+                disabled={isMigrating}
+              >
+                {isMigrating ? 'Migrating...' : 'Migrate Now'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

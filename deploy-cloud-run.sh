@@ -87,7 +87,8 @@ for key in \
   NEXT_PUBLIC_AUTH_GOOGLE \
   NEXT_PUBLIC_APP_URL \
   NEXT_PUBLIC_META_APP_ID \
-  NEXT_PUBLIC_FB_LOGIN_CONFIG_ID; do
+  NEXT_PUBLIC_FB_LOGIN_CONFIG_ID \
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY; do
   val=$(get_env_value "$key" || true)
   add_build_arg "$key" "$val"
 done
@@ -137,7 +138,23 @@ gcloud run deploy "${SERVICE_NAME}" \
   --max-instances=3 \
   --timeout=600s \
   --set-env-vars="${ENV_VARS}" \
-  --set-secrets="OPENAI_API_KEY=openai-api-key:latest,FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,VERIFY_TOKEN=whatsapp-verify-token:latest,ENCRYPTION_KEY=encryption-key:latest,CRON_SECRET=cron-secret:latest,META_APP_SECRET=meta-app-secret:latest,WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest,RESEND_API_KEY=resend-api-key:latest"
+  --set-secrets="\
+OPENAI_API_KEY=openai-api-key:latest,\
+FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,\
+WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,\
+VERIFY_TOKEN=whatsapp-verify-token:latest,\
+ENCRYPTION_KEY=encryption-key:latest,\
+CRON_SECRET=cron-secret:latest,\
+META_APP_SECRET=meta-app-secret:latest,\
+WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest,\
+INSTAGRAM_INBOX_VERIFY_TOKEN=instagram-inbox-verify-token:latest,\
+RESEND_API_KEY=resend-api-key:latest,\
+STRIPE_SECRET_KEY=stripe-secret-key:latest,\
+STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest,\
+STRIPE_PRICE_PRO_BASE=stripe-price-pro-base:latest,\
+STRIPE_PRICE_PRO_OVERAGE=stripe-price-pro-overage:latest,\
+STRIPE_PRICE_TEAM_BASE=stripe-price-team-base:latest,\
+STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo ""
@@ -177,6 +194,39 @@ else
 fi
 
 echo "Cloud Scheduler job configured: every 30 minutes"
+
+# --- Cloud Scheduler for billing cycle reset (free plan) ---
+BILLING_JOB_NAME="vibeagent-billing-reset"
+echo ""
+echo "Setting up Cloud Scheduler cron job: ${BILLING_JOB_NAME} (location: ${SCHEDULER_REGION})..."
+
+if gcloud scheduler jobs describe "${BILLING_JOB_NAME}" --location="${SCHEDULER_REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "  Updating existing scheduler job..."
+  gcloud scheduler jobs update http "${BILLING_JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="0 2 * * *" \
+    --time-zone="UTC" \
+    --uri="${SERVICE_URL}/api/cron/billing-reset" \
+    --http-method=POST \
+    --update-headers="x-cron-secret=${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+else
+  echo "  Creating new scheduler job..."
+  gcloud scheduler jobs create http "${BILLING_JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="0 2 * * *" \
+    --time-zone="UTC" \
+    --uri="${SERVICE_URL}/api/cron/billing-reset" \
+    --http-method=POST \
+    --headers="x-cron-secret=${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+fi
+
+echo "Cloud Scheduler billing reset configured: daily at 2:00 AM UTC"
 echo ""
 echo "Secrets are injected from Google Secret Manager (not env.yaml)."
 echo "Non-sensitive config is set via --set-env-vars."
