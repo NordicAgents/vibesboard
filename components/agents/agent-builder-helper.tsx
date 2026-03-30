@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useChat } from 'ai/react'
-import type { Message } from 'ai'
+import type { Message } from '@/lib/types/message'
 import { nanoid } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
   const { messages, input, setInput, append, isLoading } = useChat({
     api: '/api/agent-helper',
     id: 'agent-builder-helper',
+    streamProtocol: 'text',
     body: {
       mode: 'agent-builder-helper'
     },

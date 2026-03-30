@@ -1,16 +1,11 @@
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { OpenAIStream, StreamingTextResponse } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import { streamText as aiStreamText } from 'ai'
 
 import { auth } from '@/auth'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -23,7 +18,10 @@ export async function POST(req: Request) {
   const { messages, previewToken } = json
 
   const model = OPENAI_CHAT_MODEL
-  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return new Response('OPENAI_API_KEY is not configured.', { status: 500 })
+  }
 
   const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
 
@@ -82,26 +80,14 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
     }`
 
     const stream = await streamText({ prompt, model, apiKey })
-    return new StreamingTextResponse(stream)
+    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   }
 
-  if (previewToken) {
-    configuration.apiKey = previewToken
-  }
-
-  const res = await openai.createChatCompletion({
-    model,
-    messages: [
-      {
-        role: 'system',
-        content: systemPrompt
-      },
-      ...messages
-    ],
-    temperature: 0.3,
-    stream: true
+  const openaiClient = createOpenAI({ apiKey })
+  const result = await aiStreamText({
+    model: openaiClient(model),
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    temperature: 0.3
   })
-
-  const stream = OpenAIStream(res)
-  return new StreamingTextResponse(stream)
+  return result.toTextStreamResponse()
 }

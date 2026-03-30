@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import type { Message } from 'ai'
+import type { Message } from '@/lib/types/message'
 
 import { type VibeAgentConversation } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
