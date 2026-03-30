@@ -15,6 +15,10 @@ export interface ChartConfig {
   }[]
 }
 
+const MAX_LABELS = 100
+const MAX_DATASETS = 10
+const MAX_DATA_POINTS = 100
+
 export function parseChartConfig(raw: string): ChartConfig | null {
   try {
     const parsed = JSON.parse(raw.trim())
@@ -24,6 +28,18 @@ export function parseChartConfig(raw: string): ChartConfig | null {
       !Array.isArray(parsed.datasets)
     ) {
       return null
+    }
+    // Cap data size to prevent rendering issues from oversized LLM output
+    if (parsed.labels.length > MAX_LABELS) {
+      parsed.labels = parsed.labels.slice(0, MAX_LABELS)
+    }
+    if (parsed.datasets.length > MAX_DATASETS) {
+      parsed.datasets = parsed.datasets.slice(0, MAX_DATASETS)
+    }
+    for (const ds of parsed.datasets) {
+      if (Array.isArray(ds.data) && ds.data.length > MAX_DATA_POINTS) {
+        ds.data = ds.data.slice(0, MAX_DATA_POINTS)
+      }
     }
     return parsed as ChartConfig
   } catch {

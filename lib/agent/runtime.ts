@@ -126,21 +126,27 @@ export async function runAgentStream({
   })
 
   // Convert AsyncIterableStream<string> → ReadableStream<Uint8Array>
-  // so it remains compatible with wrapStreamWithCompletionDetection
+  // so it remains compatible with wrapStreamWithCompletionDetection.
+  // Uses pull() instead of start() so chunks are only read when the
+  // downstream consumer is ready, respecting backpressure.
   const encoder = new TextEncoder()
+  const iterator = result.textStream[Symbol.asyncIterator]()
   return new ReadableStream<Uint8Array>({
-    async start(controller) {
+    async pull(controller) {
       try {
-        for await (const chunk of result.textStream) {
-          controller.enqueue(encoder.encode(chunk))
+        const { value, done } = await iterator.next()
+        if (done) {
+          controller.close()
+          return
         }
-        controller.close()
+        controller.enqueue(encoder.encode(value))
       } catch (err) {
         controller.error(err)
       }
     },
     cancel() {
       // Client disconnected mid-stream — ensure retriever resources are freed
+      iterator.return?.()
       safeDispose().catch(() => {})
     }
   })
