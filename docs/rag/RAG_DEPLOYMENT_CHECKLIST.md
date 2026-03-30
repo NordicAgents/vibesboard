@@ -78,7 +78,7 @@ openssl rand -hex 32
 
 **Example Output:**
 ```
-a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+<your-generated-secret>
 ```
 
 **Add to Local Environment:**
@@ -87,7 +87,7 @@ a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 nano .env.local
 
 # Add this line:
-CRON_SECRET=a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+CRON_SECRET=<your-generated-secret>
 ```
 
 **Add to Vercel:**
@@ -96,7 +96,7 @@ CRON_SECRET=a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
 3. Settings → Environment Variables
 4. Click "Add New"
 5. Name: `CRON_SECRET`
-6. Value: `a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456`
+6. Value: `<your-generated-secret>`
 7. Environment: Production, Preview, Development (all)
 8. Click "Save"
 
