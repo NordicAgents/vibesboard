@@ -3,7 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type UsageSource } from '@/lib/firestore-types'
-import { getPlanTemplate, type PlanId } from '@/lib/plans'
+import { getPlanTemplate, computeMessageLimit, type PlanId } from '@/lib/plans'
 
 // ─── Billing cycle helpers ──────────────────────────────────────────
 
@@ -158,6 +158,12 @@ export async function checkUsageLimit(
   }
 
   const tenant = tenantDoc.data()
+
+  // Block tenants in pending or suspended state
+  if (tenant?.status === 'pending' || tenant?.status === 'suspended') {
+    return { allowed: false, remaining: 0, limit: 0, used: 0, planId: 'free' }
+  }
+
   const subscription = tenant?.subscription
 
   // No subscription yet — tenant hasn't been migrated, allow by default
@@ -168,7 +174,10 @@ export async function checkUsageLimit(
   const planId = subscription.planId as PlanId
   const plan = await getPlanTemplate(planId)
 
-  const limit = subscription.messageLimit as number
+  // Live computation: use custom override if set, else compute from live plan template
+  const limit = subscription.customMessageLimit != null
+    ? subscription.customMessageLimit as number
+    : computeMessageLimit(plan, (subscription.seatCount as number) ?? 1)
   const used = (subscription.messageCount as number) ?? 0
   const remaining = Math.max(0, limit - used)
 
@@ -196,7 +205,7 @@ export function usageLimitResponse(result: UsageLimitResult) {
       message: `You've used all ${result.limit} messages this month. Upgrade to Pro for 5,000 messages/month.`,
       used: result.used,
       limit: result.limit,
-      upgradeUrl: '/settings/billing',
+      upgradeUrl: '/settings/tenant/billing',
     },
     { status: 429 }
   )

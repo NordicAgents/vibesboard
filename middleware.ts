@@ -20,6 +20,7 @@ const RESERVED_SLUGS = new Set([
   'whatsapp-inbox',
   'instagram-inbox',
   'widget',
+  'pricing',
   '_next',
   'public'
 ])
@@ -71,6 +72,7 @@ export async function middleware(req: NextRequest) {
     !pathname.includes('/landing') &&
     !pathname.includes('/privacy-policy') &&
     !pathname.includes('/terms-of-service') &&
+    !pathname.includes('/pricing') &&
     pathname !== '/'
 
   if (!sessionCookie && isProtectedRoute) {

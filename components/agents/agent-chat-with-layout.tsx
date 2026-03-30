@@ -19,8 +19,10 @@ import {
 import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
 import { useSidebar } from '@/components/sidebar-context'
 import { AgentDashboardTabs } from '@/components/agents/agent-dashboard-tabs'
+import { AgentFocusView } from '@/components/agents/agent-focus-view'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationView } from '@/components/agents/conversation-modal'
+import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconMessage } from '@/components/ui/icons'
 import { LayoutDashboard } from 'lucide-react'
@@ -74,14 +76,26 @@ export function AgentChatWithLayout({
   const agentPageShell = useAgentPageShell()
   const { isSidebarOpen, setIsSidebarOpen: setMainSidebarOpen } = useSidebar()
   const setSecondarySidebar = useSecondarySidebarSetter()
+  const [viewMode, setViewMode] = useLocalStorage<'focus' | 'advanced'>(
+    'agent-view-mode',
+    'focus'
+  )
+
+  // If URL has a ?tab= param, force advanced mode
+  const effectiveViewMode = activeTab ? 'advanced' : viewMode
 
   const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
   const wasConfiguringRef = React.useRef(false)
 
   // Sync sidebar (Dashboard vs Ask AI) with the URL
+  // Only auto-close when activeTab changes to null AND we're not in focus mode
   React.useEffect(() => {
     if (!setAgentSidebarOpen) return
-    setAgentSidebarOpen(Boolean(activeTab) && canEdit)
+    if (activeTab) {
+      setAgentSidebarOpen(canEdit)
+    }
+    // When no tab param: don't force-close — let focus mode keep the sidebar open
+    // if it was explicitly opened via the Dashboard button
   }, [activeTab, setAgentSidebarOpen, canEdit])
 
   // Collapse main sidebar only on the transition into configure mode
@@ -238,10 +252,14 @@ export function AgentChatWithLayout({
               onClick={() => {
                 setSelectedConversation(null)
                 setAgentSidebarOpen?.(true)
-                const params = new URLSearchParams(searchParams.toString())
-                params.set('tab', 'setup')
-                params.delete('configure')
-                router.push(`/agents/${agent.id}?${params.toString()}`)
+                if (viewMode === 'focus') {
+                  router.push(`/agents/${agent.id}`)
+                } else {
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.set('tab', 'setup')
+                  params.delete('configure')
+                  router.push(`/agents/${agent.id}?${params.toString()}`)
+                }
               }}
             >
               <LayoutDashboard className="size-4" />
@@ -435,14 +453,33 @@ export function AgentChatWithLayout({
           />
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (
-        <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
-          <AgentDashboardTabs
-            agent={agent}
-            share={share}
-            canEdit={canEdit}
-            defaultTab={activeTab || 'setup'}
-          />
-        </div>
+        effectiveViewMode === 'focus' ? (
+          <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
+            <AgentFocusView
+              agent={agent}
+              share={share}
+              canEdit={canEdit}
+              onSwitchToAdvanced={() => {
+                setViewMode('advanced')
+                router.push(`/agents/${agent.id}?tab=setup`)
+              }}
+              onSwitchToChat={() => agentPageShell?.setIsSidebarOpen(false)}
+            />
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
+            <AgentDashboardTabs
+              agent={agent}
+              share={share}
+              canEdit={canEdit}
+              defaultTab={activeTab || 'setup'}
+              onSwitchToFocus={() => {
+                setViewMode('focus')
+                router.push(`/agents/${agent.id}`)
+              }}
+            />
+          </div>
+        )
       ) : canEdit ? (
         <AgentAskChat
           agent={agent}

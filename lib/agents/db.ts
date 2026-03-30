@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type AgentDocument } from '@/lib/firestore-types'
 import {
   type AgentToolType,
+  type BuiltinToolType,
   type VibeAgent,
   type VibeAgentConversation,
   type VibeAgentTool
@@ -58,9 +59,9 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
           return null
         }
 
-        const type: AgentToolType | null =
+        const type: BuiltinToolType | null =
           rawType in BUILTIN_AGENT_TOOLS
-            ? (rawType as AgentToolType)
+            ? (rawType as BuiltinToolType)
             : null
 
         if (!type) {
@@ -113,6 +114,9 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
   notificationConfig: data.notificationConfig ?? undefined,
   handoffTargets: sanitizeStringArray(data.handoffTargets),
+  collectionFields: Array.isArray(data.collectionFields) ? data.collectionFields : undefined,
+  schedulingConfig: data.schedulingConfig ?? undefined,
+  dataConfig: data.dataConfig ?? undefined,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })

@@ -11,16 +11,38 @@ export interface Chat extends Record<string, any> {
   sharePath?: string // Refactor to use RLS
 }
 
-export type AgentToolType =
+export type BuiltinToolType =
   | 'builtin:web_fetch'
   | 'builtin:file_search'
   | 'builtin:bash'
+
+export type ActionToolType =
+  | 'action:check_availability'
+  | 'action:book_meeting'
+  | 'action:reschedule_meeting'
+  | 'action:cancel_meeting'
+  | 'action:submit_data'
+  | 'action:update_record'
+
+export type AgentToolType = BuiltinToolType | ActionToolType
 
 export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
 
 export type AgentMode = 'provider' | 'collector'
 
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
+
+export type CollectionFieldType = 'text' | 'email' | 'phone' | 'number' | 'long_text' | 'choice'
+
+export interface CollectionField {
+  id: string
+  label: string
+  type: CollectionFieldType
+  required: boolean
+  description?: string
+  choices?: string[]
+  order: number
+}
 
 export interface VibeAgentTool {
   id: string
@@ -62,6 +84,26 @@ export interface VibeAgent {
     webhook: { enabled: boolean; url?: string | null; secret?: string | null }
   }
   handoffTargets?: string[]
+  collectionFields?: CollectionField[]
+  schedulingConfig?: {
+    enabled: boolean
+    calendarConnectionId: string | null
+    defaultDurationMinutes: number
+    bufferMinutes: number
+    timezone: string
+    availableHours: { start: string; end: string }
+    availableDays: number[]
+    meetingTitleTemplate: string
+    meetingDescription?: string
+    createMeetLink: boolean
+  }
+  dataConfig?: {
+    enabled: boolean
+    dataConnectionId: string | null
+    fieldMappings: Array<{ collectionFieldId: string; targetColumn: string }>
+    autoSubmitOnComplete: boolean
+    updateKeyField?: string | null
+  }
   createdAt: string
   updatedAt: string
 }
@@ -84,6 +126,11 @@ export interface VibeAgentConversation {
   }>
   responseCounts?: Record<string, number>
   summaryGeneratedAt?: string | null
+  feedback?: {
+    rating: 'positive' | 'negative'
+    comment?: string
+    createdAt: string
+  }
   createdAt: string
   updatedAt: string
 }

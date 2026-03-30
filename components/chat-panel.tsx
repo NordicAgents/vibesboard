@@ -19,6 +19,7 @@ export interface ChatPanelProps extends Pick<
   agentMode?: AgentMode
   agentName?: string
   onChatComplete?: () => void
+  onCorrect?: () => void
   quickSuggestions?: string[]
 }
 
@@ -36,6 +37,7 @@ export function ChatPanel({
   agentMode = 'provider',
   agentName,
   onChatComplete,
+  onCorrect,
   quickSuggestions = []
 }: ChatPanelProps) {
   const canRegenerate = React.useMemo(() => {
@@ -69,6 +71,7 @@ export function ChatPanel({
                 mode={agentMode}
                 isAgentDisabled={isAgentDisabled}
                 onComplete={onChatComplete ?? (() => {})}
+                onCorrect={onCorrect}
               />
             </motion.div>
           ) : (

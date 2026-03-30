@@ -4,12 +4,48 @@ import type { PlanId } from './plans'
 // ─── Shared enums / unions ───────────────────────────────────────────
 export type TenantRole = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 export type InvitationRole = 'TENANT_ADMIN' | 'MEMBER'
-export type TenantStatus = 'active' | 'trial' | 'suspended'
+export type TenantStatus = 'active' | 'pending' | 'trial' | 'suspended'
 export type InvitationStatus = 'pending' | 'accepted' | 'expired'
 export type AgentMode = 'provider' | 'collector'
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
 export type ChatwootConnectionStatus = 'active' | 'disconnected' | 'error'
+
+// ─── Calendar & Scheduling ──────────────────────────────────────────
+export type CalendarProvider = 'google_calendar' | 'cal_com'
+export type CalendarConnectionStatus = 'active' | 'disconnected' | 'expired'
+export type BookingStatus = 'confirmed' | 'cancelled' | 'rescheduled'
+
+export interface AgentSchedulingConfig {
+  enabled: boolean
+  calendarConnectionId: string | null
+  defaultDurationMinutes: number
+  bufferMinutes: number
+  timezone: string
+  availableHours: { start: string; end: string }
+  availableDays: number[]
+  meetingTitleTemplate: string
+  meetingDescription?: string
+  createMeetLink: boolean
+}
+
+// ─── Data & Database Actions ────────────────────────────────────────
+export type DataProvider = 'google_sheets' | 'airtable' | 'custom_webhook'
+export type DataConnectionStatus = 'active' | 'disconnected' | 'expired'
+export type DataActionType = 'append_row' | 'update_row' | 'webhook_submit'
+
+export interface DataFieldMapping {
+  collectionFieldId: string  // references CollectionField.id
+  targetColumn: string       // column header (Sheets) or field name (Airtable)
+}
+
+export interface AgentDataConfig {
+  enabled: boolean
+  dataConnectionId: string | null
+  fieldMappings: DataFieldMapping[]
+  autoSubmitOnComplete: boolean  // auto-push when collector-mode completes
+  updateKeyField?: string | null // field used to find existing rows for updates
+}
 
 // ─── Agent notifications ────────────────────────────────────────────
 export type NotificationEvent = 'completed' | 'handoff' | 'agent_handoff'
@@ -66,7 +102,7 @@ export interface TenantSubscription {
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   stripePriceId: string | null
-  trialEndsAt: string | null          // ISO date, null if not on trial
+  stripeOverageItemId: string | null   // Stripe subscription item ID for metered overage line
 }
 
 /** /plan_templates/{planId} */
@@ -82,6 +118,17 @@ export interface PlanTemplateDocument {
   featureFlags: string[]              // FeatureFlagName[] stored as strings
   createdAt: string
   updatedAt: string
+  // Stripe integration
+  stripeProductId?: string | null
+  stripeBasePriceId?: string | null
+  stripeOveragePriceId?: string | null
+  pendingPriceMigration?: {
+    oldBasePriceId: string
+    oldOveragePriceId: string
+    newBasePriceId: string
+    newOveragePriceId: string
+    createdAt: string
+  } | null
 }
 
 /** /tenants/{tenantId}/usage_logs/{logId} */
@@ -249,6 +296,17 @@ export interface AgentDocument {
   lastEmbeddingsSyncAt?: string
   notificationConfig?: AgentNotificationConfig
   handoffTargets?: string[]
+  collectionFields?: Array<{
+    id: string
+    label: string
+    type: 'text' | 'email' | 'phone' | 'number' | 'long_text' | 'choice'
+    required: boolean
+    description?: string
+    choices?: string[]
+    order: number
+  }>
+  schedulingConfig?: AgentSchedulingConfig
+  dataConfig?: AgentDataConfig
   createdAt: string
   updatedAt: string
 }
@@ -331,6 +389,12 @@ export interface HookJobDocument {
 }
 
 /** /tenants/{tenantId}/agents/{agentId}/conversations/{id} */
+export interface ConversationFeedback {
+  rating: 'positive' | 'negative'
+  comment?: string
+  createdAt: string
+}
+
 export interface ConversationDocument {
   id: string
   agentId: string
@@ -344,6 +408,7 @@ export interface ConversationDocument {
   handoffChain?: HandoffChainEntry[]
   responseCounts?: Record<string, number>
   activeAgentId?: string
+  feedback?: ConversationFeedback
   createdAt: string
   updatedAt: string
 }
@@ -560,6 +625,108 @@ export interface InstagramInboxMessageDocument {
   createdAt: string
 }
 
+// ─── Calendar connections (tenant-scoped) ────────────────────────────
+
+/** /tenants/{tenantId}/calendar_connections/{connectionId} */
+export interface CalendarConnectionDocument {
+  id: string
+  tenantId: string
+  provider: CalendarProvider
+  name: string
+  calendarId: string
+  accessToken: string        // AES encrypted
+  refreshToken: string       // AES encrypted
+  tokenExpiresAt: string
+  apiKey?: string            // AES encrypted (Cal.com)
+  apiBaseUrl?: string
+  email?: string
+  scopes: string[]
+  status: CalendarConnectionStatus
+  connectedBy: string
+  connectedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Bookings (agent-scoped) ────────────────────────────────────────
+
+/** /tenants/{tenantId}/agents/{agentId}/bookings/{bookingId} */
+export interface BookingDocument {
+  id: string
+  agentId: string
+  tenantId: string
+  conversationId: string
+  calendarConnectionId: string
+  provider: CalendarProvider
+  externalEventId: string
+  title: string
+  startTime: string
+  endTime: string
+  timezone: string
+  attendeeName: string
+  attendeeEmail: string
+  description?: string
+  meetLink?: string
+  status: BookingStatus
+  cancelledAt?: string
+  rescheduledTo?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ─── Data connections (tenant-scoped) ─────────────────────────────────
+
+/** /tenants/{tenantId}/data_connections/{connectionId} */
+export interface DataConnectionDocument {
+  id: string
+  tenantId: string
+  provider: DataProvider
+  name: string
+
+  // Google Sheets (OAuth)
+  accessToken?: string         // AES encrypted
+  refreshToken?: string        // AES encrypted
+  tokenExpiresAt?: string
+  email?: string
+  spreadsheetId?: string
+  sheetName?: string
+  scopes?: string[]
+
+  // Airtable (personal access token)
+  apiToken?: string            // AES encrypted
+  baseId?: string
+  tableId?: string
+  tableName?: string
+
+  // Custom Webhook
+  webhookUrl?: string
+  webhookMethod?: 'POST' | 'PUT'
+  webhookHeaders?: Record<string, string>
+
+  // Common
+  status: DataConnectionStatus
+  connectedBy: string
+  connectedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** /tenants/{tenantId}/agents/{agentId}/data_logs/{logId} */
+export interface DataActionLogDocument {
+  id: string
+  agentId: string
+  tenantId: string
+  conversationId: string
+  connectionId: string
+  provider: DataProvider
+  action: DataActionType
+  status: 'success' | 'failed'
+  rowData: Record<string, any>
+  externalRef?: string       // row number, Airtable record ID, etc.
+  error?: string
+  createdAt: string
+}
+
 // ─── Collection path helpers ─────────────────────────────────────────
 
 export const Collections = {
@@ -581,6 +748,10 @@ export const Collections = {
   agents: (tenantId: string) => `tenants/${tenantId}/agents` as const,
   notifications: (tenantId: string) =>
     `tenants/${tenantId}/notifications` as const,
+  calendarConnections: (tenantId: string) =>
+    `tenants/${tenantId}/calendar_connections` as const,
+  dataConnections: (tenantId: string) =>
+    `tenants/${tenantId}/data_connections` as const,
 
   // Agent-scoped
   conversations: (tenantId: string, agentId: string) =>
@@ -593,6 +764,10 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/conversation_chunks` as const,
   chatwootConnections: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/chatwoot_connections` as const,
+  bookings: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/bookings` as const,
+  dataLogs: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/data_logs` as const,
   hooks: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/hooks` as const,
   hookJobs: (tenantId: string, agentId: string, hookId: string) =>

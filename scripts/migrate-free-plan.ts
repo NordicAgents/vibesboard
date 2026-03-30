@@ -95,7 +95,6 @@ async function main() {
       stripeCustomerId: null,
       stripeSubscriptionId: null,
       stripePriceId: null,
-      trialEndsAt: null,
     }
 
     console.log(`  SET   ${doc.id} (${data.name}) → free plan (100 msgs/mo)`)

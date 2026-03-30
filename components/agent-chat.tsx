@@ -37,7 +37,7 @@ interface AgentChatProps {
   conversationId?: string
   initialMessages?: Message[]
   className?: string
-  onChatComplete?: (messages?: Message[]) => void
+  onChatComplete?: (messages?: Message[], conversationId?: string) => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
   embed?: boolean
@@ -87,15 +87,19 @@ export function AgentChat({
     () => initialConversationId ?? nanoid(),
     [initialConversationId]
   )
+  const defaultGreeting = agent.mode === 'collector'
+    ? 'Hi! I have a few questions for you.'
+    : 'Hi! How can I help you today?'
+
   const defaultInitialMessages: Message[] = useMemo(
     () => [
       {
         id: nanoid(),
         role: 'assistant',
-        content: agent.greetingText || 'Hi! How can I help you today?'
+        content: agent.greetingText || defaultGreeting
       }
     ],
-    [chatKey, agent.greetingText]
+    [chatKey, agent.greetingText, defaultGreeting]
   )
   const messagesToUse = useMemo(
     () =>
@@ -430,8 +434,17 @@ export function AgentChat({
   }, [messages.length, isLoading])
 
   const handleChatComplete = useCallback(() => {
-    onChatComplete?.(messages)
-  }, [onChatComplete, messages])
+    onChatComplete?.(messages, conversationId)
+  }, [onChatComplete, messages, conversationId])
+
+  const handleCorrection = useCallback(() => {
+    setIsChatComplete(false)
+    append({
+      id: nanoid(),
+      role: 'user',
+      content: 'I need to correct one of my previous answers.'
+    })
+  }, [append])
 
   return (
     <div
@@ -498,6 +511,7 @@ export function AgentChat({
         agentMode={agentMode}
         agentName={activeAgentName}
         onChatComplete={handleChatComplete}
+        onCorrect={handleCorrection}
         quickSuggestions={quickSuggestions}
       />
     </div>
