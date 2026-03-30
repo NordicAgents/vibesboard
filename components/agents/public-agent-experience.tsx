@@ -59,10 +59,9 @@ export function PublicAgentExperience({
 
   const handleClose = useCallback(() => {
     if (embed) {
-      // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration
       // Wildcard origin is intentional — embed widget runs on unknown parent domains.
       // The receiving side (embed.js) validates e.origin before acting on the message.
-      window.parent.postMessage({ type: 'vibeagent:close' }, '*')
+      window.parent.postMessage({ type: 'vibeagent:close' }, '*') // nosemgrep: javascript.browser.security.wildcard-postmessage-configuration.wildcard-postmessage-configuration
     } else {
       router.push('/')
     }
