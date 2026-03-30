@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { OpenAIStream, StreamingTextResponse } from 'ai'
+import { streamText as aiStreamText } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getAgentById } from '@/lib/agents/server'
@@ -15,12 +15,6 @@ import { buildAskAiConversationContext } from '@/lib/agent/conversation-rag'
 import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 import { canEditAgent } from '@/lib/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
 
 export const runtime = 'nodejs'
 
@@ -112,94 +106,73 @@ Rules:
 - When referencing a conversation, refer to it by its label (e.g., "Conversation 2") and/or the date/summary shown.
 - Quote short phrases from the snippets when helpful.
 
+When the answer involves counts, trends, comparisons, or distributions, include a chart after your text using this exact format:
+
+\`\`\`chart
+{"type":"bar","title":"Chart title","labels":["Label1","Label2"],"datasets":[{"label":"Series name","data":[10,20]}]}
+\`\`\`
+
+Chart types: "bar" for comparisons, "line" for trends over time, "pie" or "doughnut" for distributions.
+Only include a chart when real data from the conversation snippets supports it. Never invent numbers.
+
 Conversation snippets:
 ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const model = OPENAI_CHAT_MODEL
+
+  const saveAndRecord = async (completion: string) => {
+    const nextMessages = [
+      ...pendingMessages,
+      { id: nanoid(), role: 'assistant' as const, content: completion }
+    ]
+    const summary = await summarizeConversation(nextMessages)
+    await updateConversationMessages({
+      tenantId: agent.tenantId,
+      agentId: agent.id,
+      conversationId: askConversation.id,
+      messages: nextMessages,
+      summary
+    })
+    recordUsage({
+      tenantId: agent.tenantId,
+      agentId: agent.id,
+      conversationId: askConversation.id,
+      userId: user.id,
+      source: 'ask_ai',
+      model,
+    })
+  }
 
   if (isResponsesModel(model)) {
     const prompt = `${systemPrompt}\n\nUser question:\n${payload.question}`
     const stream = await streamText({
       prompt,
       model,
-      async onDone(completion) {
-        const nextMessages = [
-          ...pendingMessages,
-          {
-            id: nanoid(),
-            role: 'assistant' as const,
-            content: completion
-          }
-        ]
-        const summary = await summarizeConversation(nextMessages)
-        await updateConversationMessages({
-          tenantId: agent.tenantId,
-          agentId: agent.id,
-          conversationId: askConversation.id,
-          messages: nextMessages,
-          summary
-        })
-
-        recordUsage({
-          tenantId: agent.tenantId,
-          agentId: agent.id,
-          conversationId: askConversation.id,
-          userId: user.id,
-          source: 'ask_ai',
-          model,
-        })
-      }
+      async onDone(completion) { await saveAndRecord(completion) }
     })
 
-    return new StreamingTextResponse(stream, {
+    return new Response(stream, {
       headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
         'x-session-id': askConversation.id
       }
     })
   }
 
-  const response = await openai.createChatCompletion({
-    model,
-    stream: true,
-    temperature: 0.2,
+  const openaiClient = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })
+  const result = await aiStreamText({
+    model: openaiClient(model),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: payload.question }
-    ]
+    ],
+    temperature: 0.2,
+    async onFinish({ text }) { await saveAndRecord(text) }
   })
 
-  const stream = OpenAIStream(response, {
-    async onCompletion(completion) {
-      const nextMessages = [
-        ...pendingMessages,
-        {
-          id: nanoid(),
-          role: 'assistant' as const,
-          content: completion
-        }
-      ]
-      const summary = await summarizeConversation(nextMessages)
-      await updateConversationMessages({
-        tenantId: agent.tenantId,
-        agentId: agent.id,
-        conversationId: askConversation.id,
-        messages: nextMessages,
-        summary
-      })
-
-      recordUsage({
-        tenantId: agent.tenantId,
-        agentId: agent.id,
-        conversationId: askConversation.id,
-        userId: user.id,
-        source: 'ask_ai',
-        model,
-      })
-    }
-  })
-
-  return new StreamingTextResponse(stream, {
+  return new Response(result.textStream, {
     headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
       'x-session-id': askConversation.id
     }
   })

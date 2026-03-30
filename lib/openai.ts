@@ -1,5 +1,3 @@
-import { Configuration, OpenAIApi } from 'openai-edge'
-
 const cleanEnv = (value?: string) => value?.trim()
 
 const baseModel = cleanEnv(process.env.OPENAI_MODEL) ?? 'gpt-5.4-nano'

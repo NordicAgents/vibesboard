@@ -3,19 +3,13 @@
  * Advanced retrieval strategies for knowledge base search
  */
 
-import { Configuration, OpenAIApi } from 'openai-edge'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
+import { createEmbedding } from '@/lib/openai-compat'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
-
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY
-  })
-)
 
 export interface RetrievalConfig {
   topK?: number
@@ -231,12 +225,11 @@ async function generateQueryEmbedding(
   query: string
 ): Promise<number[] | null> {
   try {
-    const response = await openai.createEmbedding({
+    const json = await createEmbedding({
       model: EMBEDDING_MODEL,
       input: query.trim()
     })
 
-    const json = await response.json()
     const embedding = json?.data?.[0]?.embedding
 
     return embedding ?? null

@@ -10,11 +10,13 @@
     "lint:fix": "eslint . --fix",
     "preview": "next build && next start",
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test lib/**/*.test.ts",
+    "test": "node --experimental-strip-types --test lib/**/*.test.ts lib/integration/*.test.ts",
     "format:write": "prettier --write \"{app,lib,components}/**/*.{ts,tsx,mdx}\" --cache",
     "format:check": "prettier --check \"{app,lib,components}**/*.{ts,tsx,mdx}\" --cache"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^0.0.72",
+    "@ai-sdk/react": "^3.0.143",
     "@google-cloud/storage": "^7.19.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -30,7 +32,8 @@
     "@stripe/stripe-js": "^9.0.0",
     "@vercel/analytics": "^1.0.1",
     "@vercel/og": "^0.5.7",
-    "ai": "^2.1.6",
+    "ai": "^3.4.33",
+    "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^1.2.1",
     "crypto-js": "^4.2.0",
@@ -53,6 +56,7 @@
     "prettier-plugin-tailwindcss": "^0.3.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.1",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.1",
     "react-hot-toast": "^2.4.1",
     "react-intersection-observer": "^9.4.4",
@@ -93,7 +97,8 @@
     "minimatch": "^9.0.7",
     "seroval": "^1.4.1",
     "underscore": "^1.13.8",
-    "fast-xml-parser": ">=5.5.6"
+    "fast-xml-parser": ">=5.5.6",
+    "node-forge": ">=1.4.0"
   },
   "pnpm": {
     "overrides": {
@@ -101,7 +106,8 @@
       "minimatch": ">=9.0.7",
       "seroval": ">=1.4.1",
       "underscore": ">=1.13.8",
-      "fast-xml-parser": ">=5.5.6"
+      "fast-xml-parser": ">=5.5.6",
+      "node-forge": ">=1.4.0"
     }
   }
 }

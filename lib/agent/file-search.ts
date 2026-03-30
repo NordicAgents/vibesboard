@@ -1,22 +1,16 @@
 import { Buffer } from 'node:buffer'
 
-import { Configuration, OpenAIApi } from 'openai-edge'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { downloadFile } from '@/lib/firebase/storage'
 import { Collections } from '@/lib/firestore-types'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@/lib/openai'
+import { createEmbedding, chatCompletionWithVision } from '@/lib/openai-compat'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
 const VISION_MODEL = OPENAI_VISION_MODEL
-
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY
-  })
-)
 
 const IMAGE_MIME_TYPES = new Set([
   'image/png',
@@ -231,7 +225,7 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   }
 
   // Fallback: Chat Completions API for older vision models
-  const response = await openai.createChatCompletion({
+  const visionJson = await chatCompletionWithVision({
     model: VISION_MODEL,
     messages: [
       {
@@ -244,8 +238,7 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
     ]
   })
 
-  const json = await response.json()
-  const rawContent = json?.choices?.[0]?.message?.content
+  const rawContent = visionJson?.choices?.[0]?.message?.content
   const content =
     Array.isArray(rawContent) && rawContent.length
       ? rawContent
@@ -326,11 +319,10 @@ const embedChunks = async (values: string[]) => {
   if (!values.length) {
     return []
   }
-  const response = await openai.createEmbedding({
+  const json = await createEmbedding({
     model: EMBEDDING_MODEL,
     input: values
   })
-  const json = await response.json()
   return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
 }
 

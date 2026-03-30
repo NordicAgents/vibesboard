@@ -4,7 +4,7 @@ import { getAgentById } from '@/lib/agents/server'
 import { isFeatureEnabled } from '@/lib/features'
 import type { VibeAgent } from '@/lib/types'
 import type { HandoffChainEntry } from '@/lib/firestore-types'
-import type { Message } from 'ai'
+import type { Message } from '@/lib/types/message'
 
 const MAX_HANDOFF_DEPTH = 5
 
