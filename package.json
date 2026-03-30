@@ -39,6 +39,7 @@
     "crypto-js": "^4.2.0",
     "csv-parse": "^6.1.0",
     "encoding": "^0.1.13",
+    "exceljs": "^4.4.0",
     "firebase": "^12.9.0",
     "firebase-admin": "^13.7.0",
     "focus-trap-react": "^10.1.1",
@@ -48,7 +49,7 @@
     "lucide-react": "^0.554.0",
     "mammoth": "^1.11.0",
     "nanoid": "^4.0.2",
-    "next": "16.0.7",
+    "next": "16.2.1",
     "next-themes": "^0.4.6",
     "openai-edge": "^0.5.1",
     "pdf-parse": "^2.4.5",
@@ -67,7 +68,6 @@
     "resend": "^6.9.4",
     "server-only": "^0.0.1",
     "stripe": "^21.0.1",
-    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -82,7 +82,7 @@
     "@typescript-eslint/parser": "^8.48.0",
     "autoprefixer": "^10.4.22",
     "eslint": "^9.39.1",
-    "eslint-config-next": "16.0.7",
+    "eslint-config-next": "16.2.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-tailwindcss": "^3.12.0",
     "postcss": "^8.4.23",
@@ -91,5 +91,21 @@
     "tailwindcss": "^3.4.18",
     "tailwindcss-animate": "^1.0.5",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "glob": "^10.5.0",
+    "minimatch": "^9.0.7",
+    "seroval": "^1.4.1",
+    "underscore": "^1.13.8",
+    "fast-xml-parser": ">=5.5.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "glob": ">=10.5.0",
+      "minimatch": ">=9.0.7",
+      "seroval": ">=1.4.1",
+      "underscore": ">=1.13.8",
+      "fast-xml-parser": ">=5.5.6"
+    }
   }
 }

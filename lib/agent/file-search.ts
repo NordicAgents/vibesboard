@@ -70,15 +70,21 @@ const extractFromHtml = (raw: string) =>
   cleanText(raw.replace(htmlTagRegex, ' '))
 
 const extractFromWorkbook = async (buffer: Buffer) => {
-  const XLSX = await import('xlsx')
-  const workbook = XLSX.read(buffer, { type: 'buffer' })
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer)
   const parts: string[] = []
 
-  workbook.SheetNames.forEach(sheetName => {
-    const worksheet = workbook.Sheets[sheetName]
-    const csv = XLSX.utils.sheet_to_csv(worksheet)
-    if (csv?.trim()) {
-      parts.push(`# Sheet: ${sheetName}\n${csv}`)
+  workbook.eachSheet((worksheet, _sheetId) => {
+    const rows: string[] = []
+    worksheet.eachRow(row => {
+      const values = Array.isArray(row.values)
+        ? (row.values as unknown[]).slice(1) // exceljs row.values is 1-indexed with empty [0]
+        : []
+      rows.push(values.map(v => (v != null ? String(v) : '')).join(','))
+    })
+    if (rows.length > 0) {
+      parts.push(`# Sheet: ${worksheet.name}\n${rows.join('\n')}`)
     }
   })
 

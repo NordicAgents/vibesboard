@@ -1,0 +1,40 @@
+name: Security & Quality
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+jobs:
+  security-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Run Semgrep
+        uses: docker://semgrep/semgrep@sha256:85782eaf09692e6dfb684cd3bad87ef315775814b01f76b4d15582e4ca7c1c89
+        with:
+          args: semgrep scan --error --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0 — pinned safe SHA (supply chain attack March 19-23 2026)
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+
+  complexity-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Lizard Runner
+        uses: Uno-Takashi/Lizard-Runner@84be77b3a59d9a98a74c46018adfbd5110dc9744
+        with:
+          path: "."
+          CCN: "15"
+          ignore_warnings: "11"
