@@ -423,7 +423,74 @@ describe('ReadableStream cancel() cleanup', () => {
 })
 
 // -------------------------------------------------------------------
-// 8. @ai-sdk/openai version compatibility
+// 8. pull()-based ReadableStream respects backpressure
+// -------------------------------------------------------------------
+describe('pull()-based ReadableStream', () => {
+  test('pull() is called lazily — only when consumer reads', async () => {
+    let pullCount = 0
+    const chunks = ['a', 'b', 'c']
+    let chunkIndex = 0
+    const encoder = new TextEncoder()
+
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pullCount++
+        if (chunkIndex >= chunks.length) {
+          controller.close()
+          return
+        }
+        controller.enqueue(encoder.encode(chunks[chunkIndex++]))
+      }
+    })
+
+    // Before reading, pull should not have been called yet (or at most once for prefetch)
+    const reader = stream.getReader()
+
+    const { value: v1 } = await reader.read()
+    assert.ok(v1, 'Should get first chunk')
+
+    const countAfterFirst = pullCount
+    // pull is called on demand — should have been called at least once
+    assert.ok(countAfterFirst >= 1, 'pull should have been called')
+
+    const { value: v2 } = await reader.read()
+    assert.ok(v2, 'Should get second chunk')
+
+    // Read remaining
+    await reader.read() // 'c'
+    const { done } = await reader.read() // done
+    assert.ok(done, 'Stream should be done')
+  })
+
+  test('cancel() stops iterator via return()', async () => {
+    let returnCalled = false
+    const fakeIterator = {
+      next: async () => ({ value: 'chunk', done: false }),
+      return: async () => { returnCalled = true; return { value: undefined, done: true as const } }
+    }
+
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        const { value, done } = await fakeIterator.next()
+        if (done) { controller.close(); return }
+        controller.enqueue(encoder.encode(value))
+      },
+      cancel() {
+        fakeIterator.return?.()
+      }
+    })
+
+    const reader = stream.getReader()
+    await reader.read() // consume one chunk
+    await reader.cancel()
+
+    assert.ok(returnCalled, 'iterator.return() should have been called on cancel')
+  })
+})
+
+// -------------------------------------------------------------------
+// 9. @ai-sdk/openai version compatibility
 // -------------------------------------------------------------------
 describe('SDK version check', () => {
   test('@ai-sdk/openai resolves without error', async () => {

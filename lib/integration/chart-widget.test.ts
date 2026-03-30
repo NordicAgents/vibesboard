@@ -20,6 +20,10 @@ interface ChartConfig {
   }[]
 }
 
+const MAX_LABELS = 100
+const MAX_DATASETS = 10
+const MAX_DATA_POINTS = 100
+
 function parseChartConfig(raw: string): ChartConfig | null {
   try {
     const parsed = JSON.parse(raw.trim())
@@ -29,6 +33,17 @@ function parseChartConfig(raw: string): ChartConfig | null {
       !Array.isArray(parsed.datasets)
     ) {
       return null
+    }
+    if (parsed.labels.length > MAX_LABELS) {
+      parsed.labels = parsed.labels.slice(0, MAX_LABELS)
+    }
+    if (parsed.datasets.length > MAX_DATASETS) {
+      parsed.datasets = parsed.datasets.slice(0, MAX_DATASETS)
+    }
+    for (const ds of parsed.datasets) {
+      if (Array.isArray(ds.data) && ds.data.length > MAX_DATA_POINTS) {
+        ds.data = ds.data.slice(0, MAX_DATA_POINTS)
+      }
     }
     return parsed as ChartConfig
   } catch {
@@ -176,6 +191,60 @@ describe('parseChartConfig', () => {
     const config = parseChartConfig(raw)
     assert.ok(config)
     assert.strictEqual(config.datasets.length, 2)
+  })
+
+  test('caps labels at 100', () => {
+    const labels = Array.from({ length: 150 }, (_, i) => `L${i}`)
+    const raw = JSON.stringify({
+      type: 'bar',
+      title: 'T',
+      labels,
+      datasets: [{ label: 'D', data: Array(150).fill(1) }]
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config)
+    assert.strictEqual(config.labels.length, 100)
+  })
+
+  test('caps datasets at 10', () => {
+    const datasets = Array.from({ length: 15 }, (_, i) => ({
+      label: `S${i}`,
+      data: [i]
+    }))
+    const raw = JSON.stringify({
+      type: 'bar',
+      title: 'T',
+      labels: ['A'],
+      datasets
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config)
+    assert.strictEqual(config.datasets.length, 10)
+  })
+
+  test('caps data points per dataset at 100', () => {
+    const raw = JSON.stringify({
+      type: 'line',
+      title: 'T',
+      labels: Array.from({ length: 100 }, (_, i) => `L${i}`),
+      datasets: [{ label: 'D', data: Array(200).fill(1) }]
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config)
+    assert.strictEqual(config.datasets[0].data.length, 100)
+  })
+
+  test('does not truncate data within limits', () => {
+    const raw = JSON.stringify({
+      type: 'bar',
+      title: 'T',
+      labels: ['A', 'B', 'C'],
+      datasets: [{ label: 'D', data: [1, 2, 3] }]
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config)
+    assert.strictEqual(config.labels.length, 3)
+    assert.strictEqual(config.datasets[0].data.length, 3)
   })
 })
 
