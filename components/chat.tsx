@@ -39,6 +39,7 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
     useChat({
       initialMessages,
       id,
+      streamProtocol: 'text',
       body: {
         id,
         previewToken

@@ -246,6 +246,53 @@ describe('parseChartConfig', () => {
     assert.strictEqual(config.labels.length, 3)
     assert.strictEqual(config.datasets[0].data.length, 3)
   })
+
+  test('parses empty data arrays as valid', () => {
+    const raw = JSON.stringify({
+      type: 'bar',
+      title: 'Empty',
+      labels: [],
+      datasets: [{ label: 'D', data: [] }]
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config, 'Empty arrays should be valid')
+    assert.strictEqual(config.labels.length, 0)
+    assert.strictEqual(config.datasets[0].data.length, 0)
+  })
+
+  test('parses negative numbers in data', () => {
+    const raw = JSON.stringify({
+      type: 'bar',
+      title: 'T',
+      labels: ['A', 'B'],
+      datasets: [{ label: 'D', data: [-5, -10] }]
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config)
+    assert.deepStrictEqual(config.datasets[0].data, [-5, -10])
+  })
+
+  test('parses float numbers in data', () => {
+    const raw = JSON.stringify({
+      type: 'line',
+      title: 'Floats',
+      labels: ['A', 'B', 'C'],
+      datasets: [{ label: 'D', data: [1.5, 2.7, 3.14] }]
+    })
+    const config = parseChartConfig(raw)
+    assert.ok(config)
+    assert.deepStrictEqual(config.datasets[0].data, [1.5, 2.7, 3.14])
+  })
+
+  test('returns null for malformed JSON with trailing comma', () => {
+    const raw = '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]},]}'
+    assert.strictEqual(parseChartConfig(raw), null)
+  })
+
+  test('returns null for JSON with single quotes', () => {
+    const raw = "{'type':'bar','title':'T','labels':['A'],'datasets':[{'label':'D','data':[1]}]}"
+    assert.strictEqual(parseChartConfig(raw), null)
+  })
 })
 
 // -------------------------------------------------------------------

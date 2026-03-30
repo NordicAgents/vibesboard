@@ -165,6 +165,7 @@ export function AgentChat({
   } = useChat({
     id: chatKey,
     api: endpoint,
+    streamProtocol: 'text',
     body: {
       conversationId,
       ...(embed ? { embed: true } : {}),

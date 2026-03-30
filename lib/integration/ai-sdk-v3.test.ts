@@ -512,3 +512,124 @@ describe('SDK version check', () => {
     // In v2, the equivalent was experimental_onToolCall (callback-based)
   })
 })
+
+// -------------------------------------------------------------------
+// 10. Additional v3 regression checks
+// -------------------------------------------------------------------
+describe('AI SDK v3 regression checks', () => {
+  test('toTextStreamResponse Content-Type is text/plain; charset=utf-8', async () => {
+    const { streamText } = await import('ai')
+    const { createOpenAI } = await import('@ai-sdk/openai')
+
+    if (skipIfNoKey()) return
+    const apiKey = process.env.OPENAI_API_KEY!
+
+    const openai = createOpenAI({ apiKey })
+    const result = await streamText({
+      model: openai('gpt-4o-mini'),
+      messages: [{ role: 'user', content: 'Say hi' }],
+      maxTokens: 5
+    })
+
+    const response = result.toTextStreamResponse()
+    const ct = response.headers.get('content-type') ?? ''
+    assert.ok(
+      ct.includes('text/plain') && ct.includes('charset=utf-8'),
+      `Expected text/plain; charset=utf-8, got: ${ct}`
+    )
+
+    // Consume to avoid hanging
+    if (response.body) {
+      const reader = response.body.getReader()
+      while (!(await reader.read()).done) {}
+    }
+  })
+
+  test('onFinish receives usage data', async () => {
+    const { streamText } = await import('ai')
+    const { createOpenAI } = await import('@ai-sdk/openai')
+
+    if (skipIfNoKey()) return
+    const apiKey = process.env.OPENAI_API_KEY!
+
+    const openai = createOpenAI({ apiKey })
+    let finishUsage: any = null
+
+    const result = await streamText({
+      model: openai('gpt-4o-mini'),
+      messages: [{ role: 'user', content: 'Say ok' }],
+      maxTokens: 5,
+      onFinish({ usage }) {
+        finishUsage = usage
+      }
+    })
+
+    // Must consume stream for onFinish to fire
+    for await (const _chunk of result.textStream) {}
+    await new Promise(r => setTimeout(r, 200))
+
+    assert.ok(finishUsage, 'onFinish should provide usage data')
+    assert.ok(
+      typeof finishUsage.promptTokens === 'number',
+      `Expected promptTokens to be a number, got ${typeof finishUsage.promptTokens}`
+    )
+    assert.ok(
+      typeof finishUsage.completionTokens === 'number',
+      `Expected completionTokens to be a number, got ${typeof finishUsage.completionTokens}`
+    )
+  })
+
+  test('textStream implements Symbol.asyncIterator', async () => {
+    const { streamText } = await import('ai')
+    const { createOpenAI } = await import('@ai-sdk/openai')
+
+    if (skipIfNoKey()) return
+    const apiKey = process.env.OPENAI_API_KEY!
+
+    const openai = createOpenAI({ apiKey })
+    const result = await streamText({
+      model: openai('gpt-4o-mini'),
+      messages: [{ role: 'user', content: 'Say ok' }],
+      maxTokens: 5
+    })
+
+    assert.ok(
+      Symbol.asyncIterator in result.textStream,
+      'textStream should implement Symbol.asyncIterator'
+    )
+
+    // Consume to avoid hanging
+    for await (const _chunk of result.textStream) {}
+  })
+
+  test('multi-turn messages produce contextual response', async () => {
+    const { streamText } = await import('ai')
+    const { createOpenAI } = await import('@ai-sdk/openai')
+
+    if (skipIfNoKey()) return
+    const apiKey = process.env.OPENAI_API_KEY!
+
+    const openai = createOpenAI({ apiKey })
+    const result = await streamText({
+      model: openai('gpt-4o-mini'),
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant. Be very concise.' },
+        { role: 'user', content: 'My name is TestUser42.' },
+        { role: 'assistant', content: 'Nice to meet you, TestUser42!' },
+        { role: 'user', content: 'What is my name?' }
+      ],
+      temperature: 0,
+      maxTokens: 30
+    })
+
+    let fullText = ''
+    for await (const chunk of result.textStream) {
+      fullText += chunk
+    }
+
+    assert.ok(
+      fullText.includes('TestUser42'),
+      `Expected multi-turn context, got: "${fullText}"`
+    )
+  })
+})

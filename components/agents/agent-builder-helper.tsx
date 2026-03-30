@@ -16,6 +16,7 @@ export function AgentBuilderHelper({ onUseSuggestion }: AgentBuilderHelperProps)
   const { messages, input, setInput, append, isLoading } = useChat({
     api: '/api/agent-helper',
     id: 'agent-builder-helper',
+    streamProtocol: 'text',
     body: {
       mode: 'agent-builder-helper'
     },
