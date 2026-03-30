@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { StreamingTextResponse, type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
@@ -312,8 +312,9 @@ export async function POST(
     ? activeAgent.maxResponses - agentResponseCount - 1
     : null
 
-  return new StreamingTextResponse(transformedStream, {
+  return new Response(transformedStream, {
     headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
       'x-conversation-id': conversation.id,
       'x-agent-mode': activeAgent.mode,
       'x-max-responses': String(activeAgent.maxResponses ?? ''),

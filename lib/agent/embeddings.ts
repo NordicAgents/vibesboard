@@ -1,20 +1,14 @@
-import { type Message } from 'ai'
-import { Configuration, OpenAIApi } from 'openai-edge'
+import { type Message } from '@/lib/types/message'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { Collections } from '@/lib/firestore-types'
+import { createEmbedding } from '@/lib/openai-compat'
 
 const CHUNK_SIZE = 800
 const CHUNK_OVERLAP = 200
 const MAX_BATCH_SIZE = 64
 const EMBEDDING_MODEL = 'text-embedding-3-small'
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
 
 interface ConversationChunk {
   messageIndex: number
@@ -73,17 +67,16 @@ export async function embedTexts(inputs: string[]): Promise<number[][]> {
     throw new Error('OPENAI_API_KEY is not configured')
   }
 
-  const response = await openai.createEmbedding({
+  const json = await createEmbedding({
     model: EMBEDDING_MODEL,
     input: inputs
   })
-  const json = await response.json()
 
   if (!json?.data) {
     throw new Error('Failed to fetch embeddings')
   }
 
-  return (json.data as Array<{ embedding: number[] }>).map(entry => entry.embedding)
+  return json.data.map(entry => entry.embedding)
 }
 
 interface UpsertConversationEmbeddingsArgs {

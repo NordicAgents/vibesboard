@@ -64,6 +64,7 @@ export function AgentCreatorChat({
     useChat({
       id: chatId,
       api: '/api/agent-creator',
+      streamProtocol: 'text',
       body: {
         fileKeys: formData.fileKeys || [],
         fileNames: attachedFiles
