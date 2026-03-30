@@ -1,4 +1,0 @@
-# xlsx (SheetJS) — fix versions 0.19.3+ are paid/pro-only, not on npm.
-# The package is used for .xlsx file parsing in agent file search.
-CVE-2023-30533
-CVE-2024-22363
