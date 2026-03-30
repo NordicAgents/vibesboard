@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { OpenAIStream, StreamingTextResponse } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import { streamText as aiStreamText, tool } from 'ai'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
@@ -20,12 +20,6 @@ import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 
 export const runtime = 'nodejs'
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
-
 const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-5.4-nano'
 
 export async function POST(req: Request) {
@@ -38,8 +32,8 @@ export async function POST(req: Request) {
   const json = await req.json()
   const { messages = [], previewToken, fileKeys = [], fileNames = [] } = json ?? {}
 
-  configuration.apiKey = previewToken ?? process.env.OPENAI_API_KEY
-  if (!configuration.apiKey) {
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY
+  if (!apiKey) {
     return NextResponse.json(
       { error: 'OPENAI_API_KEY is not configured.' },
       { status: 500 }
@@ -191,77 +185,6 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     ...messageList
   ]
 
-  const createAgentTool = {
-    name: 'create_agent',
-    description:
-      'Creates the agent with all collected fields when user confirms.',
-    parameters: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', minLength: 2, maxLength: 120 },
-        instructions: { type: 'string', minLength: 10 },
-        greetingText: { type: 'string' },
-        allowAnonymous: { type: 'boolean' },
-        mode: {
-          type: 'string',
-          enum: ['provider', 'collector'],
-          description: 'Agent mode: provider or collector.'
-        },
-        maxResponses: {
-          type: 'number',
-          description:
-            'Maximum AI responses per session. Null for unlimited.',
-          minimum: 1,
-          maximum: 500
-        },
-        maxAgentResponses: {
-          type: 'number',
-          description:
-            'Maximum total AI responses across all sessions. Null for unlimited.',
-          minimum: 1,
-          maximum: 100000
-        },
-        quickSuggestionsMode: {
-          type: 'string',
-          enum: ['off', 'smart', 'always'],
-          description: 'Quick suggestions mode: off, smart, or always.'
-        },
-        quickSuggestionsCount: {
-          type: 'number',
-          enum: [3, 4],
-          description: 'Number of quick suggestions to show (3 or 4).'
-        },
-        tools: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: Object.keys(BUILTIN_AGENT_TOOLS)
-          },
-          description: 'List of builtin tool ids to enable.'
-        },
-        fileKeys: {
-          type: 'array',
-          items: { type: 'string' },
-          description:
-            "Optional uploaded file keys to ground the agent's knowledge."
-        },
-        retrievalStrategy: {
-          type: 'string',
-          enum: ['direct', 'rag', 'bash'],
-          description: 'File retrieval strategy: direct (full files), rag (vector search), or bash (shell sandbox).'
-        }
-      },
-      required: ['name', 'instructions', 'greetingText']
-    }
-  }
-
-  const tools = [
-    {
-      type: 'function',
-      function: createAgentTool
-    }
-  ]
-
   const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
   const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
   const model = isResponsesModel(preferredModel)
@@ -283,163 +206,126 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional()
   })
 
-  const response = await openai.createChatCompletion({
-    model,
-    stream: true,
-    temperature: 0.2,
+  const openaiClient = createOpenAI({ apiKey })
+
+  const result = await aiStreamText({
+    model: openaiClient(model),
     messages: initialMessages as any,
-    tools: tools as any,
-    tool_choice: 'auto'
-  } as any)
+    temperature: 0.2,
+    tools: {
+      create_agent: tool({
+        description: 'Creates the agent with all collected fields when user confirms.',
+        parameters: createAgentArgsSchema,
+        async execute(args) {
+          const effectiveFileKeys = (args.fileKeys?.length ? args.fileKeys : fileKeys) as string[]
+          const sanitizedToolIds = (args.tools ?? []).filter(
+            (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS => toolId in BUILTIN_AGENT_TOOLS
+          )
 
-  const stream = OpenAIStream(response as any, {
-    async experimental_onToolCall(toolCallPayload) {
-      const createAgentCall = toolCallPayload.tools.find(
-        tool => tool.type === 'function' && tool.func?.name === 'create_agent'
-      )
+          if (effectiveFileKeys.length > 0 && !sanitizedToolIds.includes('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)) {
+            sanitizedToolIds.push('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)
+          }
 
-      if (!createAgentCall) {
-        return
-      }
+          const toolsPayload = sanitizedToolIds.map(toolId => ({
+            id: toolId,
+            type: toolId,
+            name: BUILTIN_AGENT_TOOLS[toolId].name,
+            description: BUILTIN_AGENT_TOOLS[toolId].description
+          }))
 
-      let args: unknown = createAgentCall.func.arguments
-      if (typeof args === 'string') {
-        try {
-          args = JSON.parse(args)
-        } catch {
-          // Leave as-is; validation will fail below.
-        }
-      }
+          const agentMode = args.mode ?? 'provider'
+          const maxResponses = args.maxResponses ?? null
+          const maxAgentResponses = args.maxAgentResponses ?? null
 
-      const parsed = createAgentArgsSchema.safeParse(args)
-      if (!parsed.success) {
-        const errorText = parsed.error.issues.map(i => i.message).join('; ')
-        return `I couldn't create the agent automatically (${errorText}). Please review the form and click "Create Agent".`
-      }
-
-      // Merge request-level fileKeys if AI omitted them
-      const effectiveFileKeys = (parsed.data.fileKeys?.length ? parsed.data.fileKeys : fileKeys) as string[]
-
-      const sanitizedToolIds = (parsed.data.tools ?? []).filter(
-        (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS =>
-          toolId in BUILTIN_AGENT_TOOLS
-      )
-
-      // Auto-enable file_search when files are present
-      if (effectiveFileKeys.length > 0 && !sanitizedToolIds.includes('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)) {
-        sanitizedToolIds.push('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)
-      }
-
-      const toolsPayload = sanitizedToolIds.map(toolId => ({
-        id: toolId,
-        type: toolId,
-        name: BUILTIN_AGENT_TOOLS[toolId].name,
-        description: BUILTIN_AGENT_TOOLS[toolId].description
-      }))
-
-      const mode = parsed.data.mode ?? 'provider'
-      const maxResponses = parsed.data.maxResponses ?? null
-      const maxAgentResponses = parsed.data.maxAgentResponses ?? null
-
-      const payload = upsertAgentSchema.parse({
-        name: parsed.data.name,
-        instructions: parsed.data.instructions,
-        greetingText: parsed.data.greetingText,
-        allowAnonymous: parsed.data.allowAnonymous ?? true,
-        fileKeys: effectiveFileKeys,
-        tools: toolsPayload,
-        sourceUrls: allDetectedUrls,
-        mode,
-        maxResponses,
-        maxAgentResponses,
-        quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
-        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4,
-        retrievalStrategy: parsed.data.retrievalStrategy ?? 'direct'
-      })
-
-      // Resolve the tenant the new agent should belong to.
-      const tenantId = await getActiveTenant(session.user.id)
-
-      if (!tenantId) {
-        return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
-      }
-
-      // Get tenant slug for URL construction
-      const tenant = await getTenantById(tenantId)
-      const tenantSlug = tenant?.slug ?? 'unknown'
-
-      const slug = await ensureUniqueSlug(
-        createAgentSlug(payload.name),
-        tenantId
-      )
-
-      const agentId = nanoid()
-      const now = new Date().toISOString()
-
-      try {
-        await adminDb
-          .collection(Collections.agents(tenantId))
-          .doc(agentId)
-          .set({
-            id: agentId,
-            userId: session.user.id,
-            tenantId,
-            tenantSlug,
-            name: payload.name,
-            instructions: payload.instructions,
-            fileKeys: payload.fileKeys,
-            tools: payload.tools,
-            allowAnonymous: payload.allowAnonymous,
-            agentUrl: slug,
-            greetingText: payload.greetingText ?? null,
-            mode: payload.mode,
-            maxResponses: maxResponses,
-            maxAgentResponses: maxAgentResponses,
-            totalResponseCount: 0,
-            quickSuggestionsMode: payload.quickSuggestionsMode,
-            quickSuggestionsCount: payload.quickSuggestionsCount,
-            sourceUrls: payload.sourceUrls,
-            retrievalStrategy: payload.retrievalStrategy,
-            createdAt: now,
-            updatedAt: now
+          const agentPayload = upsertAgentSchema.parse({
+            name: args.name,
+            instructions: args.instructions,
+            greetingText: args.greetingText,
+            allowAnonymous: args.allowAnonymous ?? true,
+            fileKeys: effectiveFileKeys,
+            tools: toolsPayload,
+            sourceUrls: allDetectedUrls,
+            mode: agentMode,
+            maxResponses,
+            maxAgentResponses,
+            quickSuggestionsMode: args.quickSuggestionsMode ?? 'smart',
+            quickSuggestionsCount: args.quickSuggestionsCount ?? 4,
+            retrievalStrategy: args.retrievalStrategy ?? 'direct'
           })
-      } catch (error: any) {
-        console.error('Failed to create agent:', error)
-        return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`
-      }
 
-      // Process uploaded files for RAG (fire-and-forget)
-      if (effectiveFileKeys.length > 0) {
-        createAgentFilesAndTriggerProcessing({
-          agentId,
-          tenantId,
-          userId: session.user.id,
-          fileKeys: effectiveFileKeys
-        }).catch(error => {
-          console.error('[Agent Creator] File processing failed:', error)
-        })
-      }
+          const tenantId = await getActiveTenant(session.user.id)
+          if (!tenantId) {
+            return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
+          }
 
-      return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
-        {
-          name: payload.name,
-          instructions: payload.instructions,
-          greetingText: payload.greetingText ?? '',
-          tools: sanitizedToolIds,
-          allowAnonymous: payload.allowAnonymous,
-          fileKeys: payload.fileKeys,
-          mode: payload.mode,
-          maxResponses: maxResponses,
-          maxAgentResponses: maxAgentResponses,
-          quickSuggestionsMode: payload.quickSuggestionsMode,
-          quickSuggestionsCount: payload.quickSuggestionsCount,
-          retrievalStrategy: payload.retrievalStrategy
-        },
-        null,
-        2
-      )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: agentId })}\n~~~`
+          const tenant = await getTenantById(tenantId)
+          const tenantSlug = tenant?.slug ?? 'unknown'
+          const slug = await ensureUniqueSlug(createAgentSlug(agentPayload.name), tenantId)
+          const agentId = nanoid()
+          const now = new Date().toISOString()
+
+          try {
+            await adminDb.collection(Collections.agents(tenantId)).doc(agentId).set({
+              id: agentId,
+              userId: session.user.id,
+              tenantId,
+              tenantSlug,
+              name: agentPayload.name,
+              instructions: agentPayload.instructions,
+              fileKeys: agentPayload.fileKeys,
+              tools: agentPayload.tools,
+              allowAnonymous: agentPayload.allowAnonymous,
+              agentUrl: slug,
+              greetingText: agentPayload.greetingText ?? null,
+              mode: agentPayload.mode,
+              maxResponses,
+              maxAgentResponses,
+              totalResponseCount: 0,
+              quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+              quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+              sourceUrls: agentPayload.sourceUrls,
+              retrievalStrategy: agentPayload.retrievalStrategy,
+              createdAt: now,
+              updatedAt: now
+            })
+          } catch (error: any) {
+            console.error('Failed to create agent:', error)
+            return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`
+          }
+
+          if (effectiveFileKeys.length > 0) {
+            createAgentFilesAndTriggerProcessing({
+              agentId,
+              tenantId,
+              userId: session.user.id,
+              fileKeys: effectiveFileKeys
+            }).catch(error => {
+              console.error('[Agent Creator] File processing failed:', error)
+            })
+          }
+
+          return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
+            {
+              name: agentPayload.name,
+              instructions: agentPayload.instructions,
+              greetingText: agentPayload.greetingText ?? '',
+              tools: sanitizedToolIds,
+              allowAnonymous: agentPayload.allowAnonymous,
+              fileKeys: agentPayload.fileKeys,
+              mode: agentPayload.mode,
+              maxResponses,
+              maxAgentResponses,
+              quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+              quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+              retrievalStrategy: agentPayload.retrievalStrategy
+            },
+            null,
+            2
+          )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: agentId })}\n~~~`
+        }
+      })
     }
   })
 
-  return new StreamingTextResponse(stream)
+  return result.toTextStreamResponse()
 }

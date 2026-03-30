@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { StreamingTextResponse, type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 
 import { runAgentStream } from '@/lib/agent/runtime'
 import { type VibeAgent } from '@/lib/types'
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
       temperature: 0
     })
 
-    return new StreamingTextResponse(stream)
+    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message ?? 'Smoke test failed' },

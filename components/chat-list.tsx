@@ -1,6 +1,6 @@
 'use client'
 
-import { type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { ChatMessage } from '@/components/chat-message'
