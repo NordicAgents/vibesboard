@@ -15,9 +15,11 @@ export interface ChatPanelProps extends Pick<
 > {
   id?: string
   isChatComplete?: boolean
+  isAgentDisabled?: boolean
   agentMode?: AgentMode
   agentName?: string
   onChatComplete?: () => void
+  onCorrect?: () => void
   quickSuggestions?: string[]
 }
 
@@ -31,9 +33,11 @@ export function ChatPanel({
   setInput,
   messages,
   isChatComplete,
+  isAgentDisabled,
   agentMode = 'provider',
   agentName,
   onChatComplete,
+  onCorrect,
   quickSuggestions = []
 }: ChatPanelProps) {
   const canRegenerate = React.useMemo(() => {
@@ -65,7 +69,9 @@ export function ChatPanel({
             >
               <ChatCompletionBanner
                 mode={agentMode}
+                isAgentDisabled={isAgentDisabled}
                 onComplete={onChatComplete ?? (() => {})}
+                onCorrect={onCorrect}
               />
             </motion.div>
           ) : (

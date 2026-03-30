@@ -19,8 +19,10 @@ import {
 import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
 import { useSidebar } from '@/components/sidebar-context'
 import { AgentDashboardTabs } from '@/components/agents/agent-dashboard-tabs'
+import { AgentFocusView } from '@/components/agents/agent-focus-view'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
 import { ConversationView } from '@/components/agents/conversation-modal'
+import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconMessage } from '@/components/ui/icons'
 import { LayoutDashboard } from 'lucide-react'
@@ -51,6 +53,7 @@ interface AgentChatWithLayoutProps {
   ownerId: string
   ownerSessions: VibeAgentConversation[]
   visitorSessions: VibeAgentConversation[]
+  handoffConversations?: VibeAgentConversation[]
   hasUnsyncedConversations: boolean
   share: AgentSharePayload
   activeTab?: string | null
@@ -62,6 +65,7 @@ export function AgentChatWithLayout({
   ownerId,
   ownerSessions,
   visitorSessions,
+  handoffConversations = [],
   hasUnsyncedConversations,
   share,
   activeTab,
@@ -72,14 +76,26 @@ export function AgentChatWithLayout({
   const agentPageShell = useAgentPageShell()
   const { isSidebarOpen, setIsSidebarOpen: setMainSidebarOpen } = useSidebar()
   const setSecondarySidebar = useSecondarySidebarSetter()
+  const [viewMode, setViewMode] = useLocalStorage<'focus' | 'advanced'>(
+    'agent-view-mode',
+    'focus'
+  )
+
+  // If URL has a ?tab= param, force advanced mode
+  const effectiveViewMode = activeTab ? 'advanced' : viewMode
 
   const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
   const wasConfiguringRef = React.useRef(false)
 
   // Sync sidebar (Dashboard vs Ask AI) with the URL
+  // Only auto-close when activeTab changes to null AND we're not in focus mode
   React.useEffect(() => {
     if (!setAgentSidebarOpen) return
-    setAgentSidebarOpen(Boolean(activeTab) && canEdit)
+    if (activeTab) {
+      setAgentSidebarOpen(canEdit)
+    }
+    // When no tab param: don't force-close — let focus mode keep the sidebar open
+    // if it was explicitly opened via the Dashboard button
   }, [activeTab, setAgentSidebarOpen, canEdit])
 
   // Collapse main sidebar only on the transition into configure mode
@@ -236,10 +252,14 @@ export function AgentChatWithLayout({
               onClick={() => {
                 setSelectedConversation(null)
                 setAgentSidebarOpen?.(true)
-                const params = new URLSearchParams(searchParams.toString())
-                params.set('tab', 'configure')
-                params.delete('configure')
-                router.push(`/agents/${agent.id}?${params.toString()}`)
+                if (viewMode === 'focus') {
+                  router.push(`/agents/${agent.id}`)
+                } else {
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.set('tab', 'setup')
+                  params.delete('configure')
+                  router.push(`/agents/${agent.id}?${params.toString()}`)
+                }
               }}
             >
               <LayoutDashboard className="size-4" />
@@ -286,8 +306,15 @@ export function AgentChatWithLayout({
                   className="bg-[#f5f8f7] dark:bg-[#192425]"
                   onClick={() => handleOpenConversation(session)}
                 >
-                  <div className="truncate font-medium" title={label}>
-                    {label}
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {session.handedOff && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Handoff
+                      </span>
+                    )}
                   </div>
                   <div className="text-[11px] text-gray-secondary">
                     Updated {formatDate(session.updatedAt)}
@@ -324,6 +351,40 @@ export function AgentChatWithLayout({
                 </Button>
               </div>
             )}
+          </DashboardSidebarSection>
+        )}
+
+        {/* Handoff Conversations */}
+        {canEdit && handoffConversations.length > 0 && (
+          <DashboardSidebarSection title="Handoff Conversations">
+            {handoffConversations.map(session => {
+              const label = toConversationLabel(
+                session.summary || session.messages.at(-1)?.content
+              )
+              const sourceAgent = session.handoffChain?.at(-1)
+
+              return (
+                <DashboardSidebarItem
+                  key={session.id}
+                  className="bg-[#f5f8f7] dark:bg-[#192425]"
+                  onClick={() => handleOpenConversation(session)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {sourceAgent && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        From {sourceAgent.fromAgentName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-secondary">
+                    Updated {formatDate(session.updatedAt)}
+                  </div>
+                </DashboardSidebarItem>
+              )
+            })}
           </DashboardSidebarSection>
         )}
 
@@ -365,6 +426,7 @@ export function AgentChatWithLayout({
       handleOpenConversation,
       handleRefreshSummaries,
       handleSelectSession,
+      handoffConversations,
       ownerSessions,
       paginatedVisitorSessions,
       refreshingSummaries,
@@ -391,14 +453,33 @@ export function AgentChatWithLayout({
           />
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (
-        <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
-          <AgentDashboardTabs
-            agent={agent}
-            share={share}
-            canEdit={canEdit}
-            defaultTab={activeTab || 'configure'}
-          />
-        </div>
+        effectiveViewMode === 'focus' ? (
+          <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
+            <AgentFocusView
+              agent={agent}
+              share={share}
+              canEdit={canEdit}
+              onSwitchToAdvanced={() => {
+                setViewMode('advanced')
+                router.push(`/agents/${agent.id}?tab=setup`)
+              }}
+              onSwitchToChat={() => agentPageShell?.setIsSidebarOpen(false)}
+            />
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
+            <AgentDashboardTabs
+              agent={agent}
+              share={share}
+              canEdit={canEdit}
+              defaultTab={activeTab || 'setup'}
+              onSwitchToFocus={() => {
+                setViewMode('focus')
+                router.push(`/agents/${agent.id}`)
+              }}
+            />
+          </div>
+        )
       ) : canEdit ? (
         <AgentAskChat
           agent={agent}

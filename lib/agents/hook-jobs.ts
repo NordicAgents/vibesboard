@@ -1,13 +1,16 @@
 import 'server-only'
-import { createHmac } from 'crypto'
 import { customAlphabet } from 'nanoid'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type HookJobDocument, type HookJobStatus } from '@/lib/firestore-types'
 import { getAgentById } from '@/lib/agents/server'
 import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { stripCompletionMarkers } from '@/lib/agent/completion'
+import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
+import { assertSafeCallbackUrl, signPayload } from './webhook-utils'
+import { dispatchAgentNotification, mapCompletionToEvent } from './notifications'
+import { checkUsageLimit, recordUsage } from '@/lib/usage'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 const genJobId = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
@@ -78,55 +81,6 @@ async function updateJob(
 }
 
 // ─── Callback delivery ────────────────────────────────────────────────
-
-/**
- * Block SSRF: reject callbackUrls that resolve to private/internal addresses.
- * Allows only http/https on public hostnames.
- */
-function assertSafeCallbackUrl(raw: string): void {
-  let url: URL
-  try {
-    url = new URL(raw)
-  } catch {
-    throw new Error('Invalid callbackUrl')
-  }
-
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('callbackUrl must use http or https')
-  }
-
-  const host = url.hostname.toLowerCase()
-
-  // Block localhost and loopback
-  if (
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '::1' ||
-    host.endsWith('.localhost')
-  ) {
-    throw new Error('callbackUrl must not point to localhost')
-  }
-
-  // Block private IPv4 ranges: 10.x, 172.16-31.x, 192.168.x
-  const privateIpv4 = /^(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)$/
-  if (privateIpv4.test(host)) {
-    throw new Error('callbackUrl must not point to a private IP address')
-  }
-
-  // Block link-local and metadata endpoints
-  if (host === '169.254.169.254' || host.startsWith('169.254.')) {
-    throw new Error('callbackUrl must not point to a link-local address')
-  }
-}
-
-/**
- * Sign the callback payload with HMAC-SHA256 using the hook's raw secret.
- * The receiving server can verify:
- *   HMAC-SHA256(secret, JSON.stringify(payload)) === X-Hook-Signature header
- */
-function signPayload(payload: string, secret: string): string {
-  return createHmac('sha256', secret).update(payload).digest('hex')
-}
 
 const MAX_CALLBACK_ATTEMPTS = 3
 const CALLBACK_TIMEOUT_MS = 10_000
@@ -214,10 +168,17 @@ export async function runJobAsync(
       ? priorMessages
       : [...priorMessages, userMessage]
 
+    // Check tenant usage limit before running LLM
+    const usageCheck = await checkUsageLimit(tenantId)
+    if (!usageCheck.allowed) {
+      throw new Error(`Usage limit reached: ${usageCheck.used}/${usageCheck.limit} messages used`)
+    }
+
     const agentStream = await runAgentStream({
       agent,
       messages: allMessages,
       onCompletion: async (completion: string) => {
+        const reason = detectCompletionMarker(completion)
         reply = stripCompletionMarkers(completion)
         const nextMessages = [
           ...allMessages,
@@ -230,6 +191,26 @@ export async function runJobAsync(
           messages: nextMessages,
           summary: null
         })
+
+        // Record usage for metering (fire-and-forget)
+        recordUsage({
+          tenantId,
+          agentId,
+          conversationId: conversation.id,
+          userId: null,
+          source: 'hook_async',
+          model: OPENAI_CHAT_MODEL,
+        })
+
+        const event = mapCompletionToEvent(reason)
+        if (event) {
+          dispatchAgentNotification({
+            agent,
+            conversationId: conversation.id,
+            event,
+            messageCount: allMessages.filter(m => m.role === 'user').length
+          })
+        }
       }
     })
 

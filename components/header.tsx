@@ -8,15 +8,19 @@ import { SidebarList } from '@/components/sidebar-list'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { UserMenu } from '@/components/user-menu'
 import { hasTenantAdminAccess, isSuperAdmin } from '@/lib/permissions'
+import { getActiveTenantId } from '@/lib/tenant-context'
+import { FeatureGate } from '@/components/tenants/feature-gate-client'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 export async function Header() {
   const session = await auth()
-  const [isSuperAdminUser, canManageTenant] = session?.user?.id
+  const [isSuperAdminUser, canManageTenant, activeTenantId] = session?.user?.id
     ? await Promise.all([
         isSuperAdmin(session.user.id),
-        hasTenantAdminAccess(session.user.id)
+        hasTenantAdminAccess(session.user.id),
+        getActiveTenantId()
       ])
-    : [false, false]
+    : [false, false, null]
 
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-[#e4e3e3] bg-[#f7f7f5]/80 px-4 backdrop-blur-sm dark:border-[#344348] dark:bg-[#111918]/80">
@@ -50,6 +54,14 @@ export async function Header() {
         )}
       </div>
       <div className="flex items-center justify-end space-x-2">
+        {session?.user && activeTenantId && (
+          <FeatureGate
+            feature="AGENT_NOTIFICATIONS"
+            tenantId={activeTenantId}
+          >
+            <NotificationBell tenantId={activeTenantId} />
+          </FeatureGate>
+        )}
         <ThemeToggle />
         {session?.user ? (
           <UserMenu

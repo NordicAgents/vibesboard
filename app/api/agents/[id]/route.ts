@@ -7,6 +7,7 @@ import { patchAgentSchema } from '@/lib/agents/schema'
 import { canEditAgent } from '@/lib/agents/permissions'
 import { getAgentById } from '@/lib/agents/server'
 import { deleteFile } from '@/lib/firebase/storage'
+import { assertSafeCallbackUrl } from '@/lib/agents/webhook-utils'
 
 export const runtime = 'nodejs'
 
@@ -38,11 +39,49 @@ export async function PATCH(
   const body = await req.json()
   const payload = patchAgentSchema.parse(body)
 
+  // Validate webhook URL against SSRF at save time
+  const webhookUrl = payload.notificationConfig?.webhook?.url
+  if (webhookUrl) {
+    try {
+      assertSafeCallbackUrl(webhookUrl)
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Invalid webhook URL' },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Validate handoff targets: no self-reference
+  if (payload.handoffTargets?.length) {
+    for (const targetId of payload.handoffTargets) {
+      if (targetId === id) {
+        return NextResponse.json(
+          { error: 'Agent cannot hand off to itself' },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
   // Find agent using collectionGroup query
   const agent = await getAgentById(id)
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })
+  }
+
+  // Validate that all handoff targets exist and are in the same tenant
+  if (payload.handoffTargets?.length) {
+    for (const targetId of payload.handoffTargets) {
+      const target = await getAgentById(targetId)
+      if (!target || target.tenantId !== agent.tenantId) {
+        return NextResponse.json(
+          { error: `Invalid handoff target: ${targetId}` },
+          { status: 400 }
+        )
+      }
+    }
   }
 
   const canEdit = await canEditAgent({
@@ -67,8 +106,11 @@ export async function PATCH(
       ? { greetingText: payload.greetingText }
       : {}),
     ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
-    ...(payload.maxMessages !== undefined
-      ? { maxMessages: payload.maxMessages }
+    ...(payload.maxResponses !== undefined
+      ? { maxResponses: payload.maxResponses }
+      : {}),
+    ...(payload.maxAgentResponses !== undefined
+      ? { maxAgentResponses: payload.maxAgentResponses }
       : {}),
     ...(payload.quickSuggestionsMode !== undefined
       ? { quickSuggestionsMode: payload.quickSuggestionsMode }
@@ -88,6 +130,12 @@ export async function PATCH(
     ...(payload.domain !== undefined ? { domain: payload.domain } : {}),
     ...(payload.retrievalStrategy !== undefined
       ? { retrievalStrategy: payload.retrievalStrategy }
+      : {}),
+    ...(payload.notificationConfig !== undefined
+      ? { notificationConfig: payload.notificationConfig }
+      : {}),
+    ...(payload.handoffTargets !== undefined
+      ? { handoffTargets: payload.handoffTargets }
       : {}),
     updatedAt: new Date().toISOString()
   }

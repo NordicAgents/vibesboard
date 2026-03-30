@@ -108,7 +108,9 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
 - quickSuggestionsCount (default: 4; options: 1–5)
 - mode (default: "provider"; options: "provider" | "collector")
-- maxMessages (collector only; default: 20)
+- maxResponses (max AI responses per session; optional, null = unlimited)
+- maxAgentResponses (max total AI responses across all sessions; optional, null = unlimited)
+- retrievalStrategy (default: "direct"; options: "direct" | "rag" | "bash" — use "rag" for large/many files, "bash" for CSV/JSON/YAML structured data, "direct" for small files)
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -122,7 +124,9 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "quickSuggestionsMode": "smart",
   "quickSuggestionsCount": 4,
   "mode": "provider",
-  "maxMessages": null
+  "maxResponses": null,
+  "maxAgentResponses": null,
+  "retrievalStrategy": "direct"
 }
 ~~~
 
@@ -131,7 +135,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 **Functions to call:**
 
 1. **create_agent** - ONLY when user explicitly says "create it" or similar
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxMessages?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5 }
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxResponses?: number | null, maxAgentResponses?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5, retrievalStrategy?: "direct" | "rag" | "bash" }
 
 **Interaction style:**
 - Be conversational and encouraging
@@ -203,12 +207,19 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           enum: ['provider', 'collector'],
           description: 'Agent mode: provider or collector.'
         },
-        maxMessages: {
+        maxResponses: {
           type: 'number',
           description:
-            'Maximum user messages before completion (collector only).',
+            'Maximum AI responses per session. Null for unlimited.',
           minimum: 1,
-          maximum: 50
+          maximum: 500
+        },
+        maxAgentResponses: {
+          type: 'number',
+          description:
+            'Maximum total AI responses across all sessions. Null for unlimited.',
+          minimum: 1,
+          maximum: 100000
         },
         quickSuggestionsMode: {
           type: 'string',
@@ -233,6 +244,11 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           items: { type: 'string' },
           description:
             "Optional uploaded file keys to ground the agent's knowledge."
+        },
+        retrievalStrategy: {
+          type: 'string',
+          enum: ['direct', 'rag', 'bash'],
+          description: 'File retrieval strategy: direct (full files), rag (vector search), or bash (shell sandbox).'
         }
       },
       required: ['name', 'instructions', 'greetingText']
@@ -258,11 +274,13 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     greetingText: z.string().min(1),
     allowAnonymous: z.boolean().optional(),
     mode: z.enum(['provider', 'collector']).optional(),
-    maxMessages: z.number().int().min(1).max(50).nullable().optional(),
+    maxResponses: z.number().int().min(1).max(500).nullable().optional(),
+    maxAgentResponses: z.number().int().min(1).max(100000).nullable().optional(),
     quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
     quickSuggestionsCount: z.number().int().min(1).max(5).optional(),
     tools: z.array(z.string()).optional(),
-    fileKeys: z.array(z.string()).optional()
+    fileKeys: z.array(z.string()).optional(),
+    retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional()
   })
 
   const response = await openai.createChatCompletion({
@@ -320,8 +338,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
       }))
 
       const mode = parsed.data.mode ?? 'provider'
-      const maxMessages =
-        mode === 'provider' ? null : (parsed.data.maxMessages ?? 20)
+      const maxResponses = parsed.data.maxResponses ?? null
+      const maxAgentResponses = parsed.data.maxAgentResponses ?? null
 
       const payload = upsertAgentSchema.parse({
         name: parsed.data.name,
@@ -332,9 +350,11 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
         tools: toolsPayload,
         sourceUrls: allDetectedUrls,
         mode,
-        maxMessages,
+        maxResponses,
+        maxAgentResponses,
         quickSuggestionsMode: parsed.data.quickSuggestionsMode ?? 'smart',
-        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4
+        quickSuggestionsCount: parsed.data.quickSuggestionsCount ?? 4,
+        retrievalStrategy: parsed.data.retrievalStrategy ?? 'direct'
       })
 
       // Resolve the tenant the new agent should belong to.
@@ -373,11 +393,13 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             agentUrl: slug,
             greetingText: payload.greetingText ?? null,
             mode: payload.mode,
-            maxMessages: maxMessages,
+            maxResponses: maxResponses,
+            maxAgentResponses: maxAgentResponses,
+            totalResponseCount: 0,
             quickSuggestionsMode: payload.quickSuggestionsMode,
             quickSuggestionsCount: payload.quickSuggestionsCount,
             sourceUrls: payload.sourceUrls,
-            retrievalStrategy: 'direct',
+            retrievalStrategy: payload.retrievalStrategy,
             createdAt: now,
             updatedAt: now
           })
@@ -407,9 +429,11 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           allowAnonymous: payload.allowAnonymous,
           fileKeys: payload.fileKeys,
           mode: payload.mode,
-          maxMessages: maxMessages,
+          maxResponses: maxResponses,
+          maxAgentResponses: maxAgentResponses,
           quickSuggestionsMode: payload.quickSuggestionsMode,
-          quickSuggestionsCount: payload.quickSuggestionsCount
+          quickSuggestionsCount: payload.quickSuggestionsCount,
+          retrievalStrategy: payload.retrievalStrategy
         },
         null,
         2

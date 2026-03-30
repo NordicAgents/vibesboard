@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { requireTenantAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { isFeatureEnabled } from '@/lib/features'
 import { validateEmail } from '@/lib/validations'
 import { randomBytes } from 'crypto'
+import { sendInvitationEmail } from '@/lib/email'
 
 export const runtime = 'nodejs'
 
@@ -57,7 +58,17 @@ export async function GET(req: Request, { params }: RouteParams) {
         .orderBy('createdAt', 'desc')
         .get()
 
-    const invitations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    const invitations = snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+        const data = doc.data()
+        return {
+            id: doc.id,
+            email: data.email,
+            role: data.role,
+            status: data.status,
+            created_at: data.createdAt,
+            expires_at: data.expiresAt,
+        }
+    })
 
     return NextResponse.json({ invitations })
 }
@@ -201,8 +212,23 @@ export async function POST(req: Request, { params }: RouteParams) {
             ? `${forwardedProto}://${forwardedHost}`
             : process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin
 
+    const inviteUrl = `${origin}/invite/${token}`
+
+    // Send invitation email after response (kept alive by next/server after())
+    const inviterName = auth.user.name || auth.user.email || 'A team member'
+    const tenantName = tenantData.name || 'your team'
+    after(
+        sendInvitationEmail({
+            to: normalizedEmail,
+            inviteUrl,
+            tenantName,
+            inviterName,
+            role,
+        })
+    )
+
     return NextResponse.json({
         invitation: invitationData,
-        inviteUrl: `${origin}/invite/${token}`
+        inviteUrl,
     }, { status: 201 })
 }

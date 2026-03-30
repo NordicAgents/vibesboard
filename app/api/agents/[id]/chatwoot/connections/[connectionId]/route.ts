@@ -4,7 +4,11 @@ import { z } from 'zod'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { isFeatureEnabled } from '@/lib/features'
-import { deleteChatwootWebhook } from '@/lib/chatwoot/api-client'
+import {
+  deleteChatwootWebhook,
+  unassignAgentBotFromInbox,
+  deleteChatwootAgentBot
+} from '@/lib/chatwoot/api-client'
 import {
   getChatwootConnection,
   disconnectChatwootConnection,
@@ -80,10 +84,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         )
       }
 
+      // Remove agent bot from Chatwoot (best-effort)
+      const apiToken = decryptToken(connection.encryptedApiToken)
+      if (connection.agentBotId) {
+        try {
+          await unassignAgentBotFromInbox(
+            connection.chatwootUrl,
+            apiToken,
+            connection.chatwootAccountId,
+            connection.chatwootInboxId
+          )
+          await deleteChatwootAgentBot(
+            connection.chatwootUrl,
+            apiToken,
+            connection.chatwootAccountId,
+            connection.agentBotId
+          )
+        } catch {
+          // Best-effort — don't block disconnect
+        }
+      }
+
       // Remove webhook from Chatwoot (best-effort)
       if (connection.chatwootWebhookId) {
         try {
-          const apiToken = decryptToken(connection.encryptedApiToken)
           await deleteChatwootWebhook(
             connection.chatwootUrl,
             apiToken,
@@ -151,10 +175,30 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       )
     }
 
+    // Remove agent bot from Chatwoot (best-effort)
+    const apiToken = decryptToken(connection.encryptedApiToken)
+    if (connection.agentBotId) {
+      try {
+        await unassignAgentBotFromInbox(
+          connection.chatwootUrl,
+          apiToken,
+          connection.chatwootAccountId,
+          connection.chatwootInboxId
+        )
+        await deleteChatwootAgentBot(
+          connection.chatwootUrl,
+          apiToken,
+          connection.chatwootAccountId,
+          connection.agentBotId
+        )
+      } catch {
+        // Best-effort
+      }
+    }
+
     // Remove webhook from Chatwoot (best-effort)
     if (connection.chatwootWebhookId) {
       try {
-        const apiToken = decryptToken(connection.encryptedApiToken)
         await deleteChatwootWebhook(
           connection.chatwootUrl,
           apiToken,

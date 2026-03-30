@@ -20,6 +20,15 @@ import {
   AgentBuilderFormPreview,
   type AgentFormData
 } from './agent-builder-form-preview'
+import { AgentCreationSuccess } from './agent-creation-success'
+import { QuickSuggestions } from '@/components/quick-suggestions'
+
+const STARTER_PROMPTS = [
+  'Customer support agent for my business',
+  'Lead collection bot that captures visitor info',
+  'FAQ assistant that answers from my documents',
+  'Feedback collection bot for visitor reviews'
+]
 
 const MAX_FILES = 5
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -40,6 +49,7 @@ export function AgentCreatorChat({
   const router = useRouter()
   const [chatId, setChatId] = useState<string>(initialChatId || 'agent-creator')
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState<AgentFormData>({
     allowAnonymous: true,
     quickSuggestionsMode: 'smart',
@@ -47,6 +57,7 @@ export function AgentCreatorChat({
   })
   const [isCreating, setIsCreating] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(true)
+  const [mobileView, setMobileView] = useState<'chat' | 'form'>('chat')
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
@@ -95,8 +106,11 @@ export function AgentCreatorChat({
                   fileKeys: updates.fileKeys
                 }),
                 ...(updates.mode !== undefined && { mode: updates.mode }),
-                ...(updates.maxMessages !== undefined && {
-                  maxMessages: updates.maxMessages
+                ...(updates.maxResponses !== undefined && {
+                  maxResponses: updates.maxResponses
+                }),
+                ...(updates.maxAgentResponses !== undefined && {
+                  maxAgentResponses: updates.maxAgentResponses
                 }),
                 ...(updates.quickSuggestionsMode !== undefined && {
                   quickSuggestionsMode: updates.quickSuggestionsMode
@@ -129,9 +143,7 @@ export function AgentCreatorChat({
 
               if (created?.id && !createdAgentId) {
                 setCreatedAgentId(created.id)
-                toast.success('Agent created successfully!')
-                router.push(`/agents/${created.id}`)
-                router.refresh()
+                setShowSuccess(true)
                 break
               }
             } catch (parseError) {
@@ -312,11 +324,10 @@ export function AgentCreatorChat({
         name: toolId.replace('builtin:', '')
       }))
 
-      // Explicitly set mode and maxMessages
+      // Explicitly set mode and response limits
       const mode = formData.mode ?? 'provider'
-      // If provider, no limit (null). If collector, use form value or default to 20.
-      const maxMessages =
-        mode === 'provider' ? null : (formData.maxMessages ?? 20)
+      const maxResponses = formData.maxResponses ?? null
+      const maxAgentResponses = formData.maxAgentResponses ?? null
 
       const res = await fetch('/api/agents', {
         method: 'POST',
@@ -332,7 +343,8 @@ export function AgentCreatorChat({
           sourceUrls: formData.sourceUrls || [],
           tools: toolsPayload,
           mode,
-          maxMessages,
+          maxResponses,
+          maxAgentResponses,
           quickSuggestionsMode: formData.quickSuggestionsMode ?? 'smart',
           quickSuggestionsCount: formData.quickSuggestionsCount ?? 4
         })
@@ -344,9 +356,8 @@ export function AgentCreatorChat({
       }
 
       const json = await res.json()
-      toast.success('Agent created successfully!')
-      router.push(`/agents/${json.agent.id}`)
-      router.refresh()
+      setCreatedAgentId(json.agent.id)
+      setShowSuccess(true)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to create agent'
@@ -364,15 +375,55 @@ export function AgentCreatorChat({
     acceptedFileTypes: ACCEPTED_FILE_TYPES
   }
 
+  if (showSuccess && createdAgentId) {
+    return (
+      <AgentCreationSuccess
+        agentId={createdAgentId}
+        agentName={formData.name || 'Your Agent'}
+      />
+    )
+  }
+
   return (
     <div
       className={cn(
-        'flex h-full flex-1 bg-[#f7f7f5] dark:bg-[#222f30]',
+        'flex h-full flex-1 flex-col lg:flex-row bg-[#f7f7f5] dark:bg-[#222f30]',
         className
       )}
     >
+      {/* Mobile View Switcher */}
+      <div className="flex shrink-0 border-b border-[#e4e3e3] dark:border-[#344348] lg:hidden">
+        <div className="flex w-full rounded-lg bg-[#e6ede6] m-2 p-1 dark:bg-[#344348]">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={cn(
+              'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
+              mobileView === 'chat'
+                ? 'bg-[#f5f8f7] text-[#222f30] shadow-sm dark:bg-[#192425] dark:text-[#f5f8f7]'
+                : 'text-[#6f7f80] hover:bg-[#f5f8f7]/50 dark:text-[#7e8e8f] dark:hover:bg-[#192425]/50'
+            )}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => { setMobileView('form'); setIsPreviewOpen(true) }}
+            className={cn(
+              'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
+              mobileView === 'form'
+                ? 'bg-[#f5f8f7] text-[#222f30] shadow-sm dark:bg-[#192425] dark:text-[#f5f8f7]'
+                : 'text-[#6f7f80] hover:bg-[#f5f8f7]/50 dark:text-[#7e8e8f] dark:hover:bg-[#192425]/50'
+            )}
+          >
+            Form
+          </button>
+        </div>
+      </div>
+
       {/* Left Side: Chat Interface (70%) */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className={cn(
+        'flex flex-1 flex-col overflow-hidden',
+        mobileView === 'form' ? 'hidden lg:flex' : 'flex'
+      )}>
         <div className="relative flex min-h-0 flex-1 flex-col">
           {messages.length > 0 ? (
             <>
@@ -459,6 +510,22 @@ export function AgentCreatorChat({
                   <p className="font-switzer text-lg text-gray-secondary">
                     Tell me about your agent or upload files to get started
                   </p>
+                </div>
+
+                {/* Starter prompts */}
+                <div className="mx-auto w-full max-w-xl">
+                  <QuickSuggestions
+                    suggestions={STARTER_PROMPTS}
+                    onSelect={async (value) => {
+                      await append({
+                        id: nanoid(),
+                        content: value,
+                        role: 'user'
+                      })
+                    }}
+                    disabled={isLoading}
+                    className="grid grid-cols-2 gap-2.5"
+                  />
                 </div>
 
                 {/* Input centered below header */}
@@ -553,7 +620,10 @@ export function AgentCreatorChat({
 
       {/* Right Side: Form Preview (30%) */}
       {isPreviewOpen ? (
-        <div className="transition-all duration-300 ease-in-out">
+        <div className={cn(
+          'transition-all duration-300 ease-in-out',
+          mobileView === 'chat' ? 'hidden lg:block' : 'flex flex-1 lg:flex-none'
+        )}>
           <AgentBuilderFormPreview
             formData={formData}
             onFormChange={setFormData}
@@ -561,12 +631,12 @@ export function AgentCreatorChat({
             isCreating={isCreating}
             isUploading={isUploading}
             userId={userId}
-            className="w-[400px] shrink-0"
+            className="w-full lg:w-[400px] shrink-0"
             onClose={() => setIsPreviewOpen(false)}
           />
         </div>
       ) : (
-        <div className="flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
+        <div className="hidden lg:flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
           <Button
             size="sm"
             variant="ghost"

@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type AgentDocument } from '@/lib/firestore-types'
 import {
   type AgentToolType,
+  type BuiltinToolType,
   type VibeAgent,
   type VibeAgentConversation,
   type VibeAgentTool
@@ -58,9 +59,9 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
           return null
         }
 
-        const type: AgentToolType | null =
+        const type: BuiltinToolType | null =
           rawType in BUILTIN_AGENT_TOOLS
-            ? (rawType as AgentToolType)
+            ? (rawType as BuiltinToolType)
             : null
 
         if (!type) {
@@ -100,7 +101,9 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   allowAnonymous: data.allowAnonymous ?? false,
   greetingText: data.greetingText ?? null,
   mode: data.mode ?? 'provider',
-  maxMessages: data.maxMessages ?? null,
+  maxResponses: data.maxResponses ?? data.maxMessages ?? null,
+  maxAgentResponses: data.maxAgentResponses ?? null,
+  totalResponseCount: data.totalResponseCount ?? 0,
   quickSuggestionsMode: data.quickSuggestionsMode ?? 'off',
   quickSuggestionsCount: data.quickSuggestionsCount ?? 4,
   sourceUrls: sanitizeStringArray(data.sourceUrls),
@@ -109,6 +112,11 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   googlePlaceId: data.googlePlaceId ?? null,
   domain: data.domain ?? null,
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
+  notificationConfig: data.notificationConfig ?? undefined,
+  handoffTargets: sanitizeStringArray(data.handoffTargets),
+  collectionFields: Array.isArray(data.collectionFields) ? data.collectionFields : undefined,
+  schedulingConfig: data.schedulingConfig ?? undefined,
+  dataConfig: data.dataConfig ?? undefined,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })
@@ -126,6 +134,10 @@ export const mapConversationDoc = (
   summary: data.summary,
   messages: sanitizeMessages(data.messages),
   closedAt: data.closedAt ?? null,
+  handedOff: data.handedOff ?? false,
+  handoffChain: Array.isArray(data.handoffChain) ? data.handoffChain : undefined,
+  responseCounts: typeof data.responseCounts === 'object' && data.responseCounts !== null
+    ? data.responseCounts : undefined,
   summaryGeneratedAt: data.summaryGeneratedAt ?? null,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt

@@ -1,7 +1,8 @@
 import { type Message } from 'ai'
+import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { Collections, type ConversationRefDocument } from '@/lib/firestore-types'
 import { mapConversationDoc } from './db'
 import { type VibeAgentConversation } from '@/lib/types'
 
@@ -90,6 +91,7 @@ interface UpdateConversationArgs extends ConversationIdentifier {
   conversationId: string
   messages: Message[]
   summary?: string | null
+  respondingAgentId?: string
 }
 
 export async function updateConversationMessages({
@@ -97,18 +99,25 @@ export async function updateConversationMessages({
   agentId,
   conversationId,
   messages,
-  summary
+  summary,
+  respondingAgentId
 }: UpdateConversationArgs) {
   const collPath = Collections.conversations(tenantId, agentId)
+
+  const updateData: Record<string, any> = {
+    messages: serializeMessages(messages),
+    summary: summary ?? null,
+    updatedAt: new Date().toISOString()
+  }
+
+  if (respondingAgentId) {
+    updateData[`responseCounts.${respondingAgentId}`] = FieldValue.increment(1)
+  }
 
   await adminDb
     .collection(collPath)
     .doc(conversationId)
-    .update({
-      messages: serializeMessages(messages),
-      summary: summary ?? null,
-      updatedAt: new Date().toISOString()
-    })
+    .update(updateData)
 }
 
 export async function listAgentConversations(
@@ -144,6 +153,121 @@ export async function getConversation(
   const doc = await adminDb.collection(collPath).doc(id).get()
 
   return doc.exists ? mapConversationDoc(doc.data()!) : null
+}
+
+/**
+ * Check whether a conversation (by externalId) has been handed off to a human.
+ */
+export async function isConversationHandedOff(
+  tenantId: string,
+  agentId: string,
+  externalId: string
+): Promise<boolean> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  const snapshot = await adminDb
+    .collection(collPath)
+    .where('externalId', '==', externalId)
+    .limit(1)
+    .get()
+
+  if (snapshot.empty) return false
+  return snapshot.docs[0].data().handedOff === true
+}
+
+/**
+ * Mark a conversation as handed off to a human agent.
+ */
+export async function markConversationHandedOff(
+  tenantId: string,
+  agentId: string,
+  conversationId: string
+): Promise<void> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  await adminDb
+    .collection(collPath)
+    .doc(conversationId)
+    .update({ handedOff: true, updatedAt: new Date().toISOString() })
+}
+
+/**
+ * Record an agent-to-agent handoff on a conversation.
+ * Appends to the handoffChain array and creates a conversation ref
+ * in the target agent's collection for visibility.
+ */
+export async function recordConversationHandoff(
+  tenantId: string,
+  agentId: string,
+  conversationId: string,
+  handoff: {
+    fromAgentId: string
+    fromAgentName: string
+    toAgentId: string
+    toAgentName: string
+  }
+): Promise<void> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  const ref = adminDb.collection(collPath).doc(conversationId)
+
+  await ref.update({
+    handoffChain: FieldValue.arrayUnion({
+      ...handoff,
+      timestamp: new Date().toISOString()
+    }),
+    updatedAt: new Date().toISOString()
+  })
+
+  // Create a conversation ref in the target agent's collection
+  await createConversationRef(tenantId, handoff.toAgentId, {
+    id: conversationId,
+    sourceAgentId: agentId,
+    sourceAgentName: handoff.fromAgentName,
+    sourceConversationId: conversationId,
+    role: 'active',
+    responseCount: 0,
+    summary: null,
+    lastMessageAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  })
+}
+
+// ── Conversation ref CRUD ────────────────────────────────────────────
+
+export async function createConversationRef(
+  tenantId: string,
+  targetAgentId: string,
+  ref: ConversationRefDocument
+): Promise<void> {
+  const collPath = Collections.conversationRefs(tenantId, targetAgentId)
+  await adminDb
+    .collection(collPath)
+    .doc(ref.sourceConversationId)
+    .set(ref)
+}
+
+export async function updateConversationRef(
+  tenantId: string,
+  targetAgentId: string,
+  conversationId: string,
+  updates: Partial<Pick<ConversationRefDocument, 'responseCount' | 'lastMessageAt' | 'summary' | 'role'>>
+): Promise<void> {
+  const collPath = Collections.conversationRefs(tenantId, targetAgentId)
+  await adminDb
+    .collection(collPath)
+    .doc(conversationId)
+    .update(updates)
+}
+
+export async function listConversationRefs(
+  tenantId: string,
+  agentId: string
+): Promise<ConversationRefDocument[]> {
+  const collPath = Collections.conversationRefs(tenantId, agentId)
+  const snapshot = await adminDb
+    .collection(collPath)
+    .orderBy('lastMessageAt', 'desc')
+    .get()
+
+  return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => doc.data() as ConversationRefDocument)
 }
 
 const serializeMessages = (messages: Message[]) =>

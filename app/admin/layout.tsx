@@ -4,15 +4,16 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
-import { Building2, Flag, FileText, ShieldCheck } from 'lucide-react'
+import { Building2, Flag, FileText, CreditCard, ShieldCheck, ArrowLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { AdminMobileSidebar, type NavItem } from './admin-mobile-sidebar'
 
-const iconMap: Record<string, LucideIcon> = { Building2, Flag, FileText }
+const iconMap: Record<string, LucideIcon> = { Building2, Flag, FileText, CreditCard }
 
 const navItems: NavItem[] = [
   { href: '/admin/tenants', iconName: 'Building2', label: 'Tenants' },
   { href: '/admin/feature-flags', iconName: 'Flag', label: 'Feature Flags' },
+  { href: '/admin/plans', iconName: 'CreditCard', label: 'Plans' },
   { href: '/admin/files', iconName: 'FileText', label: 'File Processing' }
 ]
 
@@ -37,6 +38,12 @@ export default async function AdminLayout({
       {/* Desktop Sidebar */}
       <aside className="hidden w-64 shrink-0 border-r border-[#e4e3e3] bg-[#f5f8f7] dark:border-[#344348] dark:bg-[#192425] md:flex md:flex-col">
         <div className="flex h-16 items-center gap-2.5 border-b border-[#e4e3e3] px-5 dark:border-[#344348]">
+          <Link
+            href="/agents"
+            className="flex size-7 items-center justify-center rounded-lg text-[#6f7f80] transition-colors hover:bg-[#e6ede6] hover:text-[#222f30] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
           <div className="flex size-7 items-center justify-center rounded-lg bg-[#e6ede6] dark:bg-[#344348]">
             <ShieldCheck className="size-3.5 text-accent-orange" />
           </div>

@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { Message } from 'ai'
+import { FieldValue } from 'firebase-admin/firestore'
 
+import { adminDb } from '@/lib/firebase/admin'
 import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
-import { getAgentById } from '@/lib/agents/server'
-import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import { getAgentById, getAgentNames } from '@/lib/agents/server'
+import {
+  ensureConversation,
+  updateConversationMessages,
+  getConversation,
+  recordConversationHandoff
+} from '@/lib/agents/conversations'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { stripCompletionMarkers } from '@/lib/agent/completion'
+import {
+  detectCompletionMarker,
+  extractHandoffTarget,
+  stripCompletionMarkers
+} from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
+import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
+import { validateHandoff, buildHandoffContext, MAX_HANDOFF_DEPTH } from '@/lib/agent/handoff'
+import { Collections } from '@/lib/firestore-types'
+import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
@@ -30,7 +47,6 @@ export async function POST(
 
   const hook = await getHookById(hookId)
   if (!hook) {
-    // Return 401 not 404 to avoid leaking hook existence
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
@@ -67,9 +83,6 @@ export async function POST(
   const { message, externalUserId, conversationId } = parsed.data
 
   // ── 4. Ensure conversation ───────────────────────────────────────────
-  // externalUserId scopes the conversation to a session — the external
-  // orchestrator passes a stable session ID so the agent retains context
-  // across turns within that session.
   const userMessage = { id: nanoid(), role: 'user' as const, content: message }
 
   const conversation = await ensureConversation({
@@ -81,49 +94,160 @@ export async function POST(
     initialMessages: [userMessage]
   })
 
-  // Reconstruct full message history for the runtime
   const priorMessages = conversation.messages ?? []
-  const allMessages = priorMessages.some(m => m.id === userMessage.id)
+  let allMessages: Message[] = priorMessages.some(m => m.id === userMessage.id)
     ? priorMessages
     : [...priorMessages, userMessage]
 
-  // ── 5. Run agent and collect full completion ─────────────────────────
-  let reply = ''
-
-  const stream = await runAgentStream({
-    agent,
-    messages: allMessages,
-    onCompletion: async (completion: string) => {
-      reply = stripCompletionMarkers(completion)
-      const nextMessages = [
-        ...allMessages,
-        { id: nanoid(), role: 'assistant' as const, content: reply }
-      ]
-      await updateConversationMessages({
-        tenantId: agent.tenantId!,
-        agentId: agent.id,
-        conversationId: conversation.id,
-        messages: nextMessages,
-        summary: null
-      })
-    }
-  })
-
-  // Drain the stream to trigger onCompletion
-  const reader = stream.getReader()
-  while (true) {
-    const { done } = await reader.read()
-    if (done) break
+  // ── 5. Check tenant usage limit ────────────────────────────────────
+  const usageCheck = await checkUsageLimit(agent.tenantId!)
+  if (!usageCheck.allowed) {
+    return usageLimitResponse(usageCheck)
   }
 
-  // ── 6. Record usage (fire-and-forget) ────────────────────────────────
+  // ── 6. Run agent with handoff loop ─────────────────────────────────
+  let currentAgent = agent
+  let reply = ''
+
+  for (let depth = 0; depth <= MAX_HANDOFF_DEPTH; depth++) {
+    reply = ''
+    let handoffTargetId: string | null = null
+
+    // Re-check usage limit on each handoff hop (except first — already checked)
+    if (depth > 0) {
+      const hopCheck = await checkUsageLimit(agent.tenantId!)
+      if (!hopCheck.allowed) return usageLimitResponse(hopCheck)
+    }
+
+    // Resolve handoff target names for the current agent
+    let handoffTargetNames: Record<string, string> = {}
+    if (currentAgent.handoffTargets?.length) {
+      handoffTargetNames = await getAgentNames(currentAgent.handoffTargets)
+    }
+
+    const stream = await runAgentStream({
+      agent: currentAgent,
+      messages: allMessages,
+      handoffTargetNames,
+      onCompletion: async (completion: string) => {
+        const reason = detectCompletionMarker(completion)
+        handoffTargetId = extractHandoffTarget(completion)
+        reply = stripCompletionMarkers(completion)
+
+        const nextMessages = [
+          ...allMessages,
+          { id: nanoid(), role: 'assistant' as const, content: reply }
+        ]
+        await updateConversationMessages({
+          tenantId: agent.tenantId!,
+          agentId: agent.id,
+          conversationId: conversation.id,
+          messages: nextMessages,
+          summary: null,
+          respondingAgentId: currentAgent.id
+        })
+
+        // Increment current agent's lifetime response counter
+        adminDb
+          .collection(Collections.agents(currentAgent.tenantId!))
+          .doc(currentAgent.id)
+          .update({ totalResponseCount: FieldValue.increment(1) })
+          .catch((e: unknown) =>
+            console.error('[hooks] Failed to increment response count:', e)
+          )
+
+        // Record usage for metering (fire-and-forget)
+        recordUsage({
+          tenantId: agent.tenantId!,
+          agentId: currentAgent.id,
+          conversationId: conversation.id,
+          userId: null,
+          source: 'hook_chat',
+          model: OPENAI_CHAT_MODEL,
+        })
+
+        const event = mapCompletionToEvent(reason)
+        if (event) {
+          dispatchAgentNotification({
+            agent: currentAgent,
+            conversationId: conversation.id,
+            event,
+            messageCount: allMessages.filter(m => m.role === 'user').length
+          })
+        }
+      }
+    })
+
+    // Drain the stream to trigger onCompletion
+    const reader = stream.getReader()
+    while (true) {
+      const { done } = await reader.read()
+      if (done) break
+    }
+
+    // Check if we need to hand off to another agent
+    if (!handoffTargetId) break
+
+    const existingConv = await getConversation(
+      agent.tenantId!,
+      agent.id,
+      conversation.id
+    )
+    const validation = await validateHandoff({
+      sourceAgent: currentAgent,
+      targetAgentId: handoffTargetId,
+      handoffChain: existingConv?.handoffChain ?? []
+    })
+
+    if (!validation.valid || !validation.targetAgent) {
+      console.warn(`[hooks] Handoff validation failed: ${validation.error}`)
+      break
+    }
+
+    // Record the handoff
+    await recordConversationHandoff(
+      agent.tenantId!,
+      agent.id,
+      conversation.id,
+      {
+        fromAgentId: currentAgent.id,
+        fromAgentName: currentAgent.name,
+        toAgentId: validation.targetAgent.id,
+        toAgentName: validation.targetAgent.name
+      }
+    )
+
+    // Append the assistant reply so the next agent sees what the current agent said
+    allMessages = [
+      ...allMessages,
+      { id: nanoid(), role: 'assistant' as const, content: reply }
+    ]
+
+    // Build context for the target agent and continue the loop
+    const context = buildHandoffContext({
+      sourceAgentName: currentAgent.name,
+      messages: allMessages,
+      summary: existingConv?.summary
+    })
+
+    // Replace allMessages with just the context + original user/assistant messages
+    // (avoid accumulating redundant system messages on each hop)
+    const nonSystemMessages = allMessages.filter(m => m.role !== 'system')
+    allMessages = [
+      { id: nanoid(), role: 'system' as const, content: context },
+      ...nonSystemMessages
+    ]
+    currentAgent = validation.targetAgent
+  }
+
+  // ── 7. Record hook usage (fire-and-forget) ──────────────────────────
   recordHookUsage(agent.tenantId!, agent.id, hookId)
 
-  // ── 7. Return JSON response ──────────────────────────────────────────
+  // ── 8. Return JSON response ──────────────────────────────────────────
   return NextResponse.json({
     reply,
     conversationId: conversation.id,
-    agentId: agent.id,
+    agentId: currentAgent.id,
     hookId
   })
 }

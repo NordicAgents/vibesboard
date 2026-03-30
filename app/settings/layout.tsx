@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, Users, Building2, Link2 } from 'lucide-react'
+import { Settings, Users, Building2, Link2, BarChart3, CreditCard, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
@@ -90,6 +90,18 @@ export default async function SettingsLayout({
       icon: Building2,
       iconName: 'Building2' as const
     },
+    {
+      title: 'Usage',
+      href: '/settings/tenant/usage',
+      icon: BarChart3,
+      iconName: 'BarChart3' as const
+    },
+    {
+      title: 'Billing',
+      href: '/settings/tenant/billing',
+      icon: CreditCard,
+      iconName: 'CreditCard' as const
+    },
     ...(!isActivePersonal && teamCollaborationEnabled
       ? [
           {
@@ -124,6 +136,12 @@ export default async function SettingsLayout({
       <aside className="hidden w-64 shrink-0 border-r border-[#e4e3e3] bg-[#f5f8f7] dark:border-[#344348] dark:bg-[#192425] md:flex md:flex-col">
         {/* Header */}
         <div className="flex h-16 items-center gap-2.5 border-b border-[#e4e3e3] px-5 dark:border-[#344348]">
+          <Link
+            href="/agents"
+            className="flex size-7 items-center justify-center rounded-lg text-[#6f7f80] transition-colors hover:bg-[#e6ede6] hover:text-[#222f30] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
           <div className="flex size-7 items-center justify-center rounded-lg bg-[#e6ede6] dark:bg-[#344348]">
             <Settings className="size-3.5 text-accent-orange" />
           </div>

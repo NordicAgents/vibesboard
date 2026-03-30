@@ -4,10 +4,45 @@ export const FEATURE_FLAG_NAMES = [
   'GOOGLE_REVIEW',
   'EMBED_WIDGET',
   'AGENT_LINKS',
+  'INBOX',
   'WHATSAPP_INBOX',
   'INSTAGRAM_INBOX',
-  'CHATWOOT'
+  'CHATWOOT',
+  'AGENT_NOTIFICATIONS',
+  'AGENT_NOTIFICATIONS_INAPP',
+  'AGENT_NOTIFICATIONS_EMAIL',
+  'AGENT_NOTIFICATIONS_WEBHOOK',
+  'AGENT_HANDOFF',
+  'AGENT_ACTIONS',
+  'AGENT_ACTIONS_SCHEDULE',
+  'AGENT_ACTIONS_DATA'
 ] as const
 
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
 
+/**
+ * Parent-child hierarchy for feature flags.
+ * Maps child flag → parent flag.
+ * If a parent is disabled, all children are automatically disabled.
+ */
+export const FEATURE_FLAG_HIERARCHY: Partial<Record<FeatureFlagName, FeatureFlagName>> = {
+  WHATSAPP_INBOX: 'INBOX',
+  INSTAGRAM_INBOX: 'INBOX',
+  AGENT_NOTIFICATIONS_INAPP: 'AGENT_NOTIFICATIONS',
+  AGENT_NOTIFICATIONS_EMAIL: 'AGENT_NOTIFICATIONS',
+  AGENT_NOTIFICATIONS_WEBHOOK: 'AGENT_NOTIFICATIONS',
+  AGENT_ACTIONS_SCHEDULE: 'AGENT_ACTIONS',
+  AGENT_ACTIONS_DATA: 'AGENT_ACTIONS',
+}
+
+/** Get the parent flag name for a given flag, or null if it has no parent. */
+export function getParentFlag(flagName: FeatureFlagName): FeatureFlagName | null {
+  return FEATURE_FLAG_HIERARCHY[flagName] ?? null
+}
+
+/** Get all child flag names for a given parent flag. */
+export function getChildFlags(flagName: FeatureFlagName): FeatureFlagName[] {
+  return (Object.entries(FEATURE_FLAG_HIERARCHY) as [FeatureFlagName, FeatureFlagName][])
+    .filter(([, parent]) => parent === flagName)
+    .map(([child]) => child)
+}

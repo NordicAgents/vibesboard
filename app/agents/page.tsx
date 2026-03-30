@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SkeletonCard } from '@/components/ui/skeleton'
+import { toastWithRetry } from '@/lib/toast-helpers'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
@@ -41,6 +43,18 @@ export default function AgentsPage() {
 
   useEffect(() => {
     fetchActiveTenant()
+
+    const handleTenantChanged = (e: Event) => {
+      const tenantId = (e as CustomEvent).detail?.tenantId
+      if (tenantId) {
+        setTenantId(tenantId)
+        setPage(1)
+      } else {
+        fetchActiveTenant()
+      }
+    }
+    window.addEventListener('tenantChanged', handleTenantChanged)
+    return () => window.removeEventListener('tenantChanged', handleTenantChanged)
   }, [])
 
   useEffect(() => {
@@ -80,11 +94,11 @@ export default function AgentsPage() {
         setAgents(data.agents || [])
         setPagination(data.pagination)
       } else {
-        toast.error('Failed to load agents')
+        toastWithRetry('Could not load agents', () => fetchAgents(currentPage))
       }
     } catch (error) {
       console.error('Error fetching agents:', error)
-      toast.error('Failed to load agents')
+      toastWithRetry('Could not load agents. Check your connection.', () => fetchAgents(currentPage))
     } finally {
       setIsLoading(false)
     }
@@ -116,7 +130,7 @@ export default function AgentsPage() {
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="skeleton h-[180px] rounded-xl" />
+              <SkeletonCard key={i} />
             ))}
           </div>
         ) : agents.length === 0 ? (
