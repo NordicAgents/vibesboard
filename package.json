@@ -93,5 +93,10 @@
     "minimatch": "^9.0.6",
     "seroval": "^1.4.1",
     "underscore": "^1.13.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-xml-parser": ">=5.5.6"
+    }
   }
 }
