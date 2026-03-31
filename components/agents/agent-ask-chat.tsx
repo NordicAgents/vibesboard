@@ -42,6 +42,11 @@ export function AgentAskChat({
     ownerSessions[0]?.messages ?? []
   )
   const sessionIdRef = React.useRef<string | null>(activeSessionId)
+  // Stable ID for useCompletion so it doesn't reset mid-stream when
+  // activeSessionId changes after the server responds with a new session ID.
+  const [completionId, setCompletionId] = React.useState(
+    () => activeSessionId ?? `ask-${nanoid()}`
+  )
 
   const {
     completion,
@@ -52,7 +57,7 @@ export function AgentAskChat({
     input,
     setInput
   } = useCompletion({
-    id: activeSessionId ?? 'ask-session',
+    id: completionId,
     api: `/api/agents/${agent.id}/conversations/ask`,
     onResponse(response) {
       const nextSessionId = response.headers.get('x-session-id')
@@ -88,27 +93,37 @@ export function AgentAskChat({
     setSessions(sortSessions(ownerSessions))
   }, [ownerSessions])
 
-  // Sync active session with `?session=` query param from the main sidebar
+  // Sync active session with `?session=` query param from the main sidebar.
+  // Only react to URL param and prop changes — NOT to programmatic
+  // activeSessionId updates (e.g. from onResponse), which would incorrectly
+  // reset state mid-stream.
+  const prevParamRef = React.useRef(searchParams.get('session'))
   React.useEffect(() => {
     const param = searchParams.get('session')
+    const prevParam = prevParamRef.current
+    prevParamRef.current = param
+
     if (param && param !== activeSessionId) {
       const found = ownerSessions.find(entry => entry.id === param)
       if (found) {
         setActiveSessionId(found.id)
         sessionIdRef.current = found.id
+        setCompletionId(found.id)
         setMessages(found.messages ?? [])
         setInput('')
         setCompletion('')
       }
-    } else if (!param && activeSessionId) {
-      // If session param is removed, reset to new chat state
+    } else if (!param && prevParam) {
+      // Only reset when the session param was explicitly removed from the URL,
+      // not when activeSessionId changes programmatically.
       setActiveSessionId(null)
       sessionIdRef.current = null
+      setCompletionId(`ask-${nanoid()}`)
       setMessages([])
       setInput('')
       setCompletion('')
     }
-  }, [searchParams, ownerSessions, activeSessionId, setInput, setCompletion])
+  }, [searchParams, ownerSessions, setInput, setCompletion])
 
   const persistSession = React.useCallback(
     (
@@ -170,6 +185,7 @@ export function AgentAskChat({
     if (!id) {
       setActiveSessionId(null)
       sessionIdRef.current = null
+      setCompletionId(`ask-${nanoid()}`)
       setMessages([])
       setInput('')
       setCompletion('')
@@ -178,6 +194,7 @@ export function AgentAskChat({
     const session = sessions.find(entry => entry.id === id)
     setActiveSessionId(id)
     sessionIdRef.current = id
+    setCompletionId(id)
     setMessages(session?.messages ?? [])
     setInput('')
     setCompletion('')
@@ -212,6 +229,7 @@ export function AgentAskChat({
     setMessages([])
     setActiveSessionId(null)
     sessionIdRef.current = null
+    setCompletionId(`ask-${nanoid()}`)
     // Clear the session query parameter from URL
     const currentPath = window.location.pathname
     router.replace(currentPath)
