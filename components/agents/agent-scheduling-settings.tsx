@@ -73,7 +73,15 @@ export function AgentSchedulingSettings({
         })
         if (!res.ok) return
         const data = await res.json()
-        setConnections(data.connections ?? [])
+        const conns: CalendarConnectionSummary[] = data.connections ?? []
+        setConnections(conns)
+
+        // Auto-select if none selected or if selected ID doesn't match any active connection
+        const active = conns.filter(c => c.status === 'active')
+        const selectedIsValid = active.some(c => c.id === current.calendarConnectionId)
+        if (active.length > 0 && !selectedIsValid) {
+          onChange({ ...current, calendarConnectionId: active[0].id })
+        }
       } catch {
         // ignore
       } finally {
