@@ -87,6 +87,34 @@ export async function completeText({
   return extractFromResponse(json, json?.usage)
 }
 
+/** Convert raw API usage to our typed format. */
+const parseUsage = (rawUsage?: any): { inputTokens: number; outputTokens: number } | undefined =>
+  rawUsage
+    ? { inputTokens: rawUsage.input_tokens ?? 0, outputTokens: rawUsage.output_tokens ?? 0 }
+    : undefined
+
+/** Parse complete SSE events out of a buffer, returning parsed payloads and the remaining buffer. */
+function processSseBuffer(buffer: string): { events: any[]; remaining: string } {
+  const events: any[] = []
+  let idx: number
+  while ((idx = buffer.indexOf('\n\n')) !== -1) {
+    const rawEvent = buffer.slice(0, idx)
+    buffer = buffer.slice(idx + 2)
+
+    let dataLine = ''
+    for (const line of rawEvent.split('\n')) {
+      if (line.startsWith('data: ')) dataLine += line.slice(6)
+    }
+    if (!dataLine) continue
+
+    try { events.push(JSON.parse(dataLine)) } catch { /* ignore malformed */ }
+  }
+
+  // Avoid unbounded buffer growth in case of malformed streams.
+  if (buffer.length > 16384) buffer = buffer.slice(-8192)
+  return { events, remaining: buffer }
+}
+
 /**
  * Stream text tokens from the Responses API (GPT‑5.4‑nano) as a web stream.
  * This is used for real-time UX in chat endpoints.
@@ -153,48 +181,18 @@ export async function streamText({
             const chunk = decoder.decode(value, { stream: true })
             buffer += chunk
 
-            let idx: number
-            while ((idx = buffer.indexOf('\n\n')) !== -1) {
-              const rawEvent = buffer.slice(0, idx)
-              buffer = buffer.slice(idx + 2)
+            const result = processSseBuffer(buffer)
+            buffer = result.remaining
 
-              const lines = rawEvent.split('\n')
-              let dataLine = ''
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  dataLine += line.slice(6)
-                }
+            for (const payload of result.events) {
+              if (payload?.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
+                full += payload.delta
+                if (onToken) await onToken(payload.delta)
+                controller.enqueue(encoder.encode(payload.delta))
               }
-              if (!dataLine) continue
-
-              try {
-                const payload = JSON.parse(dataLine)
-                if (
-                  payload?.type === 'response.output_text.delta' &&
-                  typeof payload.delta === 'string'
-                ) {
-                  const delta: string = payload.delta
-                  full += delta
-                  if (onToken) {
-                    await onToken(delta)
-                  }
-                  controller.enqueue(encoder.encode(delta))
-                }
-                if (payload?.type === 'response.completed' && payload?.response?.usage) {
-                  const u = payload.response.usage
-                  streamUsage = {
-                    inputTokens: u.input_tokens ?? 0,
-                    outputTokens: u.output_tokens ?? 0
-                  }
-                }
-              } catch {
-                // Ignore malformed SSE chunks
+              if (payload?.type === 'response.completed') {
+                streamUsage = parseUsage(payload?.response?.usage)
               }
-            }
-
-            // Avoid unbounded buffer growth in case of malformed streams.
-            if (buffer.length > 16384) {
-              buffer = buffer.slice(-8192)
             }
           }
 
@@ -216,53 +214,50 @@ export async function streamText({
   })
 }
 
+/** Extract text from a Responses API message item. */
+const extractMessageText = (item: any): string => {
+  if (item?.type !== 'message' || !Array.isArray(item.content)) return ''
+  const parts: string[] = []
+  for (const part of item.content) {
+    if (!part || part.type !== 'output_text') continue
+    const t = (part as any).text
+    if (typeof t === 'string') parts.push(t)
+    else if (t && typeof t.value === 'string') parts.push(t.value)
+  }
+  return parts.join('')
+}
+
+/** Extract a tool call from a Responses API function_call item. */
+const extractToolCall = (item: any): ToolCallResult | null => {
+  if (item?.type !== 'function_call') return null
+  let args: Record<string, any> = {}
+  try {
+    args = typeof item.arguments === 'string'
+      ? JSON.parse(item.arguments)
+      : (item.arguments ?? {})
+  } catch {
+    args = {}
+  }
+  return { name: item.name, arguments: args, callId: item.call_id ?? '' }
+}
+
 /**
  * Parse the Responses API output, extracting both text and function calls.
  */
 const extractFromResponse = (json: any, rawUsage?: any): CompleteTextResult => {
   const output = json?.output
-  const usage = rawUsage
-    ? { inputTokens: rawUsage.input_tokens ?? 0, outputTokens: rawUsage.output_tokens ?? 0 }
-    : undefined
+  const usage = parseUsage(rawUsage)
   if (!Array.isArray(output)) return { text: '', toolCalls: [], usage }
 
   let text = ''
   const toolCalls: ToolCallResult[] = []
 
   for (const item of output) {
-    // Text message output
-    if (item?.type === 'message' && Array.isArray(item.content)) {
-      const parts: string[] = []
-      for (const part of item.content) {
-        if (!part || part.type !== 'output_text') continue
-        const t = (part as any).text
-        if (typeof t === 'string') {
-          parts.push(t)
-        } else if (t && typeof t.value === 'string') {
-          parts.push(t.value)
-        }
-      }
-      if (parts.length) {
-        text = parts.join('')
-      }
-    }
+    const msgText = extractMessageText(item)
+    if (msgText) text = msgText
 
-    // Function call output
-    if (item?.type === 'function_call') {
-      let args: Record<string, any> = {}
-      try {
-        args = typeof item.arguments === 'string'
-          ? JSON.parse(item.arguments)
-          : (item.arguments ?? {})
-      } catch {
-        args = {}
-      }
-      toolCalls.push({
-        name: item.name,
-        arguments: args,
-        callId: item.call_id ?? ''
-      })
-    }
+    const tc = extractToolCall(item)
+    if (tc) toolCalls.push(tc)
   }
 
   return { text, toolCalls, usage }
