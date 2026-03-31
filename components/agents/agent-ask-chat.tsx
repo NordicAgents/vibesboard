@@ -59,6 +59,7 @@ export function AgentAskChat({
   } = useCompletion({
     id: completionId,
     api: `/api/agents/${agent.id}/conversations/ask`,
+    streamProtocol: 'text',
     onResponse(response) {
       const nextSessionId = response.headers.get('x-session-id')
       if (nextSessionId) {
