@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { headers } from 'next/headers'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import {
@@ -9,6 +10,14 @@ import {
 import { createDataConnection } from '@/lib/data/connections'
 
 export const runtime = 'nodejs'
+
+async function getAppOrigin(fallback: string): Promise<string> {
+  const h = await headers()
+  const host = (h.get('x-forwarded-host') || h.get('host'))?.split(',')[0]?.trim()
+  const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
+  if (host) return `${proto}://${host}`
+  return fallback
+}
 
 /**
  * GET /api/data/auth/google-sheets/callback
@@ -21,18 +30,20 @@ export async function GET(req: Request) {
   const stateParam = url.searchParams.get('state')
   const error = url.searchParams.get('error')
 
+  const appOrigin = await getAppOrigin(url.origin)
+
   if (error) {
     return NextResponse.redirect(
       new URL(
         `/agents?data_error=${encodeURIComponent(error)}`,
-        url.origin
+        appOrigin
       )
     )
   }
 
   if (!code || !stateParam) {
     return NextResponse.redirect(
-      new URL('/agents?data_error=missing_params', url.origin)
+      new URL('/agents?data_error=missing_params', appOrigin)
     )
   }
 
@@ -40,7 +51,7 @@ export async function GET(req: Request) {
   const authResult = await requireAuth()
   if (!authResult.ok) {
     return NextResponse.redirect(
-      new URL('/agents?data_error=not_authenticated', url.origin)
+      new URL('/agents?data_error=not_authenticated', appOrigin)
     )
   }
 
@@ -49,14 +60,14 @@ export async function GET(req: Request) {
     state = JSON.parse(stateParam)
   } catch {
     return NextResponse.redirect(
-      new URL('/agents?data_error=invalid_state', url.origin)
+      new URL('/agents?data_error=invalid_state', appOrigin)
     )
   }
 
   // Verify the authenticated user matches the state
   if (authResult.user.id !== state.userId) {
     return NextResponse.redirect(
-      new URL('/agents?data_error=user_mismatch', url.origin)
+      new URL('/agents?data_error=user_mismatch', appOrigin)
     )
   }
 
@@ -64,7 +75,7 @@ export async function GET(req: Request) {
   const tenantId = await getActiveTenant(authResult.user.id)
   if (!tenantId) {
     return NextResponse.redirect(
-      new URL('/agents?data_error=no_tenant', url.origin)
+      new URL('/agents?data_error=no_tenant', appOrigin)
     )
   }
 
@@ -97,13 +108,13 @@ export async function GET(req: Request) {
     return NextResponse.redirect(
       new URL(
         `/agents?data_connected=true&connectionId=${connection.id}`,
-        url.origin
+        appOrigin
       )
     )
   } catch (err) {
     console.error('Google Sheets OAuth callback error:', err)
     return NextResponse.redirect(
-      new URL('/agents?data_error=oauth_failed', url.origin)
+      new URL('/agents?data_error=oauth_failed', appOrigin)
     )
   }
 }
