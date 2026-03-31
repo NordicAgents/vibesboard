@@ -183,7 +183,10 @@ export async function checkUsageLimit(
     return { allowed: true, remaining: 0, limit: 0, used: 0, planId: 'free' }
   }
 
-  const planId = subscription.planId as PlanId
+  const rawPlanId = subscription.planId as string | undefined
+  const planId: PlanId = rawPlanId && ['free', 'pro', 'team', 'enterprise'].includes(rawPlanId)
+    ? (rawPlanId as PlanId)
+    : 'free'
   const plan = await getPlanTemplate(planId)
 
   // Live computation: use custom override if set, else compute from live plan template
