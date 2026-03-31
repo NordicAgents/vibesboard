@@ -64,7 +64,26 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
   }
 
-  // 4. Build daily usage from usage_logs (last 30 days)
+  // 4. Resolve user IDs → names/emails
+  const userNames: Record<string, string> = {}
+  if (rollup?.byUser) {
+    const userIds = Object.keys(rollup.byUser).filter(id => id !== '_anonymous')
+    if (userIds.length > 0) {
+      const userDocs = await Promise.all(
+        userIds.map(id =>
+          adminDb.collection(Collections.users).doc(id).get()
+        )
+      )
+      for (const doc of userDocs) {
+        if (doc.exists) {
+          const data = doc.data()
+          userNames[doc.id] = (data?.name as string) || (data?.email as string) || doc.id
+        }
+      }
+    }
+  }
+
+  // 5. Build daily usage from usage_logs (last 30 days)
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -90,6 +109,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     subscription,
     rollup,
     agentNames,
+    userNames,
     dailyUsage,
     billingCycleId,
   })

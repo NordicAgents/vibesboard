@@ -30,6 +30,7 @@ export interface ToolCallResult {
 export interface CompleteTextResult {
   text: string
   toolCalls: ToolCallResult[]
+  usage?: { inputTokens: number; outputTokens: number }
 }
 
 /**
@@ -83,7 +84,7 @@ export async function completeText({
   }
 
   const json = await res.json()
-  return extractFromResponse(json)
+  return extractFromResponse(json, json?.usage)
 }
 
 /**
@@ -102,7 +103,7 @@ export async function streamText({
   model?: string | null
   apiKey?: string | null
   onToken?: (delta: string) => void | Promise<void>
-  onDone?: (full: string) => void | Promise<void>
+  onDone?: (full: string, usage?: { inputTokens: number; outputTokens: number }) => void | Promise<void>
 }): Promise<ReadableStream<Uint8Array>> {
   const m = model ?? OPENAI_MODEL
 
@@ -142,6 +143,7 @@ export async function streamText({
     start(controller) {
       let buffer = ''
       let full = ''
+      let streamUsage: { inputTokens: number; outputTokens: number } | undefined
 
       ;(async () => {
         try {
@@ -178,6 +180,13 @@ export async function streamText({
                   }
                   controller.enqueue(encoder.encode(delta))
                 }
+                if (payload?.type === 'response.completed' && payload?.response?.usage) {
+                  const u = payload.response.usage
+                  streamUsage = {
+                    inputTokens: u.input_tokens ?? 0,
+                    outputTokens: u.output_tokens ?? 0
+                  }
+                }
               } catch {
                 // Ignore malformed SSE chunks
               }
@@ -190,7 +199,7 @@ export async function streamText({
           }
 
           if (onDone) {
-            await onDone(full)
+            await onDone(full, streamUsage)
           }
           controller.close()
         } catch (error) {
@@ -210,9 +219,12 @@ export async function streamText({
 /**
  * Parse the Responses API output, extracting both text and function calls.
  */
-const extractFromResponse = (json: any): CompleteTextResult => {
+const extractFromResponse = (json: any, rawUsage?: any): CompleteTextResult => {
   const output = json?.output
-  if (!Array.isArray(output)) return { text: '', toolCalls: [] }
+  const usage = rawUsage
+    ? { inputTokens: rawUsage.input_tokens ?? 0, outputTokens: rawUsage.output_tokens ?? 0 }
+    : undefined
+  if (!Array.isArray(output)) return { text: '', toolCalls: [], usage }
 
   let text = ''
   const toolCalls: ToolCallResult[] = []
@@ -253,5 +265,5 @@ const extractFromResponse = (json: any): CompleteTextResult => {
     }
   }
 
-  return { text, toolCalls }
+  return { text, toolCalls, usage }
 }

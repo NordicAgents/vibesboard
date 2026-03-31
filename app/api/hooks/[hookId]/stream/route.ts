@@ -125,7 +125,7 @@ export async function POST(
         const agentStream = await runAgentStream({
           agent,
           messages: allMessages,
-          onCompletion: async (completion: string) => {
+          onCompletion: async (completion: string, usage?: { promptTokens: number; completionTokens: number }) => {
             const cleaned = stripCompletionMarkers(completion)
             const nextMessages = [
               ...allMessages,
@@ -147,6 +147,8 @@ export async function POST(
               userId: null,
               source: 'hook_stream',
               model: OPENAI_CHAT_MODEL,
+              inputTokens: usage?.promptTokens,
+              outputTokens: usage?.completionTokens,
             })
           }
         })

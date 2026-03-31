@@ -195,7 +195,7 @@ export async function POST(
     messages: agentMessages,
     handoffTargetNames,
     remainingResponses,
-    onCompletion: async completion => {
+    onCompletion: async (completion, usage) => {
       const reason = detectCompletionMarker(completion)
       const cleanedCompletion = stripCompletionMarkers(completion)
       const nextMessages = [
@@ -272,6 +272,8 @@ export async function POST(
         userId: null,
         source: isEmbed ? 'embed' : 'public_chat',
         model: OPENAI_CHAT_MODEL,
+        inputTokens: usage?.promptTokens,
+        outputTokens: usage?.completionTokens,
       })
 
       // Update conversation ref if this is a handoff target agent

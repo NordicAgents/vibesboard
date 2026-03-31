@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type UsageSource } from '@/lib/firestore-types'
 import { getPlanTemplate, computeMessageLimit, type PlanId } from '@/lib/plans'
+import { buildRollupUpdateFields, buildRollupSetFields } from './usage-core'
 
 // ─── Billing cycle helpers ──────────────────────────────────────────
 
@@ -90,32 +91,39 @@ export function recordUsage(params: RecordUsageParams): void {
   const rollupRef = adminDb
     .collection(Collections.usageRollups(params.tenantId))
     .doc(billingCycleId)
+  const incrementFn = (n: number) => FieldValue.increment(n)
+  const updateFields = buildRollupUpdateFields({
+    source: params.source,
+    agentId: params.agentId,
+    model: params.model,
+    userId: params.userId,
+    inputTokens,
+    outputTokens,
+    incrementFn,
+  })
+
   rollupRef
     .update({
-      totalMessages: FieldValue.increment(1),
-      totalInputTokens: FieldValue.increment(inputTokens),
-      totalOutputTokens: FieldValue.increment(outputTokens),
-      [`bySource.${params.source}`]: FieldValue.increment(1),
-      [`byAgent.${params.agentId}`]: FieldValue.increment(1),
-      [`byModel.${params.model}`]: FieldValue.increment(1),
+      ...updateFields,
       updatedAt: new Date().toISOString(),
     })
     .catch((err: unknown) => {
       // NOT_FOUND (code 5) — document doesn't exist yet, create it
       if (typeof err === 'object' && err !== null && (err as any).code === 5) {
+        const setFields = buildRollupSetFields({
+          tenantId: params.tenantId,
+          billingCycleId,
+          source: params.source,
+          agentId: params.agentId,
+          model: params.model,
+          userId: params.userId,
+          inputTokens,
+          outputTokens,
+          incrementFn,
+        })
         rollupRef
           .set(
-            {
-              tenantId: params.tenantId,
-              billingCycleId,
-              totalMessages: FieldValue.increment(1),
-              totalInputTokens: FieldValue.increment(inputTokens),
-              totalOutputTokens: FieldValue.increment(outputTokens),
-              bySource: { [params.source]: FieldValue.increment(1) },
-              byAgent: { [params.agentId]: FieldValue.increment(1) },
-              byModel: { [params.model]: FieldValue.increment(1) },
-              updatedAt: new Date().toISOString(),
-            },
+            { ...setFields, updatedAt: new Date().toISOString() },
             { merge: true }
           )
           .catch((e: unknown) => console.error('[usage] Failed to create rollup:', e))

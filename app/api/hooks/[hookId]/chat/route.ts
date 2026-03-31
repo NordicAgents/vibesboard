@@ -129,7 +129,7 @@ export async function POST(
       agent: currentAgent,
       messages: allMessages,
       handoffTargetNames,
-      onCompletion: async (completion: string) => {
+      onCompletion: async (completion: string, usage?: { promptTokens: number; completionTokens: number }) => {
         const reason = detectCompletionMarker(completion)
         handoffTargetId = extractHandoffTarget(completion)
         reply = stripCompletionMarkers(completion)
@@ -164,6 +164,8 @@ export async function POST(
           userId: null,
           source: 'hook_chat',
           model: OPENAI_CHAT_MODEL,
+          inputTokens: usage?.promptTokens,
+          outputTokens: usage?.completionTokens,
         })
 
         const event = mapCompletionToEvent(reason)

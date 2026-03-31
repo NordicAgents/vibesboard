@@ -120,7 +120,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const model = OPENAI_CHAT_MODEL
 
-  const saveAndRecord = async (completion: string) => {
+  const saveAndRecord = async (completion: string, tokenUsage?: { inputTokens?: number; outputTokens?: number }) => {
     const nextMessages = [
       ...pendingMessages,
       { id: nanoid(), role: 'assistant' as const, content: completion }
@@ -140,6 +140,8 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       userId: user.id,
       source: 'ask_ai',
       model,
+      inputTokens: tokenUsage?.inputTokens,
+      outputTokens: tokenUsage?.outputTokens,
     })
   }
 
@@ -148,7 +150,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     const stream = await streamText({
       prompt,
       model,
-      async onDone(completion) { await saveAndRecord(completion) }
+      async onDone(completion, usage) { await saveAndRecord(completion, usage) }
     })
 
     return new Response(stream, {
@@ -167,7 +169,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       { role: 'user', content: payload.question }
     ],
     temperature: 0.2,
-    async onFinish({ text }) { await saveAndRecord(text) }
+    async onFinish({ text, usage }) { await saveAndRecord(text, { inputTokens: usage?.promptTokens, outputTokens: usage?.completionTokens }) }
   })
 
   return new Response(result.textStream, {
