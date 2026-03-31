@@ -93,9 +93,16 @@ export function AgentAskChat({
     setSessions(sortSessions(ownerSessions))
   }, [ownerSessions])
 
-  // Sync active session with `?session=` query param from the main sidebar
+  // Sync active session with `?session=` query param from the main sidebar.
+  // Only react to URL param and prop changes — NOT to programmatic
+  // activeSessionId updates (e.g. from onResponse), which would incorrectly
+  // reset state mid-stream.
+  const prevParamRef = React.useRef(searchParams.get('session'))
   React.useEffect(() => {
     const param = searchParams.get('session')
+    const prevParam = prevParamRef.current
+    prevParamRef.current = param
+
     if (param && param !== activeSessionId) {
       const found = ownerSessions.find(entry => entry.id === param)
       if (found) {
@@ -106,8 +113,9 @@ export function AgentAskChat({
         setInput('')
         setCompletion('')
       }
-    } else if (!param && activeSessionId) {
-      // If session param is removed, reset to new chat state
+    } else if (!param && prevParam) {
+      // Only reset when the session param was explicitly removed from the URL,
+      // not when activeSessionId changes programmatically.
       setActiveSessionId(null)
       sessionIdRef.current = null
       setCompletionId(`ask-${nanoid()}`)
@@ -115,7 +123,7 @@ export function AgentAskChat({
       setInput('')
       setCompletion('')
     }
-  }, [searchParams, ownerSessions, activeSessionId, setInput, setCompletion])
+  }, [searchParams, ownerSessions, setInput, setCompletion])
 
   const persistSession = React.useCallback(
     (
