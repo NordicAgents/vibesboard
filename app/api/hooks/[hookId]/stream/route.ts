@@ -14,7 +14,7 @@ export const runtime = 'nodejs'
 
 const hookStreamSchema = z.object({
   message: z.string().min(1).max(10_000).trim(),
-  externalUserId: z.string().min(1).max(256).optional(),
+  externalUserId: z.string().min(1).max(256).regex(/^[^.]+$/, 'must not contain dots').optional(),
   conversationId: z.string().min(1).optional()
 })
 

@@ -3,6 +3,13 @@
  * These have no Firestore or server-only dependencies.
  */
 
+/** Sanitize a value used in Firestore dot-notation field paths.
+ *  Dots are path separators in Firestore update() calls, so they must be
+ *  replaced to prevent unintended nesting from user-controlled input. */
+function sanitizeFieldKey(value: string): string {
+  return value.replace(/\./g, '_')
+}
+
 export interface RollupUpdateFields {
   [key: string]: any
 }
@@ -21,21 +28,22 @@ export function buildRollupUpdateFields(params: {
   incrementFn: (n: number) => any
 }): RollupUpdateFields {
   const { source, agentId, model, userId, inputTokens, outputTokens, incrementFn } = params
-  const userKey = userId ?? '_anonymous'
+  const userKey = sanitizeFieldKey(userId ?? '_anonymous')
+  const safeAgentId = sanitizeFieldKey(agentId)
 
   return {
     totalMessages: incrementFn(1),
     totalInputTokens: incrementFn(inputTokens),
     totalOutputTokens: incrementFn(outputTokens),
     [`bySource.${source}`]: incrementFn(1),
-    [`byAgent.${agentId}`]: incrementFn(1),
+    [`byAgent.${safeAgentId}`]: incrementFn(1),
     [`byModel.${model}`]: incrementFn(1),
     [`byUser.${userKey}.messages`]: incrementFn(1),
     [`byUser.${userKey}.inputTokens`]: incrementFn(inputTokens),
     [`byUser.${userKey}.outputTokens`]: incrementFn(outputTokens),
-    [`byUser.${userKey}.byAgent.${agentId}.messages`]: incrementFn(1),
-    [`byUser.${userKey}.byAgent.${agentId}.inputTokens`]: incrementFn(inputTokens),
-    [`byUser.${userKey}.byAgent.${agentId}.outputTokens`]: incrementFn(outputTokens),
+    [`byUser.${userKey}.byAgent.${safeAgentId}.messages`]: incrementFn(1),
+    [`byUser.${userKey}.byAgent.${safeAgentId}.inputTokens`]: incrementFn(inputTokens),
+    [`byUser.${userKey}.byAgent.${safeAgentId}.outputTokens`]: incrementFn(outputTokens),
   }
 }
 
@@ -55,7 +63,8 @@ export function buildRollupSetFields(params: {
   incrementFn: (n: number) => any
 }): Record<string, any> {
   const { tenantId, billingCycleId, source, agentId, model, userId, inputTokens, outputTokens, incrementFn } = params
-  const userKey = userId ?? '_anonymous'
+  const userKey = sanitizeFieldKey(userId ?? '_anonymous')
+  const safeAgentId = sanitizeFieldKey(agentId)
 
   return {
     tenantId,
@@ -64,7 +73,7 @@ export function buildRollupSetFields(params: {
     totalInputTokens: incrementFn(inputTokens),
     totalOutputTokens: incrementFn(outputTokens),
     bySource: { [source]: incrementFn(1) },
-    byAgent: { [agentId]: incrementFn(1) },
+    byAgent: { [safeAgentId]: incrementFn(1) },
     byModel: { [model]: incrementFn(1) },
     byUser: {
       [userKey]: {
@@ -72,7 +81,7 @@ export function buildRollupSetFields(params: {
         inputTokens: incrementFn(inputTokens),
         outputTokens: incrementFn(outputTokens),
         byAgent: {
-          [agentId]: {
+          [safeAgentId]: {
             messages: incrementFn(1),
             inputTokens: incrementFn(inputTokens),
             outputTokens: incrementFn(outputTokens),
