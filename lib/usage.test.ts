@@ -121,8 +121,8 @@ describe('buildRollupUpdateFields', () => {
     })
 
     const keys = Object.keys(fields)
-    // 3 totals + 3 by-dimensions + 3 user-level + 3 user-agent + 1 message = 13
-    assert.equal(keys.length, 13, `Expected 13 fields, got ${keys.length}: ${keys.join(', ')}`)
+    // 3 totals + 3 by-dimensions + 3 user-level + 3 user-agent = 12
+    assert.equal(keys.length, 12, `Expected 12 fields, got ${keys.length}: ${keys.join(', ')}`)
   })
 })
 
