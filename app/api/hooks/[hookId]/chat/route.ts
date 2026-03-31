@@ -29,7 +29,7 @@ export const runtime = 'nodejs'
 
 const hookChatSchema = z.object({
   message: z.string().min(1).max(10_000).trim(),
-  externalUserId: z.string().min(1).max(256).optional(),
+  externalUserId: z.string().min(1).max(256).regex(/^[^.]+$/, 'must not contain dots').optional(),
   conversationId: z.string().min(1).optional()
 })
 
@@ -129,7 +129,7 @@ export async function POST(
       agent: currentAgent,
       messages: allMessages,
       handoffTargetNames,
-      onCompletion: async (completion: string) => {
+      onCompletion: async (completion: string, usage?: { promptTokens: number; completionTokens: number }) => {
         const reason = detectCompletionMarker(completion)
         handoffTargetId = extractHandoffTarget(completion)
         reply = stripCompletionMarkers(completion)
@@ -162,8 +162,11 @@ export async function POST(
           agentId: currentAgent.id,
           conversationId: conversation.id,
           userId: null,
+          externalId: externalUserId ?? hookId,
           source: 'hook_chat',
           model: OPENAI_CHAT_MODEL,
+          inputTokens: usage?.promptTokens,
+          outputTokens: usage?.completionTokens,
         })
 
         const event = mapCompletionToEvent(reason)

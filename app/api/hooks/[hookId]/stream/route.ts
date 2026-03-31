@@ -14,7 +14,7 @@ export const runtime = 'nodejs'
 
 const hookStreamSchema = z.object({
   message: z.string().min(1).max(10_000).trim(),
-  externalUserId: z.string().min(1).max(256).optional(),
+  externalUserId: z.string().min(1).max(256).regex(/^[^.]+$/, 'must not contain dots').optional(),
   conversationId: z.string().min(1).optional()
 })
 
@@ -125,7 +125,7 @@ export async function POST(
         const agentStream = await runAgentStream({
           agent,
           messages: allMessages,
-          onCompletion: async (completion: string) => {
+          onCompletion: async (completion: string, usage?: { promptTokens: number; completionTokens: number }) => {
             const cleaned = stripCompletionMarkers(completion)
             const nextMessages = [
               ...allMessages,
@@ -145,8 +145,11 @@ export async function POST(
               agentId: agent.id,
               conversationId: conversation.id,
               userId: null,
+              externalId: externalUserId ?? hookId,
               source: 'hook_stream',
               model: OPENAI_CHAT_MODEL,
+              inputTokens: usage?.promptTokens,
+              outputTokens: usage?.completionTokens,
             })
           }
         })
