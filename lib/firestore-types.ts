@@ -150,6 +150,21 @@ export interface UsageLogDocument {
   billingCycleId: string              // YYYY-MM format for easy querying
 }
 
+/** Per-user per-agent token usage breakdown */
+export interface UserAgentUsage {
+  messages: number
+  inputTokens: number
+  outputTokens: number
+}
+
+/** Per-user usage with nested agent breakdown */
+export interface UserUsage {
+  messages: number
+  inputTokens: number
+  outputTokens: number
+  byAgent: Record<string, UserAgentUsage>
+}
+
 /** /tenants/{tenantId}/usage_rollups/{billingCycleId} */
 export interface UsageRollupDocument {
   tenantId: string
@@ -160,6 +175,7 @@ export interface UsageRollupDocument {
   bySource: Partial<Record<UsageSource, number>>
   byAgent: Record<string, number>
   byModel: Record<string, number>
+  byUser: Record<string, UserUsage>   // user -> agents -> tokens hierarchy
   updatedAt: string
 }
 
