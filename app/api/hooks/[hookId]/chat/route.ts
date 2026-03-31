@@ -162,6 +162,7 @@ export async function POST(
           agentId: currentAgent.id,
           conversationId: conversation.id,
           userId: null,
+          externalId: externalUserId ?? hookId,
           source: 'hook_chat',
           model: OPENAI_CHAT_MODEL,
           inputTokens: usage?.promptTokens,

@@ -270,6 +270,7 @@ export async function POST(
         agentId: activeAgent.id,
         conversationId: conversation.id,
         userId: null,
+        externalId: externalId,
         source: isEmbed ? 'embed' : 'public_chat',
         model: OPENAI_CHAT_MODEL,
         inputTokens: usage?.promptTokens,

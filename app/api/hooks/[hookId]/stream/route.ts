@@ -145,6 +145,7 @@ export async function POST(
               agentId: agent.id,
               conversationId: conversation.id,
               userId: null,
+              externalId: externalUserId ?? hookId,
               source: 'hook_stream',
               model: OPENAI_CHAT_MODEL,
               inputTokens: usage?.promptTokens,

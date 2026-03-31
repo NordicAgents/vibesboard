@@ -70,6 +70,27 @@ describe('buildRollupUpdateFields', () => {
     assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.outputTokens'], { __increment: 80 })
   })
 
+  test('ext: prefixed userId keeps individual tracking for external users', () => {
+    const fields = buildRollupUpdateFields({
+      source: 'hook_chat',
+      agentId: 'agent-3',
+      model: 'gpt-5.4-nano',
+      userId: 'ext:session-abc123',
+      inputTokens: 300,
+      outputTokens: 100,
+      incrementFn: inc,
+    })
+
+    // External user should NOT be merged into _anonymous
+    assert.equal(fields['byUser._anonymous.messages'], undefined)
+
+    // Should track under ext: prefixed key
+    assert.deepEqual(fields['byUser.ext:session-abc123.messages'], { __increment: 1 })
+    assert.deepEqual(fields['byUser.ext:session-abc123.inputTokens'], { __increment: 300 })
+    assert.deepEqual(fields['byUser.ext:session-abc123.byAgent.agent-3.messages'], { __increment: 1 })
+    assert.deepEqual(fields['byUser.ext:session-abc123.byAgent.agent-3.inputTokens'], { __increment: 300 })
+  })
+
   test('handles zero tokens correctly', () => {
     const fields = buildRollupUpdateFields({
       source: 'hook_chat',
@@ -164,6 +185,25 @@ describe('buildRollupSetFields', () => {
     assert.ok(fields.byUser['_anonymous'], 'should use _anonymous key')
     assert.deepEqual(fields.byUser['_anonymous'].messages, { __increment: 1 })
     assert.deepEqual(fields.byUser['_anonymous'].byAgent['a'].inputTokens, { __increment: 10 })
+  })
+
+  test('ext: prefixed userId tracked individually in set fields', () => {
+    const fields = buildRollupSetFields({
+      tenantId: 't',
+      billingCycleId: '2026-04',
+      source: 'hook_stream',
+      agentId: 'agent-x',
+      model: 'm',
+      userId: 'ext:hook-abc',
+      inputTokens: 500,
+      outputTokens: 200,
+      incrementFn: inc,
+    })
+
+    assert.equal(fields.byUser['_anonymous'], undefined, 'should not have _anonymous')
+    assert.ok(fields.byUser['ext:hook-abc'], 'should have ext: prefixed key')
+    assert.deepEqual(fields.byUser['ext:hook-abc'].messages, { __increment: 1 })
+    assert.deepEqual(fields.byUser['ext:hook-abc'].byAgent['agent-x'].inputTokens, { __increment: 500 })
   })
 
   test('user -> agent hierarchy is correct for multiple calls', () => {

@@ -67,10 +67,15 @@ export async function GET(req: Request, { params }: RouteParams) {
   // 4. Resolve user IDs → names/emails
   const userNames: Record<string, string> = {}
   if (rollup?.byUser) {
-    const userIds = Object.keys(rollup.byUser).filter(id => id !== '_anonymous')
-    if (userIds.length > 0) {
+    const allUserKeys = Object.keys(rollup.byUser)
+    // Separate authenticated users from external (anonymous) identifiers
+    const authUserIds = allUserKeys.filter(id => !id.startsWith('ext:') && id !== '_anonymous')
+    const extUserIds = allUserKeys.filter(id => id.startsWith('ext:'))
+
+    // Resolve authenticated user IDs from Firestore
+    if (authUserIds.length > 0) {
       const userDocs = await Promise.all(
-        userIds.map(id =>
+        authUserIds.map(id =>
           adminDb.collection(Collections.users).doc(id).get()
         )
       )
@@ -80,6 +85,12 @@ export async function GET(req: Request, { params }: RouteParams) {
           userNames[doc.id] = (data?.name as string) || (data?.email as string) || doc.id
         }
       }
+    }
+
+    // Label external identifiers (session IDs, hook IDs, external user IDs)
+    for (const extKey of extUserIds) {
+      const rawId = extKey.slice(4) // strip "ext:" prefix
+      userNames[extKey] = rawId
     }
   }
 

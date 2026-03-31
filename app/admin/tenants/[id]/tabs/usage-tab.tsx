@@ -157,7 +157,9 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
           id: userId,
           name: userId === '_anonymous'
             ? 'Anonymous / Public'
-            : userNames[userId] || userId.slice(0, 8),
+            : userId.startsWith('ext:')
+              ? userNames[userId] || userId.slice(4, 16)
+              : userNames[userId] || userId.slice(0, 8),
           messages: usage.messages ?? 0,
           inputTokens: usage.inputTokens ?? 0,
           outputTokens: usage.outputTokens ?? 0,
@@ -183,9 +185,12 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
           ) : (
             <span className="w-4" />
           )}
-          <span className={row.id === '_anonymous' ? 'text-muted-foreground italic' : ''}>
+          <span className={row.id === '_anonymous' || row.id.startsWith('ext:') ? 'text-muted-foreground italic' : ''}>
             {row.name}
           </span>
+          {row.id.startsWith('ext:') && (
+            <Badge variant="outline" className="ml-1 text-xs">external</Badge>
+          )}
         </div>
       )
     },

@@ -23,6 +23,7 @@ export interface RecordUsageParams {
   agentId: string
   conversationId: string | null
   userId: string | null
+  externalId?: string | null        // session/hook/external user ID for anonymous tracking
   source: UsageSource
   model: string
   inputTokens?: number
@@ -92,11 +93,14 @@ export function recordUsage(params: RecordUsageParams): void {
     .collection(Collections.usageRollups(params.tenantId))
     .doc(billingCycleId)
   const incrementFn = (n: number) => FieldValue.increment(n)
+  // Use externalId (prefixed) as the user key when userId is null to avoid
+  // merging all anonymous usage into a single bucket.
+  const effectiveUserId = params.userId ?? (params.externalId ? `ext:${params.externalId}` : null)
   const updateFields = buildRollupUpdateFields({
     source: params.source,
     agentId: params.agentId,
     model: params.model,
-    userId: params.userId,
+    userId: effectiveUserId,
     inputTokens,
     outputTokens,
     incrementFn,
@@ -116,7 +120,7 @@ export function recordUsage(params: RecordUsageParams): void {
           source: params.source,
           agentId: params.agentId,
           model: params.model,
-          userId: params.userId,
+          userId: effectiveUserId,
           inputTokens,
           outputTokens,
           incrementFn,
