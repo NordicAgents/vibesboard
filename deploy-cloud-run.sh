@@ -154,7 +154,11 @@ STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest,\
 STRIPE_PRICE_PRO_BASE=stripe-price-pro-base:latest,\
 STRIPE_PRICE_PRO_OVERAGE=stripe-price-pro-overage:latest,\
 STRIPE_PRICE_TEAM_BASE=stripe-price-team-base:latest,\
-STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest"
+STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest,\
+GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest,\
+GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest,\
+GOOGLE_CALENDAR_REDIRECT_URI=google-calendar-redirect-uri:latest,\
+GOOGLE_SHEETS_REDIRECT_URI=google-sheets-redirect-uri:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo ""
