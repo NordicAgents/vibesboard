@@ -64,7 +64,37 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
   }
 
-  // 4. Build daily usage from usage_logs (last 30 days)
+  // 4. Resolve user IDs → names/emails
+  const userNames: Record<string, string> = {}
+  if (rollup?.byUser) {
+    const allUserKeys = Object.keys(rollup.byUser)
+    // Separate authenticated users from external (anonymous) identifiers
+    const authUserIds = allUserKeys.filter(id => !id.startsWith('ext:') && id !== '_anonymous')
+    const extUserIds = allUserKeys.filter(id => id.startsWith('ext:'))
+
+    // Resolve authenticated user IDs from Firestore
+    if (authUserIds.length > 0) {
+      const userDocs = await Promise.all(
+        authUserIds.map(id =>
+          adminDb.collection(Collections.users).doc(id).get()
+        )
+      )
+      for (const doc of userDocs) {
+        if (doc.exists) {
+          const data = doc.data()
+          userNames[doc.id] = (data?.name as string) || (data?.email as string) || doc.id
+        }
+      }
+    }
+
+    // Label external identifiers (session IDs, hook IDs, external user IDs)
+    for (const extKey of extUserIds) {
+      const rawId = extKey.slice(4) // strip "ext:" prefix
+      userNames[extKey] = rawId
+    }
+  }
+
+  // 5. Build daily usage from usage_logs (last 30 days)
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -90,6 +120,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     subscription,
     rollup,
     agentNames,
+    userNames,
     dailyUsage,
     billingCycleId,
   })

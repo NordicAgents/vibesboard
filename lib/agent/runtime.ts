@@ -21,7 +21,7 @@ interface RunAgentStreamArgs {
   context?: string | null
   previewToken?: string | null
   temperature?: number
-  onCompletion?: (completion: string) => Promise<void> | void
+  onCompletion?: (completion: string, usage?: { promptTokens: number; completionTokens: number }) => Promise<void> | void
   toolContext?: ToolExecutionContext
   handoffTargetNames?: Record<string, string>
   remainingResponses?: number | null
@@ -57,9 +57,9 @@ export async function runAgentStream({
       toolkit,
       model,
       previewToken,
-      onCompletion: async (completion) => {
+      onCompletion: async (completion, usage) => {
         await agentContext.dispose()
-        if (onCompletion) await onCompletion(completion)
+        if (onCompletion) await onCompletion(completion, usage)
       },
       toolContext,
       hasFileOverflow: agentContext.hasFileOverflow,
@@ -85,9 +85,12 @@ export async function runAgentStream({
       prompt,
       model,
       apiKey,
-      async onDone(completion) {
+      async onDone(completion, usage) {
         await agentContext.dispose()
-        if (onCompletion) await onCompletion(completion)
+        if (onCompletion) {
+          const mapped = usage ? { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens } : undefined
+          await onCompletion(completion, mapped)
+        }
       }
     })
 
@@ -119,9 +122,12 @@ export async function runAgentStream({
     model: openaiClient(model),
     messages: payload,
     temperature,
-    async onFinish({ text }) {
+    async onFinish({ text, usage }) {
       await safeDispose()
-      if (onCompletion) await onCompletion(text)
+      if (onCompletion) {
+        const mapped = usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined
+        await onCompletion(text, mapped)
+      }
     }
   })
 
@@ -170,7 +176,7 @@ interface ResponsesAgentWithToolsArgs {
   toolkit: ToolKit
   model: string
   previewToken?: string | null
-  onCompletion?: (completion: string) => Promise<void> | void
+  onCompletion?: (completion: string, usage?: { promptTokens: number; completionTokens: number }) => Promise<void> | void
   toolContext?: ToolExecutionContext
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
@@ -222,6 +228,10 @@ const runResponsesAgentWithTools = async ({
     apiKey,
     tools
   })
+
+  // Track cumulative token usage across decision + final stream
+  let totalPromptTokens = decision.usage?.inputTokens ?? 0
+  let totalCompletionTokens = decision.usage?.outputTokens ?? 0
 
   // Step 2: If model chose a tool, execute it
   let toolResult: string | null = null
@@ -276,9 +286,11 @@ const runResponsesAgentWithTools = async ({
     prompt: finalPrompt,
     model,
     apiKey,
-    async onDone(completion) {
+    async onDone(completion, usage) {
+      totalPromptTokens += usage?.inputTokens ?? 0
+      totalCompletionTokens += usage?.outputTokens ?? 0
       if (onCompletion) {
-        await onCompletion(completion)
+        await onCompletion(completion, { promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens })
       }
     }
   })
