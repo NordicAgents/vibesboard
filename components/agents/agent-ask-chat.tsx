@@ -42,6 +42,11 @@ export function AgentAskChat({
     ownerSessions[0]?.messages ?? []
   )
   const sessionIdRef = React.useRef<string | null>(activeSessionId)
+  // Stable ID for useCompletion so it doesn't reset mid-stream when
+  // activeSessionId changes after the server responds with a new session ID.
+  const [completionId, setCompletionId] = React.useState(
+    () => activeSessionId ?? `ask-${nanoid()}`
+  )
 
   const {
     completion,
@@ -52,7 +57,7 @@ export function AgentAskChat({
     input,
     setInput
   } = useCompletion({
-    id: activeSessionId ?? 'ask-session',
+    id: completionId,
     api: `/api/agents/${agent.id}/conversations/ask`,
     onResponse(response) {
       const nextSessionId = response.headers.get('x-session-id')
@@ -96,6 +101,7 @@ export function AgentAskChat({
       if (found) {
         setActiveSessionId(found.id)
         sessionIdRef.current = found.id
+        setCompletionId(found.id)
         setMessages(found.messages ?? [])
         setInput('')
         setCompletion('')
@@ -104,6 +110,7 @@ export function AgentAskChat({
       // If session param is removed, reset to new chat state
       setActiveSessionId(null)
       sessionIdRef.current = null
+      setCompletionId(`ask-${nanoid()}`)
       setMessages([])
       setInput('')
       setCompletion('')
@@ -170,6 +177,7 @@ export function AgentAskChat({
     if (!id) {
       setActiveSessionId(null)
       sessionIdRef.current = null
+      setCompletionId(`ask-${nanoid()}`)
       setMessages([])
       setInput('')
       setCompletion('')
@@ -178,6 +186,7 @@ export function AgentAskChat({
     const session = sessions.find(entry => entry.id === id)
     setActiveSessionId(id)
     sessionIdRef.current = id
+    setCompletionId(id)
     setMessages(session?.messages ?? [])
     setInput('')
     setCompletion('')
@@ -212,6 +221,7 @@ export function AgentAskChat({
     setMessages([])
     setActiveSessionId(null)
     sessionIdRef.current = null
+    setCompletionId(`ask-${nanoid()}`)
     // Clear the session query parameter from URL
     const currentPath = window.location.pathname
     router.replace(currentPath)
