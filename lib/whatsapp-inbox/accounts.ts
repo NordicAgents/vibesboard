@@ -345,7 +345,10 @@ export async function connectByoaAccount(
 
   // 3. Generate document and webhook URL
   const docRef = collRef.doc()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/^http:/, 'https:')
+  if (appUrl.includes('vibesboard.com') && !appUrl.includes('www.vibesboard.com')) {
+    appUrl = appUrl.replace('vibesboard.com', 'www.vibesboard.com')
+  }
   const byoaWebhookUrl = `${appUrl}/api/webhooks/whatsapp-inbox/byoa/${docRef.id}`
 
   // 4. Encrypt secrets and store

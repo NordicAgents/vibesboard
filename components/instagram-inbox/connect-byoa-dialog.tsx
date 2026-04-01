@@ -78,6 +78,7 @@ export function ConnectByoaDialog({
   const [showGuide, setShowGuide] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copiedToken, setCopiedToken] = useState(false)
 
   const resetForm = () => {
     setMetaAppId('')
@@ -88,6 +89,15 @@ export function ConnectByoaDialog({
     setError(null)
     setWebhookUrl(null)
     setCopied(false)
+    setCopiedToken(false)
+  }
+
+  const handleCopyToken = async () => {
+    if (!webhookVerifyToken) return
+    await navigator.clipboard.writeText(webhookVerifyToken)
+    setCopiedToken(true)
+    toast.success('Verify token copied!')
+    setTimeout(() => setCopiedToken(false), 2000)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -184,13 +194,32 @@ export function ConnectByoaDialog({
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Verify Token</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={webhookVerifyToken}
+                  className="font-mono text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopyToken}
+                >
+                  {copiedToken ? <Check className="size-4" /> : <Copy className="size-4" />}
+                </Button>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-border bg-bg-hover/50 p-3 text-sm text-text-secondary space-y-2">
               <p className="font-medium text-text-primary">Next steps:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Open your Meta App Dashboard</li>
                 <li>Go to Instagram &gt; Webhooks</li>
                 <li>Paste the webhook URL above</li>
-                <li>Enter the Verify Token you used during setup</li>
+                <li>Enter the Verify Token above</li>
                 <li>Subscribe to the &quot;messages&quot; field</li>
               </ol>
             </div>
