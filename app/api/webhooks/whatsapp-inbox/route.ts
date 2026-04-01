@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { findAccountByWabaId } from '@/lib/whatsapp-inbox/accounts'
 import { storeInboundMessage, updateMessageStatus } from '@/lib/whatsapp-inbox/messages'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
+import { triggerInboxAgent } from '@/lib/inbox-agent'
 import type { MetaWebhookMessage, MetaWebhookContact } from '@/lib/whatsapp-inbox/types'
 
 export const runtime = 'nodejs'
@@ -121,6 +122,24 @@ async function processInboundMessages(
         message,
         contact,
       })
+
+      // Fire-and-forget: trigger agent if assigned
+      const messageText = message.type === 'text'
+        ? message.text?.body
+        : message.image?.caption || message.video?.caption || message.document?.caption
+      if (messageText) {
+        triggerInboxAgent({
+          channel: 'whatsapp',
+          tenantId,
+          accountId: account.id,
+          contactId: message.from.replace(/\D/g, ''),
+          contactName: contact?.profile?.name,
+          messageText,
+          windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        }).catch((err) => {
+          console.error('[WhatsApp Inbox] Agent handler error:', err)
+        })
+      }
     } catch (err) {
       console.error(
         `[WhatsApp Inbox] Failed to store message ${message.id}:`,

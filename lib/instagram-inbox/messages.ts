@@ -119,7 +119,7 @@ export async function storeInboundMessage(
 export async function sendReply(
   params: SendReplyParams
 ): Promise<InstagramInboxMessageDocument> {
-  const { tenantId, accountId, contactIgsid, text, userId } = params
+  const { tenantId, accountId, contactIgsid, text, userId, sentByAgentName } = params
 
   // Check conversation exists and window is open
   const convoPath = Collections.instagramInboxConversations(tenantId, accountId)
@@ -195,6 +195,7 @@ export async function sendReply(
     status: 'sent',
     timestamp: now,
     sentBy: userId,
+    ...(sentByAgentName ? { sentByAgentName } : {}),
     createdAt: now,
   }
 
