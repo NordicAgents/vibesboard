@@ -622,6 +622,7 @@ export interface InstagramInboxAccountDocument {
   connectedBy: string // userId
   connectedAt: string
   webhookSubscribed: boolean
+  metaUserId?: string // Facebook app-scoped user ID (from OAuth)
   connectionMethod?: 'oauth' | 'api_key'
   assignedAgentId?: string | null // default agent for all conversations
   agentAutoReply?: boolean // true = agent responds automatically
