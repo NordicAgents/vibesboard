@@ -552,7 +552,12 @@ export interface WhatsAppInboxAccountDocument {
   connectedBy: string // userId
   connectedAt: string
   webhookSubscribed: boolean
-  connectionMethod?: 'oauth' | 'api_key'
+  connectionMethod?: 'oauth' | 'api_key' | 'byoa'
+  // BYOA (Bring Your Own App) fields — only set when connectionMethod is 'byoa'
+  metaAppId?: string // Customer's own Meta App ID (cleartext)
+  metaAppSecret?: string // Customer's Meta App Secret (AES encrypted)
+  webhookVerifyToken?: string // Customer's webhook verify token (AES encrypted)
+  byoaWebhookUrl?: string // Generated per-account webhook URL
   assignedAgentId?: string | null // default agent for all conversations
   agentAutoReply?: boolean // true = agent responds automatically
   createdAt: string
@@ -623,7 +628,12 @@ export interface InstagramInboxAccountDocument {
   connectedAt: string
   webhookSubscribed: boolean
   metaUserId?: string // Facebook app-scoped user ID (from OAuth)
-  connectionMethod?: 'oauth' | 'api_key'
+  connectionMethod?: 'oauth' | 'api_key' | 'byoa'
+  // BYOA (Bring Your Own App) fields — only set when connectionMethod is 'byoa'
+  metaAppId?: string // Customer's own Meta App ID (cleartext)
+  metaAppSecret?: string // Customer's Meta App Secret (AES encrypted)
+  webhookVerifyToken?: string // Customer's webhook verify token (AES encrypted)
+  byoaWebhookUrl?: string // Generated per-account webhook URL
   assignedAgentId?: string | null // default agent for all conversations
   agentAutoReply?: boolean // true = agent responds automatically
   createdAt: string

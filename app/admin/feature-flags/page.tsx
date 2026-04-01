@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import { EmptyState } from '@/components/ui/empty-state'
 import { CreateFeatureFlagDialog, EditFeatureFlagDialog } from '@/components/tenants'
-import { FEATURE_FLAG_HIERARCHY } from '@/lib/feature-flags'
+import { FEATURE_FLAG_HIERARCHY, getFlagDepth, getRootAncestor } from '@/lib/feature-flags'
 import type { FeatureFlagName } from '@/lib/feature-flags'
 import toast from 'react-hot-toast'
 
@@ -35,16 +35,18 @@ interface FeatureFlag {
     updated_at: string
 }
 
-/** Sort flags so parents appear before their children, then alphabetical */
+/** Sort flags so parents appear before their children (supports N-level hierarchy) */
 function sortFlagsWithHierarchy(flags: FeatureFlag[]): FeatureFlag[] {
     return [...flags].sort((a, b) => {
-        const aParent = FEATURE_FLAG_HIERARCHY[a.name as FeatureFlagName]
-        const bParent = FEATURE_FLAG_HIERARCHY[b.name as FeatureFlagName]
-        const aGroup = aParent ?? a.name
-        const bGroup = bParent ?? b.name
-        if (aGroup !== bGroup) return aGroup.localeCompare(bGroup)
-        if (aParent && !bParent) return 1
-        if (!aParent && bParent) return -1
+        const aRoot = getRootAncestor(a.name as FeatureFlagName)
+        const bRoot = getRootAncestor(b.name as FeatureFlagName)
+        // Different root groups → alphabetical by root
+        if (aRoot !== bRoot) return aRoot.localeCompare(bRoot)
+        // Same root group → depth ascending (parents first)
+        const aDepth = getFlagDepth(a.name as FeatureFlagName)
+        const bDepth = getFlagDepth(b.name as FeatureFlagName)
+        if (aDepth !== bDepth) return aDepth - bDepth
+        // Same depth → alphabetical
         return a.name.localeCompare(b.name)
     })
 }
@@ -176,18 +178,21 @@ export default function FeatureFlagsPage() {
                         <TableBody>
                             {filteredFlags.map((flag) => {
                                 const parentName = FEATURE_FLAG_HIERARCHY[flag.name as FeatureFlagName]
+                                const depth = getFlagDepth(flag.name as FeatureFlagName)
                                 return (
                                 <TableRow key={flag.id}>
                                     <TableCell className="font-mono text-sm font-semibold">
-                                        {parentName && (
-                                            <span className="mr-1 text-muted-foreground">└─</span>
-                                        )}
-                                        {flag.name}
-                                        {parentName && (
-                                            <Badge variant="outline" className="ml-2 text-xs font-normal">
-                                                {parentName}
-                                            </Badge>
-                                        )}
+                                        <span style={depth > 0 ? { marginLeft: `${depth * 1.5}rem` } : undefined}>
+                                            {depth > 0 && (
+                                                <span className="mr-1 text-muted-foreground">└─</span>
+                                            )}
+                                            {flag.name}
+                                            {parentName && (
+                                                <Badge variant="outline" className="ml-2 text-xs font-normal">
+                                                    {parentName}
+                                                </Badge>
+                                            )}
+                                        </span>
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
                                         {flag.description || '—'}
