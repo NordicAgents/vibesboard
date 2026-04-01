@@ -62,6 +62,60 @@ export async function GET(
   )
 }
 
+async function validateByoaRequest(accountId: string, request: NextRequest) {
+  const result = await findByoaAccountById(accountId)
+  if (!result) {
+    console.error(`[WhatsApp BYOA] No BYOA account found for ID ${accountId}`)
+    return { error: NextResponse.json({ error: 'Account not found' }, { status: 404 }) }
+  }
+
+  const { account, tenantId } = result
+
+  if (!account.metaAppSecret) {
+    console.error(`[WhatsApp BYOA] No app secret stored for account ${accountId}`)
+    return { error: NextResponse.json({ error: 'Configuration error' }, { status: 500 }) }
+  }
+
+  const rawBody = await request.text()
+  const signature = request.headers.get('x-hub-signature-256')
+  const appSecret = decryptToken(account.metaAppSecret)
+
+  if (!signature || !verifyWebhookSignature(rawBody, signature, appSecret)) {
+    console.error(`[WhatsApp BYOA] Invalid webhook signature for account ${accountId}`)
+    return { error: NextResponse.json({ error: 'Invalid signature' }, { status: 403 }) }
+  }
+
+  return { account, tenantId, rawBody }
+}
+
+async function processEntries(
+  entries: any[],
+  account: any,
+  tenantId: string
+) {
+  for (const entry of entries) {
+    const wabaId = entry.id
+
+    for (const change of entry.changes || []) {
+      if (change.field !== 'messages') continue
+
+      const value = change.value
+      const phoneNumberId = value.metadata?.phone_number_id
+
+      if (value.messages?.length > 0) {
+        await processInboundMessagesForAccount(
+          account, tenantId, wabaId, phoneNumberId,
+          value.messages, value.contacts
+        )
+      }
+
+      if (value.statuses?.length > 0) {
+        await processStatusUpdates(value.statuses)
+      }
+    }
+  }
+}
+
 /**
  * POST — Handle inbound messages and status updates for a BYOA account.
  * Verifies the signature using the customer's own App Secret.
@@ -73,70 +127,21 @@ export async function POST(
   const { accountId } = await params
 
   try {
-    // 1. Look up the BYOA account BEFORE reading body
-    const result = await findByoaAccountById(accountId)
-    if (!result) {
-      console.error(`[WhatsApp BYOA] No BYOA account found for ID ${accountId}`)
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 })
-    }
+    const validated = await validateByoaRequest(accountId, request)
+    if ('error' in validated) return validated.error
 
-    const { account, tenantId } = result
-
-    if (!account.metaAppSecret) {
-      console.error(`[WhatsApp BYOA] No app secret stored for account ${accountId}`)
-      return NextResponse.json({ error: 'Configuration error' }, { status: 500 })
-    }
-
-    // 2. Read raw body and verify signature with customer's app secret
-    const rawBody = await request.text()
-    const signature = request.headers.get('x-hub-signature-256')
-    const appSecret = decryptToken(account.metaAppSecret)
-
-    if (!signature || !verifyWebhookSignature(rawBody, signature, appSecret)) {
-      console.error(`[WhatsApp BYOA] Invalid webhook signature for account ${accountId}`)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
-    }
-
-    // 3. Parse and process
+    const { account, tenantId, rawBody } = validated
     const body = JSON.parse(rawBody)
 
     if (body.object !== 'whatsapp_business_account') {
-      return NextResponse.json(
-        { error: 'Invalid object type' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid object type' }, { status: 400 })
     }
 
-    for (const entry of body.entry || []) {
-      const wabaId = entry.id
-
-      for (const change of entry.changes || []) {
-        if (change.field !== 'messages') continue
-
-        const value = change.value
-        const phoneNumberId = value.metadata?.phone_number_id
-
-        if (value.messages && value.messages.length > 0) {
-          await processInboundMessagesForAccount(
-            account,
-            tenantId,
-            wabaId,
-            phoneNumberId,
-            value.messages,
-            value.contacts
-          )
-        }
-
-        if (value.statuses && value.statuses.length > 0) {
-          await processStatusUpdates(value.statuses)
-        }
-      }
-    }
+    await processEntries(body.entry || [], account, tenantId)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error(`[WhatsApp BYOA] Webhook error for account ${accountId}:`, error)
-    // Always return 200 to prevent Meta from retrying
     return NextResponse.json({ success: true })
   }
 }

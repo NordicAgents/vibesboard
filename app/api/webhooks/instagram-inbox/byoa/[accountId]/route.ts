@@ -63,6 +63,56 @@ export async function GET(
   )
 }
 
+async function validateByoaRequest(accountId: string, request: NextRequest) {
+  const result = await findByoaAccountById(accountId)
+  if (!result) {
+    console.error(`[Instagram BYOA] No BYOA account found for ID ${accountId}`)
+    return { error: NextResponse.json({ error: 'Account not found' }, { status: 404 }) }
+  }
+
+  const { account, tenantId } = result
+
+  if (!account.metaAppSecret) {
+    console.error(`[Instagram BYOA] No app secret stored for account ${accountId}`)
+    return { error: NextResponse.json({ error: 'Configuration error' }, { status: 500 }) }
+  }
+
+  const rawBody = await request.text()
+  const signature = request.headers.get('x-hub-signature-256')
+  const appSecret = decryptToken(account.metaAppSecret)
+
+  if (!signature || !verifyWebhookSignature(rawBody, signature, appSecret)) {
+    console.error(`[Instagram BYOA] Invalid webhook signature for account ${accountId}`)
+    return { error: NextResponse.json({ error: 'Invalid signature' }, { status: 403 }) }
+  }
+
+  return { account, tenantId, rawBody }
+}
+
+async function processEntries(
+  entries: any[],
+  account: any,
+  tenantId: string
+) {
+  for (const entry of entries) {
+    const pageId = entry.id
+
+    for (const event of entry.messaging || []) {
+      if (event.message && !event.message.is_echo && !event.message.is_deleted) {
+        await processInboundMessageForAccount(account, tenantId, pageId, event)
+      }
+
+      if (event.delivery) {
+        await processDeliveryUpdate(event)
+      }
+
+      if (event.read) {
+        await processReadUpdate(event)
+      }
+    }
+  }
+}
+
 /**
  * POST — Handle inbound messages and status updates for a BYOA account.
  * Verifies the signature using the customer's own App Secret.
@@ -74,62 +124,21 @@ export async function POST(
   const { accountId } = await params
 
   try {
-    // 1. Look up the BYOA account BEFORE reading body
-    const result = await findByoaAccountById(accountId)
-    if (!result) {
-      console.error(`[Instagram BYOA] No BYOA account found for ID ${accountId}`)
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 })
-    }
+    const validated = await validateByoaRequest(accountId, request)
+    if ('error' in validated) return validated.error
 
-    const { account, tenantId } = result
-
-    if (!account.metaAppSecret) {
-      console.error(`[Instagram BYOA] No app secret stored for account ${accountId}`)
-      return NextResponse.json({ error: 'Configuration error' }, { status: 500 })
-    }
-
-    // 2. Read raw body and verify signature with customer's app secret
-    const rawBody = await request.text()
-    const signature = request.headers.get('x-hub-signature-256')
-    const appSecret = decryptToken(account.metaAppSecret)
-
-    if (!signature || !verifyWebhookSignature(rawBody, signature, appSecret)) {
-      console.error(`[Instagram BYOA] Invalid webhook signature for account ${accountId}`)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
-    }
-
-    // 3. Parse and process
+    const { account, tenantId, rawBody } = validated
     const body = JSON.parse(rawBody)
 
     if (body.object !== 'instagram') {
-      return NextResponse.json(
-        { error: 'Invalid object type' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid object type' }, { status: 400 })
     }
 
-    for (const entry of body.entry || []) {
-      const pageId = entry.id
-
-      for (const event of entry.messaging || []) {
-        if (event.message && !event.message.is_echo && !event.message.is_deleted) {
-          await processInboundMessageForAccount(account, tenantId, pageId, event)
-        }
-
-        if (event.delivery) {
-          await processDeliveryUpdate(event)
-        }
-
-        if (event.read) {
-          await processReadUpdate(event)
-        }
-      }
-    }
+    await processEntries(body.entry || [], account, tenantId)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error(`[Instagram BYOA] Webhook error for account ${accountId}:`, error)
-    // Always return 200 to prevent Meta from retrying
     return NextResponse.json({ success: true })
   }
 }
