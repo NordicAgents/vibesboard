@@ -2,8 +2,10 @@ import 'server-only'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
+import type { TenantBrandingDocument } from '@/lib/firestore-types'
 import { ensureActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
+import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 import {
   hexToHslParts,
   hexToRgbParts,
@@ -34,16 +36,22 @@ export async function getActiveTenantTheme(userId: string): Promise<{
   )
   if (!customBrandingEnabled) return null
 
-  const brandingDoc = await adminDb
-    .collection(Collections.branding(tenantId))
-    .doc(tenantId)
-    .get()
+  const [brandingDoc, baseBranding] = await Promise.all([
+    adminDb
+      .collection(Collections.branding(tenantId))
+      .doc(tenantId)
+      .get(),
+    getBaseBranding()
+  ])
 
-  const branding = brandingDoc.exists ? brandingDoc.data() : null
+  const tenantBranding = brandingDoc.exists
+    ? (brandingDoc.data() as TenantBrandingDocument)
+    : null
 
-  const primaryHex = normalizeHex(branding?.primaryColor ?? '#000000') ?? null
-  const secondaryHex =
-    normalizeHex(branding?.secondaryColor ?? '#ffffff') ?? null
+  const effective = resolveEffectiveBranding(tenantBranding, baseBranding)
+
+  const primaryHex = normalizeHex(effective.primaryColor) ?? null
+  const secondaryHex = normalizeHex(effective.secondaryColor) ?? null
 
   if (!primaryHex || !secondaryHex) return null
 
@@ -53,7 +61,7 @@ export async function getActiveTenantTheme(userId: string): Promise<{
 
   return {
     tenantId,
-    logoUrl: branding?.logoUrl ?? null,
+    logoUrl: effective.logoUrl ?? null,
     cssVars: {
       '--accent-orange': primaryHex,
       '--accent-warm': primaryHex,

@@ -180,6 +180,7 @@ export async function POST(req: Request) {
             tenantId,
             primaryColor: '#000000',
             secondaryColor: '#ffffff',
+            overrides: [],
             createdAt: now,
             updatedAt: now
         }

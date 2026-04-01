@@ -132,12 +132,14 @@ export const onUserCreated = auth.user().onCreate(async (user, _context) => {
   });
 
   // 4. Default branding  /tenants/{tenantId}/branding/{tenantId}
+  //    overrides: [] means fully inherited from platform base branding
   batch.set(
     db.collection(Collections.branding(tenantId)).doc(tenantId),
     {
       tenantId,
       primaryColor: DEFAULT_BRANDING.primaryColor,
       secondaryColor: DEFAULT_BRANDING.secondaryColor,
+      overrides: [],
       createdAt: now,
       updatedAt: now,
     }

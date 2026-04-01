@@ -10,12 +10,16 @@ export const runtime = 'nodejs'
  * GET — List conversations for an inbox account.
  * Query params: ?status=open|resolved|snoozed
  */
+type RouteParams = {
+  params: Promise<{ id: string; accountId: string }>
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 

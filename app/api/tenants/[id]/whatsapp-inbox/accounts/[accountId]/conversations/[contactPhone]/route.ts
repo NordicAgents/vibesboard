@@ -14,14 +14,16 @@ export const runtime = 'nodejs'
 /**
  * GET — Get a single conversation.
  */
+type RouteParams = {
+  params: Promise<{ id: string; accountId: string; contactPhone: string }>
+}
+
 export async function GET(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; accountId: string; contactPhone: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId, contactPhone } = params
+    const { id: tenantId, accountId, contactPhone } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -57,12 +59,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; accountId: string; contactPhone: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId, contactPhone } = params
+    const { id: tenantId, accountId, contactPhone } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 

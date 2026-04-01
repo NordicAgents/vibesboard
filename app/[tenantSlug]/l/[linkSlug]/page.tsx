@@ -6,6 +6,8 @@ import { mapAgentDoc } from '@/lib/agents/db'
 import { isFeatureEnabled } from '@/lib/features'
 import { getAgentLinkBySlug } from '@/lib/agent-links/db'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
+import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
+import type { TenantBrandingDocument } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -52,11 +54,12 @@ export default async function AgentLinkPage({
 
   const agent = mapAgentDoc(agentDoc.data()!)
 
-  // 5. Read Google Review config (same logic as direct agent page)
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
+  // 5. Read Google Review config + branding
+  const [tenantDoc, brandingDoc, baseBranding] = await Promise.all([
+    adminDb.collection(Collections.tenants).doc(tenantId).get(),
+    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
+    getBaseBranding()
+  ])
   const tenantData = tenantDoc.data()
   const googleReviewFeatureEnabled = await isFeatureEnabled(tenantId, 'GOOGLE_REVIEW')
   const googleReviewPlaceId =
@@ -64,12 +67,20 @@ export default async function AgentLinkPage({
       ? (agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null)
       : null
 
+  // Resolve branding (tenant → platform → fallback)
+  const tenantBranding = brandingDoc.exists
+    ? (brandingDoc.data() as TenantBrandingDocument)
+    : null
+  const effectiveBranding = resolveEffectiveBranding(tenantBranding, baseBranding)
+  const logoUrl = effectiveBranding.logoUrl || null
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
       {agent.allowAnonymous ? (
         <PublicAgentExperience
           agent={agent}
           googleReviewPlaceId={googleReviewPlaceId}
+          logoUrl={logoUrl}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center p-6">
