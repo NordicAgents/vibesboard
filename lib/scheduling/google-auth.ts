@@ -20,20 +20,15 @@ function getClientSecret(): string {
   return secret
 }
 
-function getRedirectUri(): string {
-  const uri = process.env.GOOGLE_CALENDAR_REDIRECT_URI
-  if (!uri) throw new Error('GOOGLE_CALENDAR_REDIRECT_URI is not set')
-  return uri
-}
-
 /**
  * Build the Google OAuth consent URL.
  * @param state - opaque state string (JSON-encoded tenantId + redirect info)
+ * @param redirectUri - the callback URL derived from the current request origin
  */
-export function getGoogleAuthUrl(state: string): string {
+export function getGoogleAuthUrl(state: string, redirectUri: string): string {
   const params = new URLSearchParams({
     client_id: getClientId(),
-    redirect_uri: getRedirectUri(),
+    redirect_uri: redirectUri,
     response_type: 'code',
     scope: SCOPES.join(' '),
     access_type: 'offline',
@@ -52,7 +47,7 @@ interface TokenResponse {
 /**
  * Exchange an authorization code for access + refresh tokens.
  */
-export async function exchangeCode(code: string): Promise<TokenResponse> {
+export async function exchangeCode(code: string, redirectUri: string): Promise<TokenResponse> {
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -60,7 +55,7 @@ export async function exchangeCode(code: string): Promise<TokenResponse> {
       code,
       client_id: getClientId(),
       client_secret: getClientSecret(),
-      redirect_uri: getRedirectUri(),
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code'
     })
   })
