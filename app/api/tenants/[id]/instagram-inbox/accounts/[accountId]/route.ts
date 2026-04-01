@@ -7,6 +7,7 @@ import { getAgentForMember } from '@/lib/agents/server'
 import {
   getInboxAccount,
   disconnectInboxAccount,
+  deleteInboxAccount,
 } from '@/lib/instagram-inbox/accounts'
 
 export const runtime = 'nodejs'
@@ -75,12 +76,27 @@ export async function DELETE(
       )
     }
 
-    await disconnectInboxAccount(tenantId, accountId)
+    const account = await getInboxAccount(tenantId, accountId)
+    if (!account) {
+      return NextResponse.json(
+        { error: 'Account not found' },
+        { status: 404 }
+      )
+    }
+
+    if (account.status === 'disconnected') {
+      // Already disconnected — permanently delete the record
+      await deleteInboxAccount(tenantId, accountId)
+    } else {
+      // Active account — soft-delete (disconnect)
+      await disconnectInboxAccount(tenantId, accountId)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Disconnect Instagram inbox account error:', error)
+    console.error('Delete/disconnect Instagram inbox account error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to disconnect account' },
+      { error: error.message || 'Failed to remove account' },
       { status: 500 }
     )
   }

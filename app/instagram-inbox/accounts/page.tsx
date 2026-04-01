@@ -40,6 +40,8 @@ export default function InstagramInboxAccountsPage() {
   const [loading, setLoading] = useState(true)
   const [disconnectId, setDisconnectId] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
 
   const fetchAccounts = useCallback(async () => {
@@ -91,6 +93,28 @@ export default function InstagramInboxAccountsPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!deleteId || !tenantId) return
+    setDeleting(true)
+    try {
+      const res = await fetch(
+        `/api/tenants/${tenantId}/instagram-inbox/accounts/${deleteId}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to delete')
+      }
+      toast.success('Account deleted')
+      fetchAccounts()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setDeleting(false)
+      setDeleteId(null)
+    }
+  }
+
   const columns = [
     {
       key: 'instagramUsername',
@@ -137,7 +161,11 @@ export default function InstagramInboxAccountsPage() {
           size="icon"
           onClick={(e) => {
             e.stopPropagation()
-            setDisconnectId(account.id)
+            if (account.status === 'disconnected') {
+              setDeleteId(account.id)
+            } else {
+              setDisconnectId(account.id)
+            }
           }}
           className="text-muted-foreground hover:text-red-600"
         >
@@ -225,6 +253,31 @@ export default function InstagramInboxAccountsPage() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={!!deleteId}
+          onOpenChange={() => setDeleteId(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove this account from your workspace.
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
