@@ -123,5 +123,5 @@ export const agentAskRequestSchema = z.object({
   // Allow any non-empty question; frontend already trims/blocks empty input
   question: z.string().min(1).max(2_000),
   contextConversationId: z.string().min(1).optional(),
-  sessionId: z.string().uuid().optional()
+  sessionId: z.string().min(1).optional()
 })
