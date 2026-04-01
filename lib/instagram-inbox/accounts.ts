@@ -263,10 +263,24 @@ export async function connectOAuthAccount(
 
   const pageToken = selectedPage.access_token
 
-  // 5. Subscribe page to webhooks
+  // 5. Get the Facebook app-scoped user ID (needed for Meta data deletion callback)
+  let metaUserId: string | undefined
+  try {
+    const meResponse = await fetch(`${META_GRAPH_API}/me?fields=id`, {
+      headers: { Authorization: `Bearer ${longLivedToken}` },
+    })
+    if (meResponse.ok) {
+      const meData = await meResponse.json()
+      metaUserId = meData.id
+    }
+  } catch {
+    // Non-critical — continue without storing Meta user ID
+  }
+
+  // 6. Subscribe page to webhooks
   await subscribeToWebhooks(selectedPage.id, pageToken)
 
-  // 6. Check for duplicate Instagram account
+  // 7. Check for duplicate Instagram account
   const collRef = adminDb.collection(
     Collections.instagramInboxAccounts(params.tenantId)
   )
@@ -282,7 +296,7 @@ export async function connectOAuthAccount(
     )
   }
 
-  // 7. Encrypt token and store
+  // 8. Encrypt token and store
   const now = new Date().toISOString()
   const docRef = collRef.doc()
   const account: InstagramInboxAccountDocument = {
@@ -298,6 +312,7 @@ export async function connectOAuthAccount(
     connectedBy: params.userId,
     connectedAt: now,
     connectionMethod: 'oauth',
+    metaUserId,
     webhookSubscribed: true,
     createdAt: now,
     updatedAt: now,
@@ -440,6 +455,47 @@ export async function disconnectInboxAccount(
       status: 'disconnected',
       updatedAt: new Date().toISOString(),
     })
+}
+
+/**
+ * Permanently delete an inbox account and all its subcollections from Firestore.
+ * Should only be used on already-disconnected accounts.
+ */
+export async function deleteInboxAccount(
+  tenantId: string,
+  accountId: string
+): Promise<void> {
+  const BATCH_SIZE = 500
+
+  // Delete all conversations and their messages
+  const conversationsSnap = await adminDb
+    .collection(
+      `tenants/${tenantId}/instagram_inbox_accounts/${accountId}/conversations`
+    )
+    .get()
+
+  for (const convDoc of conversationsSnap.docs) {
+    const messagesSnap = await adminDb
+      .collection(
+        `tenants/${tenantId}/instagram_inbox_accounts/${accountId}/conversations/${convDoc.id}/messages`
+      )
+      .get()
+
+    for (let i = 0; i < messagesSnap.docs.length; i += BATCH_SIZE) {
+      const chunk = messagesSnap.docs.slice(i, i + BATCH_SIZE)
+      const batch = adminDb.batch()
+      chunk.forEach((msgDoc) => batch.delete(msgDoc.ref))
+      await batch.commit()
+    }
+
+    await convDoc.ref.delete()
+  }
+
+  // Delete the account document
+  await adminDb
+    .collection(Collections.instagramInboxAccounts(tenantId))
+    .doc(accountId)
+    .delete()
 }
 
 /**
