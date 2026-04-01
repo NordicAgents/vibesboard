@@ -362,8 +362,8 @@ export async function connectApiKeyAccount(
         const pageToken = await getPageAccessToken(pageId, accessToken)
         await subscribeToWebhooks(pageId, pageToken)
         webhookSubscribed = true
-      } catch {
-        console.warn('Webhook subscription failed after token exchange:', err.message)
+      } catch (retryErr: any) {
+        console.warn('Webhook subscription failed after token exchange:', retryErr.message)
       }
     } else {
       console.warn('Webhook subscription failed:', err.message)
