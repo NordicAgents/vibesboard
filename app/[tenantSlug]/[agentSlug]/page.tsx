@@ -5,6 +5,8 @@ import { Collections } from '@/lib/firestore-types'
 import { mapAgentDoc } from '@/lib/agents/db'
 import { isFeatureEnabled } from '@/lib/features'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
+import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
+import type { TenantBrandingDocument } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -41,16 +43,24 @@ export default async function PublicAgentPage({
   const agent = mapAgentDoc(agentSnapshot.docs[0].data())
 
   // Read Google Review config: feature flag (tenant gate) + agent-level toggle
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
+  const [tenantDoc, brandingDoc, baseBranding] = await Promise.all([
+    adminDb.collection(Collections.tenants).doc(tenantId).get(),
+    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
+    getBaseBranding()
+  ])
   const tenantData = tenantDoc.data()
   const googleReviewFeatureEnabled = await isFeatureEnabled(tenantId, 'GOOGLE_REVIEW')
   const googleReviewPlaceId =
     googleReviewFeatureEnabled && agent.googleReviewEnabled
       ? (agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null)
       : null
+
+  // Resolve branding (tenant → platform → fallback)
+  const tenantBranding = brandingDoc.exists
+    ? (brandingDoc.data() as TenantBrandingDocument)
+    : null
+  const effectiveBranding = resolveEffectiveBranding(tenantBranding, baseBranding)
+  const logoUrl = effectiveBranding.logoUrl || null
 
   // fixed inset-0: anchors to viewport, bypassing the parent min-height chain.
   // This ensures the scroll area is constrained and the input always stays visible.
@@ -60,6 +70,7 @@ export default async function PublicAgentPage({
         <PublicAgentExperience
           agent={agent}
           googleReviewPlaceId={googleReviewPlaceId}
+          logoUrl={logoUrl}
         />
       ) : (
         <div className="flex flex-1 items-center justify-center p-6">

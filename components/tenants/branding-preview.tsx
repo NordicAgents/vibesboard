@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -26,14 +25,13 @@ export function BrandingPreview({
                 {/* Logo Preview */}
                 {logoUrl && (
                     <div className="flex items-center justify-center rounded-lg border p-4">
-                        <div className="relative h-12 w-32">
-                            <Image
-                                src={logoUrl}
-                                alt={`${tenantName} logo`}
-                                fill
-                                className="object-contain"
-                            />
-                        </div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={logoUrl}
+                            alt={`${tenantName} logo`}
+                            className="h-12 w-auto object-contain"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        />
                     </div>
                 )}
 

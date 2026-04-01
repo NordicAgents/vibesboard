@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, Flag, FileText, CreditCard, ArrowRight } from 'lucide-react'
+import { Building2, Flag, FileText, CreditCard, Palette, ArrowRight } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -15,6 +15,13 @@ const adminCards = [
     title: 'Tenants',
     description: 'Manage organizations and their settings',
     detail: 'View and configure tenant accounts'
+  },
+  {
+    href: '/admin/branding',
+    icon: Palette,
+    title: 'Branding',
+    description: 'Set platform-wide default branding',
+    detail: 'Configure base logo and colors inherited by all tenants'
   },
   {
     href: '/admin/feature-flags',
