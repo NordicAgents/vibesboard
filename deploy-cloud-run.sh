@@ -158,7 +158,8 @@ STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest,\
 GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest,\
 GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest,\
 GOOGLE_CALENDAR_REDIRECT_URI=google-calendar-redirect-uri:latest,\
-GOOGLE_SHEETS_REDIRECT_URI=google-sheets-redirect-uri:latest"
+GOOGLE_SHEETS_REDIRECT_URI=google-sheets-redirect-uri:latest,\
+GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
 echo ""

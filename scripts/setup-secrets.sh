@@ -116,6 +116,11 @@ upsert_secret "google-calendar-redirect-uri"  "GOOGLE_CALENDAR_REDIRECT_URI"
 upsert_secret "google-sheets-redirect-uri"    "GOOGLE_SHEETS_REDIRECT_URI"
 echo ""
 
+# Google Cross-Account Protection (RISC)
+echo "--- Google RISC ---"
+upsert_secret "google-oauth-client-id"        "GOOGLE_OAUTH_CLIENT_ID"
+echo ""
+
 echo "=== Secrets Setup Complete ==="
 echo ""
 echo "Verify with: gcloud secrets list --project=${PROJECT_ID}"
