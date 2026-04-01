@@ -17,6 +17,7 @@ interface TenantFeatureStatus {
     isOverridden: boolean
     parentFlagName: string | null
     isDisabledByParent: boolean
+    depth: number
 }
 
 export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
@@ -63,21 +64,36 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
                 throw new Error(data.error || 'Failed to toggle feature')
             }
 
-            // Optimistically update UI
+            // Optimistically update UI — cascade through all descendants
             setFeatures((prev) => {
                 const toggled = prev.find((f) => f.id === featureId)
                 if (!toggled) return prev
+
+                // Collect all descendant names recursively
+                const getDescendantNames = (parentName: string): Set<string> => {
+                    const names = new Set<string>()
+                    for (const f of prev) {
+                        if (f.parentFlagName === parentName) {
+                            names.add(f.name)
+                            for (const n of getDescendantNames(f.name)) {
+                                names.add(n)
+                            }
+                        }
+                    }
+                    return names
+                }
+                const descendants = getDescendantNames(toggled.name)
 
                 return prev.map((f) => {
                     // Update the toggled feature
                     if (f.id === featureId) {
                         return { ...f, isEnabled: enabled, isOverridden: true }
                     }
-                    // If toggling a parent OFF, cascade disable to children
-                    if (!enabled && f.parentFlagName === toggled.name) {
+                    // If toggling OFF, cascade disable to all descendants
+                    if (!enabled && descendants.has(f.name)) {
                         return { ...f, isDisabledByParent: true }
                     }
-                    // If toggling a parent ON, un-cascade children
+                    // If toggling ON, un-cascade direct children only
                     if (enabled && f.parentFlagName === toggled.name) {
                         return { ...f, isDisabledByParent: false }
                     }
@@ -131,7 +147,7 @@ export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
                             description={feature.description}
                             isEnabled={feature.isEnabled}
                             isOverridden={feature.isOverridden}
-                            isChild={!!feature.parentFlagName}
+                            depth={feature.depth}
                             isDisabledByParent={feature.isDisabledByParent}
                             parentFlagName={feature.parentFlagName}
                             onToggle={async (id, enabled) => await handleToggle(id, enabled)}

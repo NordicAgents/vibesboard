@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findAccountByWabaId } from '@/lib/whatsapp-inbox/accounts'
-import { storeInboundMessage, updateMessageStatus } from '@/lib/whatsapp-inbox/messages'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
-import { triggerInboxAgent } from '@/lib/inbox-agent'
-import type { MetaWebhookMessage, MetaWebhookContact } from '@/lib/whatsapp-inbox/types'
+import {
+  processInboundMessages,
+  processStatusUpdates,
+} from '@/lib/whatsapp-inbox/webhook-handlers'
 
 export const runtime = 'nodejs'
 
@@ -88,91 +88,5 @@ export async function POST(request: NextRequest) {
     console.error('[WhatsApp Inbox] Webhook error:', error)
     // Always return 200 to prevent Meta from retrying
     return NextResponse.json({ success: true })
-  }
-}
-
-/**
- * Process inbound messages: find tenant by WABA ID, store messages.
- */
-async function processInboundMessages(
-  wabaId: string,
-  phoneNumberId: string,
-  messages: MetaWebhookMessage[],
-  contacts?: MetaWebhookContact[]
-) {
-  const result = await findAccountByWabaId(wabaId)
-  if (!result) {
-    console.warn(
-      `[WhatsApp Inbox] No active account found for WABA ${wabaId}`
-    )
-    return
-  }
-
-  const { account, tenantId } = result
-
-  for (const message of messages) {
-    try {
-      const contact = contacts?.find((c) => c.wa_id === message.from)
-
-      await storeInboundMessage({
-        tenantId,
-        accountId: account.id,
-        wabaId,
-        phoneNumberId,
-        message,
-        contact,
-      })
-
-      // Fire-and-forget: trigger agent if assigned
-      const messageText = message.type === 'text'
-        ? message.text?.body
-        : message.image?.caption || message.video?.caption || message.document?.caption
-      if (messageText) {
-        triggerInboxAgent({
-          channel: 'whatsapp',
-          tenantId,
-          accountId: account.id,
-          contactId: message.from.replace(/\D/g, ''),
-          contactName: contact?.profile?.name,
-          messageText,
-          windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        }).catch((err) => {
-          console.error('[WhatsApp Inbox] Agent handler error:', err)
-        })
-      }
-    } catch (err) {
-      console.error(
-        `[WhatsApp Inbox] Failed to store message ${message.id}:`,
-        err
-      )
-    }
-  }
-}
-
-/**
- * Process message status updates (delivered, read, failed).
- */
-async function processStatusUpdates(statuses: any[]) {
-  for (const status of statuses) {
-    try {
-      const messageId = status.id
-      const statusType = status.status as string
-      const timestamp = status.timestamp
-        ? new Date(parseInt(status.timestamp) * 1000).toISOString()
-        : undefined
-
-      if (['sent', 'delivered', 'read', 'failed'].includes(statusType)) {
-        await updateMessageStatus(
-          messageId,
-          statusType as any,
-          timestamp
-        )
-      }
-    } catch (err) {
-      console.error(
-        `[WhatsApp Inbox] Failed to update status for ${status.id}:`,
-        err
-      )
-    }
   }
 }

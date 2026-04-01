@@ -1,6 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
-import { type FeatureFlagName, getParentFlag } from '@/lib/feature-flags'
+import { type FeatureFlagName, getParentFlag, getFlagDepth, getRootAncestor } from '@/lib/feature-flags'
 
 export interface TenantFeatureStatus {
   id: string
@@ -10,6 +10,7 @@ export interface TenantFeatureStatus {
   isOverridden: boolean
   parentFlagName: string | null
   isDisabledByParent: boolean
+  depth: number
 }
 
 /**
@@ -133,6 +134,7 @@ export async function getTenantFeatures(
       isOverridden: override !== undefined,
       parentFlagName: parentFlagName,
       isDisabledByParent: false, // computed in second pass
+      depth: getFlagDepth(flag.name as FeatureFlagName),
     }
   })
 
@@ -143,28 +145,28 @@ export async function getTenantFeatures(
   }
 
   // Second pass: compute isDisabledByParent and effective isEnabled
-  for (const f of features) {
+  // Process by depth (shallowest first) so parent state propagates correctly
+  const byDepth = [...features].sort((a, b) => a.depth - b.depth)
+  for (const f of byDepth) {
     if (f.parentFlagName) {
       const parentEnabled = enabledByName.get(f.parentFlagName) ?? false
       if (!parentEnabled) {
         f.isDisabledByParent = true
         f.isEnabled = false
+        enabledByName.set(f.name, false) // propagate to grandchildren
       }
     }
   }
 
-  // Sort: parents before children, then alphabetical
+  // Sort: group by root ancestor, then depth, then alphabetical
   features.sort((a, b) => {
-    // If a is parent of b, a comes first
-    if (b.parentFlagName === a.name) return -1
-    if (a.parentFlagName === b.name) return 1
-    // Group children with their parent
-    const aGroup = a.parentFlagName ?? a.name
-    const bGroup = b.parentFlagName ?? b.name
-    if (aGroup !== bGroup) return aGroup.localeCompare(bGroup)
-    // Parent before child within same group
-    if (a.parentFlagName && !b.parentFlagName) return 1
-    if (!a.parentFlagName && b.parentFlagName) return -1
+    const aRoot = getRootAncestor(a.name as FeatureFlagName)
+    const bRoot = getRootAncestor(b.name as FeatureFlagName)
+    // Different root groups → alphabetical by root
+    if (aRoot !== bRoot) return aRoot.localeCompare(bRoot)
+    // Same root group → depth ascending (parents first)
+    if (a.depth !== b.depth) return a.depth - b.depth
+    // Same depth → alphabetical
     return a.name.localeCompare(b.name)
   })
 

@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { FEATURE_FLAG_NAMES, FEATURE_FLAG_HIERARCHY } from '@/lib/feature-flags'
+import { FEATURE_FLAG_NAMES, FEATURE_FLAG_HIERARCHY, getChildFlags, getAllDescendants, getParentFlag } from '@/lib/feature-flags'
 import type { FeatureFlagName } from '@/lib/feature-flags'
 import toast from 'react-hot-toast'
 
@@ -36,19 +36,23 @@ interface EditPlanDialogProps {
   onSuccess: () => void
 }
 
-/** Group flags: parent flags first, then their children indented */
-function getGroupedFlags(): { name: FeatureFlagName; isChild: boolean; parent?: FeatureFlagName }[] {
-  const result: { name: FeatureFlagName; isChild: boolean; parent?: FeatureFlagName }[] = []
+/** Group flags recursively: parents first, then children, then grandchildren */
+function getGroupedFlags(): { name: FeatureFlagName; depth: number; parent?: FeatureFlagName }[] {
+  const result: { name: FeatureFlagName; depth: number; parent?: FeatureFlagName }[] = []
   const children = new Set(Object.keys(FEATURE_FLAG_HIERARCHY) as FeatureFlagName[])
 
+  function addFlagAndChildren(flag: FeatureFlagName, depth: number) {
+    const parent = FEATURE_FLAG_HIERARCHY[flag]
+    result.push({ name: flag, depth, parent })
+    const flagChildren = getChildFlags(flag)
+    for (const child of flagChildren) {
+      addFlagAndChildren(child, depth + 1)
+    }
+  }
+
   for (const flag of FEATURE_FLAG_NAMES) {
-    if (children.has(flag)) continue // skip children for now, add after parent
-    result.push({ name: flag, isChild: false })
-    // Add children of this flag immediately after
-    for (const [child, parent] of Object.entries(FEATURE_FLAG_HIERARCHY) as [FeatureFlagName, FeatureFlagName][]) {
-      if (parent === flag) {
-        result.push({ name: child, isChild: true, parent })
-      }
+    if (!children.has(flag)) {
+      addFlagAndChildren(flag, 0)
     }
   }
 
@@ -96,17 +100,17 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
       let flags = [...prev.featureFlags]
       if (enabled) {
         if (!flags.includes(flagName)) flags.push(flagName)
-        // If enabling a child, also enable parent
-        const parent = FEATURE_FLAG_HIERARCHY[flagName as FeatureFlagName]
-        if (parent && !flags.includes(parent)) flags.push(parent)
+        // Enable all ancestors up the chain
+        let current: FeatureFlagName | null = getParentFlag(flagName as FeatureFlagName)
+        while (current) {
+          if (!flags.includes(current)) flags.push(current)
+          current = getParentFlag(current)
+        }
       } else {
         flags = flags.filter(f => f !== flagName)
-        // If disabling a parent, also disable children
-        for (const [child, parent] of Object.entries(FEATURE_FLAG_HIERARCHY)) {
-          if (parent === flagName) {
-            flags = flags.filter(f => f !== child)
-          }
-        }
+        // Disable all descendants recursively
+        const descendants = getAllDescendants(flagName as FeatureFlagName)
+        flags = flags.filter(f => !descendants.includes(f as FeatureFlagName))
       }
       return { ...prev, featureFlags: flags }
     })
@@ -342,17 +346,15 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
               </span>
             </div>
             <div className="space-y-2 rounded-lg border p-3">
-              {groupedFlags.map(({ name, isChild }) => {
+              {groupedFlags.map(({ name, depth }) => {
                 const isEnabled = form.featureFlags.includes(name)
-                const parentDisabled = isChild && !form.featureFlags.includes(
-                  FEATURE_FLAG_HIERARCHY[name]!
-                )
+                const parent = FEATURE_FLAG_HIERARCHY[name]
+                const parentDisabled = depth > 0 && parent && !form.featureFlags.includes(parent)
                 return (
                   <div
                     key={name}
-                    className={`flex items-center justify-between rounded-md px-2 py-1.5 ${
-                      isChild ? 'ml-6' : ''
-                    }`}
+                    className="flex items-center justify-between rounded-md px-2 py-1.5"
+                    style={depth > 0 ? { marginLeft: `${depth * 1.5}rem` } : undefined}
                   >
                     <label
                       htmlFor={`flag-${name}`}
@@ -360,14 +362,14 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                         parentDisabled ? 'text-muted-foreground' : ''
                       }`}
                     >
-                      {isChild && <span className="mr-1 text-muted-foreground">└</span>}
+                      {depth > 0 && <span className="mr-1 text-muted-foreground">└</span>}
                       {name}
                     </label>
                     <Switch
                       id={`flag-${name}`}
                       checked={isEnabled}
                       onCheckedChange={(checked) => toggleFlag(name, checked)}
-                      disabled={isSaving || parentDisabled}
+                      disabled={isSaving || !!parentDisabled}
                     />
                   </div>
                 )

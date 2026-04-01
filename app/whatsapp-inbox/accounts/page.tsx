@@ -19,7 +19,9 @@ import {
 import { FacebookSDKProvider } from '@/components/whatsapp-inbox/facebook-sdk-provider'
 import { ConnectWhatsAppButton } from '@/components/whatsapp-inbox/connect-whatsapp-button'
 import { ConnectApiKeyDialog } from '@/components/whatsapp-inbox/connect-api-key-dialog'
-import { MessageSquare, Trash2, Key } from 'lucide-react'
+import { ConnectByoaDialog } from '@/components/whatsapp-inbox/connect-byoa-dialog'
+import { useTenantFeatures } from '@/hooks/use-tenant-features'
+import { MessageSquare, Trash2, Key, Building2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface InboxAccount {
@@ -32,6 +34,7 @@ interface InboxAccount {
   status: string
   connectedAt: string
   webhookSubscribed: boolean
+  connectionMethod?: 'oauth' | 'api_key' | 'byoa'
 }
 
 export default function WhatsAppInboxAccountsPage() {
@@ -41,6 +44,8 @@ export default function WhatsAppInboxAccountsPage() {
   const [disconnectId, setDisconnectId] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState(false)
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false)
+  const [byoaDialogOpen, setByoaDialogOpen] = useState(false)
+  const { isEnabled, loading: featuresLoading } = useTenantFeatures(tenantId)
 
   const fetchAccounts = useCallback(async () => {
     if (!tenantId) return
@@ -106,6 +111,15 @@ export default function WhatsAppInboxAccountsPage() {
       ),
     },
     {
+      key: 'connectionMethod',
+      label: 'Method',
+      render: (account: InboxAccount) => {
+        const method = account.connectionMethod || 'oauth'
+        const labels: Record<string, string> = { oauth: 'OAuth', api_key: 'API Key', byoa: 'BYOA' }
+        return <Badge variant="secondary">{labels[method] || method}</Badge>
+      },
+    },
+    {
       key: 'status',
       label: 'Status',
       render: (account: InboxAccount) => (
@@ -152,19 +166,32 @@ export default function WhatsAppInboxAccountsPage() {
           title="WhatsApp Accounts"
           description="Connect your WhatsApp Business Account via Meta to manage conversations."
           actions={
-            tenantId ? (
+            tenantId && !featuresLoading ? (
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setApiKeyDialogOpen(true)}
-                >
-                  <Key className="mr-2 size-4" />
-                  Connect via API Key
-                </Button>
-                <ConnectWhatsAppButton
-                  tenantId={tenantId}
-                  onSuccess={fetchAccounts}
-                />
+                {isEnabled('WHATSAPP_INBOX_BYOA') && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setByoaDialogOpen(true)}
+                  >
+                    <Building2 className="mr-2 size-4" />
+                    Connect via BYOA
+                  </Button>
+                )}
+                {isEnabled('WHATSAPP_INBOX_API_KEY') && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setApiKeyDialogOpen(true)}
+                  >
+                    <Key className="mr-2 size-4" />
+                    Connect via API Key
+                  </Button>
+                )}
+                {isEnabled('WHATSAPP_INBOX_OAUTH') && (
+                  <ConnectWhatsAppButton
+                    tenantId={tenantId}
+                    onSuccess={fetchAccounts}
+                  />
+                )}
               </div>
             ) : undefined
           }
@@ -176,19 +203,32 @@ export default function WhatsAppInboxAccountsPage() {
             title="No accounts connected"
             description="Connect your WhatsApp Business Account to start receiving and replying to customer messages."
             action={
-              tenantId ? (
+              tenantId && !featuresLoading ? (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setApiKeyDialogOpen(true)}
-                  >
-                    <Key className="mr-2 size-4" />
-                    Connect via API Key
-                  </Button>
-                  <ConnectWhatsAppButton
-                    tenantId={tenantId}
-                    onSuccess={fetchAccounts}
-                  />
+                  {isEnabled('WHATSAPP_INBOX_BYOA') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setByoaDialogOpen(true)}
+                    >
+                      <Building2 className="mr-2 size-4" />
+                      Connect via BYOA
+                    </Button>
+                  )}
+                  {isEnabled('WHATSAPP_INBOX_API_KEY') && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setApiKeyDialogOpen(true)}
+                    >
+                      <Key className="mr-2 size-4" />
+                      Connect via API Key
+                    </Button>
+                  )}
+                  {isEnabled('WHATSAPP_INBOX_OAUTH') && (
+                    <ConnectWhatsAppButton
+                      tenantId={tenantId}
+                      onSuccess={fetchAccounts}
+                    />
+                  )}
                 </div>
               ) : undefined
             }
@@ -232,6 +272,12 @@ export default function WhatsAppInboxAccountsPage() {
       <ConnectApiKeyDialog
         open={apiKeyDialogOpen}
         onOpenChange={setApiKeyDialogOpen}
+        onSuccess={fetchAccounts}
+      />
+
+      <ConnectByoaDialog
+        open={byoaDialogOpen}
+        onOpenChange={setByoaDialogOpen}
         onSuccess={fetchAccounts}
       />
     </FacebookSDKProvider>
