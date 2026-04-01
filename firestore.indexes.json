@@ -108,13 +108,6 @@
     },
     {
       "collectionGroup": "messages",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "messages",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "waMessageId", "order": "ASCENDING" },
