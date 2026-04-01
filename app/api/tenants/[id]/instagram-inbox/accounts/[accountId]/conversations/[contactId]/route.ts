@@ -13,17 +13,19 @@ import type { InboxConversationStatus } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
+type RouteParams = {
+  params: Promise<{ id: string; accountId: string; contactId: string }>
+}
+
 /**
  * GET — Get a single conversation.
  */
 export async function GET(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; accountId: string; contactId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId, contactId } = params
+    const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -59,12 +61,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; accountId: string; contactId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId, contactId } = params
+    const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
