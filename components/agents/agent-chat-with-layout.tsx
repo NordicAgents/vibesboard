@@ -463,7 +463,6 @@ export function AgentChatWithLayout({
                 setViewMode('advanced')
                 router.push(`/agents/${agent.id}?tab=setup`)
               }}
-              onSwitchToChat={() => agentPageShell?.setIsSidebarOpen(false)}
             />
           </div>
         ) : (
