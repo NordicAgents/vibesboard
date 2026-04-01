@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { requireTenantMember, requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
+import type { TenantBrandingDocument } from '@/lib/firestore-types'
 import { getTenantFeatures } from '@/lib/features'
+import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'
 
@@ -42,13 +44,20 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
 
-    // Get branding
-    const brandingDoc = await adminDb
-        .collection(Collections.branding(tenantId))
-        .doc(tenantId)
-        .get()
+    // Get branding with base branding inheritance
+    const [brandingDoc, baseBranding] = await Promise.all([
+        adminDb
+            .collection(Collections.branding(tenantId))
+            .doc(tenantId)
+            .get(),
+        getBaseBranding()
+    ])
 
-    const branding = brandingDoc.exists ? brandingDoc.data() : null
+    const tenantBranding = brandingDoc.exists
+        ? (brandingDoc.data() as TenantBrandingDocument)
+        : null
+
+    const effectiveBranding = resolveEffectiveBranding(tenantBranding, baseBranding)
 
     // Get features
     const features = await getTenantFeatures(tenantId)
@@ -56,10 +65,12 @@ export async function GET(req: Request, { params }: RouteParams) {
     return NextResponse.json({
         tenant: {
             ...tenant,
-            branding,
+            branding: effectiveBranding,
             features
         },
-        branding,
+        branding: effectiveBranding,
+        baseBranding,
+        overrides: tenantBranding?.overrides ?? null,
         features
     })
 }
