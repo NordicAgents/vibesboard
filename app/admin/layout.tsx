@@ -4,14 +4,15 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { isSuperAdmin } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
-import { Building2, Flag, FileText, CreditCard, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { Building2, Flag, FileText, CreditCard, Palette, ShieldCheck, ArrowLeft } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { AdminMobileSidebar, type NavItem } from './admin-mobile-sidebar'
 
-const iconMap: Record<string, LucideIcon> = { Building2, Flag, FileText, CreditCard }
+const iconMap: Record<string, LucideIcon> = { Building2, Flag, FileText, CreditCard, Palette }
 
 const navItems: NavItem[] = [
   { href: '/admin/tenants', iconName: 'Building2', label: 'Tenants' },
+  { href: '/admin/branding', iconName: 'Palette', label: 'Branding' },
   { href: '/admin/feature-flags', iconName: 'Flag', label: 'Feature Flags' },
   { href: '/admin/plans', iconName: 'CreditCard', label: 'Plans' },
   { href: '/admin/files', iconName: 'FileText', label: 'File Processing' }

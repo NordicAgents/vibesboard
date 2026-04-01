@@ -11,11 +11,12 @@ export interface ChatListProps {
   isLoading?: boolean
   agentAvatarGradient?: string
   agentAvatarInitial?: string
+  agentLogoUrl?: string | null
   handoffIndicatorPrefix?: string
 }
 
 // Typing indicator — warm dots, aligned with AI avatar column
-function TypingIndicator() {
+function TypingIndicator({ logoUrl }: { logoUrl?: string | null }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -27,7 +28,7 @@ function TypingIndicator() {
       {/* Avatar placeholder to align with AI messages */}
       <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
+        <img src={logoUrl || '/logo_1.png'} alt="agent" className="size-5 object-contain" onError={(e) => { e.currentTarget.src = '/logo_1.png' }} />
       </div>
       {/* Dots */}
       <div className="flex items-center gap-1.5 py-1">
@@ -54,6 +55,7 @@ export function ChatList({
   isLoading,
   agentAvatarGradient,
   agentAvatarInitial,
+  agentLogoUrl,
   handoffIndicatorPrefix = '__handoff_indicator__'
 }: ChatListProps) {
   if (!messages.length) {
@@ -101,6 +103,7 @@ export function ChatList({
                 message={message}
                 agentAvatarGradient={agentAvatarGradient}
                 agentAvatarInitial={agentAvatarInitial}
+                agentLogoUrl={agentLogoUrl}
                 isLastMessage={index === messages.length - 1}
               />
             </motion.div>
@@ -108,7 +111,7 @@ export function ChatList({
         })}
 
         {/* Typing indicator */}
-        {isLoading && <TypingIndicator key="typing" />}
+        {isLoading && <TypingIndicator key="typing" logoUrl={agentLogoUrl} />}
       </AnimatePresence>
     </div>
   )

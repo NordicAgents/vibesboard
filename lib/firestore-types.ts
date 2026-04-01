@@ -265,8 +265,22 @@ export interface TenantBrandingDocument {
   logoUrl?: string
   primaryColor: string
   secondaryColor: string
+  /** Tracks which fields the tenant has explicitly customized.
+   *  Missing = legacy (treat as fully overridden). Empty = fully inherited. */
+  overrides?: BrandingField[]
   createdAt: string
   updatedAt: string
+}
+
+export type BrandingField = 'logoUrl' | 'primaryColor' | 'secondaryColor'
+
+/** /platform_config/branding — singleton */
+export interface PlatformBrandingDocument {
+  logoUrl?: string
+  primaryColor: string
+  secondaryColor: string
+  updatedAt: string
+  updatedBy: string
 }
 
 /** /tenants/{tenantId}/members/{userId} */
@@ -753,6 +767,7 @@ export const Collections = {
   invitations: 'invitations',
   chats: 'chats',
   planTemplates: 'plan_templates',
+  platformConfig: 'platform_config',
 
   // Tenant-scoped
   agentLinks: (tenantId: string) =>
