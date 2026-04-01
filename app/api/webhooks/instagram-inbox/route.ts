@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { findAccountByPageId } from '@/lib/instagram-inbox/accounts'
 import { storeInboundMessage, updateMessageStatus } from '@/lib/instagram-inbox/messages'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
+import { triggerInboxAgent } from '@/lib/inbox-agent'
 import type { InstagramWebhookMessage, InstagramSenderInfo } from '@/lib/instagram-inbox/types'
 
 export const runtime = 'nodejs'
@@ -139,6 +140,21 @@ async function processInboundMessage(pageId: string, event: any) {
       message,
       sender,
     })
+
+    // Fire-and-forget: trigger agent if assigned
+    const messageText = message.text || ''
+    if (messageText) {
+      triggerInboxAgent({
+        channel: 'instagram',
+        tenantId,
+        accountId: account.id,
+        contactId: senderIgsid,
+        messageText,
+        windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      }).catch((err) => {
+        console.error('[Instagram Inbox] Agent handler error:', err)
+      })
+    }
   } catch (err) {
     console.error(
       `[Instagram Inbox] Failed to store message ${event.message?.mid}:`,
