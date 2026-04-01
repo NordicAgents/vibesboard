@@ -112,8 +112,6 @@ echo ""
 echo "--- Google OAuth ---"
 upsert_secret "google-calendar-client-id"     "GOOGLE_CALENDAR_CLIENT_ID"
 upsert_secret "google-calendar-client-secret" "GOOGLE_CALENDAR_CLIENT_SECRET"
-upsert_secret "google-calendar-redirect-uri"  "GOOGLE_CALENDAR_REDIRECT_URI"
-upsert_secret "google-sheets-redirect-uri"    "GOOGLE_SHEETS_REDIRECT_URI"
 echo ""
 
 # Google Cross-Account Protection (RISC)

@@ -80,8 +80,11 @@ export async function GET(req: Request) {
   }
 
   try {
+    // Build the same redirect URI that was used in the auth initiation
+    const redirectUri = `${appOrigin}/api/data/auth/google-sheets/callback`
+
     // Exchange code for tokens
-    const tokens = await exchangeCode(code)
+    const tokens = await exchangeCode(code, redirectUri)
 
     // Get user email
     const email = await getUserEmail(tokens.accessToken)
