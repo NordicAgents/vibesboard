@@ -73,8 +73,11 @@ export async function GET(req: Request) {
   }
 
   try {
+    // Build the same redirect URI that was used in the auth initiation
+    const redirectUri = `${appOrigin}/api/scheduling/auth/google/callback`
+
     // Exchange code for tokens
-    const tokens = await exchangeCode(code)
+    const tokens = await exchangeCode(code, redirectUri)
 
     // Get user email and calendars
     const email = await getUserEmail(tokens.accessToken)
