@@ -91,6 +91,7 @@ upsert_secret "whatsapp-access-token"         "WHATSAPP_ACCESS_TOKEN"
 upsert_secret "whatsapp-verify-token"         "VERIFY_TOKEN"
 upsert_secret "whatsapp-inbox-verify-token"   "WHATSAPP_INBOX_VERIFY_TOKEN"
 upsert_secret "meta-app-secret"               "META_APP_SECRET"
+upsert_secret "instagram-inbox-verify-token" "INSTAGRAM_INBOX_VERIFY_TOKEN"
 echo ""
 
 # Email

@@ -348,8 +348,27 @@ export async function connectApiKeyAccount(
   )
   const pageData = pageResponse.ok ? await pageResponse.json() : { name: '' }
 
-  // 4. Subscribe to webhooks
-  await subscribeToWebhooks(pageId, accessToken)
+  // 4. Subscribe to webhooks (best-effort — may fail if pages_messaging
+  //    permission is not approved via App Review). Webhooks can also be
+  //    configured manually in the Meta App Dashboard.
+  let webhookSubscribed = false
+  try {
+    await subscribeToWebhooks(pageId, accessToken)
+    webhookSubscribed = true
+  } catch (err: any) {
+    if (err.message?.includes('#210') || err.message?.includes('page access token')) {
+      // Token is a user token — try exchanging for a page access token
+      try {
+        const pageToken = await getPageAccessToken(pageId, accessToken)
+        await subscribeToWebhooks(pageId, pageToken)
+        webhookSubscribed = true
+      } catch (retryErr: any) {
+        console.warn('Webhook subscription failed after token exchange:', retryErr.message)
+      }
+    } else {
+      console.warn('Webhook subscription failed:', err.message)
+    }
+  }
 
   // 5. Encrypt token and store
   const now = new Date().toISOString()
@@ -362,12 +381,12 @@ export async function connectApiKeyAccount(
     pageName: pageData.name || '',
     instagramUsername: igAccount.username,
     accessToken: encryptToken(accessToken),
-    scopes: ['instagram_basic', 'instagram_manage_messages', 'pages_manage_metadata', 'pages_messaging'],
+    scopes: ['instagram_basic', 'instagram_manage_messages', 'pages_manage_metadata'],
     status: 'active',
     connectedBy: userId,
     connectedAt: now,
     connectionMethod: 'api_key',
-    webhookSubscribed: true,
+    webhookSubscribed,
     createdAt: now,
     updatedAt: now,
   }
