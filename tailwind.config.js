@@ -157,6 +157,10 @@ module.exports = {
         shimmer: {
           from: { backgroundPosition: '-200% 0' },
           to: { backgroundPosition: '200% 0' }
+        },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-100%)' }
         }
       },
       animation: {
@@ -170,7 +174,8 @@ module.exports = {
         'fade-slide-in':
           'fade-slide-in 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'fade-in': 'fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        shimmer: 'shimmer 1.5s linear infinite'
+        shimmer: 'shimmer 1.5s linear infinite',
+        marquee: 'marquee 30s linear infinite'
       }
     }
   },
