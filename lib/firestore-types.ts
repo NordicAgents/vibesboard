@@ -539,6 +539,8 @@ export interface WhatsAppInboxAccountDocument {
   connectedAt: string
   webhookSubscribed: boolean
   connectionMethod?: 'oauth' | 'api_key'
+  assignedAgentId?: string | null // default agent for all conversations
+  agentAutoReply?: boolean // true = agent responds automatically
   createdAt: string
   updatedAt: string
 }
@@ -554,6 +556,10 @@ export interface WhatsAppInboxConversationDocument {
   lastMessagePreview: string
   unreadCount: number
   assignedTo?: string // userId
+  assignedAgentId?: string | null // per-conversation agent override
+  agentPaused?: boolean // human has paused agent on this conversation
+  agentHandedOff?: boolean // agent triggered [HANDOFF_TO_HUMAN]
+  agentConversationId?: string | null // link to agent ConversationDocument
   status: InboxConversationStatus
   windowExpiresAt: string // 24h from last inbound message
   createdAt: string
@@ -573,7 +579,8 @@ export interface WhatsAppInboxMessageDocument {
   direction: InboxMessageDirection
   status: InboxMessageStatus
   timestamp: string
-  sentBy?: string // userId for outbound
+  sentBy?: string // userId for outbound, or "agent:{agentId}" for agent-sent
+  sentByAgentName?: string // denormalized agent name for UI badge
   createdAt: string
 }
 
@@ -602,6 +609,8 @@ export interface InstagramInboxAccountDocument {
   connectedAt: string
   webhookSubscribed: boolean
   connectionMethod?: 'oauth' | 'api_key'
+  assignedAgentId?: string | null // default agent for all conversations
+  agentAutoReply?: boolean // true = agent responds automatically
   createdAt: string
   updatedAt: string
 }
@@ -618,6 +627,10 @@ export interface InstagramInboxConversationDocument {
   lastMessagePreview: string
   unreadCount: number
   assignedTo?: string // userId
+  assignedAgentId?: string | null // per-conversation agent override
+  agentPaused?: boolean // human has paused agent on this conversation
+  agentHandedOff?: boolean // agent triggered [HANDOFF_TO_HUMAN]
+  agentConversationId?: string | null // link to agent ConversationDocument
   status: InboxConversationStatus
   windowExpiresAt: string // 24h from last inbound message
   createdAt: string
@@ -637,7 +650,8 @@ export interface InstagramInboxMessageDocument {
   direction: InboxMessageDirection
   status: InboxMessageStatus
   timestamp: string
-  sentBy?: string // userId for outbound
+  sentBy?: string // userId for outbound, or "agent:{agentId}" for agent-sent
+  sentByAgentName?: string // denormalized agent name for UI badge
   createdAt: string
 }
 

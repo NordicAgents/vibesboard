@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/firebase/route-handler'
 import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import {
   getConversation,
   updateConversationStatus,
@@ -102,6 +104,47 @@ export async function PATCH(
 
     if (body.markAsRead) {
       await markAsRead(tenantId, accountId, contactPhone)
+    }
+
+    // Agent assignment fields
+    const agentUpdates: Record<string, any> = {}
+
+    if (body.assignedAgentId !== undefined) {
+      agentUpdates.assignedAgentId = body.assignedAgentId || null
+    }
+
+    if (body.agentPaused !== undefined) {
+      agentUpdates.agentPaused = body.agentPaused
+    }
+
+    if (body.agentHandedOff !== undefined) {
+      agentUpdates.agentHandedOff = body.agentHandedOff
+      // When re-engaging agent, also reset the agent conversation handoff flag
+      if (body.agentHandedOff === false) {
+        const convo = await getConversation(tenantId, accountId, contactPhone)
+        if (convo?.agentConversationId) {
+          // Find the agent to get the correct collection path
+          // The agentConversationId links to agents/{agentId}/conversations/{conversationId}
+          // We need the agentId — resolve from account or conversation
+          const effectiveAgentId = convo.assignedAgentId || null
+          if (effectiveAgentId) {
+            const agentConvoPath = Collections.conversations(tenantId, effectiveAgentId)
+            await adminDb.collection(agentConvoPath).doc(convo.agentConversationId).update({
+              handedOff: false,
+              updatedAt: new Date().toISOString(),
+            }).catch(() => {}) // Non-critical
+          }
+        }
+      }
+    }
+
+    if (Object.keys(agentUpdates).length > 0) {
+      const phoneNormalized = contactPhone.replace(/\D/g, '')
+      const convoPath = Collections.whatsappInboxConversations(tenantId, accountId)
+      await adminDb.collection(convoPath).doc(phoneNormalized).update({
+        ...agentUpdates,
+        updatedAt: new Date().toISOString(),
+      })
     }
 
     return NextResponse.json({ success: true })

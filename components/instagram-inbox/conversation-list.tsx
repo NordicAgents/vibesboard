@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Bot } from 'lucide-react'
 import type { InstagramInboxConversationDocument } from '@/lib/firestore-types'
 
 interface ConversationListProps {
@@ -83,9 +84,14 @@ export function ConversationList({
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-xs text-muted-foreground">
-                  {convo.lastMessagePreview || 'No messages'}
-                </p>
+                <div className="flex min-w-0 items-center gap-1">
+                  {convo.assignedAgentId && !convo.agentPaused && !convo.agentHandedOff && (
+                    <Bot className="size-3 shrink-0 text-accent-orange" />
+                  )}
+                  <p className="truncate text-xs text-muted-foreground">
+                    {convo.lastMessagePreview || 'No messages'}
+                  </p>
+                </div>
                 {convo.unreadCount > 0 && (
                   <Badge className="size-5 shrink-0 justify-center rounded-full bg-accent-orange p-0 text-[10px] text-white">
                     {convo.unreadCount > 99 ? '99+' : convo.unreadCount}

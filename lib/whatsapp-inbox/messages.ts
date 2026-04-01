@@ -121,7 +121,7 @@ export async function storeInboundMessage(
 export async function sendReply(
   params: SendReplyParams
 ): Promise<WhatsAppInboxMessageDocument> {
-  const { tenantId, accountId, contactPhone, text, userId } = params
+  const { tenantId, accountId, contactPhone, text, userId, sentByAgentName } = params
   const phoneNormalized = contactPhone.replace(/\D/g, '')
 
   // Check conversation exists and window is open
@@ -200,6 +200,7 @@ export async function sendReply(
     status: 'sent',
     timestamp: now,
     sentBy: userId,
+    ...(sentByAgentName ? { sentByAgentName } : {}),
     createdAt: now,
   }
 
