@@ -8,12 +8,16 @@ export const runtime = 'nodejs'
 /**
  * GET — List Instagram Inbox accounts for a tenant.
  */
+type RouteParams = {
+  params: Promise<{ id: string }>
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteParams
 ) {
   try {
-    const tenantId = params.id
+    const { id: tenantId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 

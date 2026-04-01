@@ -5,18 +5,20 @@ import { listMessages, sendReply } from '@/lib/instagram-inbox/messages'
 
 export const runtime = 'nodejs'
 
+type RouteParams = {
+  params: Promise<{ id: string; accountId: string; contactId: string }>
+}
+
 /**
  * GET — List messages for a conversation.
  * Query params: ?limit=50&before=ISO_TIMESTAMP
  */
 export async function GET(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; accountId: string; contactId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId, contactId } = params
+    const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -59,12 +61,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  {
-    params,
-  }: { params: { id: string; accountId: string; contactId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId, contactId } = params
+    const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
