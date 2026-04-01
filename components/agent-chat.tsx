@@ -40,6 +40,7 @@ interface AgentChatProps {
   onChatComplete?: (messages?: Message[], conversationId?: string) => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
+  agentLogoUrl?: string | null
   embed?: boolean
 }
 
@@ -54,6 +55,7 @@ export function AgentChat({
   onChatComplete,
   agentAvatarGradient = 'from-violet-400 to-purple-500',
   agentAvatarInitial = 'A',
+  agentLogoUrl,
   embed
 }: AgentChatProps) {
   const [conversationId, setConversationId] = useState<string | undefined>(
@@ -488,6 +490,7 @@ export function AgentChat({
               isLoading={isLoading}
               agentAvatarGradient={agentAvatarGradient}
               agentAvatarInitial={agentAvatarInitial}
+              agentLogoUrl={agentLogoUrl}
               handoffIndicatorPrefix={HANDOFF_INDICATOR_PREFIX}
             />
             <ChatScrollAnchor trackVisibility={isLoading} />

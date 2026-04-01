@@ -19,6 +19,7 @@ export interface ChatMessageProps {
   message: Message
   agentAvatarGradient?: string
   agentAvatarInitial?: string
+  agentLogoUrl?: string | null
   isLastMessage?: boolean
 }
 
@@ -140,6 +141,7 @@ export function ChatMessage({
   message,
   agentAvatarGradient = 'from-[#cef79e] to-[#a7e26e]',
   agentAvatarInitial = 'A',
+  agentLogoUrl,
   isLastMessage,
   ...props
 }: ChatMessageProps) {
@@ -171,7 +173,7 @@ export function ChatMessage({
       {/* AI avatar */}
       <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo_1.png" alt="agent" className="size-5 object-contain" />
+        <img src={agentLogoUrl || '/logo_1.png'} alt="agent" className="size-5 object-contain" onError={(e) => { e.currentTarget.src = '/logo_1.png' }} />
       </div>
 
       {/* AI content — no bubble */}

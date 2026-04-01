@@ -15,10 +15,11 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ColorPicker } from '@/components/tenants/color-picker'
 import { BrandingPreview } from '@/components/tenants/branding-preview'
+import { LogoUpload } from '@/components/tenants/logo-upload'
 import { FeatureToggle } from '@/components/tenants/feature-toggle'
 import { Badge } from '@/components/ui/badge'
 import toast from 'react-hot-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RotateCcw } from 'lucide-react'
 
 interface TenantConfig {
   id: string
@@ -29,11 +30,19 @@ interface TenantConfig {
   is_personal?: boolean
   googlePlaceId?: string | null
   branding?: {
-    logo_url?: string
-    primary_color?: string
-    secondary_color?: string
+    logoUrl?: string
+    primaryColor?: string
+    secondaryColor?: string
   }
 }
+
+interface BaseBranding {
+  logoUrl?: string
+  primaryColor: string
+  secondaryColor: string
+}
+
+type BrandingField = 'logoUrl' | 'primaryColor' | 'secondaryColor'
 
 interface TenantFeatureStatus {
   id: string
@@ -50,11 +59,16 @@ export default function TenantSettingsPage() {
   const [features, setFeatures] = useState<TenantFeatureStatus[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
 
   // Branding state
   const [logoUrl, setLogoUrl] = useState('')
   const [primaryColor, setPrimaryColor] = useState('#000000')
-  const [secondaryColor, setSecondaryColor] = useState('#7e8e8f')
+  const [secondaryColor, setSecondaryColor] = useState('#ffffff')
+
+  // Base branding & overrides from API
+  const [baseBranding, setBaseBranding] = useState<BaseBranding | null>(null)
+  const [overrides, setOverrides] = useState<BrandingField[] | null>(null)
 
   // Google Review state
   const [googlePlaceId, setGooglePlaceId] = useState('')
@@ -90,11 +104,19 @@ export default function TenantSettingsPage() {
         setTenant(config.tenant)
         setFeatures(config.tenant?.features || config.features || [])
 
-        // Set branding values
+        // Set base branding & overrides
+        if (config.baseBranding) {
+          setBaseBranding(config.baseBranding)
+        }
+        if (config.overrides !== undefined) {
+          setOverrides(config.overrides)
+        }
+
+        // Set branding values (config now returns resolved effective branding)
         if (config.tenant.branding) {
-          setLogoUrl(config.tenant.branding.logo_url || '')
-          setPrimaryColor(config.tenant.branding.primary_color || '#000000')
-          setSecondaryColor(config.tenant.branding.secondary_color || '#7e8e8f')
+          setLogoUrl(config.tenant.branding.logoUrl || '')
+          setPrimaryColor(config.tenant.branding.primaryColor || '#000000')
+          setSecondaryColor(config.tenant.branding.secondaryColor || '#ffffff')
         }
         if (config.tenant.googlePlaceId) {
           setGooglePlaceId(config.tenant.googlePlaceId)
@@ -117,15 +139,17 @@ export default function TenantSettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          logo_url: logoUrl || null,
-          primary_color: primaryColor,
-          secondary_color: secondaryColor
+          logoUrl: logoUrl || null,
+          primaryColor,
+          secondaryColor
         })
       })
 
       if (response.ok) {
+        const data = await response.json()
+        if (data.overrides !== undefined) setOverrides(data.overrides)
+        if (data.baseBranding) setBaseBranding(data.baseBranding)
         toast.success('Branding updated successfully')
-        fetchTenantData()
       } else {
         const data = await response.json()
         toast.error(data.error || 'Failed to update branding')
@@ -135,6 +159,38 @@ export default function TenantSettingsPage() {
       toast.error('Failed to update branding')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleResetBranding = async () => {
+    if (!tenant) return
+
+    setIsResetting(true)
+    try {
+      const response = await fetch(
+        `/api/tenants/${tenant.id}/branding/reset`,
+        { method: 'POST' }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.branding) {
+          setLogoUrl(data.branding.logoUrl || '')
+          setPrimaryColor(data.branding.primaryColor || '#000000')
+          setSecondaryColor(data.branding.secondaryColor || '#ffffff')
+        }
+        if (data.baseBranding) setBaseBranding(data.baseBranding)
+        setOverrides(data.overrides ?? [])
+        toast.success('Branding reset to platform defaults')
+      } else {
+        const data = await response.json()
+        toast.error(data.error || 'Failed to reset branding')
+      }
+    } catch (error) {
+      console.error('Error resetting branding:', error)
+      toast.error('Failed to reset branding')
+    } finally {
+      setIsResetting(false)
     }
   }
 
@@ -237,6 +293,15 @@ export default function TenantSettingsPage() {
     features.find(f => f.name === 'GOOGLE_REVIEW')?.isEnabled ?? false
   const googleReviewLocked = isPersonal || !googleReviewEnabled
 
+  // Whether each field is inherited from base
+  const isFieldInherited = (field: BrandingField): boolean => {
+    if (overrides === null) return false // legacy, no overrides info
+    return !overrides.includes(field)
+  }
+
+  const hasAnyOverrides =
+    overrides !== null && overrides.length > 0
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -259,7 +324,8 @@ export default function TenantSettingsPage() {
             <CardHeader>
               <CardTitle>Brand Customization</CardTitle>
               <CardDescription>
-                Customize your tenant's logo and colors
+                Customize your tenant&apos;s logo and colors. Fields not
+                customized will inherit from platform defaults.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -270,29 +336,31 @@ export default function TenantSettingsPage() {
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="logo">Logo URL</Label>
-                <Input
-                  id="logo"
-                  placeholder="https://example.com/logo.png"
+                <div className="flex items-center gap-2">
+                  {isFieldInherited('logoUrl') && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      Inherited
+                    </Badge>
+                  )}
+                </div>
+                <LogoUpload
                   value={logoUrl}
-                  onChange={e => setLogoUrl(e.target.value)}
+                  onChange={setLogoUrl}
+                  tenantId={tenant?.id}
                   disabled={brandingLocked}
                 />
-                {logoUrl && (
-                  <div className="mt-2">
-                    <img
-                      src={logoUrl}
-                      alt="Logo preview"
-                      className="h-16 w-auto rounded border bg-white object-contain p-2"
-                      onError={() => toast.error('Invalid logo URL')}
-                    />
-                  </div>
-                )}
               </div>
 
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Primary Color</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Primary Color</Label>
+                    {isFieldInherited('primaryColor') && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Inherited
+                      </Badge>
+                    )}
+                  </div>
                   <ColorPicker
                     label="Primary Color"
                     value={primaryColor}
@@ -303,7 +371,14 @@ export default function TenantSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Secondary Color</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Secondary Color</Label>
+                    {isFieldInherited('secondaryColor') && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Inherited
+                      </Badge>
+                    )}
+                  </div>
                   <ColorPicker
                     label="Secondary Color"
                     value={secondaryColor}
@@ -331,19 +406,40 @@ export default function TenantSettingsPage() {
                     disabled.
                   </p>
                 )}
-                <Button
-                  onClick={handleSaveBranding}
-                  disabled={isSaving || brandingLocked}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
+                <div className="flex items-center gap-2">
+                  {hasAnyOverrides && !brandingLocked && (
+                    <Button
+                      variant="outline"
+                      onClick={handleResetBranding}
+                      disabled={isResetting || isSaving}
+                    >
+                      {isResetting ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Resetting...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="mr-2 size-4" />
+                          Reset to Defaults
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
+                  <Button
+                    onClick={handleSaveBranding}
+                    disabled={isSaving || brandingLocked}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

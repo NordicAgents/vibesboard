@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Key } from 'lucide-react'
+import { Loader2, Key, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ConnectApiKeyDialogProps {
@@ -20,6 +20,43 @@ interface ConnectApiKeyDialogProps {
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
 }
+
+const SETUP_STEPS = [
+  {
+    title: 'Link Instagram to a Facebook Page',
+    description:
+      'Your Instagram account must be a Business or Creator account linked to a Facebook Page. In Instagram, go to Settings > Account > Linked Accounts > Facebook and connect your Page.',
+  },
+  {
+    title: 'Open Meta Business Settings',
+    description:
+      'Go to Meta Business Settings and select the business that owns your Facebook Page.',
+    link: 'https://business.facebook.com/settings',
+    linkLabel: 'Open Business Settings',
+  },
+  {
+    title: 'Find your Facebook Page ID',
+    description:
+      'In Business Settings, go to Accounts > Pages. Select your Page — the Page ID is the numeric ID shown at the top of the page details panel.',
+  },
+  {
+    title: 'Create a System User',
+    description:
+      'Go to Users > System Users. Click "Add" to create a new System User (choose "Admin" role). If you already have one, you can reuse it.',
+    link: 'https://business.facebook.com/settings/system-users',
+    linkLabel: 'Open System Users',
+  },
+  {
+    title: 'Assign Page & Instagram permissions',
+    description:
+      'Click "Add Assets" on your System User. Select "Pages", pick your Page, and enable "Manage Page". Then select "Instagram Accounts", pick your Instagram account, and enable "Manage Instagram account".',
+  },
+  {
+    title: 'Generate Page Access Token',
+    description:
+      'Click "Generate New Token" on the System User. Select your app and check these permissions: pages_manage_metadata, instagram_basic, instagram_manage_messages. Set token expiry to "Never". Copy the token.',
+  },
+]
 
 export function ConnectApiKeyDialog({
   open,
@@ -30,6 +67,7 @@ export function ConnectApiKeyDialog({
   const [pageId, setPageId] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showGuide, setShowGuide] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,14 +113,72 @@ export function ConnectApiKeyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Connect via API Key</DialogTitle>
           <DialogDescription>
-            Paste your Page access token and Facebook Page ID from Meta Business
-            Suite. The Page must have a linked Instagram Business account.
+            Connect your Instagram Business account using a Page Access Token from Meta Business Suite.
           </DialogDescription>
         </DialogHeader>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowGuide(!showGuide)}
+            className="flex w-full items-center justify-between rounded-lg border border-border bg-bg-hover/50 px-3 py-2 text-left text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors"
+          >
+            <span>How do I get these values?</span>
+            {showGuide ? (
+              <ChevronUp className="size-4 text-text-secondary" />
+            ) : (
+              <ChevronDown className="size-4 text-text-secondary" />
+            )}
+          </button>
+
+          {showGuide && (
+            <div className="mt-2 space-y-3 rounded-lg border border-border bg-bg-surface p-3">
+              <ol className="space-y-3">
+                {SETUP_STEPS.map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-orange/10 text-xs font-semibold text-accent-orange">
+                      {i + 1}
+                    </span>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-text-primary">
+                        {step.title}
+                      </p>
+                      <p className="text-xs leading-relaxed text-text-secondary">
+                        {step.description}
+                      </p>
+                      {step.link && (
+                        <a
+                          href={step.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-accent-orange hover:underline"
+                        >
+                          {step.linkLabel}
+                          <ExternalLink className="size-3" />
+                        </a>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <div className="border-t border-border pt-2">
+                <a
+                  href="https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-accent-orange"
+                >
+                  Full Meta documentation
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -94,6 +190,9 @@ export function ConnectApiKeyDialog({
               onChange={(e) => setPageId(e.target.value)}
               disabled={connecting}
             />
+            <p className="text-xs text-text-tertiary">
+              Found in Business Settings &gt; Accounts &gt; Pages
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -106,6 +205,9 @@ export function ConnectApiKeyDialog({
               onChange={(e) => setAccessToken(e.target.value)}
               disabled={connecting}
             />
+            <p className="text-xs text-text-tertiary">
+              Generated from System Users page with pages_manage_metadata, instagram_basic, and instagram_manage_messages permissions
+            </p>
           </div>
 
           {error && (

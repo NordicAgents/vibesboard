@@ -38,6 +38,7 @@ export interface SendReplyParams {
   contactPhone: string
   text: string
   userId: string
+  sentByAgentName?: string // set when reply is sent by an agent
 }
 
 export interface PhoneNumberInfo {

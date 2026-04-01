@@ -265,8 +265,22 @@ export interface TenantBrandingDocument {
   logoUrl?: string
   primaryColor: string
   secondaryColor: string
+  /** Tracks which fields the tenant has explicitly customized.
+   *  Missing = legacy (treat as fully overridden). Empty = fully inherited. */
+  overrides?: BrandingField[]
   createdAt: string
   updatedAt: string
+}
+
+export type BrandingField = 'logoUrl' | 'primaryColor' | 'secondaryColor'
+
+/** /platform_config/branding — singleton */
+export interface PlatformBrandingDocument {
+  logoUrl?: string
+  primaryColor: string
+  secondaryColor: string
+  updatedAt: string
+  updatedBy: string
 }
 
 /** /tenants/{tenantId}/members/{userId} */
@@ -539,6 +553,8 @@ export interface WhatsAppInboxAccountDocument {
   connectedAt: string
   webhookSubscribed: boolean
   connectionMethod?: 'oauth' | 'api_key'
+  assignedAgentId?: string | null // default agent for all conversations
+  agentAutoReply?: boolean // true = agent responds automatically
   createdAt: string
   updatedAt: string
 }
@@ -554,6 +570,10 @@ export interface WhatsAppInboxConversationDocument {
   lastMessagePreview: string
   unreadCount: number
   assignedTo?: string // userId
+  assignedAgentId?: string | null // per-conversation agent override
+  agentPaused?: boolean // human has paused agent on this conversation
+  agentHandedOff?: boolean // agent triggered [HANDOFF_TO_HUMAN]
+  agentConversationId?: string | null // link to agent ConversationDocument
   status: InboxConversationStatus
   windowExpiresAt: string // 24h from last inbound message
   createdAt: string
@@ -573,7 +593,8 @@ export interface WhatsAppInboxMessageDocument {
   direction: InboxMessageDirection
   status: InboxMessageStatus
   timestamp: string
-  sentBy?: string // userId for outbound
+  sentBy?: string // userId for outbound, or "agent:{agentId}" for agent-sent
+  sentByAgentName?: string // denormalized agent name for UI badge
   createdAt: string
 }
 
@@ -602,6 +623,8 @@ export interface InstagramInboxAccountDocument {
   connectedAt: string
   webhookSubscribed: boolean
   connectionMethod?: 'oauth' | 'api_key'
+  assignedAgentId?: string | null // default agent for all conversations
+  agentAutoReply?: boolean // true = agent responds automatically
   createdAt: string
   updatedAt: string
 }
@@ -618,6 +641,10 @@ export interface InstagramInboxConversationDocument {
   lastMessagePreview: string
   unreadCount: number
   assignedTo?: string // userId
+  assignedAgentId?: string | null // per-conversation agent override
+  agentPaused?: boolean // human has paused agent on this conversation
+  agentHandedOff?: boolean // agent triggered [HANDOFF_TO_HUMAN]
+  agentConversationId?: string | null // link to agent ConversationDocument
   status: InboxConversationStatus
   windowExpiresAt: string // 24h from last inbound message
   createdAt: string
@@ -637,7 +664,8 @@ export interface InstagramInboxMessageDocument {
   direction: InboxMessageDirection
   status: InboxMessageStatus
   timestamp: string
-  sentBy?: string // userId for outbound
+  sentBy?: string // userId for outbound, or "agent:{agentId}" for agent-sent
+  sentByAgentName?: string // denormalized agent name for UI badge
   createdAt: string
 }
 
@@ -753,6 +781,7 @@ export const Collections = {
   invitations: 'invitations',
   chats: 'chats',
   planTemplates: 'plan_templates',
+  platformConfig: 'platform_config',
 
   // Tenant-scoped
   agentLinks: (tenantId: string) =>

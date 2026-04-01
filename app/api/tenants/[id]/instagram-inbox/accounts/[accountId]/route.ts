@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember, requireTenantAdmin } from '@/lib/firebase/route-handler'
 import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { getAgentForMember } from '@/lib/agents/server'
 import {
   getInboxAccount,
   disconnectInboxAccount,
@@ -8,15 +11,19 @@ import {
 
 export const runtime = 'nodejs'
 
+type RouteParams = {
+  params: Promise<{ id: string; accountId: string }>
+}
+
 /**
  * GET — Get a single inbox account.
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -53,10 +60,10 @@ export async function GET(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantAdmin(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -74,6 +81,65 @@ export async function DELETE(
     console.error('Disconnect Instagram inbox account error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to disconnect account' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * PATCH — Update account settings (agent assignment).
+ * Body: { assignedAgentId?, agentAutoReply? }
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    const { id: tenantId, accountId } = await params
+    const authResult = await requireTenantMember(tenantId)
+    if (!authResult.ok) return authResult.response
+
+    const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX')
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Instagram Inbox feature is not enabled' },
+        { status: 403 }
+      )
+    }
+
+    const body = await request.json()
+    const updates: Record<string, any> = {
+      updatedAt: new Date().toISOString(),
+    }
+
+    if (body.assignedAgentId !== undefined) {
+      if (body.assignedAgentId) {
+        const agent = await getAgentForMember(tenantId, body.assignedAgentId)
+        if (!agent) {
+          return NextResponse.json(
+            { error: 'Agent not found' },
+            { status: 404 }
+          )
+        }
+      }
+      updates.assignedAgentId = body.assignedAgentId || null
+      if (body.agentAutoReply === undefined && body.assignedAgentId) {
+        updates.agentAutoReply = true
+      }
+    }
+
+    if (body.agentAutoReply !== undefined) {
+      updates.agentAutoReply = body.agentAutoReply
+    }
+
+    const accountPath = Collections.instagramInboxAccounts(tenantId)
+    await adminDb.collection(accountPath).doc(accountId).update(updates)
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Update Instagram inbox account error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to update account' },
       { status: 500 }
     )
   }

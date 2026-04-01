@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { ConversationList } from '@/components/instagram-inbox/conversation-list'
 import { MessageThread } from '@/components/instagram-inbox/message-thread'
-import { Inbox, Search, Instagram } from 'lucide-react'
+import { Inbox, Search, Instagram, Bot } from 'lucide-react'
 import type {
   InstagramInboxConversationDocument,
   InstagramInboxMessageDocument,
@@ -28,6 +28,12 @@ interface InboxAccount {
   instagramUsername: string
   pageName: string
   status: string
+  assignedAgentId?: string | null
+}
+
+interface AgentOption {
+  id: string
+  name: string
 }
 
 export default function InstagramInboxConversationsPage() {
@@ -44,6 +50,8 @@ export default function InstagramInboxConversationsPage() {
   const [messages, setMessages] = useState<InstagramInboxMessageDocument[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const [agents, setAgents] = useState<AgentOption[]>([])
+  const [assignedAgentId, setAssignedAgentId] = useState<string | null>(null)
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [loadingConvos, setLoadingConvos] = useState(false)
   const [loadingMessages, setLoadingMessages] = useState(false)
@@ -74,6 +82,39 @@ export default function InstagramInboxConversationsPage() {
       .catch(() => {})
       .finally(() => setLoadingAccounts(false))
   }, [tenantId])
+
+  // Fetch agents for assignment dropdown
+  useEffect(() => {
+    if (!tenantId) return
+    fetch(`/api/agents?tenant_id=${tenantId}&limit=50`)
+      .then((r) => r.json())
+      .then((data) => {
+        setAgents(
+          (data.agents || []).map((a: any) => ({ id: a.id, name: a.name }))
+        )
+      })
+      .catch(() => {})
+  }, [tenantId])
+
+  // Track assigned agent for selected account
+  useEffect(() => {
+    const account = accounts.find((a) => a.id === selectedAccountId)
+    setAssignedAgentId(account?.assignedAgentId || null)
+  }, [selectedAccountId, accounts])
+
+  const handleAssignAgent = async (agentId: string) => {
+    if (!tenantId || !selectedAccountId) return
+    const newAgentId = agentId === '__none__' ? null : agentId
+    setAssignedAgentId(newAgentId)
+    await fetch(
+      `/api/tenants/${tenantId}/instagram-inbox/accounts/${selectedAccountId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedAgentId: newAgentId }),
+      }
+    )
+  }
 
   // Fetch conversations
   const fetchConversations = useCallback(async () => {
@@ -215,6 +256,25 @@ export default function InstagramInboxConversationsPage() {
               </SelectContent>
             </Select>
           )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Bot className="size-4 text-muted-foreground" />
+          <Select
+            value={assignedAgentId || '__none__'}
+            onValueChange={handleAssignAgent}
+          >
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="Assign Agent" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No Agent</SelectItem>
+              {agents.map((agent) => (
+                <SelectItem key={agent.id} value={agent.id}>
+                  {agent.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
