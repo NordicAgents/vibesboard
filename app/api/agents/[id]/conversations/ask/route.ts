@@ -145,8 +145,16 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     })
   }
 
+  // Build conversation history for multi-turn context
+  const historyLines = existingMessages
+    .map(m => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.content}`)
+    .join('\n')
+  const historyBlock = historyLines
+    ? `\n\nConversation so far:\n${historyLines}\n`
+    : ''
+
   if (isResponsesModel(model)) {
-    const prompt = `${systemPrompt}\n\nUser question:\n${payload.question}`
+    const prompt = `${systemPrompt}${historyBlock}\n\nUser question:\n${payload.question}`
     const stream = await streamText({
       prompt,
       model,
@@ -161,13 +169,19 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     })
   }
 
+  const chatMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: systemPrompt },
+    ...existingMessages.map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content
+    })),
+    { role: 'user', content: payload.question }
+  ]
+
   const openaiClient = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })
   const result = await aiStreamText({
     model: openaiClient(model),
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: payload.question }
-    ],
+    messages: chatMessages,
     temperature: 0.2,
     async onFinish({ text, usage }) { await saveAndRecord(text, { inputTokens: usage?.promptTokens, outputTokens: usage?.completionTokens }) }
   })
