@@ -9,7 +9,6 @@ interface AgentFocusViewProps {
   share: AgentSharePayload
   canEdit: boolean
   onSwitchToAdvanced: () => void
-  onSwitchToChat: () => void
 }
 
 export function AgentFocusView({
@@ -17,7 +16,6 @@ export function AgentFocusView({
   share,
   canEdit,
   onSwitchToAdvanced,
-  onSwitchToChat
 }: AgentFocusViewProps) {
   const form = useAgentForm(agent)
 
@@ -46,7 +44,6 @@ export function AgentFocusView({
           share={share}
           form={form}
           onSwitchToAdvanced={handleSwitchToAdvanced}
-          onSwitchToChat={onSwitchToChat}
         />
       </div>
 

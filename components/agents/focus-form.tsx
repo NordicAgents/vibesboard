@@ -21,14 +21,13 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { MessageCircle, Settings2, HelpCircle } from 'lucide-react'
+import { Settings2, HelpCircle } from 'lucide-react'
 
 interface FocusFormProps {
   agent: VibeAgent
   share: AgentSharePayload
   form: UseAgentFormReturn
   onSwitchToAdvanced: () => void
-  onSwitchToChat: () => void
 }
 
 export function FocusForm({
@@ -36,7 +35,6 @@ export function FocusForm({
   share,
   form,
   onSwitchToAdvanced,
-  onSwitchToChat
 }: FocusFormProps) {
   const { fields, setters, hasChanges, saving, handleSaveAll } = form
   const [copied, setCopied] = useState(false)
@@ -212,14 +210,6 @@ export function FocusForm({
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="secondary"
-          className="gap-2"
-          onClick={onSwitchToChat}
-        >
-          <MessageCircle className="size-4" />
-          Test Chat
-        </Button>
         <button
           onClick={onSwitchToAdvanced}
           className="flex items-center gap-1.5 text-xs text-[#6f7f80] transition-colors hover:text-[#222f30] dark:hover:text-[#f5f8f7]"
