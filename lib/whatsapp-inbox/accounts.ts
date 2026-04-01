@@ -7,6 +7,7 @@ import CryptoJS from 'crypto-js'
 import type {
   ConnectOAuthParams,
   ConnectApiKeyParams,
+  ConnectByoaParams,
   PhoneNumberInfo,
   MetaTokenResponse,
   MetaDebugTokenData,
@@ -304,6 +305,99 @@ export async function connectApiKeyAccount(
 
   await docRef.set(account)
   return account
+}
+
+/**
+ * Connect a WhatsApp Business Account using customer's own Meta App (BYOA).
+ * Customer provides their own App ID, App Secret, access token, and webhook verify token.
+ * Webhook subscription is NOT done — customer configures their own Meta App webhooks.
+ */
+export async function connectByoaAccount(
+  params: ConnectByoaParams
+): Promise<WhatsAppInboxAccountDocument> {
+  const { tenantId, metaAppId, metaAppSecret, accessToken, webhookVerifyToken, wabaId, userId } = params
+
+  // 1. Validate token by fetching phone numbers for this WABA
+  const phones = await getPhoneNumbers(wabaId, accessToken)
+  if (phones.length === 0) {
+    throw new Error(
+      'No phone numbers found on the WhatsApp Business Account. ' +
+        'Please verify your WABA ID and access token.'
+    )
+  }
+  const phone = phones[0]
+
+  // 2. Check for duplicate WABA
+  const collRef = adminDb.collection(
+    Collections.whatsappInboxAccounts(tenantId)
+  )
+  const existingSnap = await collRef
+    .where('wabaId', '==', wabaId)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
+
+  if (!existingSnap.empty) {
+    throw new Error(
+      'This WhatsApp Business Account is already connected to your workspace.'
+    )
+  }
+
+  // 3. Generate document and webhook URL
+  const docRef = collRef.doc()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const byoaWebhookUrl = `${appUrl}/api/webhooks/whatsapp-inbox/byoa/${docRef.id}`
+
+  // 4. Encrypt secrets and store
+  const now = new Date().toISOString()
+  const account: WhatsAppInboxAccountDocument = {
+    id: docRef.id,
+    tenantId,
+    wabaId,
+    phoneNumberId: phone.id,
+    displayPhoneNumber: phone.display_phone_number,
+    businessName: phone.verified_name,
+    accessToken: encryptToken(accessToken),
+    scopes: ['whatsapp_business_messaging', 'whatsapp_business_management'],
+    status: 'active',
+    connectedBy: userId,
+    connectedAt: now,
+    connectionMethod: 'byoa',
+    metaAppId,
+    metaAppSecret: encryptToken(metaAppSecret),
+    webhookVerifyToken: encryptToken(webhookVerifyToken),
+    byoaWebhookUrl,
+    webhookSubscribed: false, // customer manages their own webhook subscriptions
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await docRef.set(account)
+  return account
+}
+
+/**
+ * Find a BYOA account by document ID (for per-account webhook routing).
+ * Uses collectionGroup query to search across all tenants.
+ */
+export async function findByoaAccountById(
+  accountId: string
+): Promise<{ account: WhatsAppInboxAccountDocument; tenantId: string } | null> {
+  const snap = await adminDb
+    .collectionGroup('whatsapp_inbox_accounts')
+    .where('id', '==', accountId)
+    .where('connectionMethod', '==', 'byoa')
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
+
+  if (snap.empty) return null
+
+  const doc = snap.docs[0]!
+  const account = doc.data() as WhatsAppInboxAccountDocument
+  const tenantId = doc.ref.path.split('/')[1]
+
+  return { account, tenantId }
 }
 
 /**
