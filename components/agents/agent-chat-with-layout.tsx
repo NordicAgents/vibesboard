@@ -219,6 +219,29 @@ export function AgentChatWithLayout({
         <div
           className={`mb-4 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}
         >
+          {canEdit && (
+            <Button
+              variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+              size="sm"
+              className="justify-start gap-2 px-2"
+              data-mobile-menu-close="true"
+              onClick={() => {
+                setSelectedConversation(null)
+                setAgentSidebarOpen?.(true)
+                if (viewMode === 'focus') {
+                  router.push(`/agents/${agent.id}`)
+                } else {
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.set('tab', 'setup')
+                  params.delete('configure')
+                  router.push(`/agents/${agent.id}?${params.toString()}`)
+                }
+              }}
+            >
+              <LayoutDashboard className="size-4" />
+              Dashboard
+            </Button>
+          )}
           <Button
             variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
             size="sm"
@@ -243,29 +266,6 @@ export function AgentChatWithLayout({
             <IconMessage className="size-4" />
             {canEdit ? 'Ask AI' : 'Chat'}
           </Button>
-          {canEdit && (
-            <Button
-              variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
-              size="sm"
-              className="justify-start gap-2 px-2"
-              data-mobile-menu-close="true"
-              onClick={() => {
-                setSelectedConversation(null)
-                setAgentSidebarOpen?.(true)
-                if (viewMode === 'focus') {
-                  router.push(`/agents/${agent.id}`)
-                } else {
-                  const params = new URLSearchParams(searchParams.toString())
-                  params.set('tab', 'setup')
-                  params.delete('configure')
-                  router.push(`/agents/${agent.id}?${params.toString()}`)
-                }
-              }}
-            >
-              <LayoutDashboard className="size-4" />
-              Dashboard
-            </Button>
-          )}
         </div>
 
         {/* Visitor Chat History */}
