@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const hasAccess = await isFeatureEnabled(tenantId, 'WHATSAPP_INBOX')
+    const hasAccess = await isFeatureEnabled(tenantId, 'WHATSAPP_INBOX_OAUTH')
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'WhatsApp Inbox feature is not enabled' },
+        { error: 'WhatsApp OAuth connection is not enabled for your workspace' },
         { status: 403 }
       )
     }

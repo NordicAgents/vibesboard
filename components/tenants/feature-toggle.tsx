@@ -11,7 +11,9 @@ interface FeatureToggleProps {
     description: string | null
     isEnabled: boolean
     isOverridden?: boolean
+    /** @deprecated Use depth instead */
     isChild?: boolean
+    depth?: number
     isDisabledByParent?: boolean
     parentFlagName?: string | null
     onToggle: (id: string, enabled: boolean) => Promise<void>
@@ -25,11 +27,14 @@ export function FeatureToggle({
     isEnabled,
     isOverridden = false,
     isChild = false,
+    depth,
     isDisabledByParent = false,
     parentFlagName,
     onToggle,
     disabled = false
 }: FeatureToggleProps) {
+    // Support both legacy isChild and new depth prop
+    const effectiveDepth = depth ?? (isChild ? 1 : 0)
     const [loading, setLoading] = useState(false)
     const [checked, setChecked] = useState(isEnabled)
 
@@ -56,7 +61,10 @@ export function FeatureToggle({
         <div
             className={cn(
                 'flex items-center justify-between space-x-4 rounded-lg border p-4',
-                isChild && 'ml-6 border-l-2',
+                effectiveDepth >= 1 && 'border-l-2',
+                effectiveDepth === 1 && 'ml-6',
+                effectiveDepth === 2 && 'ml-12',
+                effectiveDepth >= 3 && 'ml-[4.5rem]',
                 isDisabledByParent && 'opacity-60'
             )}
         >

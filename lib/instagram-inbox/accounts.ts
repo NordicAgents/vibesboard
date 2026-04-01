@@ -7,6 +7,7 @@ import CryptoJS from 'crypto-js'
 import type {
   ConnectOAuthParams,
   ConnectApiKeyParams,
+  ConnectByoaParams,
   InstagramAccountInfo,
   MetaTokenResponse,
 } from './types'
@@ -408,6 +409,103 @@ export async function connectApiKeyAccount(
 
   await docRef.set(account)
   return account
+}
+
+/**
+ * Connect an Instagram account using customer's own Meta App (BYOA).
+ * Customer provides their own App ID, App Secret, access token, and webhook verify token.
+ * Webhook subscription is NOT done — customer configures their own Meta App webhooks.
+ */
+export async function connectByoaAccount(
+  params: ConnectByoaParams
+): Promise<InstagramInboxAccountDocument> {
+  const { tenantId, metaAppId, metaAppSecret, accessToken, webhookVerifyToken, pageId, userId } = params
+
+  // 1. Validate token by fetching Instagram account info
+  const igAccount = await getInstagramAccountForPage(pageId, accessToken)
+
+  // 2. Check for duplicate Instagram account
+  const collRef = adminDb.collection(
+    Collections.instagramInboxAccounts(tenantId)
+  )
+  const existingSnap = await collRef
+    .where('instagramAccountId', '==', igAccount.id)
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
+
+  if (!existingSnap.empty) {
+    throw new Error(
+      'This Instagram account is already connected to your workspace.'
+    )
+  }
+
+  // 3. Get page name
+  const pageResponse = await fetch(
+    `${META_GRAPH_API}/${pageId}?fields=name`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  )
+  const pageData = pageResponse.ok ? await pageResponse.json() : { name: '' }
+
+  // 4. Generate document and webhook URL
+  const docRef = collRef.doc()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  const byoaWebhookUrl = `${appUrl}/api/webhooks/instagram-inbox/byoa/${docRef.id}`
+
+  // 5. Encrypt secrets and store
+  const now = new Date().toISOString()
+  const account: InstagramInboxAccountDocument = {
+    id: docRef.id,
+    tenantId,
+    instagramAccountId: igAccount.id,
+    pageId,
+    pageName: pageData.name || '',
+    instagramUsername: igAccount.username,
+    accessToken: encryptToken(accessToken),
+    scopes: ['instagram_basic', 'instagram_manage_messages', 'pages_manage_metadata'],
+    status: 'active',
+    connectedBy: userId,
+    connectedAt: now,
+    connectionMethod: 'byoa',
+    metaAppId,
+    metaAppSecret: encryptToken(metaAppSecret),
+    webhookVerifyToken: encryptToken(webhookVerifyToken),
+    byoaWebhookUrl,
+    webhookSubscribed: false, // customer manages their own webhook subscriptions
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  await docRef.set(account)
+  return account
+}
+
+/**
+ * Find a BYOA account by document ID (for per-account webhook routing).
+ * Uses collectionGroup query to search across all tenants.
+ */
+export async function findByoaAccountById(
+  accountId: string
+): Promise<{ account: InstagramInboxAccountDocument; tenantId: string } | null> {
+  const snap = await adminDb
+    .collectionGroup('instagram_inbox_accounts')
+    .where('id', '==', accountId)
+    .where('connectionMethod', '==', 'byoa')
+    .where('status', '==', 'active')
+    .limit(1)
+    .get()
+
+  if (snap.empty) return null
+
+  const doc = snap.docs[0]!
+  const account = doc.data() as InstagramInboxAccountDocument
+  const tenantId = doc.ref.path.split('/')[1]
+
+  return { account, tenantId }
 }
 
 /**

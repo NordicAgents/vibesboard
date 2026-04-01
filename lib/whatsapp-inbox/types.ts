@@ -23,6 +23,16 @@ export interface ConnectApiKeyParams {
   userId: string
 }
 
+export interface ConnectByoaParams {
+  tenantId: string
+  metaAppId: string
+  metaAppSecret: string
+  accessToken: string
+  webhookVerifyToken: string
+  wabaId: string
+  userId: string
+}
+
 export interface StoreInboundParams {
   tenantId: string
   accountId: string
