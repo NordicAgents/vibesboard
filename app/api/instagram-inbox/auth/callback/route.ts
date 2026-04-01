@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX')
+    const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX_OAUTH')
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'Instagram Inbox feature is not enabled' },
+        { error: 'Instagram OAuth connection is not enabled for your workspace' },
         { status: 403 }
       )
     }

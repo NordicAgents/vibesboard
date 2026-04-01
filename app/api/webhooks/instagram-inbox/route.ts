@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findAccountByPageId } from '@/lib/instagram-inbox/accounts'
-import { storeInboundMessage, updateMessageStatus } from '@/lib/instagram-inbox/messages'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
-import { triggerInboxAgent } from '@/lib/inbox-agent'
-import type { InstagramWebhookMessage, InstagramSenderInfo } from '@/lib/instagram-inbox/types'
+import {
+  processInboundMessage,
+  processDeliveryUpdate,
+  processReadUpdate,
+} from '@/lib/instagram-inbox/webhook-handlers'
 
 export const runtime = 'nodejs'
 
@@ -34,23 +35,6 @@ export async function GET(request: NextRequest) {
 /**
  * POST — Handle inbound messages and status updates from Meta.
  * Verifies the payload signature, then processes messaging events.
- *
- * Instagram webhook structure:
- * {
- *   object: "instagram",
- *   entry: [{
- *     id: "<PAGE_ID>",
- *     time: 1234567890,
- *     messaging: [{
- *       sender: { id: "<SENDER_IGSID>" },
- *       recipient: { id: "<RECIPIENT_IGSID>" },
- *       timestamp: 1234567890,
- *       message?: { mid, text?, attachments? },
- *       delivery?: { mids, watermark },
- *       read?: { watermark }
- *     }]
- *   }]
- * }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -101,91 +85,4 @@ export async function POST(request: NextRequest) {
     // Always return 200 to prevent Meta from retrying
     return NextResponse.json({ success: true })
   }
-}
-
-/**
- * Process a single inbound message event.
- */
-async function processInboundMessage(pageId: string, event: any) {
-  const result = await findAccountByPageId(pageId)
-  if (!result) {
-    console.warn(
-      `[Instagram Inbox] No active account found for Page ${pageId}`
-    )
-    return
-  }
-
-  const { account, tenantId } = result
-  const senderIgsid = event.sender?.id
-
-  if (!senderIgsid) return
-
-  try {
-    const message: InstagramWebhookMessage = {
-      mid: event.message.mid,
-      text: event.message.text,
-      attachments: event.message.attachments,
-      is_echo: event.message.is_echo,
-      is_deleted: event.message.is_deleted,
-    }
-
-    const sender: InstagramSenderInfo = {
-      id: senderIgsid,
-    }
-
-    await storeInboundMessage({
-      tenantId,
-      accountId: account.id,
-      pageId,
-      message,
-      sender,
-    })
-
-    // Fire-and-forget: trigger agent if assigned
-    const messageText = message.text || ''
-    if (messageText) {
-      triggerInboxAgent({
-        channel: 'instagram',
-        tenantId,
-        accountId: account.id,
-        contactId: senderIgsid,
-        messageText,
-        windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      }).catch((err) => {
-        console.error('[Instagram Inbox] Agent handler error:', err)
-      })
-    }
-  } catch (err) {
-    console.error(
-      `[Instagram Inbox] Failed to store message ${event.message?.mid}:`,
-      err
-    )
-  }
-}
-
-/**
- * Process delivery status updates.
- */
-async function processDeliveryUpdate(event: any) {
-  const mids = event.delivery?.mids || []
-  for (const mid of mids) {
-    try {
-      await updateMessageStatus(mid, 'delivered')
-    } catch (err) {
-      console.error(
-        `[Instagram Inbox] Failed to update delivery status for ${mid}:`,
-        err
-      )
-    }
-  }
-}
-
-/**
- * Process read receipts.
- */
-async function processReadUpdate(event: any) {
-  // Instagram read webhooks don't include specific message IDs,
-  // they include a watermark timestamp. For now we skip granular
-  // read tracking since Instagram doesn't provide per-message read receipts.
-  // This is a placeholder for future enhancement.
 }
