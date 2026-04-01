@@ -11,15 +11,19 @@ import {
 
 export const runtime = 'nodejs'
 
+type RouteParams = {
+  params: Promise<{ id: string; accountId: string }>
+}
+
 /**
  * GET — Get a single inbox account.
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -56,10 +60,10 @@ export async function GET(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantAdmin(tenantId)
     if (!authResult.ok) return authResult.response
 
@@ -88,10 +92,10 @@ export async function DELETE(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 

@@ -24,7 +24,7 @@ export function ConnectInstagramButton({
       return
     }
 
-    const configId = process.env.NEXT_PUBLIC_FB_LOGIN_CONFIG_ID_INSTAGRAM
+    const configId = process.env.NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
     if (!configId) {
       toast.error('Instagram Login configuration not set up.')
       return
