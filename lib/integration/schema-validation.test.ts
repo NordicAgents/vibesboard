@@ -26,7 +26,7 @@ const agentChatRequestSchema = z.object({
 const agentAskRequestSchema = z.object({
   question: z.string().min(1).max(2_000),
   contextConversationId: z.string().min(1).optional(),
-  sessionId: z.string().uuid().optional()
+  sessionId: z.string().min(1).optional()
 })
 
 // -------------------------------------------------------------------
@@ -205,10 +205,18 @@ describe('agentAskRequestSchema', () => {
     assert.ok(result.success)
   })
 
-  test('rejects non-UUID sessionId', () => {
+  test('accepts non-UUID sessionId (Firestore auto-IDs)', () => {
     const result = agentAskRequestSchema.safeParse({
       question: 'Hello',
-      sessionId: 'not-a-uuid'
+      sessionId: 'abc123firestoreId'
+    })
+    assert.ok(result.success)
+  })
+
+  test('rejects empty sessionId', () => {
+    const result = agentAskRequestSchema.safeParse({
+      question: 'Hello',
+      sessionId: ''
     })
     assert.ok(!result.success)
   })
