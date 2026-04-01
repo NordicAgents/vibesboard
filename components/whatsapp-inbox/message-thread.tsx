@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { MessageWindowIndicator } from './message-window-indicator'
-import { Send, Check, CheckCheck, AlertCircle } from 'lucide-react'
+import { Send, Check, CheckCheck, AlertCircle, Bot, Pause, Play, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type {
@@ -56,6 +56,22 @@ export function MessageThread({
   const windowOpen =
     conversation.windowExpiresAt &&
     new Date(conversation.windowExpiresAt) > new Date()
+
+  const hasAgent = !!conversation.assignedAgentId
+  const agentPaused = !!conversation.agentPaused
+  const agentHandedOff = !!conversation.agentHandedOff
+
+  const patchConversation = async (updates: Record<string, any>) => {
+    await fetch(
+      `/api/tenants/${tenantId}/whatsapp-inbox/accounts/${accountId}/conversations/${conversation.contactPhone}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      }
+    )
+    onMessageSent() // refresh data
+  }
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -113,9 +129,42 @@ export function MessageThread({
             {conversation.contactPhone}
           </p>
         </div>
-        <MessageWindowIndicator
-          windowExpiresAt={conversation.windowExpiresAt}
-        />
+        <div className="flex items-center gap-2">
+          {hasAgent && !agentHandedOff && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={() => patchConversation({ agentPaused: !agentPaused })}
+            >
+              {agentPaused ? (
+                <>
+                  <Play className="size-3" />
+                  Resume Agent
+                </>
+              ) : (
+                <>
+                  <Pause className="size-3" />
+                  Pause Agent
+                </>
+              )}
+            </Button>
+          )}
+          {agentHandedOff && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 text-xs text-accent-orange"
+              onClick={() => patchConversation({ agentHandedOff: false, agentPaused: false })}
+            >
+              <UserPlus className="size-3" />
+              Re-assign Agent
+            </Button>
+          )}
+          <MessageWindowIndicator
+            windowExpiresAt={conversation.windowExpiresAt}
+          />
+        </div>
       </div>
 
       {/* Messages */}
@@ -146,6 +195,12 @@ export function MessageThread({
                     : 'rounded-bl-md bg-secondary text-foreground'
                 )}
               >
+                {msg.sentBy?.startsWith('agent:') && (
+                  <span className="mb-1 flex items-center gap-1 text-[10px] font-medium text-accent-orange">
+                    <Bot className="size-3" />
+                    {msg.sentByAgentName || 'AI Agent'}
+                  </span>
+                )}
                 <p className="whitespace-pre-wrap text-sm">
                   {msg.text || `[${msg.type}]`}
                 </p>
@@ -169,6 +224,23 @@ export function MessageThread({
           ))
         )}
       </div>
+
+      {/* Handoff banner */}
+      {agentHandedOff && (
+        <div className="flex items-center justify-between border-t border-amber-200 bg-amber-50 px-4 py-2">
+          <p className="text-xs text-amber-800">
+            AI Agent handed off this conversation.
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-accent-orange"
+            onClick={() => patchConversation({ agentHandedOff: false, agentPaused: false })}
+          >
+            Re-assign Agent
+          </Button>
+        </div>
+      )}
 
       {/* Input area */}
       <div className="border-t border-border p-4">

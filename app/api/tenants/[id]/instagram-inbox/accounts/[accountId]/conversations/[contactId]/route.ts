@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/firebase/route-handler'
 import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import {
   getConversation,
   updateConversationStatus,
@@ -102,6 +104,43 @@ export async function PATCH(
 
     if (body.markAsRead) {
       await markAsRead(tenantId, accountId, contactId)
+    }
+
+    // Agent assignment fields
+    const agentUpdates: Record<string, any> = {}
+
+    if (body.assignedAgentId !== undefined) {
+      agentUpdates.assignedAgentId = body.assignedAgentId || null
+    }
+
+    if (body.agentPaused !== undefined) {
+      agentUpdates.agentPaused = body.agentPaused
+    }
+
+    if (body.agentHandedOff !== undefined) {
+      agentUpdates.agentHandedOff = body.agentHandedOff
+      // When re-engaging agent, also reset the agent conversation handoff flag
+      if (body.agentHandedOff === false) {
+        const convo = await getConversation(tenantId, accountId, contactId)
+        if (convo?.agentConversationId) {
+          const effectiveAgentId = convo.assignedAgentId || null
+          if (effectiveAgentId) {
+            const agentConvoPath = Collections.conversations(tenantId, effectiveAgentId)
+            await adminDb.collection(agentConvoPath).doc(convo.agentConversationId).update({
+              handedOff: false,
+              updatedAt: new Date().toISOString(),
+            }).catch(() => {}) // Non-critical
+          }
+        }
+      }
+    }
+
+    if (Object.keys(agentUpdates).length > 0) {
+      const convoPath = Collections.instagramInboxConversations(tenantId, accountId)
+      await adminDb.collection(convoPath).doc(contactId).update({
+        ...agentUpdates,
+        updatedAt: new Date().toISOString(),
+      })
     }
 
     return NextResponse.json({ success: true })
