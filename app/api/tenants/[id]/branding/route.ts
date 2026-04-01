@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireTenantMember, requireTenantAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
+import type { TenantBrandingDocument, BrandingField } from '@/lib/firestore-types'
 import { validateBrandingColors, validateUrl } from '@/lib/validations'
 import { isFeatureEnabled } from '@/lib/features'
+import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'
 
@@ -15,7 +17,7 @@ type RouteParams = {
 
 /**
  * GET /api/tenants/[id]/branding
- * Get tenant branding (any tenant member)
+ * Get tenant branding with base branding and inheritance metadata
  */
 export async function GET(req: Request, { params }: RouteParams) {
     const { id: tenantId } = await params
@@ -23,19 +25,32 @@ export async function GET(req: Request, { params }: RouteParams) {
     const auth = await requireTenantMember(tenantId)
     if (!auth.ok) return auth.response
 
-    const brandingDoc = await adminDb
-        .collection(Collections.branding(tenantId))
-        .doc(tenantId)
-        .get()
+    const [brandingDoc, baseBranding] = await Promise.all([
+        adminDb
+            .collection(Collections.branding(tenantId))
+            .doc(tenantId)
+            .get(),
+        getBaseBranding()
+    ])
 
-    const branding = brandingDoc.exists ? brandingDoc.data() : null
+    const tenantBranding = brandingDoc.exists
+        ? (brandingDoc.data() as TenantBrandingDocument)
+        : null
 
-    return NextResponse.json({ branding })
+    const effective = resolveEffectiveBranding(tenantBranding, baseBranding)
+
+    return NextResponse.json({
+        branding: effective,
+        baseBranding,
+        overrides: tenantBranding?.overrides ?? null,
+        raw: tenantBranding
+    })
 }
 
 /**
  * PUT /api/tenants/[id]/branding
  * Update tenant branding (TENANT_ADMIN or SUPER_ADMIN)
+ * Tracks which fields differ from base branding in the overrides array
  */
 export async function PUT(req: Request, { params }: RouteParams) {
     const { id: tenantId } = await params
@@ -63,8 +78,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
         )
     }
 
-    // Validate logo URL if provided
-    if (logo_url && logo_url !== '' && !validateUrl(logo_url)) {
+    // Validate logo URL if provided (allow relative /api/ paths for uploaded logos)
+    const isRelativeLogoPath = logo_url && logo_url.startsWith('/api/tenants/')
+    if (logo_url && logo_url !== '' && !isRelativeLogoPath && !validateUrl(logo_url)) {
         return NextResponse.json(
             { error: 'Invalid logo URL format' },
             { status: 400 }
@@ -117,15 +133,47 @@ export async function PUT(req: Request, { params }: RouteParams) {
         )
     }
 
-    // Use set with merge to create or update
+    // Read existing branding + base branding to compute overrides correctly
     const brandingRef = adminDb
         .collection(Collections.branding(tenantId))
         .doc(tenantId)
 
+    const [existingDoc, baseBranding] = await Promise.all([
+        brandingRef.get(),
+        getBaseBranding()
+    ])
+    const existing = existingDoc.exists ? (existingDoc.data() as TenantBrandingDocument) : null
+
+    // Merge request fields with existing stored values for override computation
+    const effectivePrimary = updates.primaryColor ?? existing?.primaryColor ?? undefined
+    const effectiveSecondary = updates.secondaryColor ?? existing?.secondaryColor ?? undefined
+    const effectiveLogo = updates.logoUrl ?? existing?.logoUrl ?? undefined
+
+    const overrides: BrandingField[] = []
+    if (effectivePrimary !== undefined && effectivePrimary !== baseBranding.primaryColor) {
+        overrides.push('primaryColor')
+    }
+    if (effectiveSecondary !== undefined && effectiveSecondary !== baseBranding.secondaryColor) {
+        overrides.push('secondaryColor')
+    }
+    if (effectiveLogo !== undefined && effectiveLogo !== (baseBranding.logoUrl || null)) {
+        overrides.push('logoUrl')
+    }
+
+    updates.overrides = overrides
+
+    // Use set with merge to create or update
     await brandingRef.set(updates, { merge: true })
 
     const updatedDoc = await brandingRef.get()
-    return NextResponse.json({ branding: updatedDoc.data() })
+    const updatedBranding = updatedDoc.data() as TenantBrandingDocument
+    const effective = resolveEffectiveBranding(updatedBranding, baseBranding)
+
+    return NextResponse.json({
+        branding: effective,
+        baseBranding,
+        overrides: updatedBranding.overrides ?? null
+    })
 }
 
 /**

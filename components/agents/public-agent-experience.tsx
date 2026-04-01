@@ -16,12 +16,15 @@ interface PublicAgentExperienceProps {
   agent: VibeAgent
   googleReviewPlaceId?: string | null
   embed?: boolean
+  /** Tenant branding logo URL. Falls back to /logo_1.png if not set. */
+  logoUrl?: string | null
 }
 
 export function PublicAgentExperience({
   agent,
   googleReviewPlaceId,
-  embed
+  embed,
+  logoUrl
 }: PublicAgentExperienceProps) {
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
@@ -196,9 +199,13 @@ export function PublicAgentExperience({
               <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_1px_4px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/logo_1.png"
+                  src={logoUrl || '/logo_1.png'}
                   alt="agent"
                   className="size-6 object-contain"
+                  onError={(e) => {
+                    // Fall back to default logo if custom logo fails to load
+                    e.currentTarget.src = '/logo_1.png'
+                  }}
                 />
               </div>
 
@@ -229,6 +236,7 @@ export function PublicAgentExperience({
             onChatComplete={handleChatComplete}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
+            agentLogoUrl={logoUrl}
             embed={embed}
           />
         </motion.div>
