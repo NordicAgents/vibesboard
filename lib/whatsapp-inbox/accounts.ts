@@ -343,12 +343,24 @@ export async function connectByoaAccount(
     )
   }
 
-  // 3. Generate document and webhook URL
+  // 3. Subscribe to WABA webhooks (required for Meta to send events)
+  let webhookSubscribed = false
+  try {
+    await subscribeToWebhooks(wabaId, accessToken)
+    webhookSubscribed = true
+  } catch (err: any) {
+    console.warn('[WhatsApp BYOA] Webhook subscription failed:', err.message)
+  }
+
+  // 4. Generate document and webhook URL
   const docRef = collRef.doc()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/^http:/, 'https:')
+  if (appUrl.includes('vibesboard.com') && !appUrl.includes('www.vibesboard.com')) {
+    appUrl = appUrl.replace('://vibesboard.com', '://www.vibesboard.com')
+  }
   const byoaWebhookUrl = `${appUrl}/api/webhooks/whatsapp-inbox/byoa/${docRef.id}`
 
-  // 4. Encrypt secrets and store
+  // 5. Encrypt secrets and store
   const now = new Date().toISOString()
   const account: WhatsAppInboxAccountDocument = {
     id: docRef.id,
@@ -367,7 +379,7 @@ export async function connectByoaAccount(
     metaAppSecret: encryptToken(metaAppSecret),
     webhookVerifyToken: encryptToken(webhookVerifyToken),
     byoaWebhookUrl,
-    webhookSubscribed: false, // customer manages their own webhook subscriptions
+    webhookSubscribed,
     createdAt: now,
     updatedAt: now,
   }
