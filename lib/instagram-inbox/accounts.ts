@@ -451,12 +451,36 @@ export async function connectByoaAccount(
   )
   const pageData = pageResponse.ok ? await pageResponse.json() : { name: '' }
 
-  // 4. Generate document and webhook URL
+  // 4. Subscribe page to webhooks (required for Meta to send events).
+  //    Try with the provided token first; if it fails (e.g. system user token
+  //    instead of page token), try exchanging for a page access token.
+  let webhookSubscribed = false
+  try {
+    await subscribeToWebhooks(pageId, accessToken)
+    webhookSubscribed = true
+  } catch (err: any) {
+    if (err.message?.includes('#210') || err.message?.includes('page access token')) {
+      try {
+        const pageToken = await getPageAccessToken(pageId, accessToken)
+        await subscribeToWebhooks(pageId, pageToken)
+        webhookSubscribed = true
+      } catch (retryErr: any) {
+        console.warn('[Instagram BYOA] Webhook subscription failed after token exchange:', retryErr.message)
+      }
+    } else {
+      console.warn('[Instagram BYOA] Webhook subscription failed:', err.message)
+    }
+  }
+
+  // 5. Generate document and webhook URL
   const docRef = collRef.doc()
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/^http:/, 'https:')
+  if (appUrl.includes('vibesboard.com') && !appUrl.includes('www.vibesboard.com')) {
+    appUrl = appUrl.replace('://vibesboard.com', '://www.vibesboard.com')
+  }
   const byoaWebhookUrl = `${appUrl}/api/webhooks/instagram-inbox/byoa/${docRef.id}`
 
-  // 5. Encrypt secrets and store
+  // 6. Encrypt secrets and store
   const now = new Date().toISOString()
   const account: InstagramInboxAccountDocument = {
     id: docRef.id,
@@ -475,7 +499,7 @@ export async function connectByoaAccount(
     metaAppSecret: encryptToken(metaAppSecret),
     webhookVerifyToken: encryptToken(webhookVerifyToken),
     byoaWebhookUrl,
-    webhookSubscribed: false, // customer manages their own webhook subscriptions
+    webhookSubscribed,
     createdAt: now,
     updatedAt: now,
   }
