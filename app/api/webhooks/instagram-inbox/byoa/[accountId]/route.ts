@@ -131,10 +131,13 @@ export async function POST(
     const body = JSON.parse(rawBody)
 
     if (body.object !== 'instagram') {
+      console.warn(`[Instagram BYOA] Unexpected object type "${body.object}" for account ${accountId}`)
       return NextResponse.json({ error: 'Invalid object type' }, { status: 400 })
     }
 
-    await processEntries(body.entry || [], account, tenantId)
+    const entries = body.entry || []
+    console.log(`[Instagram BYOA] Received ${entries.length} entries for account ${accountId}`)
+    await processEntries(entries, account, tenantId)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
