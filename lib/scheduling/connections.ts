@@ -8,18 +8,40 @@ import {
 import { refreshAccessToken } from './google-auth'
 import CryptoJS from 'crypto-js'
 
+// ─── Startup Validation ─────────────────────────────────────────────
+
+// Fail fast on the server so misconfiguration is caught at boot time,
+// not silently at the first token encrypt/decrypt call.
+// Note: key rotation is not yet supported — all tokens are encrypted
+// with the single active key. To rotate, re-encrypt all stored tokens
+// with the new key before swapping the env variable.
+if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
+  console.error(
+    '[scheduling/connections] FATAL: ENCRYPTION_KEY environment variable is not set. ' +
+    'Calendar OAuth tokens cannot be encrypted or decrypted. ' +
+    'Set ENCRYPTION_KEY before deploying.'
+  )
+}
+
 // ─── Token Encryption ───────────────────────────────────────────────
 
-function encryptToken(token: string): string {
+function getEncryptionKey(): string {
   const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY environment variable is not set')
-  return CryptoJS.AES.encrypt(token, key).toString()
+  if (!key) {
+    throw new Error(
+      'ENCRYPTION_KEY environment variable is not set. ' +
+      'Calendar OAuth tokens cannot be encrypted or decrypted.'
+    )
+  }
+  return key
+}
+
+function encryptToken(token: string): string {
+  return CryptoJS.AES.encrypt(token, getEncryptionKey()).toString()
 }
 
 export function decryptToken(encryptedToken: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY environment variable is not set')
-  const bytes = CryptoJS.AES.decrypt(encryptedToken, key)
+  const bytes = CryptoJS.AES.decrypt(encryptedToken, getEncryptionKey())
   return bytes.toString(CryptoJS.enc.Utf8)
 }
 

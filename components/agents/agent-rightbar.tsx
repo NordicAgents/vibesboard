@@ -582,9 +582,13 @@ export function AgentRightbar({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete
-                    your agent "{agent.name}" and remove all associated data
-                    including files and conversations.
+                    This action cannot be undone. Deleting <strong>{agent.name}</strong> will permanently remove:
+                    <ul className="mt-2 list-disc pl-5 text-sm">
+                      <li>The agent and its configuration</li>
+                      <li>All uploaded files</li>
+                      <li>All conversations and message history</li>
+                      <li>All bookings and scheduling data</li>
+                    </ul>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

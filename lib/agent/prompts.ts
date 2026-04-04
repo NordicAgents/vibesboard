@@ -1,4 +1,5 @@
 import { type VibeAgent } from '@/lib/types'
+import { sanitizeForPrompt } from '@/lib/utils/sanitize'
 
 // Completion signal markers - used by API to detect when chat should complete
 export const COMPLETION_MARKERS = {
@@ -220,6 +221,25 @@ UPDATING RECORDS: You can update existing records using the update_record tool. 
   return prompt
 }
 
+function getCalendarAvailabilityInstructions(agent: VibeAgent): string {
+  const config = agent.calendarAvailabilityConfig
+  if (!config?.enabled) return ''
+
+  const resource = config.resourceName?.trim() || 'the resource'
+
+  return `
+## Availability Checking
+You have access to the check_calendar_availability tool. Use it whenever a user asks about availability, free dates, or whether they can book ${resource}.
+
+RULES:
+- Always call check_calendar_availability before telling the user whether dates are available or not — never guess
+- Required inputs: check_in and check_out dates in YYYY-MM-DD format
+- If the user gives vague dates like "next weekend" or "in May", convert them to exact YYYY-MM-DD dates before calling the tool
+- If the user only gives a check-in date, ask for the check-out date before calling the tool
+- After getting the result, respond naturally — do not expose raw tool output to the user
+- If unavailable, suggest they try different dates`
+}
+
 interface PromptOptions {
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
@@ -293,10 +313,12 @@ export function buildAgentSystemPrompt(
 
   const schedulingInstructions = getSchedulingInstructions(agent)
   const dataActionInstructions = getDataActionInstructions(agent)
+  const calendarAvailabilityInstructions = getCalendarAvailabilityInstructions(agent)
 
-  const domainScope = agent.domain?.trim() || agent.name
+  const agentName = sanitizeForPrompt(agent.name)
+  const domainScope = sanitizeForPrompt(agent.domain?.trim() || agent.name)
 
-  const groundingPreamble = `You are "${agent.name}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
+  const groundingPreamble = `You are "${agentName}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
 
 ## Scope Enforcement
 - You are a SPECIALIZED assistant, not a general-purpose AI.
@@ -316,6 +338,7 @@ ${modeInstructions}
 ${handoffInstructions}
 ${schedulingInstructions}
 ${dataActionInstructions}
+${calendarAvailabilityInstructions}
 ${wrapUpInstructions}
 
 Tooling:

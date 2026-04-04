@@ -47,6 +47,14 @@ export interface AgentDataConfig {
   updateKeyField?: string | null // field used to find existing rows for updates
 }
 
+// ─── Calendar Availability ──────────────────────────────────────────
+export interface AgentCalendarAvailabilityConfig {
+  enabled: boolean
+  calendarConnectionId: string | null
+  calendarId?: string | null  // specific calendar to check — overrides the connection's default
+  resourceName?: string       // e.g. "Glass Cabin", "Conference Room A"
+}
+
 // ─── Agent notifications ────────────────────────────────────────────
 export type NotificationEvent = 'completed' | 'handoff' | 'agent_handoff'
 
@@ -337,6 +345,7 @@ export interface AgentDocument {
   }>
   schedulingConfig?: AgentSchedulingConfig
   dataConfig?: AgentDataConfig
+  calendarAvailabilityConfig?: AgentCalendarAvailabilityConfig
   createdAt: string
   updatedAt: string
 }

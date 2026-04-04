@@ -104,6 +104,12 @@ export interface VibeAgent {
     autoSubmitOnComplete: boolean
     updateKeyField?: string | null
   }
+  calendarAvailabilityConfig?: {
+    enabled: boolean
+    calendarConnectionId: string | null
+    calendarId?: string | null
+    resourceName?: string
+  }
   createdAt: string
   updatedAt: string
 }
