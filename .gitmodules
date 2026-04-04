@@ -1,0 +1,3 @@
+[submodule ".claude/plugins/superpowers"]
+	path = .claude/plugins/superpowers
+	url = https://github.com/obra/superpowers
