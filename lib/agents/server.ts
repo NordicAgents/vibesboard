@@ -54,8 +54,33 @@ export async function getAgentById(
 }
 
 /**
- * Batch-fetch agent names by IDs.
- * Used to populate handoff target names in system prompts and stream metadata.
+ * Batch-fetch agent names by IDs within a known tenant.
+ * Uses a single Firestore getAll() RPC instead of one query per agent.
+ * Prefer this over getAgentNames() whenever the tenant is known (e.g. handoff targets).
+ */
+export async function getAgentNamesByTenant(
+  tenantId: string,
+  agentIds: string[]
+): Promise<Record<string, string>> {
+  if (!agentIds.length) return {}
+
+  const refs = agentIds.map(id =>
+    adminDb.collection(Collections.agents(tenantId)).doc(id)
+  )
+  const snaps = await adminDb.getAll(...refs)
+
+  const names: Record<string, string> = {}
+  snaps.forEach((snap, i) => {
+    if (snap.exists) {
+      names[agentIds[i]] = (snap.data() as Record<string, any>).name
+    }
+  })
+  return names
+}
+
+/**
+ * Batch-fetch agent names by IDs across all tenants (collectionGroup).
+ * N queries — use getAgentNamesByTenant() when the tenant is known.
  */
 export async function getAgentNames(
   agentIds: string[]

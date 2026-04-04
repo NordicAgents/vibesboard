@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   Collections,
@@ -30,6 +31,18 @@ function formatSlotForDisplay(isoDate: string, timezone: string): string {
   } catch {
     return isoDate
   }
+}
+
+/**
+ * Deterministic booking document ID derived from the booking's natural key.
+ * If the Google Calendar request times out and the tool is retried, the same
+ * doc ID is generated — the existing booking is returned instead of creating a duplicate.
+ */
+function bookingDocId(agentId: string, startTime: string, attendeeEmail: string): string {
+  return createHash('sha256')
+    .update(`${agentId}|${startTime}|${attendeeEmail.toLowerCase()}`)
+    .digest('hex')
+    .slice(0, 32)
 }
 
 function buildCheckAvailabilityTool(ctx: SchedulingToolContext): RegisteredTool {
@@ -163,6 +176,27 @@ function buildBookMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
         : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
 
       try {
+        // Use a deterministic doc ID so retries after a timeout return the
+        // existing booking rather than creating a duplicate calendar event.
+        const docId = bookingDocId(ctx.agent.id, startTime, attendeeEmail)
+        const bookingRef = adminDb
+          .collection(Collections.bookings(ctx.agent.tenantId!, ctx.agent.id))
+          .doc(docId)
+
+        const existingSnap = await bookingRef.get()
+        if (existingSnap.exists) {
+          const existing = existingSnap.data() as BookingDocument
+          const lines = [
+            `Meeting already booked.`,
+            `Title: ${existing.title}`,
+            `Time: ${formatSlotForDisplay(existing.startTime, ctx.config.timezone)}`,
+            `Duration: ${Math.round((new Date(existing.endTime).getTime() - new Date(existing.startTime).getTime()) / 60_000)} minutes`,
+            `Attendee: ${existing.attendeeName} (${existing.attendeeEmail})`
+          ]
+          if (existing.meetLink) lines.push(`Google Meet: ${existing.meetLink}`)
+          return lines.join('\n')
+        }
+
         const accessToken = await getValidAccessToken(ctx.connection)
         const provider = createProvider(ctx.connection, accessToken)
 
@@ -179,13 +213,10 @@ function buildBookMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
           createMeetLink: ctx.config.createMeetLink
         })
 
-        // Store booking record
-        const bookingRef = adminDb
-          .collection(Collections.bookings(ctx.agent.tenantId!, ctx.agent.id))
-          .doc()
+        // Store booking record with deterministic ID for idempotency
         const now = new Date().toISOString()
         const booking: BookingDocument = {
-          id: bookingRef.id,
+          id: docId,
           agentId: ctx.agent.id,
           tenantId: ctx.agent.tenantId!,
           conversationId: '', // populated by caller if available

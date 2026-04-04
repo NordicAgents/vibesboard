@@ -184,6 +184,28 @@ interface ResponsesAgentWithToolsArgs {
 }
 
 /**
+ * Validate tool arguments against the tool's JSON schema parameters.
+ * Checks that the args object is present and all required fields exist.
+ * Returns an error string if invalid, null if valid.
+ */
+function validateToolArgs(
+  toolName: string,
+  args: Record<string, unknown>,
+  schema: { required?: string[]; properties?: Record<string, unknown> } | undefined
+): string | null {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return `Tool "${toolName}" received invalid arguments (expected a JSON object).`
+  }
+  const required = schema?.required ?? []
+  for (const field of required) {
+    if (!(field in args)) {
+      return `Tool "${toolName}" missing required argument: "${field}".`
+    }
+  }
+  return null
+}
+
+/**
  * Use native OpenAI Responses API tool calling.
  * 1. Call completeText() with tools — the API decides whether to call a tool.
  * 2. If a tool was called, execute it and build a follow-up prompt.
@@ -241,16 +263,24 @@ const runResponsesAgentWithTools = async ({
   if (decision.toolCalls.length > 0) {
     const call = decision.toolCalls[0]
     chosenTool = call.name
-    toolArgs = call.arguments
+    toolArgs = call.arguments ?? {}
     const executor = toolkit.executors[chosenTool]
 
     if (executor) {
-      try {
-        toolResult = await executor(toolArgs, {
-          fileContext: toolContext?.fileContext ?? context
-        })
-      } catch (error) {
-        toolResult = `Tool ${chosenTool} failed: ${error}`
+      // Validate args against the tool's JSON schema before execution.
+      // Guards against hallucinated or malformed args from the model.
+      const toolSchema = tools.find(t => t.name === chosenTool)
+      const validationError = validateToolArgs(chosenTool, toolArgs, toolSchema?.parameters)
+      if (validationError) {
+        toolResult = validationError
+      } else {
+        try {
+          toolResult = await executor(toolArgs, {
+            fileContext: toolContext?.fileContext ?? context
+          })
+        } catch (error) {
+          toolResult = `Tool ${chosenTool} failed: ${error}`
+        }
       }
     }
   }

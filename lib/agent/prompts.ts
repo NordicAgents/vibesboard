@@ -1,4 +1,5 @@
 import { type VibeAgent } from '@/lib/types'
+import { sanitizeForPrompt } from '@/lib/utils/sanitize'
 
 // Completion signal markers - used by API to detect when chat should complete
 export const COMPLETION_MARKERS = {
@@ -314,9 +315,10 @@ export function buildAgentSystemPrompt(
   const dataActionInstructions = getDataActionInstructions(agent)
   const calendarAvailabilityInstructions = getCalendarAvailabilityInstructions(agent)
 
-  const domainScope = agent.domain?.trim() || agent.name
+  const agentName = sanitizeForPrompt(agent.name)
+  const domainScope = sanitizeForPrompt(agent.domain?.trim() || agent.name)
 
-  const groundingPreamble = `You are "${agent.name}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
+  const groundingPreamble = `You are "${agentName}", a focused AI assistant. Your role is strictly defined by the instructions below — you must ONLY answer questions and assist with topics that are directly related to your configured purpose.
 
 ## Scope Enforcement
 - You are a SPECIALIZED assistant, not a general-purpose AI.

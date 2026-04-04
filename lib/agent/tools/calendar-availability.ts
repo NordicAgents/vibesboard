@@ -113,6 +113,14 @@ export function buildCalendarAvailabilityTools(
   const config = agent.calendarAvailabilityConfig
   if (!config?.enabled) return []
 
+  // Defensive check: connection must belong to the same tenant as the agent.
+  // Context-builder already scopes the lookup to agent.tenantId, but guard
+  // here too so this function is safe regardless of how it's called.
+  if (connection.tenantId !== agent.tenantId) {
+    console.error('[calendar-availability] Connection tenant mismatch — tool not injected')
+    return []
+  }
+
   const calendarId = config.calendarId ?? connection.calendarId
   if (!calendarId) {
     console.error('[calendar-availability] No calendarId configured — tool not injected')
