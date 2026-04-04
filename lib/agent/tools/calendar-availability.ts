@@ -52,6 +52,20 @@ function buildCheckCalendarAvailabilityTool(ctx: CalendarAvailabilityContext): R
         return 'Check-out date must be after check-in date.'
       }
 
+      const today = new Date()
+      today.setUTCHours(0, 0, 0, 0)
+
+      const maxDate = new Date(today)
+      maxDate.setMonth(maxDate.getMonth() + 6)
+
+      if (checkInDate < today) {
+        return 'Check-in date cannot be in the past.'
+      }
+
+      if (checkInDate > maxDate) {
+        return 'Check-in date cannot be more than 6 months from today.'
+      }
+
       const nights = Math.round(
         (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
       )
