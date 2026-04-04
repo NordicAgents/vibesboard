@@ -6,6 +6,7 @@ import {
   getCalendarConnection,
   deleteCalendarConnection
 } from '@/lib/scheduling/connections'
+import { disableAgentsForConnection } from '@/lib/agents/server'
 
 export const runtime = 'nodejs'
 
@@ -39,6 +40,12 @@ export async function DELETE(
   }
 
   await deleteCalendarConnection(tenantId, connectionId)
+
+  // Disable any agents that referenced this connection so they don't silently
+  // hold a dead reference — owner sees the toggle is off and knows to reconnect.
+  await disableAgentsForConnection(tenantId, connectionId).catch(err =>
+    console.error('[connections/delete] Failed to disable agents for connection:', err)
+  )
 
   return NextResponse.json({ success: true })
 }
