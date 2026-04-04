@@ -65,7 +65,10 @@ export function AgentCalendarAvailabilitySettings({
         const res = await fetch('/api/scheduling/connections', {
           signal: controller.signal
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          if (mounted) toast.error('Failed to load calendar connections')
+          return
+        }
         const data = await res.json()
         const conns: CalendarConnectionSummary[] = data.connections ?? []
 
@@ -81,6 +84,7 @@ export function AgentCalendarAvailabilitySettings({
         if (!mounted) return
         if (err instanceof Error && err.name !== 'AbortError') {
           console.error('[calendar-availability] Failed to load connections:', err.message)
+          toast.error('Failed to load calendar connections')
         }
       } finally {
         if (mounted) setLoadingConnections(false)
@@ -276,7 +280,7 @@ export function AgentCalendarAvailabilitySettings({
             ) : (
               <select
                 value={current.calendarId ?? ''}
-                onChange={e => update({ calendarId: e.target.value })}
+                onChange={e => { if (e.target.value) update({ calendarId: e.target.value }) }}
                 disabled={disabled}
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
