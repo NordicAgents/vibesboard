@@ -34,13 +34,44 @@ export async function GET(
     return NextResponse.json({ error: 'Connection not found' }, { status: 404 })
   }
 
+  if (connection.status !== 'active') {
+    return NextResponse.json(
+      { error: 'Calendar connection is not active', code: 'CONNECTION_INACTIVE' },
+      { status: 400 }
+    )
+  }
+
   try {
     const accessToken = await getValidAccessToken(connection)
     const calendars = await listCalendars(accessToken)
     return NextResponse.json({ calendars })
   } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+
+    if (message.toLowerCase().includes('token') || message.toLowerCase().includes('refresh')) {
+      return NextResponse.json(
+        { error: 'Calendar connection expired — please reconnect', code: 'TOKEN_EXPIRED' },
+        { status: 401 }
+      )
+    }
+
+    if (message.toLowerCase().includes('permission') || message.toLowerCase().includes('forbidden')) {
+      return NextResponse.json(
+        { error: 'Permission denied by Google Calendar', code: 'PERMISSION_DENIED' },
+        { status: 403 }
+      )
+    }
+
+    if (message.toLowerCase().includes('timed out')) {
+      return NextResponse.json(
+        { error: 'Google Calendar API timed out — please try again', code: 'TIMEOUT' },
+        { status: 503 }
+      )
+    }
+
+    console.error('[calendars/route] Failed to list calendars:', message)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to list calendars' },
+      { error: 'Failed to list calendars', code: 'UNKNOWN' },
       { status: 500 }
     )
   }

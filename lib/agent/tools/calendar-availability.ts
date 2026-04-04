@@ -1,4 +1,5 @@
 import { getValidAccessToken } from '@/lib/scheduling/connections'
+import { fetchWithRetry } from '@/lib/utils/fetch-with-retry'
 import type { CalendarConnectionDocument } from '@/lib/firestore-types'
 import type { VibeAgent } from '@/lib/types'
 import type { RegisteredTool } from './base'
@@ -8,7 +9,7 @@ const GOOGLE_CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
 interface CalendarAvailabilityContext {
   agent: VibeAgent
   connection: CalendarConnectionDocument
-  calendarId: string   // resolved: config.calendarId ?? connection.calendarId
+  calendarId: string
   resourceName: string
 }
 
@@ -58,7 +59,7 @@ function buildCheckCalendarAvailabilityTool(ctx: CalendarAvailabilityContext): R
       try {
         const accessToken = await getValidAccessToken(ctx.connection)
 
-        const res = await fetch(`${GOOGLE_CALENDAR_API}/freeBusy`, {
+        const res = await fetchWithRetry(`${GOOGLE_CALENDAR_API}/freeBusy`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -68,7 +69,10 @@ function buildCheckCalendarAvailabilityTool(ctx: CalendarAvailabilityContext): R
             timeMin: checkInDate.toISOString(),
             timeMax: checkOutDate.toISOString(),
             items: [{ id: ctx.calendarId }]
-          })
+          }),
+          timeoutMs: 10_000,
+          maxAttempts: 3,
+          baseDelayMs: 500
         })
 
         if (!res.ok) {
@@ -109,11 +113,17 @@ export function buildCalendarAvailabilityTools(
   const config = agent.calendarAvailabilityConfig
   if (!config?.enabled) return []
 
+  const calendarId = config.calendarId ?? connection.calendarId
+  if (!calendarId) {
+    console.error('[calendar-availability] No calendarId configured — tool not injected')
+    return []
+  }
+
   const ctx: CalendarAvailabilityContext = {
     agent,
     connection,
-    calendarId: config.calendarId ?? connection.calendarId,
-    resourceName: config.resourceName ?? 'The resource'
+    calendarId,
+    resourceName: config.resourceName?.trim() || 'The resource'
   }
 
   return [buildCheckCalendarAvailabilityTool(ctx)]

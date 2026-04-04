@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { toast } from 'react-hot-toast'
 import type { AgentCalendarAvailabilityConfig } from '@/lib/firestore-types'
 import {
   Card,
@@ -56,7 +57,9 @@ export function AgentCalendarAvailabilitySettings({
 
   // Load connections on mount
   useEffect(() => {
+    let mounted = true
     const controller = new AbortController()
+
     async function load() {
       try {
         const res = await fetch('/api/scheduling/connections', {
@@ -65,23 +68,31 @@ export function AgentCalendarAvailabilitySettings({
         if (!res.ok) return
         const data = await res.json()
         const conns: CalendarConnectionSummary[] = data.connections ?? []
+
+        if (!mounted) return
         setConnections(conns)
 
-        // Auto-select first active connection if none selected
-        const active = conns.filter(c => c.status === 'active')
-        const selectedIsValid = active.some(c => c.id === current.calendarConnectionId)
-        if (active.length > 0 && !selectedIsValid) {
-          onChange({ ...current, calendarConnectionId: active[0].id, calendarId: null })
+        // Auto-select only if nothing is already selected
+        if (!current.calendarConnectionId) {
+          const first = conns.find(c => c.status === 'active')
+          if (first) onChange({ ...current, calendarConnectionId: first.id, calendarId: null })
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (!mounted) return
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('[calendar-availability] Failed to load connections:', err.message)
+        }
       } finally {
-        setLoadingConnections(false)
+        if (mounted) setLoadingConnections(false)
       }
     }
+
     load()
-    return () => controller.abort()
-  }, [tenantId])
+    return () => {
+      mounted = false
+      controller.abort()
+    }
+  }, [tenantId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load calendars whenever the selected connection changes
   useEffect(() => {
@@ -89,33 +100,58 @@ export function AgentCalendarAvailabilitySettings({
       setCalendars([])
       return
     }
+
+    let mounted = true
     const controller = new AbortController()
     setLoadingCalendars(true)
+
     async function load() {
       try {
         const res = await fetch(
           `/api/scheduling/connections/${current.calendarConnectionId}/calendars`,
           { signal: controller.signal }
         )
-        if (!res.ok) return
+
+        if (!mounted) return
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const code = data.code ?? 'UNKNOWN'
+          if (code === 'TOKEN_EXPIRED') {
+            toast.error('Calendar connection expired — please reconnect')
+          } else {
+            console.error('[calendar-availability] Failed to load calendars:', data.error)
+          }
+          return
+        }
+
         const data = await res.json()
         const items: GoogleCalendarItem[] = data.calendars ?? []
+
+        if (!mounted) return
         setCalendars(items)
 
-        // Auto-select primary if no calendarId set yet
-        if (!current.calendarId) {
+        // Auto-select primary only if no calendarId is set yet
+        if (!current.calendarId && items.length > 0) {
           const primary = items.find(c => c.primary) ?? items[0]
-          if (primary) onChange({ ...current, calendarId: primary.id })
+          onChange({ ...current, calendarId: primary.id })
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        if (!mounted) return
+        if (err instanceof Error && err.name !== 'AbortError') {
+          console.error('[calendar-availability] Failed to load calendars:', err.message)
+        }
       } finally {
-        setLoadingCalendars(false)
+        if (mounted) setLoadingCalendars(false)
       }
     }
+
     load()
-    return () => controller.abort()
-  }, [current.calendarConnectionId])
+    return () => {
+      mounted = false
+      controller.abort()
+    }
+  }, [current.calendarConnectionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (patch: Partial<AgentCalendarAvailabilityConfig>) => {
     onChange({ ...current, ...patch })
@@ -127,16 +163,21 @@ export function AgentCalendarAvailabilitySettings({
 
   const handleDisconnect = async (connectionId: string) => {
     try {
-      await fetch(`/api/scheduling/connections/${connectionId}`, {
+      const res = await fetch(`/api/scheduling/connections/${connectionId}`, {
         method: 'DELETE'
       })
+      if (!res.ok) {
+        toast.error('Failed to disconnect calendar')
+        return
+      }
       setConnections(prev => prev.filter(c => c.id !== connectionId))
       if (current.calendarConnectionId === connectionId) {
         update({ calendarConnectionId: null, calendarId: null, enabled: false })
         setCalendars([])
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[calendar-availability] Failed to disconnect:', err)
+      toast.error('Failed to disconnect calendar')
     }
   }
 
@@ -216,7 +257,7 @@ export function AgentCalendarAvailabilitySettings({
         </CardContent>
       </Card>
 
-      {/* Calendar Picker — shown once a connection is selected */}
+      {/* Calendar Picker */}
       {current.calendarConnectionId && (
         <Card>
           <CardHeader className="pb-3">
