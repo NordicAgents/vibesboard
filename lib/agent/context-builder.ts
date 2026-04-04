@@ -6,6 +6,7 @@ import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/con
 import { buildSchedulingTools } from './tools/scheduling'
 import { getDataConnection } from '@/lib/data/connections'
 import { buildDataTools } from './tools/data-actions'
+import { buildCalendarAvailabilityTools } from './tools/calendar-availability'
 
 export interface ContextBuildResult {
   contextText: string
@@ -122,6 +123,36 @@ export async function buildAgentContext(
     } catch (err) {
       // Data action injection failure should not block the chat
       console.error('Failed to inject data action tools:', err)
+    }
+  }
+
+  // Inject calendar availability tool if the agent has it configured
+  if (
+    agent.calendarAvailabilityConfig?.enabled &&
+    agent.calendarAvailabilityConfig.calendarConnectionId &&
+    agent.tenantId
+  ) {
+    try {
+      const scheduleEnabled = await isFeatureEnabled(
+        agent.tenantId,
+        'AGENT_ACTIONS_SCHEDULE'
+      )
+      if (scheduleEnabled) {
+        const connection = await getCalendarConnection(
+          agent.tenantId,
+          agent.calendarAvailabilityConfig.calendarConnectionId
+        )
+        if (connection && connection.status === 'active') {
+          const availabilityTools = buildCalendarAvailabilityTools(agent, connection)
+          for (const tool of availabilityTools) {
+            toolkit.functions.push(tool.function)
+            toolkit.executors[tool.function.name] = tool.execute
+          }
+        }
+      }
+    } catch (err) {
+      // Availability tool injection failure should not block the chat
+      console.error('Failed to inject calendar availability tools:', err)
     }
   }
 
