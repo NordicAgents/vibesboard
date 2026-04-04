@@ -78,24 +78,6 @@ export async function getAgentNamesByTenant(
   return names
 }
 
-/**
- * Batch-fetch agent names by IDs across all tenants (collectionGroup).
- * N queries — use getAgentNamesByTenant() when the tenant is known.
- */
-export async function getAgentNames(
-  agentIds: string[]
-): Promise<Record<string, string>> {
-  if (!agentIds.length) return {}
-
-  const names: Record<string, string> = {}
-  await Promise.all(
-    agentIds.map(async id => {
-      const agent = await getAgentById(id)
-      if (agent) names[id] = agent.name
-    })
-  )
-  return names
-}
 
 /**
  * Get agent by slug within a specific tenant
