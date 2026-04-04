@@ -201,13 +201,16 @@ export async function DELETE(
     )
   }
 
-  // Delete the agent document
+  // Recursively delete the agent document and all subcollections
+  // (conversations, bookings, hooks, etc.). Firestore does not cascade-delete
+  // subcollections automatically — without this, all subcollection data
+  // becomes orphaned and is never cleaned up.
   const docRef = adminDb
     .collection(`tenants/${agent.tenantId}/agents`)
     .doc(id)
 
   try {
-    await docRef.delete()
+    await adminDb.recursiveDelete(docRef)
   } catch (error) {
     return new NextResponse(
       error instanceof Error ? error.message : 'Delete failed',

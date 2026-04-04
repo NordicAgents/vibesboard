@@ -13,6 +13,7 @@ import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab
 import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
 import { AgentSchedulingSettings } from '@/components/agents/agent-scheduling-settings'
 import { AgentDataSettings } from '@/components/agents/agent-data-settings'
+import { AgentCalendarAvailabilitySettings } from '@/components/agents/agent-calendar-availability-settings'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import type { AgentSharePayload, VibeAgent } from '@/lib/types'
@@ -30,7 +31,7 @@ interface AgentDashboardTabsProps {
 const SAVEABLE_TABS = ['setup', 'knowledge', 'notifications', 'reviews', 'actions']
 
 // Sub-sections within the Actions tab
-const ACTION_SECTIONS = ['scheduling', 'data'] as const
+const ACTION_SECTIONS = ['scheduling', 'data', 'availability'] as const
 type ActionSection = (typeof ACTION_SECTIONS)[number]
 
 export function AgentDashboardTabs({
@@ -221,7 +222,7 @@ export function AgentDashboardTabs({
                         : 'border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground'
                     )}
                   >
-                    {section === 'scheduling' ? 'Scheduling' : 'Data'}
+                    {section === 'scheduling' ? 'Scheduling' : section === 'data' ? 'Data' : 'Availability'}
                   </button>
                 ))}
               </div>
@@ -251,6 +252,20 @@ export function AgentDashboardTabs({
                     disabled={saving || !canEdit}
                     tenantId={agent.tenantId}
                     collectionFields={fields.collectionFields}
+                  />
+                </FeatureGate>
+              )}
+
+              {actionSection === 'availability' && (
+                <FeatureGate
+                  feature="AGENT_ACTIONS_SCHEDULE"
+                  tenantId={agent.tenantId}
+                >
+                  <AgentCalendarAvailabilitySettings
+                    config={fields.calendarAvailabilityConfig}
+                    onChange={setters.setCalendarAvailabilityConfig}
+                    disabled={saving || !canEdit}
+                    tenantId={agent.tenantId}
                   />
                 </FeatureGate>
               )}
