@@ -39,8 +39,12 @@ function formatSlotForDisplay(isoDate: string, timezone: string): string {
  * doc ID is generated — the existing booking is returned instead of creating a duplicate.
  */
 function bookingDocId(agentId: string, startTime: string, attendeeEmail: string): string {
+  // Normalize startTime to canonical ISO form so that equivalent times expressed
+  // differently (e.g. "2026-05-10T14:00:00" vs "2026-05-10T14:00:00.000Z") produce
+  // the same hash and the idempotency check is not bypassed.
+  const normalizedTime = new Date(startTime).toISOString()
   return createHash('sha256')
-    .update(`${agentId}|${startTime}|${attendeeEmail.toLowerCase()}`)
+    .update(`${agentId}|${normalizedTime}|${attendeeEmail.toLowerCase()}`)
     .digest('hex')
     .slice(0, 32)
 }
