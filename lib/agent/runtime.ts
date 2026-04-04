@@ -97,6 +97,11 @@ export async function runAgentStream({
     return stream
   }
 
+  // TODO: handoffTargetNames is not passed here — agents on the legacy Chat
+  // Completions path will not have handoff instructions injected into their
+  // system prompt. Low impact since OPENAI_CHAT_MODEL is a Responses API model
+  // in all current deployments. Fix by passing handoffTargetNames when removing
+  // or consolidating this legacy path.
   const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
     remainingResponses
   })
