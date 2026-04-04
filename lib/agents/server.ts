@@ -80,6 +80,43 @@ export async function getAgentNamesByTenant(
 
 
 /**
+ * Disable calendar availability and scheduling configs on all agents in a tenant
+ * that reference a given calendar connection.
+ *
+ * Called when a connection is deleted so agents don't silently hold a dead
+ * reference — the owner sees the toggle is off and knows to reconnect.
+ */
+export async function disableAgentsForConnection(
+  tenantId: string,
+  connectionId: string
+): Promise<void> {
+  const agentsRef = adminDb.collection(Collections.agents(tenantId))
+
+  // Query both config types in parallel — Firestore supports dot-notation on nested fields
+  const [availSnap, schedSnap] = await Promise.all([
+    agentsRef
+      .where('calendarAvailabilityConfig.calendarConnectionId', '==', connectionId)
+      .get(),
+    agentsRef
+      .where('schedulingConfig.calendarConnectionId', '==', connectionId)
+      .get()
+  ])
+
+  if (availSnap.size + schedSnap.size === 0) return
+
+  const batch = adminDb.batch()
+
+  for (const doc of availSnap.docs) {
+    batch.update(doc.ref, { 'calendarAvailabilityConfig.enabled': false })
+  }
+  for (const doc of schedSnap.docs) {
+    batch.update(doc.ref, { 'schedulingConfig.enabled': false })
+  }
+
+  await batch.commit()
+}
+
+/**
  * Get agent by slug within a specific tenant
  */
 export async function getAgentBySlug(
