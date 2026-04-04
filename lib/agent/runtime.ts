@@ -185,7 +185,8 @@ interface ResponsesAgentWithToolsArgs {
 
 /**
  * Validate tool arguments against the tool's JSON schema parameters.
- * Checks that the args object is present and all required fields exist.
+ * Checks that the args object is present, all required fields exist, and
+ * present fields match their declared primitive type.
  * Returns an error string if invalid, null if valid.
  */
 function validateToolArgs(
@@ -196,12 +197,33 @@ function validateToolArgs(
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
     return `Tool "${toolName}" received invalid arguments (expected a JSON object).`
   }
+
+  const properties = (schema?.properties ?? {}) as Record<string, { type?: string }>
   const required = schema?.required ?? []
+
   for (const field of required) {
     if (!(field in args)) {
       return `Tool "${toolName}" missing required argument: "${field}".`
     }
   }
+
+  // Validate types for present fields with a declared primitive type.
+  // Catches model hallucinations like duration_minutes: "thirty" when number is expected.
+  const primitiveTypes: Record<string, string> = {
+    string: 'string',
+    number: 'number',
+    boolean: 'boolean'
+  }
+  for (const [field, def] of Object.entries(properties)) {
+    if (!(field in args)) continue
+    const expectedType = def.type
+    if (!expectedType || !(expectedType in primitiveTypes)) continue
+    const actualType = typeof args[field]
+    if (actualType !== primitiveTypes[expectedType]) {
+      return `Tool "${toolName}" argument "${field}" must be a ${expectedType}, got ${actualType}.`
+    }
+  }
+
   return null
 }
 
