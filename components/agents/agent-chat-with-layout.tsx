@@ -446,7 +446,7 @@ export function AgentChatWithLayout({
   return (
     <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
       {selectedConversation ? (
-        <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
+        <div className="h-full overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
           <ConversationView
             conversation={selectedConversation}
             onClose={() => setSelectedConversation(null)}
