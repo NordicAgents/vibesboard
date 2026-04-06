@@ -135,6 +135,34 @@ function findNearestSlots(
     .sort((a, b) => a - b)
 }
 
+// ─── Availability check logic (extracted to keep execute CCN < 15) ──
+
+async function queryAvailability(
+  accessToken: string,
+  ctx: ResolvedResource,
+  startMs: number,
+  durationMs: number,
+  startDatetime: string,
+  endDatetime: string
+): Promise<string> {
+  const now = Date.now()
+  const windowEnd = new Date(startMs + SEARCH_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  const busySlots = await fetchBusySlots(accessToken, ctx.calendarId, new Date(now), windowEnd)
+
+  const hasConflict = busySlots.some(b => startMs < b.end && (startMs + durationMs) > b.start)
+  if (!hasConflict) {
+    return `${ctx.resource.name} is available from ${startDatetime} to ${endDatetime} (${ctx.timezone}).`
+  }
+
+  const suggestions = findNearestSlots(busySlots, startMs, durationMs, now)
+  if (suggestions.length === 0) {
+    return `${ctx.resource.name} is not available for those dates and no alternatives were found in the next ${SEARCH_WINDOW_DAYS} days.`
+  }
+
+  const slots = suggestions.map((s, i) => `${i + 1}. ${formatSlot(s, durationMs, ctx.timezone)}`).join('\n')
+  return `${ctx.resource.name} is not available for those dates. Nearest available slots (${ctx.timezone}):\n${slots}`
+}
+
 // ─── Tool builders ──────────────────────────────────────────────────
 
 function buildCheckAvailabilityTool(agent: VibeAgent): RegisteredTool {
@@ -190,27 +218,11 @@ function buildCheckAvailabilityTool(agent: VibeAgent): RegisteredTool {
         return 'Unable to check availability right now — calendar connection error. Please try again later.'
       }
 
+      const startMs = startDate.getTime()
+      const durationMs = endDate.getTime() - startMs
+
       try {
-        const now = Date.now()
-        const windowEnd = new Date(startDate.getTime() + SEARCH_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-        const busySlots = await fetchBusySlots(accessToken, ctx.calendarId, new Date(now), windowEnd)
-
-        const startMs = startDate.getTime()
-        const durationMs = endDate.getTime() - startMs
-
-        const hasConflict = busySlots.some(b => startMs < b.end && (startMs + durationMs) > b.start)
-
-        if (!hasConflict) {
-          return `${ctx.resource.name} is available from ${startDatetime} to ${endDatetime} (${ctx.timezone}).`
-        }
-
-        const suggestions = findNearestSlots(busySlots, startMs, durationMs, now)
-        if (suggestions.length === 0) {
-          return `${ctx.resource.name} is not available for those dates and no alternatives were found in the next ${SEARCH_WINDOW_DAYS} days.`
-        }
-
-        const slots = suggestions.map((s, i) => `${i + 1}. ${formatSlot(s, durationMs, ctx.timezone)}`).join('\n')
-        return `${ctx.resource.name} is not available for those dates. Nearest available slots (${ctx.timezone}):\n${slots}`
+        return await queryAvailability(accessToken, ctx, startMs, durationMs, startDatetime, endDatetime)
       } catch (err) {
         return `Error checking availability: ${err instanceof Error ? err.message : 'Unknown error'}`
       }
