@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
@@ -20,6 +21,12 @@ import { FeatureToggle } from '@/components/tenants/feature-toggle'
 import { Badge } from '@/components/ui/badge'
 import toast from 'react-hot-toast'
 import { Loader2, RotateCcw } from 'lucide-react'
+import {
+  normalizeHex,
+  hexToHslParts,
+  hexToRgbParts,
+  toCssHslVar
+} from '@/lib/colors'
 
 interface TenantConfig {
   id: string
@@ -54,7 +61,29 @@ interface TenantFeatureStatus {
   isDisabledByParent: boolean
 }
 
+/** Apply brand CSS vars directly to document.body — mirrors getActiveTenantTheme on server. */
+function applyBrandCssVars(primary: string, secondary: string) {
+  const primaryHex = normalizeHex(primary)
+  const secondaryHex = normalizeHex(secondary)
+  if (!primaryHex || !secondaryHex) {
+    console.warn('applyBrandCssVars: invalid hex value(s)', { primary, secondary })
+    return
+  }
+
+  const primaryHsl = toCssHslVar(hexToHslParts(primaryHex))
+  const secondaryHsl = toCssHslVar(hexToHslParts(secondaryHex))
+  const { r, g, b } = hexToRgbParts(primaryHex)
+
+  document.body.style.setProperty('--accent-orange', primaryHex)
+  document.body.style.setProperty('--accent-warm', primaryHex)
+  document.body.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.24)`)
+  document.body.style.setProperty('--primary', primaryHsl)
+  document.body.style.setProperty('--primary-foreground', secondaryHsl)
+  document.body.style.setProperty('--ring', primaryHsl)
+}
+
 export default function TenantSettingsPage() {
+  const router = useRouter()
   const [tenant, setTenant] = useState<TenantConfig | null>(null)
   const [features, setFeatures] = useState<TenantFeatureStatus[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -149,7 +178,11 @@ export default function TenantSettingsPage() {
         const data = await response.json()
         if (data.overrides !== undefined) setOverrides(data.overrides)
         if (data.baseBranding) setBaseBranding(data.baseBranding)
+        // Apply CSS vars immediately client-side so the UI updates without a reload.
+        // router.refresh() syncs the server-rendered layout for subsequent navigations.
+        applyBrandCssVars(primaryColor, secondaryColor)
         toast.success('Branding updated successfully')
+        router.refresh()
       } else {
         const data = await response.json()
         toast.error(data.error || 'Failed to update branding')
@@ -178,10 +211,15 @@ export default function TenantSettingsPage() {
           setLogoUrl(data.branding.logoUrl || '')
           setPrimaryColor(data.branding.primaryColor || '#000000')
           setSecondaryColor(data.branding.secondaryColor || '#ffffff')
+          applyBrandCssVars(
+            data.branding.primaryColor || '#000000',
+            data.branding.secondaryColor || '#ffffff'
+          )
         }
         if (data.baseBranding) setBaseBranding(data.baseBranding)
         setOverrides(data.overrides ?? [])
         toast.success('Branding reset to platform defaults')
+        router.refresh()
       } else {
         const data = await response.json()
         toast.error(data.error || 'Failed to reset branding')
