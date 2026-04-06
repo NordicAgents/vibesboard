@@ -7,6 +7,7 @@ import { buildSchedulingTools } from './tools/scheduling'
 import { getDataConnection } from '@/lib/data/connections'
 import { buildDataTools } from './tools/data-actions'
 import { buildCalendarAvailabilityTools } from './tools/calendar-availability'
+import { buildSimpleBookingTools } from './tools/simple-booking'
 
 export interface ContextBuildResult {
   contextText: string
@@ -126,8 +127,19 @@ export async function buildAgentContext(
     }
   }
 
-  // Inject calendar availability tool if the agent has it configured
-  if (
+  // Inject booking/availability tools — simple-booking takes precedence, falls back to
+  // legacy calendar-availability. Never register both (same tool name conflict).
+  if (agent.bookingConfig?.enabled && agent.tenantId) {
+    try {
+      const bookingTools = buildSimpleBookingTools(agent)
+      for (const tool of bookingTools) {
+        toolkit.functions.push(tool.function)
+        toolkit.executors[tool.function.name] = tool.execute
+      }
+    } catch (err) {
+      console.error('Failed to inject simple-booking tools:', err)
+    }
+  } else if (
     agent.calendarAvailabilityConfig?.enabled &&
     agent.calendarAvailabilityConfig.calendarConnectionId &&
     agent.tenantId
@@ -151,7 +163,6 @@ export async function buildAgentContext(
         }
       }
     } catch (err) {
-      // Availability tool injection failure should not block the chat
       console.error('Failed to inject calendar availability tools:', err)
     }
   }

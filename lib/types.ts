@@ -110,6 +110,17 @@ export interface VibeAgent {
     calendarId?: string | null
     resourceName?: string
   }
+  bookingConfig?: {
+    enabled: boolean
+    resources: Array<{
+      id: string
+      name: string
+      calendarConnectionId: string
+      calendarId: string
+      calendarName: string
+      timezone: string
+    }>
+  }
   createdAt: string
   updatedAt: string
 }
