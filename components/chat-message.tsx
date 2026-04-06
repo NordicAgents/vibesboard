@@ -21,6 +21,10 @@ export interface ChatMessageProps {
   agentAvatarInitial?: string
   agentLogoUrl?: string | null
   isLastMessage?: boolean
+  variant?: 'default' | 'transcript'
+  assistantLabel?: string
+  userLabel?: string
+  showMessageActions?: boolean
 }
 
 const extractStructuredSections = (value: string) => {
@@ -143,10 +147,15 @@ export function ChatMessage({
   agentAvatarInitial = 'A',
   agentLogoUrl,
   isLastMessage,
+  variant = 'default',
+  assistantLabel,
+  userLabel,
+  showMessageActions = true,
   ...props
 }: ChatMessageProps) {
   const isUser = message.role === 'user'
-  const structured = !isUser
+  const isTranscript = variant === 'transcript'
+  const structured = !isUser && !isTranscript
     ? extractStructuredSections(message.content ?? '')
     : null
 
@@ -159,6 +168,23 @@ export function ChatMessage({
         : null
 
   if (isUser) {
+    if (isTranscript) {
+      return (
+        <div className="flex justify-end" {...props}>
+          <div className="max-w-[min(34rem,88%)]">
+            {userLabel && (
+              <div className="mb-1 px-1 text-right text-[11px] font-medium uppercase tracking-[0.16em] text-[#6f7f80] dark:text-[#94a5a6]">
+                {userLabel}
+              </div>
+            )}
+            <div className="rounded-[24px] bg-[#222f30] px-4 py-3 text-[15px] leading-[1.65] text-[#f5f8f7] shadow-[0_14px_30px_rgba(34,47,48,0.12)] dark:bg-[#2f4142] dark:text-[#f5f8f7]">
+              <ChatMarkdown isUser>{message.content}</ChatMarkdown>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="flex justify-end" {...props}>
         <div className="max-w-[88%] rounded-[18px] bg-[#f5f8f7] px-4 py-2.5 text-[15px] leading-[1.65] text-[#222f30] dark:bg-[#222f30] dark:text-[#f5f8f7] sm:max-w-[72%]">
@@ -178,7 +204,18 @@ export function ChatMessage({
 
       {/* AI content — no bubble */}
       <div className="min-w-0 flex-1">
-        {structured && defaultTab ? (
+        {isTranscript ? (
+          <>
+            {assistantLabel && (
+              <div className="mb-1 px-1 text-[11px] font-medium uppercase tracking-[0.16em] text-[#6f7f80] dark:text-[#94a5a6]">
+                {assistantLabel}
+              </div>
+            )}
+            <div className="rounded-[24px] border border-[#e4e3e3] bg-white px-4 py-3 text-[15px] leading-[1.65] text-[#222f30] shadow-[0_14px_30px_rgba(0,0,0,0.05)] dark:border-[#344348] dark:bg-[#192425] dark:text-[#f5f8f7]">
+              <ChatMarkdown>{message.content}</ChatMarkdown>
+            </div>
+          </>
+        ) : structured && defaultTab ? (
           <div className="rounded-none border border-[#e4e3e3] bg-[#f5f8f7] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-[#344348] dark:bg-[#192425]">
             <Tabs defaultValue={defaultTab} className="w-full">
               <TabsList className="mb-3 w-full justify-start bg-[#e6ede6] dark:bg-[#253435]">
@@ -216,12 +253,14 @@ export function ChatMessage({
         )}
 
         {/* Copy action — appears below on hover */}
-        <div className="mt-1.5 flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-          <ChatMessageActions
-            message={message}
-            className="static opacity-100 md:static md:opacity-100"
-          />
-        </div>
+        {showMessageActions && (
+          <div className="mt-1.5 flex items-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <ChatMessageActions
+              message={message}
+              className="static opacity-100 md:static md:opacity-100"
+            />
+          </div>
+        )}
       </div>
     </div>
   )

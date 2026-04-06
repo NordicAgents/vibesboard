@@ -13,6 +13,10 @@ export interface ChatListProps {
   agentAvatarInitial?: string
   agentLogoUrl?: string | null
   handoffIndicatorPrefix?: string
+  variant?: 'default' | 'transcript'
+  assistantLabel?: string
+  userLabel?: string
+  showMessageActions?: boolean
 }
 
 // Typing indicator — warm dots, aligned with AI avatar column
@@ -56,14 +60,24 @@ export function ChatList({
   agentAvatarGradient,
   agentAvatarInitial,
   agentLogoUrl,
-  handoffIndicatorPrefix = '__handoff_indicator__'
+  handoffIndicatorPrefix = '__handoff_indicator__',
+  variant = 'default',
+  assistantLabel,
+  userLabel,
+  showMessageActions = true
 }: ChatListProps) {
   if (!messages.length) {
     return null
   }
 
   return (
-    <div className="flex flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-5 sm:py-6">
+    <div
+      className={
+        variant === 'transcript'
+          ? 'flex flex-col gap-4 px-4 py-6 sm:gap-5 sm:px-6 sm:py-8'
+          : 'flex flex-col gap-5 px-3 py-5 sm:gap-6 sm:px-5 sm:py-6'
+      }
+    >
       <AnimatePresence initial={false}>
         {messages.map((message, index) => {
           // Render handoff indicator for system messages with the handoff prefix
@@ -105,6 +119,10 @@ export function ChatList({
                 agentAvatarInitial={agentAvatarInitial}
                 agentLogoUrl={agentLogoUrl}
                 isLastMessage={index === messages.length - 1}
+                variant={variant}
+                assistantLabel={assistantLabel}
+                userLabel={userLabel}
+                showMessageActions={showMessageActions}
               />
             </motion.div>
           )
