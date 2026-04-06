@@ -9,6 +9,7 @@ import { ChatList } from '@/components/chat-list'
 import { Button } from '@/components/ui/button'
 import { IconArrowLeft, IconSpinner } from '@/components/ui/icons'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
 import { Play, Pause, Send } from 'lucide-react'
 
 const HANDOFF_INDICATOR_PREFIX = '__handoff_indicator__'
@@ -64,6 +65,7 @@ interface ConversationViewProps {
   conversation: VibeAgentConversation
   onClose: () => void
   agentId?: string
+  agentName?: string
   canReply?: boolean
   onConversationUpdate?: () => void
 }
@@ -72,6 +74,7 @@ export function ConversationView({
   conversation: initialConversation,
   onClose,
   agentId,
+  agentName,
   canReply = false,
   onConversationUpdate
 }: ConversationViewProps) {
@@ -85,7 +88,10 @@ export function ConversationView({
   const isChatwoot = !!conversation.externalId?.startsWith('chatwoot:')
   const handedOff = conversation.handedOff === true
 
-  const summary = conversation.summary || 'Untitled conversation'
+  const summary = React.useMemo(
+    () => getConversationPreview(conversation.messages || [], conversation.summary),
+    [conversation.messages, conversation.summary]
+  )
   const messages = React.useMemo(
     () => cleanConversationMessages(conversation.messages || []),
     [conversation.messages]
@@ -200,7 +206,7 @@ export function ConversationView({
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="shrink-0 border-b border-[#e4e3e3] bg-[#f7f7f5] px-4 py-3 dark:border-[#344348] dark:bg-[#222f30]">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+        <div className="mx-auto flex w-full max-w-4xl items-center gap-3">
           <Button
             variant="ghost"
             size="sm"
@@ -248,7 +254,7 @@ export function ConversationView({
       {/* Handoff banner */}
       {canReply && handedOff && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800 dark:bg-amber-950/30">
-          <p className="mx-auto max-w-5xl font-switzer text-xs text-amber-700 dark:text-amber-400">
+          <p className="mx-auto w-full max-w-4xl font-switzer text-xs text-amber-700 dark:text-amber-400">
             Bot paused — you are replying as a human agent
           </p>
         </div>
@@ -256,18 +262,22 @@ export function ConversationView({
 
       {/* Messages */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f7f7f5] dark:bg-[#222f30]">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto w-full max-w-4xl">
           {messages.length > 0 ? (
             <ChatList
               messages={messages}
               handoffIndicatorPrefix={HANDOFF_INDICATOR_PREFIX}
+              variant="transcript"
+              assistantLabel={agentName || 'Agent'}
+              userLabel="Visitor"
+              showMessageActions={false}
             />
           ) : (
             <div className="py-8 text-center font-switzer text-sm text-[#6f7f80]">
               No messages in this conversation yet.
             </div>
           )}
-          <div ref={messagesEndRef} className="shrink-0 h-4" />
+          <div ref={messagesEndRef} className="h-4 shrink-0" />
         </div>
       </div>
 
@@ -280,7 +290,7 @@ export function ConversationView({
               e.preventDefault()
               await handleSendReply()
             }}
-            className="mx-auto flex max-w-5xl items-end gap-2"
+            className="mx-auto flex w-full max-w-4xl items-end gap-2"
           >
             <Textarea
               tabIndex={0}
@@ -290,13 +300,13 @@ export function ConversationView({
               onChange={e => setInput(e.target.value)}
               placeholder="Reply to customer..."
               spellCheck={false}
-              className="min-h-[44px] max-h-[200px] flex-1 resize-none rounded-xl border border-[#e4e3e3] bg-white px-4 py-3 font-switzer text-sm focus:border-accent-orange focus:outline-none focus:ring-1 focus:ring-accent-orange dark:border-[#344348] dark:bg-[#192425] dark:text-[#f5f8f7]"
+              className="max-h-[200px] min-h-[44px] flex-1 resize-none rounded-xl border border-[#e4e3e3] bg-white px-4 py-3 font-switzer text-sm focus:border-accent-orange focus:outline-none focus:ring-1 focus:ring-accent-orange dark:border-[#344348] dark:bg-[#192425] dark:text-[#f5f8f7]"
             />
             <Button
               type="submit"
               size="sm"
               disabled={!input.trim() || isSending}
-              className="size-11 shrink-0 rounded-xl bg-accent-orange p-0 text-white hover:bg-accent-orange/90 disabled:opacity-50"
+              className="hover:bg-accent-orange/90 size-11 shrink-0 rounded-xl bg-accent-orange p-0 text-white disabled:opacity-50"
             >
               {isSending ? (
                 <IconSpinner className="size-4 animate-spin" />

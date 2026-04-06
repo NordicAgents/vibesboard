@@ -25,28 +25,8 @@ import { ConversationView } from '@/components/agents/conversation-modal'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconMessage } from '@/components/ui/icons'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
 import { LayoutDashboard } from 'lucide-react'
-
-const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
-
-const toConversationLabel = (value?: string | null) => {
-  const cleaned = (value ?? '')
-    .replace(UUID_PATTERN, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!cleaned) return 'Visitor conversation'
-  if (cleaned.length <= 110) return cleaned
-
-  const truncated = cleaned.slice(0, 110)
-  const lastWordBoundary = truncated.lastIndexOf(' ')
-  if (lastWordBoundary > 60) {
-    return `${truncated.slice(0, lastWordBoundary)}…`
-  }
-
-  return `${truncated}…`
-}
 
 interface AgentChatWithLayoutProps {
   agent: VibeAgent
@@ -296,14 +276,19 @@ export function AgentChatWithLayout({
               </div>
             )}
             {paginatedVisitorSessions.map(session => {
-              const label = toConversationLabel(
-                session.summary || session.messages.at(-1)?.content
+              const label = getConversationPreview(
+                session.messages,
+                session.summary
               )
+              const isSelected = selectedConversation?.id === session.id
 
               return (
                 <DashboardSidebarItem
                   key={session.id}
-                  className="bg-[#f5f8f7] dark:bg-[#192425]"
+                  active={isSelected}
+                  className={
+                    isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
+                  }
                   onClick={() => handleOpenConversation(session)}
                 >
                   <div className="flex items-center gap-2">
@@ -358,15 +343,20 @@ export function AgentChatWithLayout({
         {canEdit && handoffConversations.length > 0 && (
           <DashboardSidebarSection title="Handoff Conversations">
             {handoffConversations.map(session => {
-              const label = toConversationLabel(
-                session.summary || session.messages.at(-1)?.content
+              const label = getConversationPreview(
+                session.messages,
+                session.summary
               )
               const sourceAgent = session.handoffChain?.at(-1)
+              const isSelected = selectedConversation?.id === session.id
 
               return (
                 <DashboardSidebarItem
                   key={session.id}
-                  className="bg-[#f5f8f7] dark:bg-[#192425]"
+                  active={isSelected}
+                  className={
+                    isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
+                  }
                   onClick={() => handleOpenConversation(session)}
                 >
                   <div className="flex items-center gap-2">
@@ -418,9 +408,9 @@ export function AgentChatWithLayout({
     ),
     [
       activeSessionId,
+      agent.id,
       agent.name,
       agentPageShell?.isSidebarOpen,
-      agentPageShell?.setIsSidebarOpen,
       canEdit,
       handleNewChat,
       handleOpenConversation,
@@ -430,8 +420,13 @@ export function AgentChatWithLayout({
       ownerSessions,
       paginatedVisitorSessions,
       refreshingSummaries,
+      router,
+      searchParams,
+      selectedConversation?.id,
+      setAgentSidebarOpen,
       totalVisitorPages,
       visitorPage,
+      viewMode,
       visitorSessions.length
     ]
   )
@@ -451,6 +446,7 @@ export function AgentChatWithLayout({
             conversation={selectedConversation}
             onClose={() => setSelectedConversation(null)}
             agentId={agent.id}
+            agentName={agent.name}
             canReply={canEdit && !!selectedConversation.externalId?.startsWith('chatwoot:')}
             onConversationUpdate={() => router.refresh()}
           />
