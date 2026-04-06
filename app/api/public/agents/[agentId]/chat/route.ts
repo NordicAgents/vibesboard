@@ -3,7 +3,7 @@ import { type Message } from '@/lib/types/message'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
-import { getAgentById, getAgentNames } from '@/lib/agents/server'
+import { getAgentById, getAgentNamesByTenant } from '@/lib/agents/server'
 import { publicAgentChatRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
@@ -172,7 +172,7 @@ export async function POST(
 
   // Resolve handoff target names for the active agent's system prompt
   if (activeAgent.handoffTargets?.length) {
-    handoffTargetNames = await getAgentNames(activeAgent.handoffTargets)
+    handoffTargetNames = await getAgentNamesByTenant(tenantId, activeAgent.handoffTargets)
   }
 
   const agentMessages = handoffContext
