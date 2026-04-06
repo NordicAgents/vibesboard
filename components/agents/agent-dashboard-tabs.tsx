@@ -14,6 +14,7 @@ import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings
 import { AgentSchedulingSettings } from '@/components/agents/agent-scheduling-settings'
 import { AgentDataSettings } from '@/components/agents/agent-data-settings'
 import { AgentCalendarAvailabilitySettings } from '@/components/agents/agent-calendar-availability-settings'
+import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiries'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import type { AgentSharePayload, VibeAgent } from '@/lib/types'
@@ -48,6 +49,7 @@ export function AgentDashboardTabs({
   const resolvedDefault =
     defaultTab === 'configure' ? 'setup'
     : defaultTab === 'scheduling' || defaultTab === 'data' ? 'actions'
+    : defaultTab === 'booking-enquiries' ? 'booking-enquiries'
     : defaultTab
   const [activeTab, setActiveTab] = useState(resolvedDefault)
   const [actionSection, setActionSection] = useState<ActionSection>(
@@ -101,6 +103,9 @@ export function AgentDashboardTabs({
           <TabsTrigger value="actions">Actions</TabsTrigger>
           <TabsTrigger value="share">Share</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          {agent.bookingConfig?.enabled && (
+            <TabsTrigger value="booking-enquiries">Enquiries</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Sticky save bar — shown on tabs with saveable form state */}
@@ -290,6 +295,12 @@ export function AgentDashboardTabs({
         <TabsContent value="integrations">
           <AgentIntegrationsTab agent={agent} canEdit={canEdit} />
         </TabsContent>
+
+        {agent.bookingConfig?.enabled && (
+          <TabsContent value="booking-enquiries">
+            <AgentBookingEnquiries agentId={agent.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
