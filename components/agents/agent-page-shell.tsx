@@ -12,7 +12,7 @@ export function AgentPageShell({ children }: { children: React.ReactNode }) {
       isSidebarOpen={isSidebarOpen}
       setIsSidebarOpen={setIsSidebarOpen}
     >
-      <div className="relative min-h-0 flex-1">{children}</div>
+      <div className="relative min-h-0 flex-1 overflow-hidden">{children}</div>
     </AgentPageShellProvider>
   )
 }
