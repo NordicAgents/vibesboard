@@ -37,7 +37,14 @@ async function chatwootFetch<T>(
     )
   }
 
-  return res.json() as Promise<T>
+  // Handle empty responses (204 No Content, or 200 with empty body)
+  const text = await res.text()
+  if (!text) return undefined as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return undefined as T
+  }
 }
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -223,8 +230,9 @@ export async function createChatwootAgentBot(
   chatwootUrl: string,
   apiToken: string,
   accountId: number,
-  options: { name: string; description?: string }
+  options: { name: string; description?: string; outgoingUrl?: string }
 ): Promise<ChatwootAgentBot> {
+  // Step 1: Create the bot (account-level create ignores outgoing_url)
   const data = await chatwootFetch<ChatwootAgentBot>(
     chatwootUrl,
     `/api/v1/accounts/${accountId}/agent_bots`,
@@ -237,6 +245,20 @@ export async function createChatwootAgentBot(
       })
     }
   )
+
+  // Step 2: PATCH to set outgoing_url (account-level update supports it)
+  if (options.outgoingUrl && data?.id) {
+    const updated = await chatwootFetch<ChatwootAgentBot>(
+      chatwootUrl,
+      `/api/v1/accounts/${accountId}/agent_bots/${data.id}`,
+      apiToken,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ outgoing_url: options.outgoingUrl })
+      }
+    )
+    return updated ?? data
+  }
 
   return data
 }
