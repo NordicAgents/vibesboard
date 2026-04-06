@@ -349,3 +349,23 @@ export async function handoffChatwootConversation(
     }
   )
 }
+
+/**
+ * Resume a conversation back to bot handling by toggling status to "pending".
+ */
+export async function resumeChatwootConversation(
+  chatwootUrl: string,
+  apiToken: string,
+  accountId: number,
+  conversationId: number
+): Promise<void> {
+  await chatwootFetch<void>(
+    chatwootUrl,
+    `/api/v1/accounts/${accountId}/conversations/${conversationId}/toggle_status`,
+    apiToken,
+    {
+      method: 'POST',
+      body: JSON.stringify({ status: 'pending' })
+    }
+  )
+}

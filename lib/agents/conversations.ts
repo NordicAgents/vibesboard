@@ -190,6 +190,21 @@ export async function markConversationHandedOff(
 }
 
 /**
+ * Resume a conversation that was previously handed off to a human agent.
+ */
+export async function resumeConversation(
+  tenantId: string,
+  agentId: string,
+  conversationId: string
+): Promise<void> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  await adminDb
+    .collection(collPath)
+    .doc(conversationId)
+    .update({ handedOff: false, updatedAt: new Date().toISOString() })
+}
+
+/**
  * Record an agent-to-agent handoff on a conversation.
  * Appends to the handoffChain array and creates a conversation ref
  * in the target agent's collection for visibility.
