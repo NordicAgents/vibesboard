@@ -6,6 +6,7 @@ import { Collections } from '@/lib/firestore-types'
 import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
 import { AgentChat } from '@/components/agent-chat'
 import { canEditAgent } from '@/lib/agents/permissions'
+import { HandoffConversationPage } from './handoff-page'
 
 export const runtime = 'nodejs'
 
@@ -44,6 +45,7 @@ export default async function AgentConversationPage({
 
   let conversationId: string | undefined
   let initialMessages
+  let conversation: ReturnType<typeof mapConversationDoc> | undefined
 
   if (cid !== 'new' && tenantId) {
     let convoDoc = await adminDb
@@ -72,9 +74,25 @@ export default async function AgentConversationPage({
     }
 
     const convoData = convoDoc.data()!
-    const conversation = mapConversationDoc(convoData)
+    conversation = mapConversationDoc(convoData)
     conversationId = conversation.id
     initialMessages = conversation.messages
+  }
+
+  // Handed-off Chatwoot conversations get the human reply UI
+  if (
+    conversation?.handedOff &&
+    conversation.externalId?.startsWith('chatwoot:') &&
+    canEdit
+  ) {
+    return (
+      <div className="flex h-full flex-col bg-[#f7f7f5] dark:bg-[#222f30]">
+        <HandoffConversationPage
+          conversation={conversation}
+          agentId={agent.id}
+        />
+      </div>
+    )
   }
 
   return (

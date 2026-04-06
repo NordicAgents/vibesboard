@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { nanoid } from 'nanoid'
+
 import { getChatwootConnectionById, verifyWebhookSecret } from '@/lib/chatwoot/connections'
 import { handleChatwootMessage } from '@/lib/chatwoot/agent-handler'
 import { getAgentById } from '@/lib/agents/server'
-import { isConversationHandedOff } from '@/lib/agents/conversations'
+import {
+  isConversationHandedOff,
+  ensureConversation,
+  updateConversationMessages
+} from '@/lib/agents/conversations'
 
 export const runtime = 'nodejs'
 
@@ -68,24 +74,6 @@ export async function POST(
       return NextResponse.json({ ok: true })
     }
 
-    // Skip conversations that have been explicitly handed off to human agents.
-    // We track this in Firestore rather than relying on Chatwoot's conversation
-    // status, because 'open' status can occur without handoff (e.g. conversations
-    // created before the bot was assigned, manually opened, or re-opened).
-    if (connection.useAgentBot && body.conversation?.id) {
-      const chatwootConvId = body.conversation.id
-      const externalId = `chatwoot:${connection.chatwootAccountId}:${chatwootConvId}`
-      const handedOff = await isConversationHandedOff(
-        connection.tenantId,
-        connection.agentId,
-        externalId
-      )
-      if (handedOff) {
-        console.log(`[chatwoot] Conversation ${chatwootConvId} was handed off, skipping bot response`)
-        return NextResponse.json({ ok: true })
-      }
-    }
-
     // Only process messages from the connected inbox
     const inboxId = body.inbox?.id ?? body.conversation?.inbox_id
     if (inboxId && inboxId !== connection.chatwootInboxId) {
@@ -111,6 +99,37 @@ export async function POST(
     if (!content) {
       console.log(`[chatwoot] Ignoring message with no content or attachments`)
       return NextResponse.json({ ok: true })
+    }
+
+    // Check if conversation has been handed off to human agents.
+    // If so, store the incoming message but do NOT run the agent.
+    if (connection.useAgentBot && body.conversation?.id) {
+      const chatwootConvId = body.conversation.id
+      const externalId = `chatwoot:${connection.chatwootAccountId}:${chatwootConvId}`
+      const handedOff = await isConversationHandedOff(
+        connection.tenantId,
+        connection.agentId,
+        externalId
+      )
+      if (handedOff) {
+        console.log(`[chatwoot] Conversation ${chatwootConvId} was handed off, storing message without bot response`)
+        // Store the customer message so the human agent can see it in Vibesboard
+        const userMessage = { id: nanoid(), role: 'user' as const, content: content.trim() }
+        const conversation = await ensureConversation({
+          tenantId: connection.tenantId,
+          agentId: connection.agentId,
+          externalId
+        })
+        const allMessages = [...(conversation.messages ?? []), userMessage]
+        await updateConversationMessages({
+          tenantId: connection.tenantId,
+          agentId: connection.agentId,
+          conversationId: conversation.id,
+          messages: allMessages,
+          summary: null
+        })
+        return NextResponse.json({ ok: true })
+      }
     }
 
     // ── 3. Load agent ─────────────────────────────────────────────────

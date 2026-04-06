@@ -450,6 +450,9 @@ export function AgentChatWithLayout({
           <ConversationView
             conversation={selectedConversation}
             onClose={() => setSelectedConversation(null)}
+            agentId={agent.id}
+            canReply={canEdit && !!selectedConversation.externalId?.startsWith('chatwoot:')}
+            onConversationUpdate={() => router.refresh()}
           />
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (

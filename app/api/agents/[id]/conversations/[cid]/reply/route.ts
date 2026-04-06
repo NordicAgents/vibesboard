@@ -1,68 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { nanoid } from 'nanoid'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getAgentById } from '@/lib/agents/server'
 import { canEditAgent } from '@/lib/agents/permissions'
-import {
-  getConversation,
-  markConversationHandedOff,
-  resumeConversation
-} from '@/lib/agents/conversations'
-import { mapConversationDoc } from '@/lib/agents/db'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import {
-  handoffChatwootConversation,
-  resumeChatwootConversation
-} from '@/lib/chatwoot/api-client'
+import { getConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import { sendChatwootMessage } from '@/lib/chatwoot/api-client'
 import { listChatwootConnections, decryptToken } from '@/lib/chatwoot/connections'
 
 export const runtime = 'nodejs'
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string; cid: string }> }
-) {
-  const { id, cid } = await params
-  const authResult = await requireAuth()
-  if (!authResult.ok) return authResult.response
-
-  const agent = await getAgentById(id)
-
-  if (!agent) {
-    return new NextResponse('Not found', { status: 404 })
-  }
-
-  const doc = await adminDb
-    .collection(Collections.conversations(agent.tenantId, agent.id))
-    .doc(cid)
-    .get()
-
-  if (!doc.exists) {
-    return new NextResponse('Not found', { status: 404 })
-  }
-
-  const data = doc.data()!
-  if (data.agentId !== id) {
-    return new NextResponse('Not found', { status: 404 })
-  }
-
-  return NextResponse.json({ conversation: mapConversationDoc(data) })
-}
-
-const PatchSchema = z.object({
-  action: z.enum(['stop', 'resume'])
+const ReplySchema = z.object({
+  text: z.string().min(1, 'Message text is required').max(4096, 'Message too long')
 })
 
+type RouteParams = {
+  params: Promise<{ id: string; cid: string }>
+}
+
 /**
- * PATCH /api/agents/{id}/conversations/{cid}
- * Stop or resume bot on a Chatwoot conversation.
+ * POST /api/agents/{id}/conversations/{cid}/reply
+ * Send a human reply to a Chatwoot conversation.
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; cid: string }> }
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: agentId, cid } = await params
 
@@ -84,8 +45,9 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const validated = PatchSchema.parse(body)
+    const validated = ReplySchema.parse(body)
 
+    // Load conversation
     const conversation = await getConversation(agent.tenantId, agentId, cid)
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
@@ -103,6 +65,13 @@ export async function PATCH(
     const chatwootAccountId = parseInt(parts[1], 10)
     const chatwootConversationId = parseInt(parts[2], 10)
 
+    if (!chatwootAccountId || !chatwootConversationId) {
+      return NextResponse.json(
+        { error: 'Invalid Chatwoot conversation reference' },
+        { status: 400 }
+      )
+    }
+
     // Find matching Chatwoot connection
     const connections = await listChatwootConnections(agent.tenantId, agentId, 'active')
     const connection = connections.find(c => c.chatwootAccountId === chatwootAccountId)
@@ -113,27 +82,36 @@ export async function PATCH(
       )
     }
 
-    const userToken = decryptToken(connection.encryptedApiToken)
+    // Use bot token for consistent identity, fall back to user token
+    const token = connection.useAgentBot && connection.encryptedBotToken
+      ? decryptToken(connection.encryptedBotToken)
+      : decryptToken(connection.encryptedApiToken)
 
-    if (validated.action === 'stop') {
-      await markConversationHandedOff(agent.tenantId, agentId, cid)
-      await handoffChatwootConversation(
-        connection.chatwootUrl,
-        userToken,
-        chatwootAccountId,
-        chatwootConversationId
-      )
-      return NextResponse.json({ ok: true, handedOff: true })
-    } else {
-      await resumeConversation(agent.tenantId, agentId, cid)
-      await resumeChatwootConversation(
-        connection.chatwootUrl,
-        userToken,
-        chatwootAccountId,
-        chatwootConversationId
-      )
-      return NextResponse.json({ ok: true, handedOff: false })
+    // Send to Chatwoot
+    await sendChatwootMessage(
+      connection.chatwootUrl,
+      token,
+      chatwootAccountId,
+      chatwootConversationId,
+      validated.text
+    )
+
+    // Store in Firestore conversation
+    const assistantMessage = {
+      id: nanoid(),
+      role: 'assistant' as const,
+      content: validated.text
     }
+    const allMessages = [...(conversation.messages ?? []), assistantMessage]
+    await updateConversationMessages({
+      tenantId: agent.tenantId,
+      agentId,
+      conversationId: cid,
+      messages: allMessages,
+      summary: null
+    })
+
+    return NextResponse.json({ ok: true, messageId: assistantMessage.id }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -141,7 +119,7 @@ export async function PATCH(
         { status: 400 }
       )
     }
-    console.error('[chatwoot] Error toggling conversation handoff:', error)
+    console.error('[chatwoot] Error sending human reply:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
