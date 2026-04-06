@@ -9,7 +9,7 @@ import type {
   CollectionField,
   QuickSuggestionsMode
 } from '@/lib/types'
-import type { AgentNotificationConfig, AgentSchedulingConfig, AgentDataConfig, AgentCalendarAvailabilityConfig } from '@/lib/firestore-types'
+import type { AgentNotificationConfig, AgentSchedulingConfig, AgentDataConfig, AgentCalendarAvailabilityConfig, AgentBookingConfig } from '@/lib/firestore-types'
 
 export interface AgentFormFields {
   name: string
@@ -30,6 +30,7 @@ export interface AgentFormFields {
   schedulingConfig: AgentSchedulingConfig | undefined
   dataConfig: AgentDataConfig | undefined
   calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | undefined
+  bookingConfig: AgentBookingConfig | undefined
 }
 
 export interface AgentFormSetters {
@@ -51,6 +52,7 @@ export interface AgentFormSetters {
   setSchedulingConfig: (v: AgentSchedulingConfig | undefined) => void
   setDataConfig: (v: AgentDataConfig | undefined) => void
   setCalendarAvailabilityConfig: (v: AgentCalendarAvailabilityConfig | undefined) => void
+  setBookingConfig: (v: AgentBookingConfig | undefined) => void
 }
 
 export interface UseAgentFormReturn {
@@ -113,6 +115,9 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [calendarAvailabilityConfig, setCalendarAvailabilityConfig] = useState<
     AgentCalendarAvailabilityConfig | undefined
   >(agent.calendarAvailabilityConfig as AgentCalendarAvailabilityConfig | undefined)
+  const [bookingConfig, setBookingConfig] = useState<AgentBookingConfig | undefined>(
+    agent.bookingConfig as AgentBookingConfig | undefined
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -142,7 +147,9 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
     JSON.stringify(dataConfig) !==
       JSON.stringify(agent.dataConfig ?? undefined) ||
     JSON.stringify(calendarAvailabilityConfig) !==
-      JSON.stringify(agent.calendarAvailabilityConfig ?? undefined)
+      JSON.stringify(agent.calendarAvailabilityConfig ?? undefined) ||
+    JSON.stringify(bookingConfig) !==
+      JSON.stringify(agent.bookingConfig ?? undefined)
 
   // ── Save all ──
   const handleSaveAll = async () => {
@@ -165,7 +172,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       collectionFields: mode === 'collector' ? collectionFields : [],
       schedulingConfig,
       dataConfig,
-      calendarAvailabilityConfig
+      calendarAvailabilityConfig,
+      bookingConfig
     }
 
     try {
@@ -226,6 +234,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
     if (partial.schedulingConfig !== undefined) setSchedulingConfig(partial.schedulingConfig)
     if (partial.dataConfig !== undefined) setDataConfig(partial.dataConfig)
     if (partial.calendarAvailabilityConfig !== undefined) setCalendarAvailabilityConfig(partial.calendarAvailabilityConfig)
+    if (partial.bookingConfig !== undefined) setBookingConfig(partial.bookingConfig)
   }
 
   return {
@@ -247,7 +256,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       collectionFields,
       schedulingConfig,
       dataConfig,
-      calendarAvailabilityConfig
+      calendarAvailabilityConfig,
+      bookingConfig
     },
     setters: {
       setName,
@@ -267,7 +277,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       setCollectionFields,
       setSchedulingConfig,
       setDataConfig,
-      setCalendarAvailabilityConfig
+      setCalendarAvailabilityConfig,
+      setBookingConfig
     },
     hasChanges,
     saving,
