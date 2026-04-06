@@ -197,9 +197,9 @@ export function ConversationView({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-[#e4e3e3] bg-[#f7f7f5]/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-[#f7f7f5]/75 dark:border-[#344348] dark:bg-[#222f30]/95">
+      <div className="shrink-0 border-b border-[#e4e3e3] bg-[#f7f7f5] px-4 py-3 dark:border-[#344348] dark:bg-[#222f30]">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           <Button
             variant="ghost"
@@ -255,7 +255,7 @@ export function ConversationView({
       )}
 
       {/* Messages */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f7f7f5] dark:bg-[#222f30]">
         <div className="mx-auto max-w-5xl">
           {messages.length > 0 ? (
             <ChatList
@@ -267,7 +267,7 @@ export function ConversationView({
               No messages in this conversation yet.
             </div>
           )}
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} className="shrink-0 h-4" />
         </div>
       </div>
 
