@@ -28,12 +28,12 @@ export function DashboardLayout({
       {/* Left Sidebar */}
       {sidebar && (
         <aside className="hidden w-64 shrink-0 border-r border-[#e4e3e3] bg-[#f5f8f7] dark:border-[#344348] dark:bg-[#192425] lg:block">
-          <div className="h-full p-4">{sidebar}</div>
+          <div className="h-full overflow-y-auto p-4">{sidebar}</div>
         </aside>
       )}
 
       {/* Center Content Area */}
-      <main className="flex flex-1 flex-col overflow-y-auto">{children}</main>
+      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
 
       {/* Right Panel */}
       {rightPanel && !hideRightPanel && (
