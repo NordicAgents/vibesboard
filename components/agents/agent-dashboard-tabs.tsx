@@ -15,6 +15,7 @@ import { AgentSchedulingSettings } from '@/components/agents/agent-scheduling-se
 import { AgentDataSettings } from '@/components/agents/agent-data-settings'
 import { AgentCalendarAvailabilitySettings } from '@/components/agents/agent-calendar-availability-settings'
 import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiries'
+import { AgentBookingResourceConfig } from '@/components/agents/agent-booking-resource-config'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import type { AgentSharePayload, VibeAgent } from '@/lib/types'
@@ -32,7 +33,7 @@ interface AgentDashboardTabsProps {
 const SAVEABLE_TABS = ['setup', 'knowledge', 'notifications', 'reviews', 'actions']
 
 // Sub-sections within the Actions tab
-const ACTION_SECTIONS = ['scheduling', 'data', 'availability'] as const
+const ACTION_SECTIONS = ['scheduling', 'data', 'availability', 'booking'] as const
 type ActionSection = (typeof ACTION_SECTIONS)[number]
 
 export function AgentDashboardTabs({
@@ -227,7 +228,7 @@ export function AgentDashboardTabs({
                         : 'border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground'
                     )}
                   >
-                    {section === 'scheduling' ? 'Scheduling' : section === 'data' ? 'Data' : 'Availability'}
+                    {section === 'scheduling' ? 'Scheduling' : section === 'data' ? 'Data' : section === 'availability' ? 'Availability' : 'Booking'}
                   </button>
                 ))}
               </div>
@@ -273,6 +274,15 @@ export function AgentDashboardTabs({
                     tenantId={agent.tenantId}
                   />
                 </FeatureGate>
+              )}
+
+              {actionSection === 'booking' && (
+                <AgentBookingResourceConfig
+                  config={fields.bookingConfig}
+                  onChange={setters.setBookingConfig}
+                  disabled={saving || !canEdit}
+                  tenantId={agent.tenantId}
+                />
               )}
             </div>
           ) : (
