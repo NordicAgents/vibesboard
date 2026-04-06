@@ -131,10 +131,13 @@ export async function buildAgentContext(
   // legacy calendar-availability. Never register both (same tool name conflict).
   if (agent.bookingConfig?.enabled && agent.tenantId) {
     try {
-      const bookingTools = buildSimpleBookingTools(agent)
-      for (const tool of bookingTools) {
-        toolkit.functions.push(tool.function)
-        toolkit.executors[tool.function.name] = tool.execute
+      const bookingEnabled = await isFeatureEnabled(agent.tenantId, 'AGENT_ACTIONS_BOOKING')
+      if (bookingEnabled) {
+        const bookingTools = buildSimpleBookingTools(agent)
+        for (const tool of bookingTools) {
+          toolkit.functions.push(tool.function)
+          toolkit.executors[tool.function.name] = tool.execute
+        }
       }
     } catch (err) {
       console.error('Failed to inject simple-booking tools:', err)

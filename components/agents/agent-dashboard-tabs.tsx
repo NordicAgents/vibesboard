@@ -277,12 +277,17 @@ export function AgentDashboardTabs({
               )}
 
               {actionSection === 'booking' && (
-                <AgentBookingResourceConfig
-                  config={fields.bookingConfig}
-                  onChange={setters.setBookingConfig}
-                  disabled={saving || !canEdit}
+                <FeatureGate
+                  feature="AGENT_ACTIONS_BOOKING"
                   tenantId={agent.tenantId}
-                />
+                >
+                  <AgentBookingResourceConfig
+                    config={fields.bookingConfig}
+                    onChange={setters.setBookingConfig}
+                    disabled={saving || !canEdit}
+                    tenantId={agent.tenantId}
+                  />
+                </FeatureGate>
               )}
             </div>
           ) : (

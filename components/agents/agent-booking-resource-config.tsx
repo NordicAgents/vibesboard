@@ -100,13 +100,21 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
       toast.error('Fill in resource name, connection, and calendar before adding.')
       return
     }
+    const tz = draft.timezone.trim() || 'UTC'
+    const validTimezones: readonly string[] = typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+      ? (Intl as any).supportedValuesOf('timeZone')
+      : []
+    if (validTimezones.length > 0 && !validTimezones.includes(tz)) {
+      toast.error(`"${tz}" is not a valid IANA timezone. Try e.g. Asia/Kolkata, America/New_York.`)
+      return
+    }
     const resource: BookableResource = {
       id: nanoid(),
       name: draft.name.trim(),
       calendarConnectionId: draft.calendarConnectionId,
       calendarId: draft.calendarId,
       calendarName: draft.calendarName,
-      timezone: draft.timezone || 'UTC'
+      timezone: tz
     }
     update({ resources: [...current.resources, resource] })
     setDraft(EMPTY_DRAFT)

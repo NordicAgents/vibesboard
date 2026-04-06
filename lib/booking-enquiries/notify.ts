@@ -28,12 +28,18 @@ export async function notifyAdminOfEnquiry(
     return
   }
 
-  const fmt = (iso: string) =>
-    new Date(iso + 'Z').toLocaleString('en-US', {
-      timeZone: enquiry.timezone,
+  // iso is a wall-clock string ("2026-05-10T14:00") already in enquiry.timezone.
+  // Parse the components directly and format at UTC to avoid any timezone shift.
+  const fmt = (iso: string) => {
+    const [datePart, timePart = '00:00'] = iso.split('T')
+    const [year, month, day] = datePart.split('-').map(Number)
+    const [hour, minute] = timePart.split(':').map(Number)
+    return new Date(Date.UTC(year, month - 1, day, hour, minute || 0)).toLocaleString('en-US', {
+      timeZone: 'UTC',
       dateStyle: 'medium',
       timeStyle: 'short'
     })
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 

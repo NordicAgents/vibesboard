@@ -20,6 +20,10 @@ export async function GET(req: NextRequest) {
   const agentId = new URL(req.url).searchParams.get('agentId')
   if (!agentId) return NextResponse.json({ error: 'agentId is required' }, { status: 400 })
 
+  // Verify the agent belongs to this tenant to prevent cross-tenant data access
+  const agentDoc = await adminDb.collection(Collections.agents(tenantId)).doc(agentId).get()
+  if (!agentDoc.exists) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+
   const snap = await adminDb
     .collection(Collections.bookingEnquiries(tenantId, agentId))
     .orderBy('createdAt', 'desc')

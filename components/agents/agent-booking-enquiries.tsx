@@ -7,10 +7,15 @@ interface Props {
   agentId: string
 }
 
-function fmtDatetime(iso: string, timezone: string) {
+// iso is a wall-clock string ("2026-05-10T14:00") already in the resource's timezone.
+// Parse the components directly and format at UTC to avoid any timezone shift.
+function fmtDatetime(iso: string, _timezone: string) {
   try {
-    return new Date(iso + 'Z').toLocaleString('en-US', {
-      timeZone: timezone,
+    const [datePart, timePart = '00:00'] = iso.split('T')
+    const [year, month, day] = datePart.split('-').map(Number)
+    const [hour, minute] = timePart.split(':').map(Number)
+    return new Date(Date.UTC(year, month - 1, day, hour, minute || 0)).toLocaleString('en-US', {
+      timeZone: 'UTC',
       dateStyle: 'medium',
       timeStyle: 'short'
     })
