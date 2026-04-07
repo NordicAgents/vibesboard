@@ -100,11 +100,19 @@ export function DashboardSidebarItem({
     className
 }: DashboardSidebarItemProps) {
     return (
-        <button
+        <div
+            role="button"
+            tabIndex={0}
             onClick={onClick}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onClick?.()
+                }
+            }}
             data-mobile-menu-close="true"
             className={cn(
-                'rounded-2xl px-3 py-2 text-left font-switzer text-sm transition-colors',
+                'rounded-2xl px-3 py-2 text-left font-switzer text-sm transition-colors cursor-pointer',
                 active
                     ? 'bg-black-primary text-purewhite-bg'
                     : 'hover:bg-beige-bg/50 text-black-primary dark:text-foreground dark:hover:bg-white/5',
@@ -112,6 +120,6 @@ export function DashboardSidebarItem({
             )}
         >
             {children}
-        </button>
+        </div>
     )
 }
