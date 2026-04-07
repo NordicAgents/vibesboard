@@ -7,7 +7,8 @@ import { canEditAgent } from '@/lib/agents/permissions'
 import {
   getConversation,
   markConversationHandedOff,
-  resumeConversation
+  resumeConversation,
+  deleteConversation
 } from '@/lib/agents/conversations'
 import { mapConversationDoc } from '@/lib/agents/db'
 import { adminDb } from '@/lib/firebase/admin'
@@ -142,6 +143,46 @@ export async function PATCH(
       )
     }
     console.error('[chatwoot] Error toggling conversation handoff:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * DELETE /api/agents/{id}/conversations/{cid}
+ * Delete a visitor conversation and its associated data.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string; cid: string }> }
+) {
+  try {
+    const { id: agentId, cid } = await params
+
+    const auth = await requireAuth()
+    if (!auth.ok) return auth.response
+
+    const agent = await getAgentById(agentId)
+    if (!agent || !agent.tenantId) {
+      return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+    }
+
+    const allowed = await canEditAgent({
+      sessionUserId: auth.user.id,
+      agentOwnerId: agent.userId,
+      tenantId: agent.tenantId
+    })
+    if (!allowed) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
+    const deleted = await deleteConversation(agent.tenantId, agentId, cid)
+    if (!deleted) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[conversation] Error deleting conversation:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
