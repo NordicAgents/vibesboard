@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { IconArrowLeft, IconSpinner } from '@/components/ui/icons'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { getConversationPreview } from '@/lib/agents/conversation-preview'
-import { Play, Pause, Send } from 'lucide-react'
+import { Play, Pause, Send, Trash2 } from 'lucide-react'
 
 const HANDOFF_INDICATOR_PREFIX = '__handoff_indicator__'
 
@@ -67,7 +67,9 @@ interface ConversationViewProps {
   agentId?: string
   agentName?: string
   canReply?: boolean
+  canDelete?: boolean
   onConversationUpdate?: () => void
+  onDelete?: () => void
 }
 
 export function ConversationView({
@@ -76,7 +78,9 @@ export function ConversationView({
   agentId,
   agentName,
   canReply = false,
-  onConversationUpdate
+  canDelete = false,
+  onConversationUpdate,
+  onDelete
 }: ConversationViewProps) {
   const [conversation, setConversation] = React.useState(initialConversation)
   const [input, setInput] = React.useState('')
@@ -224,6 +228,18 @@ export function ConversationView({
               Updated {formatDate(conversation.updatedAt)}
             </p>
           </div>
+          {/* Delete button */}
+          {canDelete && onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 gap-1.5 rounded-full px-3 font-switzer text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+              onClick={onDelete}
+            >
+              <Trash2 className="size-3.5" />
+              Delete
+            </Button>
+          )}
           {/* Stop/Resume button for Chatwoot conversations */}
           {canReply && isChatwoot && (
             <Button
