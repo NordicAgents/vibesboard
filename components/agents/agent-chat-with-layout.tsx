@@ -8,7 +8,7 @@ import {
   type VibeAgent,
   type VibeAgentConversation
 } from '@/lib/types'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
 import { useSecondarySidebarSetter } from '@/components/layouts/secondary-sidebar-context'
 import {
@@ -26,7 +26,18 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconMessage } from '@/components/ui/icons'
 import { getConversationPreview } from '@/lib/agents/conversation-preview'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 
 interface AgentChatWithLayoutProps {
   agent: VibeAgent
@@ -100,6 +111,30 @@ export function AgentChatWithLayout({
     React.useState<VibeAgentConversation | null>(null)
   const [visitorPage, setVisitorPage] = React.useState(1)
   const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
+  const [deletingConversationId, setDeletingConversationId] = React.useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const handleDeleteConversation = React.useCallback(async () => {
+    if (!deletingConversationId) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(
+        `/api/agents/${agent.id}/conversations/${deletingConversationId}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error('Failed to delete')
+      toast.success('Conversation deleted')
+      if (selectedConversation?.id === deletingConversationId) {
+        setSelectedConversation(null)
+      }
+      router.refresh()
+    } catch {
+      toast.error('Failed to delete conversation')
+    } finally {
+      setIsDeleting(false)
+      setDeletingConversationId(null)
+    }
+  }, [deletingConversationId, agent.id, selectedConversation?.id, router])
 
   // Sync activeSessionId with URL
   React.useEffect(() => {
@@ -286,9 +321,10 @@ export function AgentChatWithLayout({
                 <DashboardSidebarItem
                   key={session.id}
                   active={isSelected}
-                  className={
+                  className={cn(
+                    'group',
                     isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
-                  }
+                  )}
                   onClick={() => handleOpenConversation(session)}
                 >
                   <div className="flex items-center gap-2">
@@ -301,8 +337,20 @@ export function AgentChatWithLayout({
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-gray-secondary">
-                    Updated {formatDate(session.updatedAt)}
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] text-gray-secondary">
+                      Updated {formatDate(session.updatedAt)}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeletingConversationId(session.id)
+                      }}
+                      className="ml-1 shrink-0 rounded p-0.5 text-gray-secondary opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100 dark:hover:text-red-400"
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
                   </div>
                 </DashboardSidebarItem>
               )
@@ -427,7 +475,8 @@ export function AgentChatWithLayout({
       totalVisitorPages,
       visitorPage,
       viewMode,
-      visitorSessions.length
+      visitorSessions.length,
+      setDeletingConversationId
     ]
   )
 
@@ -439,6 +488,7 @@ export function AgentChatWithLayout({
   }, [setSecondarySidebar, sidebar])
 
   return (
+    <>
     <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
       {selectedConversation ? (
         <div className="h-full overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
@@ -448,7 +498,9 @@ export function AgentChatWithLayout({
             agentId={agent.id}
             agentName={agent.name}
             canReply={canEdit && !!selectedConversation.externalId?.startsWith('chatwoot:')}
+            canDelete={canEdit}
             onConversationUpdate={() => router.refresh()}
+            onDelete={() => setDeletingConversationId(selectedConversation.id)}
           />
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (
@@ -513,5 +565,36 @@ export function AgentChatWithLayout({
         </div>
       )}
     </DashboardLayout>
+
+    <AlertDialog
+      open={!!deletingConversationId}
+      onOpenChange={(open) => {
+        if (!open) setDeletingConversationId(null)
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this visitor conversation and its
+            associated data. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+            onClick={(e) => {
+              e.preventDefault()
+              handleDeleteConversation()
+            }}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
