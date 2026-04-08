@@ -143,6 +143,7 @@ export interface VibeAgentConversation {
   }>
   responseCounts?: Record<string, number>
   summaryGeneratedAt?: string | null
+  summaryResponseCount?: number
   feedback?: {
     rating: 'positive' | 'negative'
     comment?: string

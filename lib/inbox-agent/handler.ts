@@ -11,6 +11,9 @@ import {
   stripCompletionMarkers,
 } from '@/lib/agent/completion'
 import {
+  maybeAutoSummarize
+} from '@/lib/agents/auto-summarize'
+import {
   ensureConversation,
   isConversationHandedOff,
   markConversationHandedOff,
@@ -152,8 +155,17 @@ async function handleInboxAgentMessage(
           agentId: agent.id,
           conversationId: conversation.id,
           messages: nextMessages,
-          summary: null,
         })
+
+        maybeAutoSummarize({
+          tenantId,
+          agentId: agent.id,
+          conversationId: conversation.id,
+          messages: nextMessages,
+          currentSummary: conversation.summary,
+          summaryResponseCount: conversation.summaryResponseCount,
+          responseCounts: conversation.responseCounts,
+        }).catch(err => console.error('[inbox] Auto-summarize failed:', err))
 
         const event = mapCompletionToEvent(reason)
         if (event) {

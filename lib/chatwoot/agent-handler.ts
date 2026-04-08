@@ -11,6 +11,7 @@ import {
   markConversationHandedOff,
   updateConversationMessages
 } from '@/lib/agents/conversations'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { sendChatwootMessage, handoffChatwootConversation } from './api-client'
 import { decryptToken, updateConnectionStats } from './connections'
 import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
@@ -94,9 +95,18 @@ export async function handleChatwootMessage(
           tenantId: agent.tenantId!,
           agentId: agent.id,
           conversationId: conversation.id,
-          messages: nextMessages,
-          summary: null
+          messages: nextMessages
         })
+
+        maybeAutoSummarize({
+          tenantId: agent.tenantId!,
+          agentId: agent.id,
+          conversationId: conversation.id,
+          messages: nextMessages,
+          currentSummary: conversation.summary,
+          summaryResponseCount: conversation.summaryResponseCount,
+          responseCounts: conversation.responseCounts
+        }).catch(err => console.error('[chatwoot] Auto-summarize failed:', err))
 
         const event = mapCompletionToEvent(reason)
         if (event) {
