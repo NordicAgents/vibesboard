@@ -97,6 +97,11 @@ export async function runAgentStream({
     return stream
   }
 
+  // TODO: handoffTargetNames is not passed here — agents on the legacy Chat
+  // Completions path will not have handoff instructions injected into their
+  // system prompt. Low impact since OPENAI_CHAT_MODEL is a Responses API model
+  // in all current deployments. Fix by passing handoffTargetNames when removing
+  // or consolidating this legacy path.
   const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
     remainingResponses
   })
@@ -184,6 +189,50 @@ interface ResponsesAgentWithToolsArgs {
 }
 
 /**
+ * Validate tool arguments against the tool's JSON schema parameters.
+ * Checks that the args object is present, all required fields exist, and
+ * present fields match their declared primitive type.
+ * Returns an error string if invalid, null if valid.
+ */
+function validateToolArgs(
+  toolName: string,
+  args: Record<string, unknown>,
+  schema: { required?: string[]; properties?: Record<string, unknown> } | undefined
+): string | null {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return `Tool "${toolName}" received invalid arguments (expected a JSON object).`
+  }
+
+  const properties = (schema?.properties ?? {}) as Record<string, { type?: string }>
+  const required = schema?.required ?? []
+
+  for (const field of required) {
+    if (!(field in args)) {
+      return `Tool "${toolName}" missing required argument: "${field}".`
+    }
+  }
+
+  // Validate types for present fields with a declared primitive type.
+  // Catches model hallucinations like duration_minutes: "thirty" when number is expected.
+  const primitiveTypes: Record<string, string> = {
+    string: 'string',
+    number: 'number',
+    boolean: 'boolean'
+  }
+  for (const [field, def] of Object.entries(properties)) {
+    if (!(field in args)) continue
+    const expectedType = def.type
+    if (!expectedType || !(expectedType in primitiveTypes)) continue
+    const actualType = typeof args[field]
+    if (actualType !== primitiveTypes[expectedType]) {
+      return `Tool "${toolName}" argument "${field}" must be a ${expectedType}, got ${actualType}.`
+    }
+  }
+
+  return null
+}
+
+/**
  * Use native OpenAI Responses API tool calling.
  * 1. Call completeText() with tools — the API decides whether to call a tool.
  * 2. If a tool was called, execute it and build a follow-up prompt.
@@ -241,16 +290,24 @@ const runResponsesAgentWithTools = async ({
   if (decision.toolCalls.length > 0) {
     const call = decision.toolCalls[0]
     chosenTool = call.name
-    toolArgs = call.arguments
+    toolArgs = call.arguments ?? {}
     const executor = toolkit.executors[chosenTool]
 
     if (executor) {
-      try {
-        toolResult = await executor(toolArgs, {
-          fileContext: toolContext?.fileContext ?? context
-        })
-      } catch (error) {
-        toolResult = `Tool ${chosenTool} failed: ${error}`
+      // Validate args against the tool's JSON schema before execution.
+      // Guards against hallucinated or malformed args from the model.
+      const toolSchema = tools.find(t => t.name === chosenTool)
+      const validationError = validateToolArgs(chosenTool, toolArgs, toolSchema?.parameters)
+      if (validationError) {
+        toolResult = validationError
+      } else {
+        try {
+          toolResult = await executor(toolArgs, {
+            fileContext: toolContext?.fileContext ?? context
+          })
+        } catch (error) {
+          toolResult = `Tool ${chosenTool} failed: ${error}`
+        }
       }
     }
   }

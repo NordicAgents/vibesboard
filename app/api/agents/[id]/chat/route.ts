@@ -4,7 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
-import { getAgentById, getAgentNames } from '@/lib/agents/server'
+import { getAgentById, getAgentNamesByTenant } from '@/lib/agents/server'
 import { agentChatRequestSchema } from '@/lib/agents/schema'
 import {
   ensureConversation,
@@ -28,6 +28,7 @@ import {
 import { validateHandoff, buildHandoffContext } from '@/lib/agent/handoff'
 import { Collections } from '@/lib/firestore-types'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { reserveAgentResponseSlot } from '@/lib/agents/limits'
 import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 export const runtime = 'nodejs'
@@ -47,17 +48,6 @@ export async function POST(
 
   if (!agent) {
     return new NextResponse('Agent not found', { status: 404 })
-  }
-
-  // Check agent-level response limit
-  if (
-    agent.maxAgentResponses &&
-    (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses
-  ) {
-    return NextResponse.json(
-      { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
-      { status: 403 }
-    )
   }
 
   // Check tenant usage limit
@@ -105,6 +95,10 @@ export async function POST(
       if (!targetAgent) {
         return NextResponse.json({ error: 'Target agent not found' }, { status: 404 })
       }
+      // Prevent cross-tenant handoff continuations — target must be in the same workspace
+      if (targetAgent.tenantId !== agent.tenantId) {
+        return NextResponse.json({ error: 'Target agent is in a different workspace' }, { status: 403 })
+      }
       activeAgent = targetAgent
       handoffContext = buildHandoffContext({
         sourceAgentName: agent.name,
@@ -147,21 +141,29 @@ export async function POST(
     }
   }
 
-  // Check active agent's lifetime limit
-  if (
-    activeAgent.id !== agent.id &&
-    activeAgent.maxAgentResponses &&
-    (activeAgent.totalResponseCount ?? 0) >= activeAgent.maxAgentResponses
-  ) {
-    return NextResponse.json(
-      { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
-      { status: 403 }
+  // Atomically reserve a response slot for the agent that will actually handle
+  // this request. This covers both the non-handoff case (activeAgent === agent)
+  // and the handoff case, and prevents concurrent requests from racing past
+  // the limit check.
+  if (activeAgent.maxAgentResponses) {
+    const slotReserved = await reserveAgentResponseSlot(
+      activeAgent.tenantId!,
+      activeAgent.id,
+      activeAgent.maxAgentResponses
     )
+    if (!slotReserved) {
+      return NextResponse.json(
+        { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
+        { status: 403 }
+      )
+    }
   }
 
-  // Resolve handoff target names for the active agent's system prompt
+  // Resolve handoff target names for the active agent's system prompt.
+  // Handoff targets are always in the same tenant, so use the batched tenant-scoped
+  // lookup (single Firestore getAll RPC) instead of N collectionGroup queries.
   if (activeAgent.handoffTargets?.length) {
-    handoffTargetNames = await getAgentNames(activeAgent.handoffTargets)
+    handoffTargetNames = await getAgentNamesByTenant(activeAgent.tenantId!, activeAgent.handoffTargets)
   }
 
   // Build messages for the agent — inject handoff context if this is a continuation
@@ -235,24 +237,12 @@ export async function POST(
         }
       }
 
-      // Increment active agent's lifetime response counter
-      if (
-        activeAgent.maxAgentResponses &&
-        (activeAgent.totalResponseCount ?? 0) + 5 >= activeAgent.maxAgentResponses
-      ) {
-        // Near limit — use transaction for accuracy
-        const agentRef = adminDb
-          .collection(Collections.agents(activeAgent.tenantId!))
-          .doc(activeAgent.id)
-        adminDb.runTransaction(async (tx: any) => {
-          const snap = await tx.get(agentRef)
-          const current = (snap.data() as Record<string, any> | undefined)?.totalResponseCount ?? 0
-          tx.update(agentRef, { totalResponseCount: current + 1 })
-        }).catch((e: unknown) =>
-          console.error('[chat] Failed to increment response count (tx):', e)
-        )
-      } else {
-        adminDb
+      // Capped agents (maxAgentResponses set) had their slot reserved atomically
+      // before the stream started — do not double-count here.
+      // Uncapped agents increment here; await so the write completes before the
+      // function context is reclaimed by the serverless runtime.
+      if (!activeAgent.maxAgentResponses) {
+        await adminDb
           .collection(Collections.agents(activeAgent.tenantId!))
           .doc(activeAgent.id)
           .update({ totalResponseCount: FieldValue.increment(1) })

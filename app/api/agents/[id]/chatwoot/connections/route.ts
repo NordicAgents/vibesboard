@@ -10,7 +10,8 @@ import {
   createChatwootWebhook,
   createChatwootAgentBot,
   assignAgentBotToInbox,
-  deleteChatwootWebhook
+  deleteChatwootWebhook,
+  deleteChatwootAgentBot
 } from '@/lib/chatwoot/api-client'
 import {
   createChatwootConnection,
@@ -150,19 +151,48 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let botAccessToken: string | null = null
 
     if (validated.enableAgentBot) {
+      // 5a. Create the bot
+      const botName = validated.botName?.trim() || 'AI Agent'
+      let bot: { id: number; access_token: string } | null = null
       try {
-        const botName = validated.botName?.trim() || 'AI Agent'
-        const bot = await createChatwootAgentBot(
+        bot = await createChatwootAgentBot(
           validated.chatwootUrl,
           validated.apiToken,
           credResult.accountId,
-          { name: botName }
+          { name: botName, outgoingUrl: webhookUrl }
         )
-        agentBotId = bot.id
-        agentBotName = botName
-        botAccessToken = bot.access_token
+        console.log(`[chatwoot] Agent bot created: id=${bot?.id}, has_token=${!!bot?.access_token}`)
+      } catch (err) {
+        console.error('[chatwoot] Failed to create agent bot:', err)
+        // Roll back webhook
+        if (chatwootWebhookId) {
+          await deleteChatwootWebhook(validated.chatwootUrl, validated.apiToken, credResult.accountId, chatwootWebhookId)
+        }
+        const detail = err instanceof Error ? err.message : String(err)
+        return NextResponse.json(
+          { error: `Failed to create agent bot: ${detail}` },
+          { status: 400 }
+        )
+      }
 
-        // 5b. Assign bot to inbox
+      if (!bot?.id || !bot?.access_token) {
+        console.error('[chatwoot] Bot created but response missing id or access_token:', JSON.stringify(bot))
+        // Roll back webhook
+        if (chatwootWebhookId) {
+          await deleteChatwootWebhook(validated.chatwootUrl, validated.apiToken, credResult.accountId, chatwootWebhookId)
+        }
+        return NextResponse.json(
+          { error: 'Agent bot was created but Chatwoot returned an incomplete response (missing id or token). Check your Chatwoot version.' },
+          { status: 400 }
+        )
+      }
+
+      agentBotId = bot.id
+      agentBotName = botName
+      botAccessToken = bot.access_token
+
+      // 5b. Assign bot to inbox
+      try {
         await assignAgentBotToInbox(
           validated.chatwootUrl,
           validated.apiToken,
@@ -170,22 +200,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           validated.inboxId,
           bot.id
         )
+        console.log(`[chatwoot] Agent bot ${bot.id} assigned to inbox ${validated.inboxId}`)
       } catch (err) {
-        console.error('[chatwoot] Failed to create/assign agent bot:', err)
-        // Roll back webhook
+        console.error('[chatwoot] Failed to assign agent bot to inbox:', err)
+        // Roll back bot + webhook
+        await deleteChatwootAgentBot(validated.chatwootUrl, validated.apiToken, credResult.accountId, bot.id)
         if (chatwootWebhookId) {
-          await deleteChatwootWebhook(
-            validated.chatwootUrl,
-            validated.apiToken,
-            credResult.accountId,
-            chatwootWebhookId
-          )
+          await deleteChatwootWebhook(validated.chatwootUrl, validated.apiToken, credResult.accountId, chatwootWebhookId)
         }
+        const detail = err instanceof Error ? err.message : String(err)
         return NextResponse.json(
-          {
-            error:
-              'Failed to create agent bot in Chatwoot. Please ensure your token has admin permissions.'
-          },
+          { error: `Agent bot created but failed to assign to inbox: ${detail}` },
           { status: 400 }
         )
       }

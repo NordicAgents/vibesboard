@@ -8,7 +8,7 @@ import {
   type VibeAgent,
   type VibeAgentConversation
 } from '@/lib/types'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
 import { useSecondarySidebarSetter } from '@/components/layouts/secondary-sidebar-context'
 import {
@@ -25,28 +25,19 @@ import { ConversationView } from '@/components/agents/conversation-modal'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconMessage } from '@/components/ui/icons'
-import { LayoutDashboard } from 'lucide-react'
-
-const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
-
-const toConversationLabel = (value?: string | null) => {
-  const cleaned = (value ?? '')
-    .replace(UUID_PATTERN, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!cleaned) return 'Visitor conversation'
-  if (cleaned.length <= 110) return cleaned
-
-  const truncated = cleaned.slice(0, 110)
-  const lastWordBoundary = truncated.lastIndexOf(' ')
-  if (lastWordBoundary > 60) {
-    return `${truncated.slice(0, lastWordBoundary)}…`
-  }
-
-  return `${truncated}…`
-}
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
+import { LayoutDashboard, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 
 interface AgentChatWithLayoutProps {
   agent: VibeAgent
@@ -120,6 +111,30 @@ export function AgentChatWithLayout({
     React.useState<VibeAgentConversation | null>(null)
   const [visitorPage, setVisitorPage] = React.useState(1)
   const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
+  const [deletingConversationId, setDeletingConversationId] = React.useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const handleDeleteConversation = React.useCallback(async () => {
+    if (!deletingConversationId) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(
+        `/api/agents/${agent.id}/conversations/${deletingConversationId}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error('Failed to delete')
+      toast.success('Conversation deleted')
+      if (selectedConversation?.id === deletingConversationId) {
+        setSelectedConversation(null)
+      }
+      router.refresh()
+    } catch {
+      toast.error('Failed to delete conversation')
+    } finally {
+      setIsDeleting(false)
+      setDeletingConversationId(null)
+    }
+  }, [deletingConversationId, agent.id, selectedConversation?.id, router])
 
   // Sync activeSessionId with URL
   React.useEffect(() => {
@@ -296,14 +311,20 @@ export function AgentChatWithLayout({
               </div>
             )}
             {paginatedVisitorSessions.map(session => {
-              const label = toConversationLabel(
-                session.summary || session.messages.at(-1)?.content
+              const label = getConversationPreview(
+                session.messages,
+                session.summary
               )
+              const isSelected = selectedConversation?.id === session.id
 
               return (
                 <DashboardSidebarItem
                   key={session.id}
-                  className="bg-[#f5f8f7] dark:bg-[#192425]"
+                  active={isSelected}
+                  className={cn(
+                    'group',
+                    isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
+                  )}
                   onClick={() => handleOpenConversation(session)}
                 >
                   <div className="flex items-center gap-2">
@@ -316,8 +337,20 @@ export function AgentChatWithLayout({
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-gray-secondary">
-                    Updated {formatDate(session.updatedAt)}
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] text-gray-secondary">
+                      Updated {formatDate(session.updatedAt)}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeletingConversationId(session.id)
+                      }}
+                      className="ml-1 shrink-0 rounded p-0.5 text-gray-secondary opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100 dark:hover:text-red-400"
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
                   </div>
                 </DashboardSidebarItem>
               )
@@ -358,15 +391,20 @@ export function AgentChatWithLayout({
         {canEdit && handoffConversations.length > 0 && (
           <DashboardSidebarSection title="Handoff Conversations">
             {handoffConversations.map(session => {
-              const label = toConversationLabel(
-                session.summary || session.messages.at(-1)?.content
+              const label = getConversationPreview(
+                session.messages,
+                session.summary
               )
               const sourceAgent = session.handoffChain?.at(-1)
+              const isSelected = selectedConversation?.id === session.id
 
               return (
                 <DashboardSidebarItem
                   key={session.id}
-                  className="bg-[#f5f8f7] dark:bg-[#192425]"
+                  active={isSelected}
+                  className={
+                    isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
+                  }
                   onClick={() => handleOpenConversation(session)}
                 >
                   <div className="flex items-center gap-2">
@@ -418,9 +456,9 @@ export function AgentChatWithLayout({
     ),
     [
       activeSessionId,
+      agent.id,
       agent.name,
       agentPageShell?.isSidebarOpen,
-      agentPageShell?.setIsSidebarOpen,
       canEdit,
       handleNewChat,
       handleOpenConversation,
@@ -430,9 +468,15 @@ export function AgentChatWithLayout({
       ownerSessions,
       paginatedVisitorSessions,
       refreshingSummaries,
+      router,
+      searchParams,
+      selectedConversation?.id,
+      setAgentSidebarOpen,
       totalVisitorPages,
       visitorPage,
-      visitorSessions.length
+      viewMode,
+      visitorSessions.length,
+      setDeletingConversationId
     ]
   )
 
@@ -444,12 +488,19 @@ export function AgentChatWithLayout({
   }, [setSecondarySidebar, sidebar])
 
   return (
+    <>
     <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
       {selectedConversation ? (
-        <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
+        <div className="h-full overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
           <ConversationView
             conversation={selectedConversation}
             onClose={() => setSelectedConversation(null)}
+            agentId={agent.id}
+            agentName={agent.name}
+            canReply={canEdit && !!selectedConversation.externalId?.startsWith('chatwoot:')}
+            canDelete={canEdit}
+            onConversationUpdate={() => router.refresh()}
+            onDelete={() => setDeletingConversationId(selectedConversation.id)}
           />
         </div>
       ) : agentPageShell?.isSidebarOpen && canEdit ? (
@@ -514,5 +565,36 @@ export function AgentChatWithLayout({
         </div>
       )}
     </DashboardLayout>
+
+    <AlertDialog
+      open={!!deletingConversationId}
+      onOpenChange={(open) => {
+        if (!open) setDeletingConversationId(null)
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete this visitor conversation and its
+            associated data. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+            onClick={(e) => {
+              e.preventDefault()
+              handleDeleteConversation()
+            }}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }

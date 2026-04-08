@@ -77,6 +77,27 @@ export const dataConfigSchema = z.object({
   updateKeyField: z.string().nullable().optional()
 })
 
+export const calendarAvailabilityConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  calendarConnectionId: z.string().nullable().default(null),
+  calendarId: z.string().nullable().optional(),
+  resourceName: z.string().max(100).optional()
+})
+
+export const bookableResourceSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1).max(100),
+  calendarConnectionId: z.string(),
+  calendarId: z.string(),
+  calendarName: z.string(),
+  timezone: z.string().default('UTC')
+})
+
+export const bookingConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  resources: z.array(bookableResourceSchema).default([])
+})
+
 export const upsertAgentSchema = z.object({
   name: z.string().min(2).max(120),
   instructions: z.string().min(10).max(20_000),
@@ -98,7 +119,9 @@ export const upsertAgentSchema = z.object({
   handoffTargets: z.array(z.string()).default([]),
   collectionFields: z.array(collectionFieldSchema).max(20).default([]),
   schedulingConfig: schedulingConfigSchema.optional(),
-  dataConfig: dataConfigSchema.optional()
+  dataConfig: dataConfigSchema.optional(),
+  calendarAvailabilityConfig: calendarAvailabilityConfigSchema.optional(),
+  bookingConfig: bookingConfigSchema.optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial()
