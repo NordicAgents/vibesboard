@@ -53,9 +53,21 @@ export function AgentDashboardTabs({
     : defaultTab === 'booking-enquiries' ? 'booking-enquiries'
     : defaultTab
   const [activeTab, setActiveTab] = useState(resolvedDefault)
-  const [actionSection, setActionSection] = useState<ActionSection>(
-    defaultTab === 'data' ? 'data' : 'scheduling'
+  const [openSections, setOpenSections] = useState<Set<ActionSection>>(
+    new Set([defaultTab === 'data' ? 'data' : 'scheduling'])
   )
+
+  const toggleSection = (section: ActionSection) => {
+    setOpenSections(prev => {
+      const next = new Set(prev)
+      if (next.has(section)) {
+        next.delete(section)
+      } else {
+        next.add(section)
+      }
+      return next
+    })
+  }
 
   const form = useAgentForm(agent)
   const { fields, setters, hasChanges, saving, isDeleting, handleSaveAll, handleDelete } = form
@@ -215,25 +227,35 @@ export function AgentDashboardTabs({
         <TabsContent value="actions">
           {agent.tenantId ? (
             <div className="space-y-4">
-              {/* Sub-navigation for action sections */}
-              <div className="flex gap-2">
-                {ACTION_SECTIONS.map((section) => (
-                  <button
-                    key={section}
-                    onClick={() => setActionSection(section)}
-                    className={cn(
-                      'rounded-lg border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-all duration-150',
-                      actionSection === section
-                        ? 'border-accent-orange/30 bg-accent-orange/10 text-accent-orange'
-                        : 'border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground'
-                    )}
-                  >
-                    {section === 'scheduling' ? 'Scheduling' : section === 'data' ? 'Data' : section === 'availability' ? 'Availability' : 'Booking'}
-                  </button>
-                ))}
+              {/* Sub-navigation for action sections (multi-select) */}
+              <div className="flex flex-wrap gap-2">
+                {ACTION_SECTIONS.map((section) => {
+                  const isOpen = openSections.has(section)
+                  const isEnabled =
+                    section === 'scheduling' ? fields.schedulingConfig?.enabled
+                    : section === 'data' ? fields.dataConfig?.enabled
+                    : section === 'availability' ? fields.calendarAvailabilityConfig?.enabled
+                    : fields.bookingConfig?.enabled
+                  return (
+                    <button
+                      key={section}
+                      onClick={() => toggleSection(section)}
+                      className={cn(
+                        'rounded-lg border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-all duration-150',
+                        isOpen
+                          ? 'border-accent-orange/30 bg-accent-orange/10 text-accent-orange'
+                          : 'border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground',
+                        isEnabled && !isOpen && 'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400'
+                      )}
+                    >
+                      {isEnabled && <span className="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />}
+                      {section === 'scheduling' ? 'Scheduling' : section === 'data' ? 'Data' : section === 'availability' ? 'Availability' : 'Booking'}
+                    </button>
+                  )
+                })}
               </div>
 
-              {actionSection === 'scheduling' && (
+              {openSections.has('scheduling') && (
                 <FeatureGate
                   feature="AGENT_ACTIONS_SCHEDULE"
                   tenantId={agent.tenantId}
@@ -247,7 +269,7 @@ export function AgentDashboardTabs({
                 </FeatureGate>
               )}
 
-              {actionSection === 'data' && (
+              {openSections.has('data') && (
                 <FeatureGate
                   feature="AGENT_ACTIONS_DATA"
                   tenantId={agent.tenantId}
@@ -262,7 +284,7 @@ export function AgentDashboardTabs({
                 </FeatureGate>
               )}
 
-              {actionSection === 'availability' && (
+              {openSections.has('availability') && (
                 <FeatureGate
                   feature="AGENT_ACTIONS_SCHEDULE"
                   tenantId={agent.tenantId}
@@ -276,7 +298,7 @@ export function AgentDashboardTabs({
                 </FeatureGate>
               )}
 
-              {actionSection === 'booking' && (
+              {openSections.has('booking') && (
                 <FeatureGate
                   feature="AGENT_ACTIONS_BOOKING"
                   tenantId={agent.tenantId}
