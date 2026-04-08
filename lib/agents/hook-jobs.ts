@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type HookJobDocument, type HookJobStatus } from '@/lib/firestore-types'
 import { getAgentById } from '@/lib/agents/server'
 import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
@@ -188,9 +189,18 @@ export async function runJobAsync(
           tenantId,
           agentId,
           conversationId: conversation.id,
-          messages: nextMessages,
-          summary: null
+          messages: nextMessages
         })
+
+        maybeAutoSummarize({
+          tenantId,
+          agentId,
+          conversationId: conversation.id,
+          messages: nextMessages,
+          currentSummary: conversation.summary,
+          summaryResponseCount: conversation.summaryResponseCount,
+          responseCounts: conversation.responseCounts
+        }).catch(err => console.error('[hook-async] Auto-summarize failed:', err))
 
         // Record usage for metering (fire-and-forget)
         recordUsage({

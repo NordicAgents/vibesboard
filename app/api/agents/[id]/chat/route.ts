@@ -13,6 +13,7 @@ import {
   recordConversationHandoff,
   updateConversationRef
 } from '@/lib/agents/conversations'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { nanoid } from '@/lib/utils'
 import {
@@ -203,9 +204,18 @@ export async function POST(
         agentId: agent.id,
         conversationId: conversation.id,
         messages: nextMessages,
-        summary: null,
         respondingAgentId: activeAgent.id
       })
+
+      maybeAutoSummarize({
+        tenantId: agent.tenantId!,
+        agentId: agent.id,
+        conversationId: conversation.id,
+        messages: nextMessages,
+        currentSummary: conversation.summary,
+        summaryResponseCount: conversation.summaryResponseCount,
+        responseCounts: conversation.responseCounts
+      }).catch(err => console.error('[chat] Auto-summarize failed:', err))
 
       // Record agent-to-agent handoff if detected in stream (validate first)
       if (reason === 'handoff_to_agent') {

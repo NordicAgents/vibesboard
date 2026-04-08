@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import type { Message } from '@/lib/types/message'
 
 import { type VibeAgentConversation } from '@/lib/types'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
 import { formatDate } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,17 +44,14 @@ export function AgentConversationList({
     )
   }
 
-  const getMessageText = (message?: Message) =>
-    message && typeof message.content === 'string' ? message.content : ''
-
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="space-y-2 lg:w-1/2">
         {conversations.map(conversation => {
-          const contentPreview =
-            conversation.summary ||
-            getMessageText(conversation.messages.at(-1)).slice(0, 60) ||
-            'Conversation'
+          const contentPreview = getConversationPreview(
+            conversation.messages,
+            conversation.summary
+          )
 
           const isSelected = selectedConversationId === conversation.id
 
@@ -93,7 +90,7 @@ export function AgentConversationList({
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">
-                    {selectedConversation.summary || 'Conversation preview'}
+                    {getConversationPreview(selectedConversation.messages, selectedConversation.summary, 'Conversation preview')}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Updated {formatDate(selectedConversation.updatedAt)}

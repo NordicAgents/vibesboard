@@ -107,8 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       tenantId: agent.tenantId,
       agentId,
       conversationId: cid,
-      messages: allMessages,
-      summary: null
+      messages: allMessages
     })
 
     return NextResponse.json({ ok: true, messageId: assistantMessage.id }, { status: 201 })

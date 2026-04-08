@@ -140,6 +140,7 @@ export const mapConversationDoc = (
   responseCounts: typeof data.responseCounts === 'object' && data.responseCounts !== null
     ? data.responseCounts : undefined,
   summaryGeneratedAt: data.summaryGeneratedAt ?? null,
+  summaryResponseCount: data.summaryResponseCount ?? undefined,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })
