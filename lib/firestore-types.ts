@@ -47,6 +47,47 @@ export interface AgentDataConfig {
   updateKeyField?: string | null // field used to find existing rows for updates
 }
 
+// ─── Simple Booking ─────────────────────────────────────────────────
+export interface BookableResource {
+  id: string
+  name: string
+  calendarConnectionId: string
+  calendarId: string
+  calendarName: string
+  timezone: string
+}
+
+export interface AgentBookingConfig {
+  enabled: boolean
+  resources: BookableResource[]
+}
+
+export interface BookingEnquiryDocument {
+  id: string
+  agentId: string
+  tenantId: string
+  resourceName: string
+  calendarId: string
+  calendarName: string
+  timezone: string
+  startDatetime: string
+  endDatetime: string
+  guestName: string
+  guestEmail: string
+  guestPhone: string
+  guestCount?: number
+  notes?: string
+  createdAt: string
+}
+
+// ─── Calendar Availability ──────────────────────────────────────────
+export interface AgentCalendarAvailabilityConfig {
+  enabled: boolean
+  calendarConnectionId: string | null
+  calendarId?: string | null  // specific calendar to check — overrides the connection's default
+  resourceName?: string       // e.g. "Glass Cabin", "Conference Room A"
+}
+
 // ─── Agent notifications ────────────────────────────────────────────
 export type NotificationEvent = 'completed' | 'handoff' | 'agent_handoff'
 
@@ -337,6 +378,8 @@ export interface AgentDocument {
   }>
   schedulingConfig?: AgentSchedulingConfig
   dataConfig?: AgentDataConfig
+  calendarAvailabilityConfig?: AgentCalendarAvailabilityConfig
+  bookingConfig?: AgentBookingConfig
   createdAt: string
   updatedAt: string
 }
@@ -822,6 +865,8 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/chatwoot_connections` as const,
   bookings: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/bookings` as const,
+  bookingEnquiries: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/bookingEnquiries` as const,
   dataLogs: (tenantId: string, agentId: string) =>
     `tenants/${tenantId}/agents/${agentId}/data_logs` as const,
   hooks: (tenantId: string, agentId: string) =>

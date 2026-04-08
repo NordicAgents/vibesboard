@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { exchangeCode, getUserEmail, listCalendars } from '@/lib/scheduling/google-auth'
 import { createCalendarConnection } from '@/lib/scheduling/connections'
+import { OAUTH_NONCE_COOKIE } from '../route'
 
 export const runtime = 'nodejs'
 
@@ -48,12 +49,24 @@ export async function GET(req: Request) {
     )
   }
 
-  let state: { tenantId: string; userId: string }
+  let state: { tenantId: string; userId: string; nonce?: string }
   try {
     state = JSON.parse(stateParam)
   } catch {
     return NextResponse.redirect(
       new URL('/agents?scheduling_error=invalid_state', appOrigin)
+    )
+  }
+
+  // Verify CSRF nonce — must match the cookie set at OAuth initiation.
+  // Always clear the cookie regardless of outcome (single-use).
+  const cookieStore = await cookies()
+  const storedNonce = cookieStore.get(OAUTH_NONCE_COOKIE)?.value
+  cookieStore.delete(OAUTH_NONCE_COOKIE)
+
+  if (!storedNonce || !state.nonce || storedNonce !== state.nonce) {
+    return NextResponse.redirect(
+      new URL('/agents?scheduling_error=invalid_nonce', appOrigin)
     )
   }
 
