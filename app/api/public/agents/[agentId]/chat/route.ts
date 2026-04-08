@@ -12,6 +12,7 @@ import {
   recordConversationHandoff,
   updateConversationRef
 } from '@/lib/agents/conversations'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
 import { nanoid } from '@/lib/utils'
@@ -211,9 +212,18 @@ export async function POST(
         agentId: agent.id,
         conversationId: conversation.id,
         messages: nextMessages,
-        summary: null,
         respondingAgentId: activeAgent.id
       })
+
+      maybeAutoSummarize({
+        tenantId,
+        agentId: agent.id,
+        conversationId: conversation.id,
+        messages: nextMessages,
+        currentSummary: conversation.summary,
+        summaryResponseCount: conversation.summaryResponseCount,
+        responseCounts: conversation.responseCounts
+      }).catch(err => console.error('[public-chat] Auto-summarize failed:', err))
 
       if (reason === 'handoff_to_agent') {
         const targetId = extractHandoffTarget(completion)

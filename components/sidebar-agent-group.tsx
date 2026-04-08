@@ -8,33 +8,12 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconArrowDown, IconArrowRight } from '@/components/ui/icons'
 import { SidebarAgentItem } from '@/components/sidebar-agent-item'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
 import { cn } from '@/lib/utils'
 
 interface SidebarAgentGroupProps {
   agent: VibeAgent
   conversations: VibeAgentConversation[]
-}
-
-const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi
-
-const toConversationLabel = (value?: string | null) => {
-  const cleaned = (value ?? '')
-    .replace(UUID_PATTERN, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  if (!cleaned) return 'Conversation'
-  if (cleaned.length <= 90) return cleaned
-
-  const truncated = cleaned.slice(0, 90)
-  const lastWordBoundary = truncated.lastIndexOf(' ')
-
-  if (lastWordBoundary > 48) {
-    return `${truncated.slice(0, lastWordBoundary)}…`
-  }
-
-  return `${truncated}…`
 }
 
 export function SidebarAgentGroup({
@@ -77,8 +56,9 @@ export function SidebarAgentGroup({
       {expanded && items.length ? (
         <div className="ml-5 space-y-0.5 overflow-hidden border-l border-[#e4e3e3] pl-2 dark:border-[#344348]">
           {items.map(session => {
-            const label = toConversationLabel(
-              session.summary || session.messages.at(-1)?.content
+            const label = getConversationPreview(
+              session.messages,
+              session.summary
             )
             return (
               <Link

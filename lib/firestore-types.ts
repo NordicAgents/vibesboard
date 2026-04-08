@@ -477,6 +477,7 @@ export interface ConversationDocument {
   summary?: string
   closedAt?: string
   summaryGeneratedAt?: string
+  summaryResponseCount?: number
   handedOff?: boolean
   handoffChain?: HandoffChainEntry[]
   responseCounts?: Record<string, number>
