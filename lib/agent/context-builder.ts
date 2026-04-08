@@ -6,6 +6,8 @@ import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/con
 import { buildSchedulingTools } from './tools/scheduling'
 import { getDataConnection } from '@/lib/data/connections'
 import { buildDataTools } from './tools/data-actions'
+import { buildCalendarAvailabilityTools } from './tools/calendar-availability'
+import { buildSimpleBookingTools } from './tools/simple-booking'
 
 export interface ContextBuildResult {
   contextText: string
@@ -122,6 +124,49 @@ export async function buildAgentContext(
     } catch (err) {
       // Data action injection failure should not block the chat
       console.error('Failed to inject data action tools:', err)
+    }
+  }
+
+  // Inject booking/availability tools — simple-booking takes precedence, falls back to
+  // legacy calendar-availability. Never register both (same tool name conflict).
+  if (agent.bookingConfig?.enabled && agent.tenantId) {
+    try {
+      const bookingEnabled = await isFeatureEnabled(agent.tenantId, 'AGENT_ACTIONS_BOOKING')
+      if (bookingEnabled) {
+        const bookingTools = buildSimpleBookingTools(agent)
+        for (const tool of bookingTools) {
+          toolkit.functions.push(tool.function)
+          toolkit.executors[tool.function.name] = tool.execute
+        }
+      }
+    } catch (err) {
+      console.error('Failed to inject simple-booking tools:', err)
+    }
+  } else if (
+    agent.calendarAvailabilityConfig?.enabled &&
+    agent.calendarAvailabilityConfig.calendarConnectionId &&
+    agent.tenantId
+  ) {
+    try {
+      const scheduleEnabled = await isFeatureEnabled(
+        agent.tenantId,
+        'AGENT_ACTIONS_SCHEDULE'
+      )
+      if (scheduleEnabled) {
+        const connection = await getCalendarConnection(
+          agent.tenantId,
+          agent.calendarAvailabilityConfig.calendarConnectionId
+        )
+        if (connection && connection.status === 'active') {
+          const availabilityTools = buildCalendarAvailabilityTools(agent, connection)
+          for (const tool of availabilityTools) {
+            toolkit.functions.push(tool.function)
+            toolkit.executors[tool.function.name] = tool.execute
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to inject calendar availability tools:', err)
     }
   }
 

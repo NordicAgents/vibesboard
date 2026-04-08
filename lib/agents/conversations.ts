@@ -190,6 +190,21 @@ export async function markConversationHandedOff(
 }
 
 /**
+ * Resume a conversation that was previously handed off to a human agent.
+ */
+export async function resumeConversation(
+  tenantId: string,
+  agentId: string,
+  conversationId: string
+): Promise<void> {
+  const collPath = Collections.conversations(tenantId, agentId)
+  await adminDb
+    .collection(collPath)
+    .doc(conversationId)
+    .update({ handedOff: false, updatedAt: new Date().toISOString() })
+}
+
+/**
  * Record an agent-to-agent handoff on a conversation.
  * Appends to the handoffChain array and creates a conversation ref
  * in the target agent's collection for visibility.
@@ -268,6 +283,61 @@ export async function listConversationRefs(
     .get()
 
   return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => doc.data() as ConversationRefDocument)
+}
+
+/**
+ * Delete a conversation and its associated data (chunks and refs).
+ */
+export async function deleteConversation(
+  tenantId: string,
+  agentId: string,
+  conversationId: string
+): Promise<boolean> {
+  const BATCH_LIMIT = 500
+
+  // 1. Read the conversation document (single read for existence + handoffChain)
+  const convDoc = await adminDb
+    .collection(Collections.conversations(tenantId, agentId))
+    .doc(conversationId)
+    .get()
+
+  if (!convDoc.exists) return false
+
+  // 2. Delete conversation_chunks for this conversation
+  const chunksSnap = await adminDb
+    .collection(Collections.conversationChunks(tenantId, agentId))
+    .where('conversationId', '==', conversationId)
+    .get()
+
+  for (let i = 0; i < chunksSnap.docs.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    chunksSnap.docs.slice(i, i + BATCH_LIMIT).forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => batch.delete(doc.ref))
+    await batch.commit()
+  }
+
+  // 3. Delete conversation_refs in target agents (from handoff chain)
+  const data = convDoc.data()!
+  const handoffChain = data.handoffChain as Array<{ toAgentId: string }> | undefined
+  if (handoffChain?.length) {
+    for (const entry of handoffChain) {
+      try {
+        await adminDb
+          .collection(Collections.conversationRefs(tenantId, entry.toAgentId))
+          .doc(conversationId)
+          .delete()
+      } catch {
+        // Ref may already be deleted
+      }
+    }
+  }
+
+  // 4. Delete the conversation document
+  await adminDb
+    .collection(Collections.conversations(tenantId, agentId))
+    .doc(conversationId)
+    .delete()
+
+  return true
 }
 
 const serializeMessages = (messages: Message[]) =>

@@ -54,22 +54,66 @@ export async function getAgentById(
 }
 
 /**
- * Batch-fetch agent names by IDs.
- * Used to populate handoff target names in system prompts and stream metadata.
+ * Batch-fetch agent names by IDs within a known tenant.
+ * Uses a single Firestore getAll() RPC instead of one query per agent.
+ * Prefer this over getAgentNames() whenever the tenant is known (e.g. handoff targets).
  */
-export async function getAgentNames(
+export async function getAgentNamesByTenant(
+  tenantId: string,
   agentIds: string[]
 ): Promise<Record<string, string>> {
   if (!agentIds.length) return {}
 
-  const names: Record<string, string> = {}
-  await Promise.all(
-    agentIds.map(async id => {
-      const agent = await getAgentById(id)
-      if (agent) names[id] = agent.name
-    })
+  const refs = agentIds.map(id =>
+    adminDb.collection(Collections.agents(tenantId)).doc(id)
   )
+  const snaps = await adminDb.getAll(...refs)
+
+  const names: Record<string, string> = {}
+  snaps.forEach((snap, i) => {
+    if (snap.exists) {
+      names[agentIds[i]] = (snap.data() as Record<string, any>).name
+    }
+  })
   return names
+}
+
+
+/**
+ * Disable calendar availability and scheduling configs on all agents in a tenant
+ * that reference a given calendar connection.
+ *
+ * Called when a connection is deleted so agents don't silently hold a dead
+ * reference — the owner sees the toggle is off and knows to reconnect.
+ */
+export async function disableAgentsForConnection(
+  tenantId: string,
+  connectionId: string
+): Promise<void> {
+  const agentsRef = adminDb.collection(Collections.agents(tenantId))
+
+  // Query both config types in parallel — Firestore supports dot-notation on nested fields
+  const [availSnap, schedSnap] = await Promise.all([
+    agentsRef
+      .where('calendarAvailabilityConfig.calendarConnectionId', '==', connectionId)
+      .get(),
+    agentsRef
+      .where('schedulingConfig.calendarConnectionId', '==', connectionId)
+      .get()
+  ])
+
+  if (availSnap.size + schedSnap.size === 0) return
+
+  const batch = adminDb.batch()
+
+  for (const doc of availSnap.docs) {
+    batch.update(doc.ref, { 'calendarAvailabilityConfig.enabled': false })
+  }
+  for (const doc of schedSnap.docs) {
+    batch.update(doc.ref, { 'schedulingConfig.enabled': false })
+  }
+
+  await batch.commit()
 }
 
 /**
