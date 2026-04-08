@@ -106,8 +106,11 @@ export async function updateConversationMessages({
 
   const updateData: Record<string, any> = {
     messages: serializeMessages(messages),
-    summary: summary ?? null,
     updatedAt: new Date().toISOString()
+  }
+
+  if (summary !== undefined) {
+    updateData.summary = summary
   }
 
   if (respondingAgentId) {
