@@ -125,8 +125,7 @@ export async function POST(
           tenantId: connection.tenantId,
           agentId: connection.agentId,
           conversationId: conversation.id,
-          messages: allMessages,
-          summary: null
+          messages: allMessages
         })
         return NextResponse.json({ ok: true })
       }

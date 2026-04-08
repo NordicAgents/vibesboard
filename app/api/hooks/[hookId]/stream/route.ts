@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
 import { getAgentById } from '@/lib/agents/server'
 import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { stripCompletionMarkers } from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
@@ -135,9 +136,18 @@ export async function POST(
               tenantId: agent.tenantId!,
               agentId: agent.id,
               conversationId: conversation.id,
-              messages: nextMessages,
-              summary: null
+              messages: nextMessages
             })
+
+            maybeAutoSummarize({
+              tenantId: agent.tenantId!,
+              agentId: agent.id,
+              conversationId: conversation.id,
+              messages: nextMessages,
+              currentSummary: conversation.summary,
+              summaryResponseCount: conversation.summaryResponseCount,
+              responseCounts: conversation.responseCounts
+            }).catch(err => console.error('[hook-stream] Auto-summarize failed:', err))
 
             // Record usage for metering (fire-and-forget)
             recordUsage({

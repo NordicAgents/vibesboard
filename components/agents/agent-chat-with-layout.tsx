@@ -447,7 +447,7 @@ export function AgentChatWithLayout({
               onClick={() => handleSelectSession(session.id)}
             >
               <div className="truncate">
-                {session.summary || 'Untitled conversation'}
+                {getConversationPreview(session.messages, session.summary, 'Untitled conversation')}
               </div>
             </DashboardSidebarItem>
           ))}

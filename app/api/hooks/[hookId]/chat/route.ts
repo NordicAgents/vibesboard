@@ -12,6 +12,7 @@ import {
   getConversation,
   recordConversationHandoff
 } from '@/lib/agents/conversations'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import {
   detectCompletionMarker,
@@ -143,9 +144,18 @@ export async function POST(
           agentId: agent.id,
           conversationId: conversation.id,
           messages: nextMessages,
-          summary: null,
           respondingAgentId: currentAgent.id
         })
+
+        maybeAutoSummarize({
+          tenantId: agent.tenantId!,
+          agentId: agent.id,
+          conversationId: conversation.id,
+          messages: nextMessages,
+          currentSummary: conversation.summary,
+          summaryResponseCount: conversation.summaryResponseCount,
+          responseCounts: conversation.responseCounts
+        }).catch(err => console.error('[hook-chat] Auto-summarize failed:', err))
 
         // Increment current agent's lifetime response counter
         adminDb
