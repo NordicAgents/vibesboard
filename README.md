@@ -68,6 +68,12 @@ Copy the `.env.example` file and populate the required env vars:
 cp .env.example .env
 ```
 
+Initialize git submodules (required for the AI dev tooling):
+
+```bash
+git submodule update --init
+```
+
 [Install the Supabase CLI](https://supabase.com/docs/guides/cli) and start the local Supabase stack:
 
 ```bash

@@ -5,7 +5,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
-import { getAgentById, getAgentNames } from '@/lib/agents/server'
+import { getAgentById, getAgentNamesByTenant } from '@/lib/agents/server'
 import {
   ensureConversation,
   updateConversationMessages,
@@ -122,7 +122,7 @@ export async function POST(
     // Resolve handoff target names for the current agent
     let handoffTargetNames: Record<string, string> = {}
     if (currentAgent.handoffTargets?.length) {
-      handoffTargetNames = await getAgentNames(currentAgent.handoffTargets)
+      handoffTargetNames = await getAgentNamesByTenant(agent.tenantId!, currentAgent.handoffTargets)
     }
 
     const stream = await runAgentStream({
