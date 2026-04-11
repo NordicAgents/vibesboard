@@ -1,0 +1,84 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "src/**"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "Dockerfile"
+      - "next.config.*"
+      - "tailwind.config.*"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloudrun-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PREFIX: ${{ github.ref_name == 'main' && 'PROD' || 'STAGING' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set environment
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+            echo "CLOUD_RUN_SERVICE=${{ secrets.PROD_CLOUD_RUN_SERVICE }}" >> $GITHUB_ENV
+          else
+            echo "ENV=staging" >> $GITHUB_ENV
+            echo "CLOUD_RUN_SERVICE=${{ secrets.STAGING_CLOUD_RUN_SERVICE }}" >> $GITHUB_ENV
+          fi
+
+      - name: Authenticate to GCP
+        uses: ./.github/actions/gcp-auth
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_FIREBASE_API_KEY=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_API_KEY || secrets.STAGING_NEXT_PUBLIC_FIREBASE_API_KEY }}
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || secrets.STAGING_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_PROJECT_ID || secrets.STAGING_NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || secrets.STAGING_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || secrets.STAGING_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+            NEXT_PUBLIC_FIREBASE_APP_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_APP_ID || secrets.STAGING_NEXT_PUBLIC_FIREBASE_APP_ID }}
+            NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_AUTH_GOOGLE=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_AUTH_GOOGLE || secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE }}
+            NEXT_PUBLIC_META_APP_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_META_APP_ID || secrets.STAGING_NEXT_PUBLIC_META_APP_ID }}
+            NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID || secrets.STAGING_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID }}
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || secrets.STAGING_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.CLOUD_RUN_SERVICE }}
+          region: europe-north1
+          image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
