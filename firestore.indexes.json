@@ -155,13 +155,6 @@
         { "fieldPath": "igMessageId", "order": "ASCENDING" },
         { "fieldPath": "direction", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "bookingEnquiries",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
     }
   ],
   "fieldOverrides": [
