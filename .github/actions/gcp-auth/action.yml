@@ -1,0 +1,21 @@
+name: "GCP Auth via Workload Identity Federation"
+description: "Authenticate to GCP using Workload Identity Federation (keyless)"
+
+inputs:
+  workload_identity_provider:
+    description: "WIF provider resource name"
+    required: true
+  service_account:
+    description: "GCP service account email"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ inputs.workload_identity_provider }}
+        service_account: ${{ inputs.service_account }}
+
+    - uses: google-github-actions/setup-gcloud@v2

@@ -1,0 +1,42 @@
+name: Deploy Firebase Rules & Indexes
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "firestore.rules"
+      - "storage.rules"
+      - "firestore.indexes.json"
+      - "firebase.json"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-firebase-rules-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "FIREBASE_PROJECT=${{ secrets.PROD_FIREBASE_PROJECT }}" >> $GITHUB_ENV
+          else
+            echo "FIREBASE_PROJECT=${{ secrets.STAGING_FIREBASE_PROJECT }}" >> $GITHUB_ENV
+          fi
+
+      - name: Authenticate to GCP
+        uses: ./.github/actions/gcp-auth
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Deploy Rules & Indexes
+        run: npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage --project ${{ env.FIREBASE_PROJECT }} --non-interactive
