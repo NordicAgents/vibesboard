@@ -63,6 +63,7 @@ export interface VibeAgent {
   agentUrl: string
   tools: VibeAgentTool[]
   allowAnonymous: boolean
+  accessPassword?: string | null
   greetingText?: string | null
   mode: AgentMode
   maxResponses?: number | null
