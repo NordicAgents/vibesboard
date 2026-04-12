@@ -93,15 +93,25 @@ export function AgentChat({
     ? 'Hi! I have a few questions for you.'
     : 'Hi! How can I help you today?'
 
+  // For collector mode new conversations, start empty so typing indicator shows
+  // while the LLM generates the combined greeting + first question
+  const isNewCollectorChat =
+    agent.mode === 'collector' &&
+    !initialConversationId &&
+    (!initialMessages || initialMessages.length === 0)
+
   const defaultInitialMessages: Message[] = useMemo(
-    () => [
-      {
-        id: nanoid(),
-        role: 'assistant',
-        content: agent.greetingText || defaultGreeting
-      }
-    ],
-    [chatKey, agent.greetingText, defaultGreeting]
+    () =>
+      isNewCollectorChat
+        ? []
+        : [
+            {
+              id: nanoid(),
+              role: 'assistant',
+              content: agent.greetingText || defaultGreeting
+            }
+          ],
+    [chatKey, agent.greetingText, defaultGreeting, isNewCollectorChat]
   )
   const messagesToUse = useMemo(
     () =>
