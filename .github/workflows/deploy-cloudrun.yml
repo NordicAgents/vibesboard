@@ -82,3 +82,28 @@ jobs:
           service: ${{ env.CLOUD_RUN_SERVICE }}
           region: europe-north1
           image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
+          env_vars: |
+            OPENAI_MODEL=gpt-4o-mini
+            GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
+            NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
+            NOTIFICATION_EMAIL_FROM=VibeAgent <notifications@vibeagent.com>
+          secrets: |
+            OPENAI_API_KEY=openai-api-key:latest
+            FIREBASE_SERVICE_ACCOUNT_KEY=${{ github.ref_name == 'main' && 'firebase-service-account-key' || 'firebase-service-account-key-staging' }}:latest
+            WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest
+            VERIFY_TOKEN=whatsapp-verify-token:latest
+            ENCRYPTION_KEY=encryption-key:latest
+            CRON_SECRET=cron-secret:latest
+            META_APP_SECRET=meta-app-secret:latest
+            WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest
+            INSTAGRAM_INBOX_VERIFY_TOKEN=instagram-inbox-verify-token:latest
+            RESEND_API_KEY=resend-api-key:latest
+            STRIPE_SECRET_KEY=stripe-secret-key:latest
+            STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest
+            STRIPE_PRICE_PRO_BASE=stripe-price-pro-base:latest
+            STRIPE_PRICE_PRO_OVERAGE=stripe-price-pro-overage:latest
+            STRIPE_PRICE_TEAM_BASE=stripe-price-team-base:latest
+            STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest
+            GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest
+            GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest
+            GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
