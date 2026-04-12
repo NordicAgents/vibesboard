@@ -99,6 +99,7 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   agentUrl: data.agentUrl,
   tools: sanitizeTools(data.tools),
   allowAnonymous: data.allowAnonymous ?? false,
+  accessPassword: data.accessPassword ?? null,
   greetingText: data.greetingText ?? null,
   mode: data.mode ?? 'provider',
   maxResponses: data.maxResponses ?? data.maxMessages ?? null,

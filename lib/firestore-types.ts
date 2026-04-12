@@ -354,6 +354,7 @@ export interface AgentDocument {
   agentUrl: string // slug — unique per-tenant
   tools: string[]
   allowAnonymous: boolean
+  accessPassword?: string | null
   greetingText?: string
   quickSuggestionsMode: QuickSuggestionsMode
   quickSuggestionsCount: number
@@ -826,6 +827,24 @@ export interface DataActionLogDocument {
   createdAt: string
 }
 
+// ─── Invite codes (gated access) ────────────────────────────────────
+
+export interface InviteCodeRedemption {
+  redeemedAt: string
+  externalId: string
+}
+
+export interface InviteCodeDocument {
+  id: string
+  code: string
+  createdAt: string
+  expiresAt: string | null
+  maxUses: number | null
+  usedCount: number
+  revoked: boolean
+  redemptions: InviteCodeRedemption[]
+}
+
 // ─── Collection path helpers ─────────────────────────────────────────
 
 export const Collections = {
@@ -874,6 +893,8 @@ export const Collections = {
     `tenants/${tenantId}/agents/${agentId}/hooks` as const,
   hookJobs: (tenantId: string, agentId: string, hookId: string) =>
     `tenants/${tenantId}/agents/${agentId}/hooks/${hookId}/jobs` as const,
+  inviteCodes: (tenantId: string, agentId: string) =>
+    `tenants/${tenantId}/agents/${agentId}/invite_codes` as const,
 
   // WhatsApp Inbox (OAuth-connected)
   whatsappInboxAccounts: (tenantId: string) =>
