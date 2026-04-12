@@ -468,6 +468,10 @@ export function AgentChat({
     })
   }, [append])
 
+  const handleEndConversation = useCallback(() => {
+    setIsChatComplete(true)
+  }, [])
+
   return (
     <div
       className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}
@@ -535,6 +539,7 @@ export function AgentChat({
         agentName={activeAgentName}
         onChatComplete={handleChatComplete}
         onCorrect={handleCorrection}
+        onEndConversation={handleEndConversation}
         quickSuggestions={quickSuggestions}
       />
     </div>
