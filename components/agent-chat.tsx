@@ -6,6 +6,7 @@ import { type Message } from '@/lib/types/message'
 import { ChevronRight } from 'lucide-react'
 
 import { type AgentMode, type VibeAgent } from '@/lib/types'
+import { checkCompletion, isNewCollectorConversation } from '@/lib/agent/chat-completion-check'
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
@@ -68,12 +69,14 @@ export function AgentChat({
     agent.maxResponses ?? null
   )
   const [remainingResponses, setRemainingResponses] = useState<number | null>(null)
+  const remainingResponsesRef = useRef<number | null>(null)
   const [isAgentDisabled, setIsAgentDisabled] = useState(
     !!(agent.maxAgentResponses && (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses)
   )
   const [isChatComplete, setIsChatComplete] = useState(isAgentDisabled)
   const scrollRef = useRef<HTMLDivElement>(null)
   const hasAutoTriggered = useRef(false)
+  const isCorrecting = useRef(false)
 
   // Handoff state
   const [handoffChain, setHandoffChain] = useState<HandoffChainEntry[]>([])
@@ -93,15 +96,26 @@ export function AgentChat({
     ? 'Hi! I have a few questions for you.'
     : 'Hi! How can I help you today?'
 
+  // For collector mode new conversations, start empty so typing indicator shows
+  // while the LLM generates the combined greeting + first question
+  const isNewCollectorChat = isNewCollectorConversation(
+    agent.mode,
+    initialConversationId,
+    initialMessages
+  )
+
   const defaultInitialMessages: Message[] = useMemo(
-    () => [
-      {
-        id: nanoid(),
-        role: 'assistant',
-        content: agent.greetingText || defaultGreeting
-      }
-    ],
-    [chatKey, agent.greetingText, defaultGreeting]
+    () =>
+      isNewCollectorChat
+        ? []
+        : [
+            {
+              id: nanoid(),
+              role: 'assistant',
+              content: agent.greetingText || defaultGreeting
+            }
+          ],
+    [chatKey, agent.greetingText, defaultGreeting, isNewCollectorChat]
   )
   const messagesToUse = useMemo(
     () =>
@@ -114,46 +128,20 @@ export function AgentChat({
   // Check for completion signals in messages
   const checkForCompletion = useCallback(
     (messagesArr: Message[]) => {
-      if (isAgentDisabled) {
-        setIsChatComplete(true)
-        return
+      const result = checkCompletion({
+        messages: messagesArr,
+        isAgentDisabled,
+        remainingResponses: remainingResponsesRef.current,
+        isCorrecting: isCorrecting.current
+      })
+      if (result.shouldClearCorrecting) {
+        isCorrecting.current = false
       }
-
-      // Trust the server's remaining responses header
-      if (remainingResponses !== null && remainingResponses <= 0) {
+      if (result.shouldComplete) {
         setIsChatComplete(true)
-        return
-      }
-
-      const lastAssistantMessage = [...messagesArr]
-        .reverse()
-        .find(m => m.role === 'assistant')
-
-      if (lastAssistantMessage?.content) {
-        const content = lastAssistantMessage.content
-        if (
-          content.includes(COMPLETION_MARKERS.COLLECTION_COMPLETE) ||
-          content.includes(COMPLETION_MARKERS.INFO_COMPLETE) ||
-          COMPLETION_MARKERS.CHAT_COMPLETE_REGEX.test(content)
-        ) {
-          // Check if CHAT_COMPLETE has chatComplete: false (agent handoff)
-          const chatCompleteMatch = content.match(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX)
-          if (chatCompleteMatch) {
-            try {
-              const meta = JSON.parse(chatCompleteMatch[1])
-              if (meta.chatComplete === false) {
-                // This is a handoff, not a completion
-                return
-              }
-            } catch {
-              // fall through to mark complete
-            }
-          }
-          setIsChatComplete(true)
-        }
       }
     },
-    [remainingResponses, isAgentDisabled]
+    [isAgentDisabled]
   )
 
   const {
@@ -202,7 +190,9 @@ export function AgentChat({
       }
       const remainingRespHeader = response.headers.get('x-remaining-responses')
       if (remainingRespHeader !== null && remainingRespHeader !== '') {
-        setRemainingResponses(parseInt(remainingRespHeader, 10))
+        const val = parseInt(remainingRespHeader, 10)
+        remainingResponsesRef.current = val
+        setRemainingResponses(val)
       }
       const maxAgentRespHeader = response.headers.get('x-max-agent-responses')
       const totalRespHeader = response.headers.get('x-total-response-count')
@@ -441,6 +431,7 @@ export function AgentChat({
   }, [onChatComplete, messages, conversationId])
 
   const handleCorrection = useCallback(() => {
+    isCorrecting.current = true
     setIsChatComplete(false)
     append({
       id: nanoid(),
@@ -448,6 +439,10 @@ export function AgentChat({
       content: 'I need to correct one of my previous answers.'
     })
   }, [append])
+
+  const handleEndConversation = useCallback(() => {
+    setIsChatComplete(true)
+  }, [])
 
   return (
     <div
@@ -516,6 +511,7 @@ export function AgentChat({
         agentName={activeAgentName}
         onChatComplete={handleChatComplete}
         onCorrect={handleCorrection}
+        onEndConversation={handleEndConversation}
         quickSuggestions={quickSuggestions}
       />
     </div>
