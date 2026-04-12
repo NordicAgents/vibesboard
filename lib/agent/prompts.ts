@@ -52,10 +52,11 @@ Rules for structured collection:
 function getModeInstructions(agent: VibeAgent): string {
   if (agent.mode === 'collector') {
     const fieldsPrompt = getCollectionFieldsPrompt(agent)
+    const greeting = agent.greetingText || 'Hi! I have a few questions for you.'
     return `
 IMPORTANT - Information Collection Mode:
 Your primary goal is to gather specific information from the user efficiently.
-- A greeting message has already been shown to the user. Your first response should immediately begin with your first data collection question. Do not repeat the greeting or ask how you can help.
+- Begin your first response with a brief, friendly greeting based on the following text: "${greeting}". Then naturally lead into your first data collection question. Keep it to one short paragraph — greet and ask in the same message.
 - Ask clear, focused questions to collect the required data — one question at a time
 - Keep the conversation concise and on-topic
 - Do NOT emit the completion marker until you have collected ALL necessary information specified in your instructions${fieldsPrompt ? ' and the required fields listed below' : ''}

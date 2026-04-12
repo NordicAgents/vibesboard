@@ -111,10 +111,13 @@ function createCompletionTransformStream(
         }
       }
 
-      if (completionReason || maxResponsesReached) {
+      // Emit completion metadata — at most ONE CHAT_COMPLETE block.
+      // LLM completion reason takes priority over max_responses.
+      const effectiveReason = completionReason || (maxResponsesReached ? 'max_responses' : null)
+      if (effectiveReason) {
         const metadata = {
-          chatComplete: completionReason !== 'handoff_to_agent',
-          reason: completionReason || 'max_responses'
+          chatComplete: effectiveReason !== 'handoff_to_agent',
+          reason: effectiveReason
         }
         const metadataStr = `\n<!--CHAT_COMPLETE:${JSON.stringify(metadata)}-->`
         controller.enqueue(encoder.encode(metadataStr))
@@ -385,6 +388,23 @@ describe('createCompletionTransformStream marker handling', () => {
     assert.strictEqual(output, input)
     assert.ok(!output.includes('<!--CHAT_COMPLETE:'), 'Should not have completion metadata')
     assert.ok(!output.includes('<!--AGENT_HANDOFF:'), 'Should not have handoff metadata')
+  })
+
+  test('emits only ONE CHAT_COMPLETE when LLM marker and maxResponses collide', async () => {
+    const input = 'Thanks for the info! [COLLECTION_COMPLETE]'
+    const stream = stringToStream(input)
+    // currentResponseCount (5) >= maxResponses (5) AND LLM emitted marker
+    const transformStream = createCompletionTransformStream(5, 5)
+    const output = await consumeStream(stream.pipeThrough(transformStream))
+
+    const matches = output.match(/<!--CHAT_COMPLETE:/g)
+    assert.strictEqual(matches?.length, 1, 'Should emit exactly one CHAT_COMPLETE marker')
+
+    const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
+    const meta = JSON.parse(metaMatch![1])
+    // The LLM completion reason should take priority over max_responses
+    assert.strictEqual(meta.reason, 'collection_complete')
+    assert.strictEqual(meta.chatComplete, true)
   })
 })
 
