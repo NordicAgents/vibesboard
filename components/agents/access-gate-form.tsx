@@ -27,12 +27,12 @@ export function AccessGateForm({
   useEffect(() => {
     const code = searchParams.get('code')
     if (code) {
-      verify('invite_code', code)
+      verify(code)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function verify(type: 'password' | 'invite_code', val: string) {
+  async function verify(val: string) {
     setLoading(true)
     setError(null)
     try {
@@ -42,7 +42,7 @@ export function AccessGateForm({
           'Content-Type': 'application/json',
           ...(embed ? { 'x-embed': 'true' } : {})
         },
-        body: JSON.stringify({ type, value: val })
+        body: JSON.stringify({ value: val })
       })
       if (res.ok) {
         onVerified()
@@ -61,9 +61,7 @@ export function AccessGateForm({
     e.preventDefault()
     const trimmed = value.trim()
     if (!trimmed) return
-    // If it looks like an invite code (has VIBE- prefix or is uppercase alphanumeric), try as code
-    const looksLikeCode = /^VIBE-/i.test(trimmed) || /^[A-Z0-9-]{4,}$/i.test(trimmed)
-    verify(looksLikeCode ? 'invite_code' : 'password', trimmed)
+    verify(trimmed)
   }
 
   return (

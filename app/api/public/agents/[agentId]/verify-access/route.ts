@@ -12,7 +12,6 @@ import {
 export const runtime = 'nodejs'
 
 const verifyAccessSchema = z.object({
-  type: z.enum(['password', 'invite_code']),
   value: z.string().min(1).max(200)
 })
 
@@ -37,37 +36,33 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const { type, value } = parsed.data
+  const { value } = parsed.data
   const isEmbed = req.headers.get('x-embed') === 'true'
 
-  if (type === 'password') {
-    if (!agent.accessPassword) {
-      return NextResponse.json({ error: 'Password not configured' }, { status: 403 })
-    }
-    if (!verifyPassword(value, agent.accessPassword)) {
-      return NextResponse.json({ error: 'Invalid password' }, { status: 403 })
-    }
+  // Try password first
+  if (agent.accessPassword && verifyPassword(value, agent.accessPassword)) {
     await setAccessCookie(agentId, { crossOrigin: isEmbed })
     return NextResponse.json({ ok: true })
   }
 
-  // type === 'invite_code'
+  // Then try invite code
   const externalId = await ensureExternalSessionId({ crossOrigin: isEmbed })
   const result = await redeemInviteCode(agent.tenantId!, agentId, value, externalId)
 
-  if (!result.ok) {
-    const messages: Record<string, string> = {
-      invalid: 'Invalid code',
-      revoked: 'This code has been revoked',
-      expired: 'This code has expired',
-      max_uses_reached: 'This code has reached its usage limit'
-    }
-    return NextResponse.json(
-      { error: messages[result.reason], code: result.reason },
-      { status: 403 }
-    )
+  if (result.ok) {
+    await setAccessCookie(agentId, { crossOrigin: isEmbed })
+    return NextResponse.json({ ok: true })
   }
 
-  await setAccessCookie(agentId, { crossOrigin: isEmbed })
-  return NextResponse.json({ ok: true })
+  // Both failed — return appropriate error
+  const messages: Record<string, string> = {
+    invalid: 'Invalid password or code',
+    revoked: 'This code has been revoked',
+    expired: 'This code has expired',
+    max_uses_reached: 'This code has reached its usage limit'
+  }
+  return NextResponse.json(
+    { error: messages[result.reason], code: result.reason },
+    { status: 403 }
+  )
 }
