@@ -1,42 +1,14 @@
-import { createHmac, randomBytes } from 'crypto'
 import { cookies } from 'next/headers'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type InviteCodeDocument } from '@/lib/firestore-types'
 import { FieldValue } from 'firebase-admin/firestore'
 
-const SECRET = process.env.ACCESS_GATE_SECRET || 'vibeagent-access-gate-default'
+export { hashPassword, verifyPassword, generateCode } from './access-gate-crypto'
+import { signToken, verifyToken, generateCode, MAX_STORED_REDEMPTIONS } from './access-gate-crypto'
 
-// ─── Password hashing (HMAC-based) ──────────────────────────────────────────
-
-export function hashPassword(plaintext: string): string {
-  return createHmac('sha256', SECRET).update(plaintext).digest('hex')
-}
-
-export function verifyPassword(plaintext: string, hash: string): boolean {
-  return hashPassword(plaintext) === hash
-}
+export type InviteCodeError = 'invalid' | 'revoked' | 'expired' | 'max_uses_reached'
 
 // ─── Session cookie (HMAC-signed, session-scoped) ────────────────────────────
-
-function signToken(agentId: string): string {
-  const payload = JSON.stringify({ agentId, ts: Date.now() })
-  const sig = createHmac('sha256', SECRET).update(payload).digest('hex')
-  return Buffer.from(payload).toString('base64') + '.' + sig
-}
-
-function verifyToken(token: string, agentId: string): boolean {
-  const [b64, sig] = token.split('.')
-  if (!b64 || !sig) return false
-  try {
-    const payload = Buffer.from(b64, 'base64').toString()
-    const expected = createHmac('sha256', SECRET).update(payload).digest('hex')
-    if (sig !== expected) return false
-    const data = JSON.parse(payload)
-    return data.agentId === agentId
-  } catch {
-    return false
-  }
-}
 
 function cookieName(agentId: string) {
   return `va_access_${agentId}`
@@ -107,8 +79,6 @@ export async function revokeInviteCode(
   await codesCollection(tenantId, agentId).doc(codeId).update({ revoked: true })
 }
 
-export type InviteCodeError = 'invalid' | 'revoked' | 'expired' | 'max_uses_reached'
-
 export async function redeemInviteCode(
   tenantId: string,
   agentId: string,
@@ -123,43 +93,41 @@ export async function redeemInviteCode(
   if (snap.empty) return { ok: false, reason: 'invalid' }
 
   const docRef = snap.docs[0].ref
-  const data = snap.docs[0].data() as InviteCodeDocument
 
-  if (data.revoked) return { ok: false, reason: 'revoked' }
-  if (data.expiresAt && new Date(data.expiresAt) < new Date()) {
-    return { ok: false, reason: 'expired' }
-  }
-  if (data.maxUses !== null && data.usedCount >= data.maxUses) {
-    return { ok: false, reason: 'max_uses_reached' }
-  }
+  // All validation runs inside the transaction against the fresh document
+  // to prevent TOCTOU races (e.g. code revoked between read and commit).
+  try {
+    await adminDb.runTransaction(async (tx: any) => {
+      const fresh = await tx.get(docRef)
+      const freshData = fresh.data() as InviteCodeDocument
 
-  // Atomic update via transaction
-  await adminDb.runTransaction(async (tx: any) => {
-    const fresh = await tx.get(docRef)
-    const freshData = fresh.data() as InviteCodeDocument
-    if (freshData.maxUses !== null && freshData.usedCount >= freshData.maxUses) {
-      throw new Error('max_uses_reached')
-    }
-    tx.update(docRef, {
-      usedCount: FieldValue.increment(1),
-      redemptions: FieldValue.arrayUnion({
-        redeemedAt: new Date().toISOString(),
-        externalId
-      })
+      if (freshData.revoked) throw new Error('revoked')
+      if (freshData.expiresAt && new Date(freshData.expiresAt) < new Date()) {
+        throw new Error('expired')
+      }
+      if (freshData.maxUses !== null && freshData.usedCount >= freshData.maxUses) {
+        throw new Error('max_uses_reached')
+      }
+
+      const updateData: Record<string, any> = {
+        usedCount: FieldValue.increment(1)
+      }
+      // Cap inline redemption records to prevent unbounded document growth
+      if (freshData.redemptions.length < MAX_STORED_REDEMPTIONS) {
+        updateData.redemptions = FieldValue.arrayUnion({
+          redeemedAt: new Date().toISOString(),
+          externalId
+        })
+      }
+      tx.update(docRef, updateData)
     })
-  })
+  } catch (err: any) {
+    const reason = err?.message as InviteCodeError
+    if (['invalid', 'revoked', 'expired', 'max_uses_reached'].includes(reason)) {
+      return { ok: false, reason }
+    }
+    throw err // Re-throw unexpected errors
+  }
 
   return { ok: true }
-}
-
-// ─── Code generation helper ──────────────────────────────────────────────────
-
-function generateCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I/O/0/1 for readability
-  const bytes = randomBytes(6)
-  let result = 'VIBE-'
-  for (let i = 0; i < 6; i++) {
-    result += chars[bytes[i] % chars.length]
-  }
-  return result
 }
