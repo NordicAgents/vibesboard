@@ -68,6 +68,7 @@ export function AgentChat({
     agent.maxResponses ?? null
   )
   const [remainingResponses, setRemainingResponses] = useState<number | null>(null)
+  const remainingResponsesRef = useRef<number | null>(null)
   const [isAgentDisabled, setIsAgentDisabled] = useState(
     !!(agent.maxAgentResponses && (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses)
   )
@@ -129,8 +130,9 @@ export function AgentChat({
         return
       }
 
-      // Trust the server's remaining responses header
-      if (remainingResponses !== null && remainingResponses <= 0) {
+      // Use ref for synchronous read — avoids stale state from async setState
+      const remaining = remainingResponsesRef.current
+      if (remaining !== null && remaining <= 0) {
         setIsChatComplete(true)
         return
       }
@@ -163,7 +165,7 @@ export function AgentChat({
         }
       }
     },
-    [remainingResponses, isAgentDisabled]
+    [isAgentDisabled]
   )
 
   const {
@@ -212,7 +214,9 @@ export function AgentChat({
       }
       const remainingRespHeader = response.headers.get('x-remaining-responses')
       if (remainingRespHeader !== null && remainingRespHeader !== '') {
-        setRemainingResponses(parseInt(remainingRespHeader, 10))
+        const val = parseInt(remainingRespHeader, 10)
+        remainingResponsesRef.current = val
+        setRemainingResponses(val)
       }
       const maxAgentRespHeader = response.headers.get('x-max-agent-responses')
       const totalRespHeader = response.headers.get('x-total-response-count')
