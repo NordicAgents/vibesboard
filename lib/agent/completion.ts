@@ -116,14 +116,14 @@ export function createCompletionTransformStream(
         }
       }
 
-      // If there's a completion signal, append metadata
-      if (completionReason || maxResponsesReached) {
+      // Emit completion metadata — at most ONE CHAT_COMPLETE block.
+      // LLM completion reason takes priority over max_responses.
+      const effectiveReason = completionReason || (maxResponsesReached ? 'max_responses' : null)
+      if (effectiveReason) {
         const metadata = {
-          // Don't mark chat as complete for agent handoff — conversation continues
-          chatComplete: completionReason !== 'handoff_to_agent',
-          reason: completionReason || 'max_responses'
+          chatComplete: effectiveReason !== 'handoff_to_agent',
+          reason: effectiveReason
         }
-        // Append a special delimiter and metadata
         const metadataStr = `\n<!--CHAT_COMPLETE:${JSON.stringify(metadata)}-->`
         controller.enqueue(encoder.encode(metadataStr))
       }
