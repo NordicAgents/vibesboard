@@ -75,6 +75,7 @@ export function AgentChat({
   const [isChatComplete, setIsChatComplete] = useState(isAgentDisabled)
   const scrollRef = useRef<HTMLDivElement>(null)
   const hasAutoTriggered = useRef(false)
+  const isCorrecting = useRef(false)
 
   // Handoff state
   const [handoffChain, setHandoffChain] = useState<HandoffChainEntry[]>([])
@@ -132,7 +133,9 @@ export function AgentChat({
 
       // Use ref for synchronous read — avoids stale state from async setState
       const remaining = remainingResponsesRef.current
-      if (remaining !== null && remaining <= 0) {
+      // During correction flow, skip the remaining-responses check —
+      // only re-complete when the LLM emits a fresh completion marker.
+      if (!isCorrecting.current && remaining !== null && remaining <= 0) {
         setIsChatComplete(true)
         return
       }
@@ -161,6 +164,7 @@ export function AgentChat({
               // fall through to mark complete
             }
           }
+          isCorrecting.current = false
           setIsChatComplete(true)
         }
       }
@@ -455,6 +459,7 @@ export function AgentChat({
   }, [onChatComplete, messages, conversationId])
 
   const handleCorrection = useCallback(() => {
+    isCorrecting.current = true
     setIsChatComplete(false)
     append({
       id: nanoid(),
