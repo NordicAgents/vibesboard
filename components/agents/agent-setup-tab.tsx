@@ -13,6 +13,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { CollectionFieldsEditor } from './collection-fields-editor'
+import { InviteCodeManager } from './invite-code-manager'
 
 interface AgentSetupTabProps {
   name: string
@@ -40,6 +41,8 @@ interface AgentSetupTabProps {
   agentUrl: string
   saving: boolean
   canEdit: boolean
+  agentId: string
+  hasAccessPassword: boolean
 }
 
 export function AgentSetupTab({
@@ -67,7 +70,9 @@ export function AgentSetupTab({
   tenantSlug,
   agentUrl,
   saving,
-  canEdit
+  canEdit,
+  agentId,
+  hasAccessPassword
 }: AgentSetupTabProps) {
   return (
     <div className="space-y-5 pb-8">
@@ -103,6 +108,17 @@ export function AgentSetupTab({
               onCheckedChange={onAllowAnonymousChange}
             />
           </div>
+          {!allowAnonymous && (
+            <div className="mt-3">
+              <InviteCodeManager
+                agentId={agentId}
+                tenantSlug={tenantSlug ?? ''}
+                agentUrl={agentUrl}
+                hasPassword={hasAccessPassword}
+                disabled={saving || !canEdit}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

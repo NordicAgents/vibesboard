@@ -15,6 +15,7 @@ import {
 import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { ensureExternalSessionId } from '@/lib/agent/cookies'
+import { hasValidAccessCookie } from '@/lib/agent/access-gate'
 import { nanoid } from '@/lib/utils'
 import {
   detectCompletionMarker,
@@ -45,9 +46,12 @@ export async function POST(
   }
 
   if (!agent.allowAnonymous) {
-    return new NextResponse('Agent does not allow anonymous chat', {
-      status: 403
-    })
+    const hasAccess = await hasValidAccessCookie(agentId)
+    if (!hasAccess) {
+      return new NextResponse('Agent does not allow anonymous chat', {
+        status: 403
+      })
+    }
   }
 
   // Check agent-level response limit
@@ -109,10 +113,13 @@ export async function POST(
         return NextResponse.json({ error: 'Target agent not found' }, { status: 404 })
       }
       if (!targetAgent.allowAnonymous) {
-        return NextResponse.json(
-          { error: 'Target agent does not allow anonymous chat' },
-          { status: 403 }
-        )
+        const hasAccess = await hasValidAccessCookie(targetAgent.id)
+        if (!hasAccess) {
+          return NextResponse.json(
+            { error: 'Target agent does not allow anonymous chat' },
+            { status: 403 }
+          )
+        }
       }
       activeAgent = targetAgent
       handoffContext = buildHandoffContext({
@@ -137,10 +144,13 @@ export async function POST(
 
       // Target agent must also allow anonymous for public endpoint
       if (!validation.targetAgent.allowAnonymous) {
-        return NextResponse.json(
-          { error: 'Target agent does not allow anonymous chat' },
-          { status: 403 }
-        )
+        const hasAccess = await hasValidAccessCookie(validation.targetAgent.id)
+        if (!hasAccess) {
+          return NextResponse.json(
+            { error: 'Target agent does not allow anonymous chat' },
+            { status: 403 }
+          )
+        }
       }
 
       activeAgent = validation.targetAgent
