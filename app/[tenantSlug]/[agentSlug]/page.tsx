@@ -6,6 +6,8 @@ import { mapAgentDoc } from '@/lib/agents/db'
 import { isFeatureEnabled } from '@/lib/features'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
+import { hasValidAccessCookie } from '@/lib/agent/access-gate'
+import { GatedAgentPage } from './gated-agent-page'
 import type { TenantBrandingDocument } from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
@@ -73,17 +75,12 @@ export default async function PublicAgentPage({
           logoUrl={logoUrl}
         />
       ) : (
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="mx-auto w-full max-w-md rounded-2xl border border-[#e4e3e3] bg-[#f5f8f7] p-8 text-center shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]">
-            <h1 className="font-sans text-2xl font-normal text-[#222f30] dark:text-[#f5f8f7]">
-              {agent.name}
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#445e5f] dark:text-[#6f7f80]">
-              This agent requires an invitation or authenticated session. Please
-              contact the owner for access.
-            </p>
-          </div>
-        </div>
+        <GatedAgentPage
+          agent={agent}
+          googleReviewPlaceId={googleReviewPlaceId}
+          logoUrl={logoUrl}
+          hasExistingAccess={await hasValidAccessCookie(agent.id)}
+        />
       )}
     </div>
   )
