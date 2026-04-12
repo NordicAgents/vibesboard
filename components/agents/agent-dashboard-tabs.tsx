@@ -162,6 +162,8 @@ export function AgentDashboardTabs({
             agentUrl={agent.agentUrl}
             saving={saving}
             canEdit={canEdit}
+            agentId={agent.id}
+            hasAccessPassword={!!agent.accessPassword}
           />
           {agent.tenantId && (
             <FeatureGate
