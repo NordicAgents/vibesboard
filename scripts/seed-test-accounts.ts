@@ -208,6 +208,29 @@ async function ensureTeamTenant(): Promise<string> {
   return tenantId
 }
 
+async function patchExistingUser(
+  userRef: FirebaseFirestore.DocumentReference,
+  data: FirebaseFirestore.DocumentData,
+  account: TestAccount,
+  tenantId: string
+): Promise<void> {
+  console.log(`  ✓ User doc for ${account.email} already exists`)
+  const needsSuperAdmin = account.isSuperAdmin && !data.isSuperAdmin
+  const tenantIds: string[] = data.tenantIds ?? []
+  const needsTenant = !tenantIds.includes(tenantId)
+
+  if (DRY_RUN) return
+
+  if (needsSuperAdmin) {
+    await userRef.update({ isSuperAdmin: true })
+    console.log(`    ↳ Granted super-admin`)
+  }
+  if (needsTenant) {
+    await userRef.update({ tenantIds: [...tenantIds, tenantId] })
+    console.log(`    ↳ Added team tenant to tenantIds`)
+  }
+}
+
 async function ensureUserDoc(
   uid: string,
   account: TestAccount,
@@ -217,31 +240,15 @@ async function ensureUserDoc(
   const existing = await userRef.get()
 
   if (existing.exists && !RESET) {
-    console.log(`  ✓ User doc for ${account.email} already exists`)
-    // Ensure isSuperAdmin is correct
-    if (account.isSuperAdmin && !existing.data()?.isSuperAdmin) {
-      if (!DRY_RUN) {
-        await userRef.update({ isSuperAdmin: true })
-        console.log(`    ↳ Granted super-admin`)
-      }
-    }
-    // Ensure tenantId is in tenantIds
-    const tenantIds: string[] = existing.data()?.tenantIds ?? []
-    if (!tenantIds.includes(tenantId)) {
-      if (!DRY_RUN) {
-        await userRef.update({ tenantIds: [...tenantIds, tenantId] })
-        console.log(`    ↳ Added team tenant to tenantIds`)
-      }
-    }
-    return
+    return patchExistingUser(userRef, existing.data()!, account, tenantId)
   }
 
-  const now = new Date().toISOString()
   if (DRY_RUN) {
     console.log(`  [dry] Would create user doc for ${account.email}`)
     return
   }
 
+  const now = new Date().toISOString()
   await userRef.set({
     id: uid,
     email: account.email,
