@@ -19,7 +19,7 @@ export async function injectActionTools(
   agent: VibeAgent,
   toolkit: { functions: any[]; executors: Record<string, any> }
 ): Promise<void> {
-  const actions: AgentAction[] = (agent as any).actions ?? []
+  const actions: AgentAction[] = agent.actions ?? []
 
   for (const action of actions) {
     if (!action.enabled) continue

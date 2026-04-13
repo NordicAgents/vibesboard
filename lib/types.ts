@@ -52,6 +52,14 @@ export interface VibeAgentTool {
   config?: Record<string, any>
 }
 
+export interface AgentAction {
+  id: string
+  type: 'appointments' | 'booking' | 'data'
+  enabled: boolean
+  connectionId?: string | null
+  config: Record<string, any>
+}
+
 export interface VibeAgent {
   id: string
   userId: string
@@ -126,6 +134,7 @@ export interface VibeAgent {
     eventTimeMode?: 'all-day' | 'timed'
     overlapProtection?: boolean
   }
+  actions?: AgentAction[]
   createdAt: string
   updatedAt: string
 }
