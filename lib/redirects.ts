@@ -31,4 +31,3 @@ export function getSafeRedirectPath(input: unknown): string | null {
 
   return value
 }
-

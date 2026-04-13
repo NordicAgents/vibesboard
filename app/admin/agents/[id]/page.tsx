@@ -38,7 +38,9 @@ export default async function AdminAgentPage({
     }
   }
 
-  const sharePath = agent.allowAnonymous ? `/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}` : null
+  const sharePath = agent.allowAnonymous
+    ? `/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
+    : null
 
   return (
     <div className="space-y-6">
@@ -63,10 +65,7 @@ export default async function AdminAgentPage({
               >
                 Open Public Page
               </Link>
-              <CopyButton
-                text={sharePath}
-                label="Copy Link"
-              />
+              <CopyButton text={sharePath} label="Copy Link" />
             </>
           ) : undefined
         }
@@ -93,12 +92,17 @@ export default async function AdminAgentPage({
                   href={`/admin/tenants/${tenant.id}`}
                   className="hover:underline"
                 >
-                  {tenant.name} <span className="text-muted-foreground">/{tenant.slug}</span>
+                  {tenant.name}{' '}
+                  <span className="text-muted-foreground">/{tenant.slug}</span>
                 </Link>
               ) : (
                 <div className="text-muted-foreground">None</div>
               )}
-              {tenantId && <div className="mt-1 font-mono text-xs text-muted-foreground">{tenantId}</div>}
+              {tenantId && (
+                <div className="mt-1 font-mono text-xs text-muted-foreground">
+                  {tenantId}
+                </div>
+              )}
             </div>
 
             <div className="rounded-md border p-3">

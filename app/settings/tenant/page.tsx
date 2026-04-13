@@ -66,7 +66,10 @@ function applyBrandCssVars(primary: string, secondary: string) {
   const primaryHex = normalizeHex(primary)
   const secondaryHex = normalizeHex(secondary)
   if (!primaryHex || !secondaryHex) {
-    console.warn('applyBrandCssVars: invalid hex value(s)', { primary, secondary })
+    console.warn('applyBrandCssVars: invalid hex value(s)', {
+      primary,
+      secondary
+    })
     return
   }
 
@@ -76,7 +79,10 @@ function applyBrandCssVars(primary: string, secondary: string) {
 
   document.body.style.setProperty('--accent-orange', primaryHex)
   document.body.style.setProperty('--accent-warm', primaryHex)
-  document.body.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.24)`)
+  document.body.style.setProperty(
+    '--accent-glow',
+    `rgba(${r}, ${g}, ${b}, 0.24)`
+  )
   document.body.style.setProperty('--primary', primaryHsl)
   document.body.style.setProperty('--primary-foreground', secondaryHsl)
   document.body.style.setProperty('--ring', primaryHsl)
@@ -200,10 +206,9 @@ export default function TenantSettingsPage() {
 
     setIsResetting(true)
     try {
-      const response = await fetch(
-        `/api/tenants/${tenant.id}/branding/reset`,
-        { method: 'POST' }
-      )
+      const response = await fetch(`/api/tenants/${tenant.id}/branding/reset`, {
+        method: 'POST'
+      })
 
       if (response.ok) {
         const data = await response.json()
@@ -337,8 +342,7 @@ export default function TenantSettingsPage() {
     return !overrides.includes(field)
   }
 
-  const hasAnyOverrides =
-    overrides !== null && overrides.length > 0
+  const hasAnyOverrides = overrides !== null && overrides.length > 0
 
   return (
     <div className="space-y-6">

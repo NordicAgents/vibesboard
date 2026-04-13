@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers'
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type TenantDocument, type TenantBrandingDocument } from '@/lib/firestore-types'
+import {
+  Collections,
+  type TenantDocument,
+  type TenantBrandingDocument
+} from '@/lib/firestore-types'
 
 /** Lightweight member summary for display in the tenant switcher */
 export interface MemberSummary {
@@ -38,9 +42,7 @@ export async function clearActiveTenantId() {
   cookieStore.delete(ACTIVE_TENANT_COOKIE)
 }
 
-export async function getActiveTenant(
-  userId?: string
-): Promise<string | null> {
+export async function getActiveTenant(userId?: string): Promise<string | null> {
   let tenantId = await getActiveTenantId()
 
   if (!tenantId && userId) {
@@ -50,7 +52,9 @@ export async function getActiveTenant(
   return tenantId
 }
 
-export async function getUserTenants(userId: string): Promise<TenantDocument[]> {
+export async function getUserTenants(
+  userId: string
+): Promise<TenantDocument[]> {
   // Try collectionGroup query first (source of truth: actual member docs).
   // Falls back to tenantIds array if the index isn't deployed yet.
   let tenantIds: string[]
@@ -69,7 +73,10 @@ export async function getUserTenants(userId: string): Promise<TenantDocument[]> 
     )
   } catch {
     // Fallback: read from user doc's tenantIds array
-    const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+    const userDoc = await adminDb
+      .collection(Collections.users)
+      .doc(userId)
+      .get()
     if (!userDoc.exists) return []
     tenantIds = userDoc.data()?.tenantIds ?? []
     if (!tenantIds.length) return []
@@ -98,12 +105,15 @@ export async function getUserTenants(userId: string): Promise<TenantDocument[]> 
  * Reconcile the user's tenantIds array with actual members subcollection.
  * Only writes when there is an actual difference.
  */
-async function selfHealTenantIds(userId: string, memberTenantIds: string[]): Promise<void> {
+async function selfHealTenantIds(
+  userId: string,
+  memberTenantIds: string[]
+): Promise<void> {
   const userRef = adminDb.collection(Collections.users).doc(userId)
   const userDoc = await userRef.get()
 
   const existingIds: string[] = userDoc.exists
-    ? userDoc.data()?.tenantIds ?? []
+    ? (userDoc.data()?.tenantIds ?? [])
     : []
 
   const existingSet = new Set(existingIds)
@@ -116,19 +126,13 @@ async function selfHealTenantIds(userId: string, memberTenantIds: string[]): Pro
     return // Already in sync
   }
 
-  await userRef.set(
-    { tenantIds: memberTenantIds },
-    { merge: true }
-  )
+  await userRef.set({ tenantIds: memberTenantIds }, { merge: true })
 }
 
 export async function getTenantById(
   tenantId: string
 ): Promise<TenantDocument | null> {
-  const doc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
+  const doc = await adminDb.collection(Collections.tenants).doc(tenantId).get()
 
   if (!doc.exists) return null
   return doc.data() as TenantDocument
@@ -176,7 +180,7 @@ export async function getTenantContext(userId: string) {
     .doc(userId)
     .get()
 
-  const role = memberDoc.exists ? memberDoc.data()?.role ?? null : null
+  const role = memberDoc.exists ? (memberDoc.data()?.role ?? null) : null
 
   return { tenant, branding, role }
 }
@@ -223,7 +227,7 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
   // Check if user already has a personal tenant
   const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
   const tenantIds: string[] = userDoc.exists
-    ? userDoc.data()?.tenantIds ?? []
+    ? (userDoc.data()?.tenantIds ?? [])
     : []
 
   for (const tid of tenantIds) {
@@ -258,28 +262,29 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
   })
 
   // Create slug reservation
-  batch.set(
-    adminDb.collection(Collections.tenantSlugs).doc(slug),
-    { tenantId, createdAt: now }
-  )
+  batch.set(adminDb.collection(Collections.tenantSlugs).doc(slug), {
+    tenantId,
+    createdAt: now
+  })
 
   // Create membership
-  batch.set(
-    adminDb.collection(Collections.members(tenantId)).doc(userId),
-    {
-      userId,
-      tenantId,
-      role: 'TENANT_ADMIN',
-      createdAt: now
-    }
-  )
+  batch.set(adminDb.collection(Collections.members(tenantId)).doc(userId), {
+    userId,
+    tenantId,
+    role: 'TENANT_ADMIN',
+    createdAt: now
+  })
 
   // Update user's tenantIds (use set+merge so it works even if onUserCreated
   // Cloud Function hasn't created the user doc yet — race condition)
   const { FieldValue } = await import('firebase-admin/firestore')
-  batch.set(adminDb.collection(Collections.users).doc(userId), {
-    tenantIds: FieldValue.arrayUnion(tenantId)
-  }, { merge: true })
+  batch.set(
+    adminDb.collection(Collections.users).doc(userId),
+    {
+      tenantIds: FieldValue.arrayUnion(tenantId)
+    },
+    { merge: true }
+  )
 
   await batch.commit()
 
@@ -294,7 +299,7 @@ export async function enrichTenantsWithMembers(
   tenants: TenantDocument[]
 ): Promise<TenantWithMembers[]> {
   return Promise.all(
-    tenants.map(async (tenant) => {
+    tenants.map(async tenant => {
       const membersSnap = await adminDb
         .collection(Collections.members(tenant.id))
         .get()

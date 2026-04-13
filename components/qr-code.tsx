@@ -43,13 +43,7 @@ export function QrCode({ value, dataUrl, size = 200 }: QrCodeProps) {
 
   return (
     <div className="overflow-hidden rounded-xl border bg-white p-2">
-      <Image
-        src={qr}
-        alt="QR code"
-        width={size}
-        height={size}
-        unoptimized
-      />
+      <Image src={qr} alt="QR code" width={size} height={size} unoptimized />
     </div>
   )
 }

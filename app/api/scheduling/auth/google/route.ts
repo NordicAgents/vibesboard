@@ -28,11 +28,16 @@ export async function GET(req: Request) {
 
   const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS')
   if (!enabled) {
-    return NextResponse.json({ error: 'Scheduling feature is not enabled' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Scheduling feature is not enabled' },
+      { status: 403 }
+    )
   }
 
   const h = await headers()
-  const host = (h.get('x-forwarded-host') || h.get('host'))?.split(',')[0]?.trim()
+  const host = (h.get('x-forwarded-host') || h.get('host'))
+    ?.split(',')[0]
+    ?.trim()
   const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
   const origin = host ? `${proto}://${host}` : new URL(req.url).origin
   const redirectUri = `${origin}${CALLBACK_PATH}`

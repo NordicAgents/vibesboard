@@ -14,7 +14,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import { FacebookSDKProvider } from '@/components/whatsapp-inbox/facebook-sdk-provider'
 import { ConnectInstagramButton } from '@/components/instagram-inbox/connect-instagram-button'
@@ -67,8 +67,8 @@ export default function InstagramInboxAccountsPage() {
 
   useEffect(() => {
     fetch('/api/tenants/current')
-      .then((r) => r.json())
-      .then((data) => setTenantId(data.tenantId))
+      .then(r => r.json())
+      .then(data => setTenantId(data.tenantId))
       .catch(() => {})
   }, [])
 
@@ -130,31 +130,31 @@ export default function InstagramInboxAccountsPage() {
           <p className="font-medium text-foreground">
             @{account.instagramUsername}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {account.pageName}
-          </p>
+          <p className="text-xs text-muted-foreground">{account.pageName}</p>
         </div>
-      ),
+      )
     },
     {
       key: 'connectionMethod',
       label: 'Method',
       render: (account: InboxAccount) => {
         const method = account.connectionMethod || 'oauth'
-        const labels: Record<string, string> = { oauth: 'OAuth', api_key: 'API Key', byoa: 'BYOA' }
+        const labels: Record<string, string> = {
+          oauth: 'OAuth',
+          api_key: 'API Key',
+          byoa: 'BYOA'
+        }
         return <Badge variant="secondary">{labels[method] || method}</Badge>
-      },
+      }
     },
     {
       key: 'status',
       label: 'Status',
       render: (account: InboxAccount) => (
-        <Badge
-          variant={account.status === 'active' ? 'default' : 'secondary'}
-        >
+        <Badge variant={account.status === 'active' ? 'default' : 'secondary'}>
           {account.status}
         </Badge>
-      ),
+      )
     },
     {
       key: 'connectedAt',
@@ -164,7 +164,7 @@ export default function InstagramInboxAccountsPage() {
         <span className="text-sm text-muted-foreground">
           {new Date(account.connectedAt).toLocaleDateString()}
         </span>
-      ),
+      )
     },
     {
       key: 'actions',
@@ -173,7 +173,7 @@ export default function InstagramInboxAccountsPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation()
             if (account.status === 'disconnected') {
               setDeleteId(account.id)
@@ -185,8 +185,8 @@ export default function InstagramInboxAccountsPage() {
         >
           <Trash2 className="size-4" />
         </Button>
-      ),
-    },
+      )
+    }
   ]
 
   return (
@@ -298,10 +298,7 @@ export default function InstagramInboxAccountsPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog
-          open={!!deleteId}
-          onOpenChange={() => setDeleteId(null)}
-        >
+        <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete account?</AlertDialogTitle>

@@ -27,7 +27,10 @@ export async function POST(
   }
 
   if (agent.allowAnonymous) {
-    return NextResponse.json({ error: 'Agent allows anonymous access' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Agent allows anonymous access' },
+      { status: 400 }
+    )
   }
 
   const body = await req.json()
@@ -47,7 +50,12 @@ export async function POST(
 
   // Then try invite code
   const externalId = await ensureExternalSessionId({ crossOrigin: isEmbed })
-  const result = await redeemInviteCode(agent.tenantId!, agentId, value, externalId)
+  const result = await redeemInviteCode(
+    agent.tenantId!,
+    agentId,
+    value,
+    externalId
+  )
 
   if (result.ok) {
     await setAccessCookie(agentId, { crossOrigin: isEmbed })

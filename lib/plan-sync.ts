@@ -16,9 +16,7 @@ export async function syncTenantFeatureFlags(
   const planFlagSet = new Set(planFeatureFlags)
 
   // Fetch all global feature flags
-  const flagsSnap = await adminDb
-    .collection(Collections.featureFlags)
-    .get()
+  const flagsSnap = await adminDb.collection(Collections.featureFlags).get()
 
   if (flagsSnap.empty) return
 
@@ -40,7 +38,7 @@ export async function syncTenantFeatureFlags(
         featureFlagName: flagName,
         isEnabled,
         updatedAt: now,
-        createdAt: now,
+        createdAt: now
       },
       { merge: true }
     )

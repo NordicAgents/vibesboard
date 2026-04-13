@@ -46,16 +46,16 @@ export async function POST(
     ? new Date(agent.lastEmbeddingsSyncAt)
     : null
 
-  const allConversations = snapshot.docs.map(doc =>
+  const allConversations = snapshot.docs.map((doc: any) =>
     mapConversationDoc(doc.data())
   )
-  const visitorConversations = allConversations.filter(conversation =>
-    Boolean(conversation.externalId)
+  const visitorConversations = allConversations.filter(
+    (conversation: any) => Boolean(conversation.externalId)
   )
 
   const nonVisitorConversationIds = allConversations
-    .filter(conversation => !conversation.externalId)
-    .map(conversation => conversation.id)
+    .filter((conversation: any) => !conversation.externalId)
+    .map((conversation: any) => conversation.id)
 
   // Delete chunks for non-visitor conversations
   if (nonVisitorConversationIds.length) {
@@ -71,19 +71,21 @@ export async function POST(
 
       if (!chunkSnapshot.empty) {
         const batch = adminDb.batch()
-        chunkSnapshot.docs.forEach(doc => batch.delete(doc.ref))
+        chunkSnapshot.docs.forEach((doc: any) => batch.delete(doc.ref))
         await batch.commit()
       }
     }
   }
 
-  const conversations = visitorConversations.filter(conversation => {
-    if (!lastSync) return true
-    return new Date(conversation.updatedAt).getTime() > lastSync.getTime()
-  })
+  const conversations = visitorConversations.filter(
+    (conversation: any) => {
+      if (!lastSync) return true
+      return new Date(conversation.updatedAt).getTime() > lastSync.getTime()
+    }
+  )
 
   let synced = 0
-  await limitConcurrency(conversations, 5, async conversation => {
+  await limitConcurrency(conversations, 5, async (conversation: any) => {
     await upsertConversationEmbeddings({
       tenantId: agent.tenantId,
       agentId: agent.id,

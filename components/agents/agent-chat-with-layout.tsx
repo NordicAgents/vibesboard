@@ -111,7 +111,9 @@ export function AgentChatWithLayout({
     React.useState<VibeAgentConversation | null>(null)
   const [visitorPage, setVisitorPage] = React.useState(1)
   const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
-  const [deletingConversationId, setDeletingConversationId] = React.useState<string | null>(null)
+  const [deletingConversationId, setDeletingConversationId] = React.useState<
+    string | null
+  >(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
 
   const handleDeleteConversation = React.useCallback(async () => {
@@ -342,7 +344,7 @@ export function AgentChatWithLayout({
                       Updated {formatDate(session.updatedAt)}
                     </div>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation()
                         setDeletingConversationId(session.id)
                       }}
@@ -447,7 +449,11 @@ export function AgentChatWithLayout({
               onClick={() => handleSelectSession(session.id)}
             >
               <div className="truncate">
-                {getConversationPreview(session.messages, session.summary, 'Untitled conversation')}
+                {getConversationPreview(
+                  session.messages,
+                  session.summary,
+                  'Untitled conversation'
+                )}
               </div>
             </DashboardSidebarItem>
           ))}
@@ -489,112 +495,117 @@ export function AgentChatWithLayout({
 
   return (
     <>
-    <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
-      {selectedConversation ? (
-        <div className="h-full overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
-          <ConversationView
-            conversation={selectedConversation}
-            onClose={() => setSelectedConversation(null)}
-            agentId={agent.id}
-            agentName={agent.name}
-            canReply={canEdit && !!selectedConversation.externalId?.startsWith('chatwoot:')}
-            canDelete={canEdit}
-            onConversationUpdate={() => router.refresh()}
-            onDelete={() => setDeletingConversationId(selectedConversation.id)}
-          />
-        </div>
-      ) : agentPageShell?.isSidebarOpen && canEdit ? (
-        effectiveViewMode === 'focus' ? (
-          <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
-            <AgentFocusView
-              agent={agent}
-              share={share}
-              canEdit={canEdit}
-              onSwitchToAdvanced={() => {
-                setViewMode('advanced')
-                router.push(`/agents/${agent.id}?tab=setup`)
-              }}
+      <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
+        {selectedConversation ? (
+          <div className="h-full overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
+            <ConversationView
+              conversation={selectedConversation}
+              onClose={() => setSelectedConversation(null)}
+              agentId={agent.id}
+              agentName={agent.name}
+              canReply={
+                canEdit &&
+                !!selectedConversation.externalId?.startsWith('chatwoot:')
+              }
+              canDelete={canEdit}
+              onConversationUpdate={() => router.refresh()}
+              onDelete={() =>
+                setDeletingConversationId(selectedConversation.id)
+              }
             />
           </div>
-        ) : (
-          <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
-            <AgentDashboardTabs
-              agent={agent}
-              share={share}
-              canEdit={canEdit}
-              defaultTab={activeTab || 'setup'}
-              onSwitchToFocus={() => {
-                setViewMode('focus')
-                router.push(`/agents/${agent.id}`)
-              }}
-            />
-          </div>
-        )
-      ) : canEdit ? (
-        <AgentAskChat
-          agent={agent}
-          ownerId={ownerId}
-          ownerSessions={ownerSessions}
-        />
-      ) : (
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-          <div className="rounded-xl border border-[#e4e3e3] bg-[#f5f8f7] p-6 dark:border-[#344348] dark:bg-[#192425]">
-            <h1 className="font-sans text-xl font-medium tracking-tight text-[#222f30] dark:text-[#f5f8f7]">
-              Read-only access
-            </h1>
-            <p className="mt-2 text-sm text-[#445e5f] dark:text-[#6f7f80]">
-              Analytics and configuration are available to the agent owner and
-              tenant admins.
-            </p>
-            <div className="mt-4 flex gap-2">
-              <Button
-                onClick={() => {
-                  if (activeSessionId) {
-                    router.push(
-                      `/agents/${agent.id}/conversations/${activeSessionId}`
-                    )
-                    return
-                  }
-                  router.push(`/agents/${agent.id}/conversations/new`)
+        ) : agentPageShell?.isSidebarOpen && canEdit ? (
+          effectiveViewMode === 'focus' ? (
+            <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
+              <AgentFocusView
+                agent={agent}
+                share={share}
+                canEdit={canEdit}
+                onSwitchToAdvanced={() => {
+                  setViewMode('advanced')
+                  router.push(`/agents/${agent.id}?tab=setup`)
                 }}
-              >
-                Open chat
-              </Button>
+              />
+            </div>
+          ) : (
+            <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
+              <AgentDashboardTabs
+                agent={agent}
+                share={share}
+                canEdit={canEdit}
+                defaultTab={activeTab || 'setup'}
+                onSwitchToFocus={() => {
+                  setViewMode('focus')
+                  router.push(`/agents/${agent.id}`)
+                }}
+              />
+            </div>
+          )
+        ) : canEdit ? (
+          <AgentAskChat
+            agent={agent}
+            ownerId={ownerId}
+            ownerSessions={ownerSessions}
+          />
+        ) : (
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+            <div className="rounded-xl border border-[#e4e3e3] bg-[#f5f8f7] p-6 dark:border-[#344348] dark:bg-[#192425]">
+              <h1 className="font-sans text-xl font-medium tracking-tight text-[#222f30] dark:text-[#f5f8f7]">
+                Read-only access
+              </h1>
+              <p className="mt-2 text-sm text-[#445e5f] dark:text-[#6f7f80]">
+                Analytics and configuration are available to the agent owner and
+                tenant admins.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  onClick={() => {
+                    if (activeSessionId) {
+                      router.push(
+                        `/agents/${agent.id}/conversations/${activeSessionId}`
+                      )
+                      return
+                    }
+                    router.push(`/agents/${agent.id}/conversations/new`)
+                  }}
+                >
+                  Open chat
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </DashboardLayout>
+        )}
+      </DashboardLayout>
 
-    <AlertDialog
-      open={!!deletingConversationId}
-      onOpenChange={(open) => {
-        if (!open) setDeletingConversationId(null)
-      }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will permanently delete this visitor conversation and its
-            associated data. This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={isDeleting}
-            className="bg-red-600 hover:bg-red-700"
-            onClick={(e) => {
-              e.preventDefault()
-              handleDeleteConversation()
-            }}
-          >
-            {isDeleting ? 'Deleting...' : 'Delete'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <AlertDialog
+        open={!!deletingConversationId}
+        onOpenChange={open => {
+          if (!open) setDeletingConversationId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this visitor conversation and its
+              associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+              onClick={e => {
+                e.preventDefault()
+                handleDeleteConversation()
+              }}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

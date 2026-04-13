@@ -31,7 +31,10 @@ export async function DELETE(
 
   const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS')
   if (!enabled) {
-    return NextResponse.json({ error: 'Scheduling feature is not enabled' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Scheduling feature is not enabled' },
+      { status: 403 }
+    )
   }
 
   const connection = await getCalendarConnection(tenantId, connectionId)
@@ -44,7 +47,10 @@ export async function DELETE(
   // Disable any agents that referenced this connection so they don't silently
   // hold a dead reference — owner sees the toggle is off and knows to reconnect.
   await disableAgentsForConnection(tenantId, connectionId).catch(err =>
-    console.error('[connections/delete] Failed to disable agents for connection:', err)
+    console.error(
+      '[connections/delete] Failed to disable agents for connection:',
+      err
+    )
   )
 
   return NextResponse.json({ success: true })

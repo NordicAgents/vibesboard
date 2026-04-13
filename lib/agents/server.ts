@@ -39,9 +39,7 @@ export async function getAgentForMember(
  * Get agent by ID, searching across all tenants.
  * Used by public API routes where the caller only has the agent ID.
  */
-export async function getAgentById(
-  agentId: string
-): Promise<VibeAgent | null> {
+export async function getAgentById(agentId: string): Promise<VibeAgent | null> {
   // Use collection group query across all tenant agents subcollections
   const snapshot = await adminDb
     .collectionGroup('agents')
@@ -70,14 +68,13 @@ export async function getAgentNamesByTenant(
   const snaps = await adminDb.getAll(...refs)
 
   const names: Record<string, string> = {}
-  snaps.forEach((snap, i) => {
+  snaps.forEach((snap: any, i: any) => {
     if (snap.exists) {
       names[agentIds[i]] = (snap.data() as Record<string, any>).name
     }
   })
   return names
 }
-
 
 /**
  * Disable calendar availability and scheduling configs on all agents in a tenant
@@ -95,7 +92,11 @@ export async function disableAgentsForConnection(
   // Query both config types in parallel — Firestore supports dot-notation on nested fields
   const [availSnap, schedSnap] = await Promise.all([
     agentsRef
-      .where('calendarAvailabilityConfig.calendarConnectionId', '==', connectionId)
+      .where(
+        'calendarAvailabilityConfig.calendarConnectionId',
+        '==',
+        connectionId
+      )
       .get(),
     agentsRef
       .where('schedulingConfig.calendarConnectionId', '==', connectionId)

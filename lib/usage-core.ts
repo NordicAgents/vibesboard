@@ -27,7 +27,15 @@ export function buildRollupUpdateFields(params: {
   outputTokens: number
   incrementFn: (n: number) => any
 }): RollupUpdateFields {
-  const { source, agentId, model, userId, inputTokens, outputTokens, incrementFn } = params
+  const {
+    source,
+    agentId,
+    model,
+    userId,
+    inputTokens,
+    outputTokens,
+    incrementFn
+  } = params
   const userKey = sanitizeFieldKey(userId ?? '_anonymous')
   const safeAgentId = sanitizeFieldKey(agentId)
 
@@ -42,8 +50,10 @@ export function buildRollupUpdateFields(params: {
     [`byUser.${userKey}.inputTokens`]: incrementFn(inputTokens),
     [`byUser.${userKey}.outputTokens`]: incrementFn(outputTokens),
     [`byUser.${userKey}.byAgent.${safeAgentId}.messages`]: incrementFn(1),
-    [`byUser.${userKey}.byAgent.${safeAgentId}.inputTokens`]: incrementFn(inputTokens),
-    [`byUser.${userKey}.byAgent.${safeAgentId}.outputTokens`]: incrementFn(outputTokens),
+    [`byUser.${userKey}.byAgent.${safeAgentId}.inputTokens`]:
+      incrementFn(inputTokens),
+    [`byUser.${userKey}.byAgent.${safeAgentId}.outputTokens`]:
+      incrementFn(outputTokens)
   }
 }
 
@@ -62,7 +72,17 @@ export function buildRollupSetFields(params: {
   outputTokens: number
   incrementFn: (n: number) => any
 }): Record<string, any> {
-  const { tenantId, billingCycleId, source, agentId, model, userId, inputTokens, outputTokens, incrementFn } = params
+  const {
+    tenantId,
+    billingCycleId,
+    source,
+    agentId,
+    model,
+    userId,
+    inputTokens,
+    outputTokens,
+    incrementFn
+  } = params
   const userKey = sanitizeFieldKey(userId ?? '_anonymous')
   const safeAgentId = sanitizeFieldKey(agentId)
 
@@ -84,10 +104,10 @@ export function buildRollupSetFields(params: {
           [safeAgentId]: {
             messages: incrementFn(1),
             inputTokens: incrementFn(inputTokens),
-            outputTokens: incrementFn(outputTokens),
+            outputTokens: incrementFn(outputTokens)
           }
         }
       }
-    },
+    }
   }
 }

@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
-import { getDataConnection, getValidDataAccessToken } from '@/lib/data/connections'
+import {
+  getDataConnection,
+  getValidDataAccessToken
+} from '@/lib/data/connections'
 import { createDataProvider } from '@/lib/data/providers'
 
 export const runtime = 'nodejs'

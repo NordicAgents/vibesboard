@@ -86,9 +86,7 @@ export function AgentRightbar({
   const [googleReviewEnabled, setGoogleReviewEnabled] = useState(
     agent.googleReviewEnabled ?? false
   )
-  const [googlePlaceId, setGooglePlaceId] = useState(
-    agent.googlePlaceId ?? ''
-  )
+  const [googlePlaceId, setGooglePlaceId] = useState(agent.googlePlaceId ?? '')
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -225,7 +223,8 @@ export function AgentRightbar({
                 placeholder="e.g. Arcadia Hotel, job openings in TCS"
               />
               <p className="text-xs text-muted-foreground">
-                You are only allowed to discuss about this. e.g. &quot;Arcadia Hotel&quot;, &quot;job openings in TCS&quot;
+                You are only allowed to discuss about this. e.g. &quot;Arcadia
+                Hotel&quot;, &quot;job openings in TCS&quot;
               </p>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
@@ -344,7 +343,8 @@ export function AgentRightbar({
                 placeholder="Unlimited"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Max AI responses in a single conversation. Leave empty for unlimited.
+                Max AI responses in a single conversation. Leave empty for
+                unlimited.
               </p>
             </div>
             <div>
@@ -365,13 +365,15 @@ export function AgentRightbar({
                 placeholder="Unlimited"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Total AI responses across all sessions. Agent is disabled when reached.
+                Total AI responses across all sessions. Agent is disabled when
+                reached.
               </p>
-              {maxAgentResponses != null && agent.totalResponseCount != null && (
-                <p className="mt-1 text-xs font-medium text-muted-foreground">
-                  Used: {agent.totalResponseCount} / {maxAgentResponses}
-                </p>
-              )}
+              {maxAgentResponses != null &&
+                agent.totalResponseCount != null && (
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    Used: {agent.totalResponseCount} / {maxAgentResponses}
+                  </p>
+                )}
             </div>
           </CardContent>
         </Card>
@@ -415,7 +417,7 @@ export function AgentRightbar({
                   setQuickSuggestionsMode('smart')
                 }}
               >
-                Smart  
+                Smart
               </Badge>
               <Badge
                 variant={
@@ -582,7 +584,8 @@ export function AgentRightbar({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. Deleting <strong>{agent.name}</strong> will permanently remove:
+                    This action cannot be undone. Deleting{' '}
+                    <strong>{agent.name}</strong> will permanently remove:
                     <ul className="mt-2 list-disc pl-5 text-sm">
                       <li>The agent and its configuration</li>
                       <li>All uploaded files</li>

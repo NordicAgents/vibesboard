@@ -19,7 +19,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'Unlimited agents',
     '100 messages/month',
     'Agent links',
-    'Basic chat interface',
+    'Basic chat interface'
   ],
   pro: [
     'Unlimited agents',
@@ -28,7 +28,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'Agent notifications',
     'Google Review integration',
     'Inbox (base)',
-    '$0.005/msg overage',
+    '$0.005/msg overage'
   ],
   team: [
     'Unlimited agents',
@@ -39,7 +39,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'Instagram Inbox',
     'Chatwoot integration',
     'Custom branding',
-    '$0.003/msg overage',
+    '$0.003/msg overage'
   ],
   enterprise: [
     'Everything in Team',
@@ -47,8 +47,8 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'SSO / SAML',
     'SLA with guaranteed uptime',
     'Dedicated support',
-    'Priority model access',
-  ],
+    'Priority model access'
+  ]
 }
 
 function formatPrice(plan: PlanDefinition): string {
@@ -70,13 +70,10 @@ export function PlanCard({
   currentPlanId,
   onSelect,
   loading,
-  className,
+  className
 }: PlanCardProps) {
   const isCurrent = currentPlanId === plan.id
-  const isUpgrade =
-    !isCurrent &&
-    plan.id !== 'free' &&
-    plan.id !== 'enterprise'
+  const isUpgrade = !isCurrent && plan.id !== 'free' && plan.id !== 'enterprise'
   const features = PLAN_FEATURES[plan.id] ?? []
 
   return (
@@ -118,7 +115,7 @@ export function PlanCard({
 
       {/* Features */}
       <ul className="mb-6 flex-1 space-y-2.5">
-        {features.map((feature) => (
+        {features.map(feature => (
           <li key={feature} className="flex items-start gap-2">
             <Check className="mt-0.5 size-3.5 shrink-0 text-accent-orange" />
             <span className="text-sm text-[#445e5f] dark:text-[#9d9790]">

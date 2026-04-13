@@ -126,17 +126,20 @@ export function ChatPanel({
               />
 
               {/* Escape hatch — always accessible so the user is never stuck */}
-              {onEndConversation && !isLoading && messages && messages.length > 1 && (
-                <div className="flex justify-center pt-1">
-                  <button
-                    type="button"
-                    onClick={onEndConversation}
-                    className="text-xs text-muted-foreground/60 underline-offset-2 transition-colors hover:text-muted-foreground hover:underline"
-                  >
-                    End conversation
-                  </button>
-                </div>
-              )}
+              {onEndConversation &&
+                !isLoading &&
+                messages &&
+                messages.length > 1 && (
+                  <div className="flex justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={onEndConversation}
+                      className="text-xs text-muted-foreground/60 underline-offset-2 transition-colors hover:text-muted-foreground hover:underline"
+                    >
+                      End conversation
+                    </button>
+                  </div>
+                )}
             </motion.div>
           )}
         </AnimatePresence>

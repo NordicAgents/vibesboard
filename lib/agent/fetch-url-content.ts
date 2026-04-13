@@ -73,7 +73,10 @@ const validateHttpUrl = (value: string) => {
   }
 
   if (!['http:', 'https:'].includes(parsed.protocol)) {
-    return { ok: false as const, error: 'Only HTTP and HTTPS URLs are supported' }
+    return {
+      ok: false as const,
+      error: 'Only HTTP and HTTPS URLs are supported'
+    }
   }
 
   if (isBlockedHost(parsed.hostname)) {
@@ -106,7 +109,9 @@ const fetchHtmlWithRedirects = async (
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get('location')
       if (!location) {
-        return { error: `Redirect (${response.status}) without Location header` }
+        return {
+          error: `Redirect (${response.status}) without Location header`
+        }
       }
 
       const nextUrl = new URL(location, validated.url).toString()
@@ -149,7 +154,9 @@ export async function fetchUrlContent(url: string): Promise<UrlContentResult> {
       ''
 
     const description =
-      document.querySelector('meta[name="description"]')?.getAttribute('content') ||
+      document
+        .querySelector('meta[name="description"]')
+        ?.getAttribute('content') ||
       document
         .querySelector('meta[property="og:description"]')
         ?.getAttribute('content') ||
@@ -163,7 +170,10 @@ export async function fetchUrlContent(url: string): Promise<UrlContentResult> {
 
     // Extract text content
     const bodyText = document.body?.textContent || ''
-    const cleanedText = bodyText.replace(/\s+/g, ' ').replace(/\n+/g, '\n').trim()
+    const cleanedText = bodyText
+      .replace(/\s+/g, ' ')
+      .replace(/\n+/g, '\n')
+      .trim()
 
     // Limit text content for AI processing
     const truncatedText =

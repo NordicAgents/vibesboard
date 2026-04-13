@@ -7,12 +7,15 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { UsageProgress } from '@/components/usage-progress'
 import { UsageBreakdown } from '@/components/usage-breakdown'
-import type { TenantSubscription, UsageRollupDocument } from '@/lib/firestore-types'
+import type {
+  TenantSubscription,
+  UsageRollupDocument
+} from '@/lib/firestore-types'
 
 interface DailyUsage {
   date: string
@@ -106,7 +109,7 @@ export default function TenantUsagePage() {
     free: 'secondary',
     pro: 'default',
     team: 'default',
-    enterprise: 'default',
+    enterprise: 'default'
   }
 
   return (
@@ -187,7 +190,9 @@ export default function TenantUsagePage() {
       <Card>
         <CardHeader>
           <CardTitle>Daily Usage</CardTitle>
-          <CardDescription>Messages per day over the last 30 days</CardDescription>
+          <CardDescription>
+            Messages per day over the last 30 days
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {dailyUsage.length === 0 ? (
@@ -200,10 +205,13 @@ export default function TenantUsagePage() {
                 return (
                   <div key={date} className="flex items-center gap-3">
                     <span className="w-20 shrink-0 text-xs tabular-nums text-[#6f7f80]">
-                      {new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {new Date(date + 'T00:00:00').toLocaleDateString(
+                        undefined,
+                        {
+                          month: 'short',
+                          day: 'numeric'
+                        }
+                      )}
                     </span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e4e3e3] dark:bg-[#344348]">
                       <div

@@ -2,7 +2,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import {
   Collections,
   type WhatsAppInboxConversationDocument,
-  type InboxConversationStatus,
+  type InboxConversationStatus
 } from '@/lib/firestore-types'
 
 /**
@@ -37,7 +37,7 @@ export async function getOrCreateConversation(
     status: 'open',
     windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(conversation)
@@ -80,9 +80,7 @@ export async function getConversation(
   const phoneNormalized = contactPhone.replace(/\D/g, '')
   const snap = await adminDb.collection(collPath).doc(phoneNormalized).get()
 
-  return snap.exists
-    ? (snap.data() as WhatsAppInboxConversationDocument)
-    : null
+  return snap.exists ? (snap.data() as WhatsAppInboxConversationDocument) : null
 }
 
 /**
@@ -99,7 +97,7 @@ export async function updateConversationStatus(
 
   await adminDb.collection(collPath).doc(phoneNormalized).update({
     status,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 }
 
@@ -120,7 +118,7 @@ export async function assignConversation(
     .doc(phoneNormalized)
     .update({
       assignedTo: userId || null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     })
 }
 
@@ -137,7 +135,7 @@ export async function markAsRead(
 
   await adminDb.collection(collPath).doc(phoneNormalized).update({
     unreadCount: 0,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 }
 

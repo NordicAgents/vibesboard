@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const agent: VibeAgent = {
     id: 'smoke-agent',
     userId: 'smoke-user',
+    tenantId: 'smoke-tenant',
     name: 'SmokeTest Agent',
     instructions:
       'Follow directions. When the user explicitly asks to call a tool, do so. Keep the final answer concise.',
@@ -73,7 +74,9 @@ export async function GET(req: Request) {
       temperature: 0
     })
 
-    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message ?? 'Smoke test failed' },

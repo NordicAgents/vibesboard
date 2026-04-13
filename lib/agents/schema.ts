@@ -29,23 +29,33 @@ export const collectionFieldSchema = z.object({
   order: z.number().int().min(0)
 })
 
-export const notificationEventSchema = z.enum(['completed', 'handoff', 'agent_handoff'])
+export const notificationEventSchema = z.enum([
+  'completed',
+  'handoff',
+  'agent_handoff'
+])
 
 export const notificationConfigSchema = z.object({
   enabled: z.boolean().default(false),
   events: z.array(notificationEventSchema).default(['completed', 'handoff']),
-  inApp: z.object({
-    enabled: z.boolean().default(true)
-  }).default({}),
-  email: z.object({
-    enabled: z.boolean().default(false),
-    address: z.string().email().nullable().optional()
-  }).default({}),
-  webhook: z.object({
-    enabled: z.boolean().default(false),
-    url: z.string().url().nullable().optional(),
-    secret: z.string().nullable().optional()
-  }).default({})
+  inApp: z
+    .object({
+      enabled: z.boolean().default(true)
+    })
+    .default({}),
+  email: z
+    .object({
+      enabled: z.boolean().default(false),
+      address: z.string().email().nullable().optional()
+    })
+    .default({}),
+  webhook: z
+    .object({
+      enabled: z.boolean().default(false),
+      url: z.string().url().nullable().optional(),
+      secret: z.string().nullable().optional()
+    })
+    .default({})
 })
 
 export const schedulingConfigSchema = z.object({
@@ -54,11 +64,15 @@ export const schedulingConfigSchema = z.object({
   defaultDurationMinutes: z.number().int().min(5).max(480).default(30),
   bufferMinutes: z.number().int().min(0).max(120).default(0),
   timezone: z.string().default('UTC'),
-  availableHours: z.object({
-    start: z.string().regex(/^\d{2}:\d{2}$/),
-    end: z.string().regex(/^\d{2}:\d{2}$/)
-  }).default({ start: '09:00', end: '17:00' }),
-  availableDays: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
+  availableHours: z
+    .object({
+      start: z.string().regex(/^\d{2}:\d{2}$/),
+      end: z.string().regex(/^\d{2}:\d{2}$/)
+    })
+    .default({ start: '09:00', end: '17:00' }),
+  availableDays: z
+    .array(z.number().int().min(0).max(6))
+    .default([1, 2, 3, 4, 5]),
   meetingTitleTemplate: z.string().max(200).default('Meeting with {{name}}'),
   meetingDescription: z.string().max(1000).optional(),
   createMeetLink: z.boolean().default(true)
@@ -97,7 +111,10 @@ export const bookingConfigSchema = z.object({
   enabled: z.boolean().default(false),
   resources: z.array(bookableResourceSchema).default([]),
   mode: z.enum(['enquiry', 'direct']).default('enquiry'),
-  eventTitleTemplate: z.string().max(200).default('{guest_name} ({guest_count} guests)'),
+  eventTitleTemplate: z
+    .string()
+    .max(200)
+    .default('{guest_name} ({guest_count} guests)'),
   eventTimeMode: z.enum(['all-day', 'timed']).default('all-day'),
   overlapProtection: z.boolean().default(true)
 })
@@ -115,7 +132,12 @@ export const upsertAgentSchema = z.object({
   quickSuggestionsMode: z.enum(['off', 'smart', 'always']).default('smart'),
   quickSuggestionsCount: z.number().int().min(1).max(5).default(4),
   sourceUrls: z.array(z.string().url()).default([]),
-  domain: z.string().max(100).regex(/^[a-zA-Z0-9\s,.'&\-()/]+$/, 'Invalid characters in domain').nullable().optional(),
+  domain: z
+    .string()
+    .max(100)
+    .regex(/^[a-zA-Z0-9\s,.'&\-()/]+$/, 'Invalid characters in domain')
+    .nullable()
+    .optional(),
   googleReviewEnabled: z.boolean().default(false),
   googlePlaceId: z.string().nullable().optional(),
   retrievalStrategy: z.enum(['direct', 'rag', 'bash']).default('direct'),

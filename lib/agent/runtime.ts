@@ -14,14 +14,16 @@ import {
   type ResponsesApiTool
 } from '@/lib/openai'
 
-
 interface RunAgentStreamArgs {
   agent: VibeAgent
   messages: Message[]
   context?: string | null
   previewToken?: string | null
   temperature?: number
-  onCompletion?: (completion: string, usage?: { promptTokens: number; completionTokens: number }) => Promise<void> | void
+  onCompletion?: (
+    completion: string,
+    usage?: { promptTokens: number; completionTokens: number }
+  ) => Promise<void> | void
   toolContext?: ToolExecutionContext
   handoffTargetNames?: Record<string, string>
   remainingResponses?: number | null
@@ -88,7 +90,12 @@ export async function runAgentStream({
       async onDone(completion, usage) {
         await agentContext.dispose()
         if (onCompletion) {
-          const mapped = usage ? { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens } : undefined
+          const mapped = usage
+            ? {
+                promptTokens: usage.inputTokens,
+                completionTokens: usage.outputTokens
+              }
+            : undefined
           await onCompletion(completion, mapped)
         }
       }
@@ -130,7 +137,12 @@ export async function runAgentStream({
     async onFinish({ text, usage }) {
       await safeDispose()
       if (onCompletion) {
-        const mapped = usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined
+        const mapped = usage
+          ? {
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens
+            }
+          : undefined
         await onCompletion(text, mapped)
       }
     }
@@ -181,7 +193,10 @@ interface ResponsesAgentWithToolsArgs {
   toolkit: ToolKit
   model: string
   previewToken?: string | null
-  onCompletion?: (completion: string, usage?: { promptTokens: number; completionTokens: number }) => Promise<void> | void
+  onCompletion?: (
+    completion: string,
+    usage?: { promptTokens: number; completionTokens: number }
+  ) => Promise<void> | void
   toolContext?: ToolExecutionContext
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
@@ -197,13 +212,18 @@ interface ResponsesAgentWithToolsArgs {
 function validateToolArgs(
   toolName: string,
   args: Record<string, unknown>,
-  schema: { required?: string[]; properties?: Record<string, unknown> } | undefined
+  schema:
+    | { required?: string[]; properties?: Record<string, unknown> }
+    | undefined
 ): string | null {
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
     return `Tool "${toolName}" received invalid arguments (expected a JSON object).`
   }
 
-  const properties = (schema?.properties ?? {}) as Record<string, { type?: string }>
+  const properties = (schema?.properties ?? {}) as Record<
+    string,
+    { type?: string }
+  >
   const required = schema?.required ?? []
 
   for (const field of required) {
@@ -252,7 +272,11 @@ const runResponsesAgentWithTools = async ({
   remainingResponses
 }: ResponsesAgentWithToolsArgs) => {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
-  const systemPrompt = buildAgentSystemPrompt(agent, context, { hasFileOverflow, handoffTargetNames, remainingResponses })
+  const systemPrompt = buildAgentSystemPrompt(agent, context, {
+    hasFileOverflow,
+    handoffTargetNames,
+    remainingResponses
+  })
   const conversation = formatConversation(messages)
 
   // Convert toolkit functions to Responses API tool format
@@ -260,9 +284,10 @@ const runResponsesAgentWithTools = async ({
     type: 'function' as const,
     name: fn.name,
     description: fn.description ?? 'No description.',
-    parameters: fn.parameters && Object.keys(fn.parameters).length
-      ? fn.parameters
-      : { type: 'object', properties: {} }
+    parameters:
+      fn.parameters && Object.keys(fn.parameters).length
+        ? fn.parameters
+        : { type: 'object', properties: {} }
   }))
 
   const prompt =
@@ -297,7 +322,11 @@ const runResponsesAgentWithTools = async ({
       // Validate args against the tool's JSON schema before execution.
       // Guards against hallucinated or malformed args from the model.
       const toolSchema = tools.find(t => t.name === chosenTool)
-      const validationError = validateToolArgs(chosenTool, toolArgs, toolSchema?.parameters)
+      const validationError = validateToolArgs(
+        chosenTool,
+        toolArgs,
+        toolSchema?.parameters
+      )
       if (validationError) {
         toolResult = validationError
       } else {
@@ -347,7 +376,10 @@ const runResponsesAgentWithTools = async ({
       totalPromptTokens += usage?.inputTokens ?? 0
       totalCompletionTokens += usage?.outputTokens ?? 0
       if (onCompletion) {
-        await onCompletion(completion, { promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens })
+        await onCompletion(completion, {
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens
+        })
       }
     }
   })

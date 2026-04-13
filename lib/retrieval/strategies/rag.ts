@@ -1,7 +1,11 @@
 import { searchAgentFileChunks } from '@/lib/agent/file-search'
 import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 import { type RegisteredTool } from '@/lib/agent/tools/base'
-import { type Retriever, type RetrieverConfig, type RetrieverResult } from '../types'
+import {
+  type Retriever,
+  type RetrieverConfig,
+  type RetrieverResult
+} from '../types'
 
 const MAX_CONTEXT_CHARS = 30_000
 
@@ -53,13 +57,15 @@ export class RagRetriever implements Retriever {
     const fileSearchTool: RegisteredTool = {
       function: {
         name: 'file_search',
-        description: 'Search over the files uploaded to this agent and return matching excerpts using semantic search.',
+        description:
+          'Search over the files uploaded to this agent and return matching excerpts using semantic search.',
         parameters: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Keywords or natural language query to search within the agent files.'
+              description:
+                'Keywords or natural language query to search within the agent files.'
             },
             limit: {
               type: 'number',

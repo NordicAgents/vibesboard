@@ -7,8 +7,7 @@ import { adminAuth } from '@/lib/firebase/admin'
 // https://developers.google.com/identity/protocols/risc
 // ---------------------------------------------------------------------------
 
-const RISC_EVENT_PREFIX =
-  'https://schemas.openid.net/secevent/risc/event-type/'
+const RISC_EVENT_PREFIX = 'https://schemas.openid.net/secevent/risc/event-type/'
 
 export const RISC_EVENTS = {
   SESSIONS_REVOKED: `${RISC_EVENT_PREFIX}sessions-revoked`,
@@ -60,9 +59,7 @@ async function fetchRiscJwks(): Promise<JsonWebKey[]> {
     'https://accounts.google.com/.well-known/risc-configuration'
   )
   if (!configRes.ok) {
-    throw new Error(
-      `Failed to fetch RISC configuration: ${configRes.status}`
-    )
+    throw new Error(`Failed to fetch RISC configuration: ${configRes.status}`)
   }
   const config = (await configRes.json()) as { jwks_uri: string }
 
@@ -85,10 +82,7 @@ function decodeJwtPart<T>(token: string, index: 0 | 1): T {
   return JSON.parse(Buffer.from(part, 'base64url').toString()) as T
 }
 
-function verifySignature(
-  parts: string[],
-  jwk: JsonWebKey
-): boolean {
+function verifySignature(parts: string[], jwk: JsonWebKey): boolean {
   const publicKey = crypto.createPublicKey({
     key: jwk as crypto.JsonWebKeyInput['key'],
     format: 'jwk'
@@ -155,9 +149,7 @@ export async function verifyRiscToken(
 // Resolve a Google subject (sub) to a Firebase UID
 // ---------------------------------------------------------------------------
 
-async function resolveFirebaseUid(
-  googleSub: string
-): Promise<string | null> {
+async function resolveFirebaseUid(googleSub: string): Promise<string | null> {
   try {
     const result = await adminAuth.getUsers([
       { providerId: 'google.com', providerUid: googleSub }

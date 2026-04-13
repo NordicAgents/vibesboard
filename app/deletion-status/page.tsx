@@ -25,12 +25,12 @@ function DeletionStatusContent() {
     }
 
     fetch(`/api/meta/data-deletion/status?id=${encodeURIComponent(id)}`)
-      .then((res) => {
+      .then(res => {
         if (!res.ok) throw new Error('Deletion request not found.')
         return res.json()
       })
       .then(setData)
-      .catch((err) => setError(err.message))
+      .catch(err => setError(err.message))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -59,19 +59,19 @@ function DeletionStatusContent() {
     pending: {
       label: 'In Progress',
       color: 'text-amber-600',
-      description: 'Your data deletion request is being processed.',
+      description: 'Your data deletion request is being processed.'
     },
     completed: {
       label: 'Completed',
       color: 'text-green-600',
-      description: 'Your data has been successfully deleted.',
+      description: 'Your data has been successfully deleted.'
     },
     failed: {
       label: 'Failed',
       color: 'text-red-600',
       description:
-        'There was an issue processing your request. Please contact support.',
-    },
+        'There was an issue processing your request. Please contact support.'
+    }
   }
 
   const status = data ? statusConfig[data.status] : null

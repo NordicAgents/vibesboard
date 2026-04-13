@@ -22,7 +22,7 @@ export async function sendWhatsAppAgentReply(params: InboxReplyParams) {
     contactPhone: params.contactId,
     text: params.text,
     userId: `agent:${params.agentId}`,
-    sentByAgentName: params.agentName,
+    sentByAgentName: params.agentName
   })
 }
 
@@ -36,6 +36,6 @@ export async function sendInstagramAgentReply(params: InboxReplyParams) {
     contactIgsid: params.contactId,
     text: params.text,
     userId: `agent:${params.agentId}`,
-    sentByAgentName: params.agentName,
+    sentByAgentName: params.agentName
   })
 }

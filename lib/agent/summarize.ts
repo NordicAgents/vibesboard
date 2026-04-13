@@ -37,10 +37,7 @@ export async function summarizeConversation(
       model: OPENAI_CHAT_MODEL,
       temperature: 0.2,
       max_tokens: 60,
-      messages: [
-        { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
-        ...recent
-      ]
+      messages: [{ role: 'system', content: SUMMARY_SYSTEM_PROMPT }, ...recent]
     })
 
     const content = json?.choices?.[0]?.message?.content?.trim()

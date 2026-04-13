@@ -45,14 +45,20 @@ export async function buildAgentContext(
   ]
   const executors = {
     ...Object.fromEntries(
-      Object.entries(fullToolkit.executors).filter(([name]) => !retrieverToolNames.has(name))
+      Object.entries(fullToolkit.executors).filter(
+        ([name]) => !retrieverToolNames.has(name)
+      )
     ),
     ...Object.fromEntries(result.tools.map(t => [t.function.name, t.execute]))
   }
 
   // For direct strategy: remove file_search if all files fit in context
   let toolkit: ToolKit = { functions, executors }
-  if (strategy === 'direct' && !result.hasOverflow && agent.fileKeys.length > 0) {
+  if (
+    strategy === 'direct' &&
+    !result.hasOverflow &&
+    agent.fileKeys.length > 0
+  ) {
     toolkit = {
       functions: functions.filter(fn => fn.name !== 'file_search'),
       executors: Object.fromEntries(

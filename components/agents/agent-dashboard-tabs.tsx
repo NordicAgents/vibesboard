@@ -30,10 +30,21 @@ interface AgentDashboardTabsProps {
   onSwitchToFocus?: () => void
 }
 
-const SAVEABLE_TABS = ['setup', 'knowledge', 'notifications', 'reviews', 'actions']
+const SAVEABLE_TABS = [
+  'setup',
+  'knowledge',
+  'notifications',
+  'reviews',
+  'actions'
+]
 
 // Sub-sections within the Actions tab
-const ACTION_SECTIONS = ['scheduling', 'data', 'availability', 'booking'] as const
+const ACTION_SECTIONS = [
+  'scheduling',
+  'data',
+  'availability',
+  'booking'
+] as const
 type ActionSection = (typeof ACTION_SECTIONS)[number]
 
 export function AgentDashboardTabs({
@@ -48,10 +59,13 @@ export function AgentDashboardTabs({
 
   // Resolve legacy tab values
   const resolvedDefault =
-    defaultTab === 'configure' ? 'setup'
-    : defaultTab === 'scheduling' || defaultTab === 'data' ? 'actions'
-    : defaultTab === 'booking-enquiries' ? 'booking-enquiries'
-    : defaultTab
+    defaultTab === 'configure'
+      ? 'setup'
+      : defaultTab === 'scheduling' || defaultTab === 'data'
+        ? 'actions'
+        : defaultTab === 'booking-enquiries'
+          ? 'booking-enquiries'
+          : defaultTab
   const [activeTab, setActiveTab] = useState(resolvedDefault)
   const [openSections, setOpenSections] = useState<Set<ActionSection>>(
     new Set([defaultTab === 'data' ? 'data' : 'scheduling'])
@@ -70,7 +84,15 @@ export function AgentDashboardTabs({
   }
 
   const form = useAgentForm(agent)
-  const { fields, setters, hasChanges, saving, isDeleting, handleSaveAll, handleDelete } = form
+  const {
+    fields,
+    setters,
+    hasChanges,
+    saving,
+    isDeleting,
+    handleSaveAll,
+    handleDelete
+  } = form
 
   // ── Tab navigation ──
   const handleTabChange = (value: string) => {
@@ -166,10 +188,7 @@ export function AgentDashboardTabs({
             hasAccessPassword={!!agent.accessPassword}
           />
           {agent.tenantId && (
-            <FeatureGate
-              feature="AGENT_HANDOFF"
-              tenantId={agent.tenantId}
-            >
+            <FeatureGate feature="AGENT_HANDOFF" tenantId={agent.tenantId}>
               <div className="mt-5">
                 <AgentHandoffSettings
                   agentId={agent.id}
@@ -231,13 +250,16 @@ export function AgentDashboardTabs({
             <div className="space-y-4">
               {/* Sub-navigation for action sections (multi-select) */}
               <div className="flex flex-wrap gap-2">
-                {ACTION_SECTIONS.map((section) => {
+                {ACTION_SECTIONS.map(section => {
                   const isOpen = openSections.has(section)
                   const isEnabled =
-                    section === 'scheduling' ? fields.schedulingConfig?.enabled
-                    : section === 'data' ? fields.dataConfig?.enabled
-                    : section === 'availability' ? fields.calendarAvailabilityConfig?.enabled
-                    : fields.bookingConfig?.enabled
+                    section === 'scheduling'
+                      ? fields.schedulingConfig?.enabled
+                      : section === 'data'
+                        ? fields.dataConfig?.enabled
+                        : section === 'availability'
+                          ? fields.calendarAvailabilityConfig?.enabled
+                          : fields.bookingConfig?.enabled
                   return (
                     <button
                       key={section}
@@ -247,11 +269,21 @@ export function AgentDashboardTabs({
                         isOpen
                           ? 'border-accent-orange/30 bg-accent-orange/10 text-accent-orange'
                           : 'border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground',
-                        isEnabled && !isOpen && 'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400'
+                        isEnabled &&
+                          !isOpen &&
+                          'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400'
                       )}
                     >
-                      {isEnabled && <span className="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />}
-                      {section === 'scheduling' ? 'Scheduling' : section === 'data' ? 'Data' : section === 'availability' ? 'Availability' : 'Booking'}
+                      {isEnabled && (
+                        <span className="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />
+                      )}
+                      {section === 'scheduling'
+                        ? 'Scheduling'
+                        : section === 'data'
+                          ? 'Data'
+                          : section === 'availability'
+                            ? 'Availability'
+                            : 'Booking'}
                     </button>
                   )
                 })}

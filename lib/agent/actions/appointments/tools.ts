@@ -54,7 +54,7 @@ function buildCheckAvailabilityTool(ctx: AppointmentsToolContext): RegisteredToo
         required: ['date']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const date = String(args.date ?? '').trim()
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return 'Please provide a valid date in YYYY-MM-DD format.'
@@ -136,7 +136,7 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
         required: ['start_time', 'attendee_name', 'attendee_email']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const startTime = String(args.start_time ?? '').trim()
       const attendeeName = String(args.attendee_name ?? '').trim()
       const attendeeEmail = String(args.attendee_email ?? '').trim()
@@ -155,7 +155,9 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
       if (isNaN(startMs)) {
         return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
       }
-      const endTime = new Date(startMs + durationMinutes * 60 * 1000).toISOString()
+      const endTime = new Date(
+        startMs + durationMinutes * 60 * 1000
+      ).toISOString()
 
       // Build title from template
       const title = args.title
@@ -195,7 +197,7 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
           attendeeName,
           description: args.description
             ? String(args.description)
-            : ctx.config.meetingDescription ?? undefined,
+            : (ctx.config.meetingDescription ?? undefined),
           timezone: ctx.config.timezone,
           createMeetLink: ctx.config.createMeetLink
         })
@@ -269,13 +271,14 @@ function buildRescheduleAppointmentTool(ctx: AppointmentsToolContext): Registere
           },
           duration_minutes: {
             type: 'number',
-            description: 'New duration in minutes. Optional — keeps original if omitted.'
+            description:
+              'New duration in minutes. Optional — keeps original if omitted.'
           }
         },
         required: ['attendee_email', 'original_start_time', 'new_start_time']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const attendeeEmail = String(args.attendee_email ?? '').trim()
       const originalStartTime = String(args.original_start_time ?? '').trim()
       const newStartTime = String(args.new_start_time ?? '').trim()
@@ -286,7 +289,10 @@ function buildRescheduleAppointmentTool(ctx: AppointmentsToolContext): Registere
 
       try {
         // Find the booking
-        const bookingsPath = Collections.bookings(ctx.agent.tenantId!, ctx.agent.id)
+        const bookingsPath = Collections.bookings(
+          ctx.agent.tenantId!,
+          ctx.agent.id
+        )
         const snapshot = await adminDb
           .collection(bookingsPath)
           .where('attendeeEmail', '==', attendeeEmail)
@@ -294,7 +300,10 @@ function buildRescheduleAppointmentTool(ctx: AppointmentsToolContext): Registere
           .get()
 
         const booking = snapshot.docs
-          .map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as BookingDocument))
+          .map(
+            (d: FirebaseFirestore.QueryDocumentSnapshot) =>
+              ({ id: d.id, ...d.data() }) as BookingDocument
+          )
           .find((b: BookingDocument) => {
             const bStart = new Date(b.startTime).getTime()
             const oStart = new Date(originalStartTime).getTime()
@@ -307,7 +316,8 @@ function buildRescheduleAppointmentTool(ctx: AppointmentsToolContext): Registere
 
         // Calculate new end time
         const originalDuration =
-          new Date(booking.endTime).getTime() - new Date(booking.startTime).getTime()
+          new Date(booking.endTime).getTime() -
+          new Date(booking.startTime).getTime()
         const durationMs =
           typeof args.duration_minutes === 'number' && args.duration_minutes > 0
             ? args.duration_minutes * 60_000
@@ -368,7 +378,7 @@ function buildCancelAppointmentTool(ctx: AppointmentsToolContext): RegisteredToo
         required: ['attendee_email', 'start_time']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const attendeeEmail = String(args.attendee_email ?? '').trim()
       const startTime = String(args.start_time ?? '').trim()
 
@@ -378,7 +388,10 @@ function buildCancelAppointmentTool(ctx: AppointmentsToolContext): RegisteredToo
 
       try {
         // Find the booking
-        const bookingsPath = Collections.bookings(ctx.agent.tenantId!, ctx.agent.id)
+        const bookingsPath = Collections.bookings(
+          ctx.agent.tenantId!,
+          ctx.agent.id
+        )
         const snapshot = await adminDb
           .collection(bookingsPath)
           .where('attendeeEmail', '==', attendeeEmail)
@@ -386,7 +399,10 @@ function buildCancelAppointmentTool(ctx: AppointmentsToolContext): RegisteredToo
           .get()
 
         const booking = snapshot.docs
-          .map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as BookingDocument))
+          .map(
+            (d: FirebaseFirestore.QueryDocumentSnapshot) =>
+              ({ id: d.id, ...d.data() }) as BookingDocument
+          )
           .find((b: BookingDocument) => {
             const bStart = new Date(b.startTime).getTime()
             const sStart = new Date(startTime).getTime()

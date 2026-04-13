@@ -1,15 +1,28 @@
 import 'server-only'
 import { customAlphabet } from 'nanoid'
 import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type HookJobDocument, type HookJobStatus } from '@/lib/firestore-types'
+import {
+  Collections,
+  type HookJobDocument,
+  type HookJobStatus
+} from '@/lib/firestore-types'
 import { getAgentById } from '@/lib/agents/server'
-import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import {
+  ensureConversation,
+  updateConversationMessages
+} from '@/lib/agents/conversations'
 import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
+import {
+  detectCompletionMarker,
+  stripCompletionMarkers
+} from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
 import { assertSafeCallbackUrl, signPayload } from './webhook-utils'
-import { dispatchAgentNotification, mapCompletionToEvent } from './notifications'
+import {
+  dispatchAgentNotification,
+  mapCompletionToEvent
+} from './notifications'
 import { checkUsageLimit, recordUsage } from '@/lib/usage'
 import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
@@ -47,7 +60,9 @@ export async function createJob(params: {
   }
 
   await adminDb
-    .collection(Collections.hookJobs(params.tenantId, params.agentId, params.hookId))
+    .collection(
+      Collections.hookJobs(params.tenantId, params.agentId, params.hookId)
+    )
     .doc(id)
     .set(doc)
 
@@ -151,7 +166,11 @@ export async function runJobAsync(
     const agent = await getAgentById(agentId)
     if (!agent) throw new Error('Agent not found')
 
-    const userMessage = { id: nanoid(), role: 'user' as const, content: job.message }
+    const userMessage = {
+      id: nanoid(),
+      role: 'user' as const,
+      content: job.message
+    }
 
     const conversation = await ensureConversation({
       tenantId,
@@ -172,7 +191,9 @@ export async function runJobAsync(
     // Check tenant usage limit before running LLM
     const usageCheck = await checkUsageLimit(tenantId)
     if (!usageCheck.allowed) {
-      throw new Error(`Usage limit reached: ${usageCheck.used}/${usageCheck.limit} messages used`)
+      throw new Error(
+        `Usage limit reached: ${usageCheck.used}/${usageCheck.limit} messages used`
+      )
     }
 
     const agentStream = await runAgentStream({
@@ -200,7 +221,9 @@ export async function runJobAsync(
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
           responseCounts: conversation.responseCounts
-        }).catch(err => console.error('[hook-async] Auto-summarize failed:', err))
+        }).catch(err =>
+          console.error('[hook-async] Auto-summarize failed:', err)
+        )
 
         // Record usage for metering (fire-and-forget)
         recordUsage({
@@ -209,7 +232,7 @@ export async function runJobAsync(
           conversationId: conversation.id,
           userId: null,
           source: 'hook_async',
-          model: OPENAI_CHAT_MODEL,
+          model: OPENAI_CHAT_MODEL
         })
 
         const event = mapCompletionToEvent(reason)

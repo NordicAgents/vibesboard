@@ -44,7 +44,9 @@ interface InvitationEmailParams {
  * Send an invitation email. Returns a promise that resolves when sent.
  * Errors are logged and swallowed so callers don't need try/catch.
  */
-export async function sendInvitationEmail(params: InvitationEmailParams): Promise<void> {
+export async function sendInvitationEmail(
+  params: InvitationEmailParams
+): Promise<void> {
   try {
     await _sendInvitationEmailAsync(params)
   } catch (err) {
@@ -68,7 +70,9 @@ async function _sendInvitationEmailAsync(
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
-    console.warn('[email] RESEND_API_KEY not configured, skipping invitation email')
+    console.warn(
+      '[email] RESEND_API_KEY not configured, skipping invitation email'
+    )
     return
   }
 
@@ -90,7 +94,7 @@ async function _sendInvitationEmailAsync(
     '',
     'This invitation will expire in 7 days.',
     '',
-    "If you didn't expect this invitation, you can safely ignore this email.",
+    "If you didn't expect this invitation, you can safely ignore this email."
   ].join('\n')
 
   const safeInviterName = escapeHtml(inviterName)
@@ -140,6 +144,6 @@ async function _sendInvitationEmailAsync(
     to,
     subject,
     html,
-    text,
+    text
   })
 }

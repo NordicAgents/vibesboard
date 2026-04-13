@@ -51,17 +51,23 @@ export default async function PublicAgentPage({
     getBaseBranding()
   ])
   const tenantData = tenantDoc.data()
-  const googleReviewFeatureEnabled = await isFeatureEnabled(tenantId, 'GOOGLE_REVIEW')
+  const googleReviewFeatureEnabled = await isFeatureEnabled(
+    tenantId,
+    'GOOGLE_REVIEW'
+  )
   const googleReviewPlaceId =
     googleReviewFeatureEnabled && agent.googleReviewEnabled
-      ? (agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null)
+      ? agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null
       : null
 
   // Resolve branding (tenant → platform → fallback)
   const tenantBranding = brandingDoc.exists
     ? (brandingDoc.data() as TenantBrandingDocument)
     : null
-  const effectiveBranding = resolveEffectiveBranding(tenantBranding, baseBranding)
+  const effectiveBranding = resolveEffectiveBranding(
+    tenantBranding,
+    baseBranding
+  )
   const logoUrl = effectiveBranding.logoUrl || null
 
   // fixed inset-0: anchors to viewport, bypassing the parent min-height chain.

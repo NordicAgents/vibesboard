@@ -11,7 +11,12 @@ export const runtime = 'nodejs'
 const asyncChatSchema = z.object({
   message: z.string().min(1).max(10_000).trim(),
   callbackUrl: z.string().url(),
-  externalUserId: z.string().min(1).max(256).regex(/^[^.]+$/, 'must not contain dots').optional(),
+  externalUserId: z
+    .string()
+    .min(1)
+    .max(256)
+    .regex(/^[^.]+$/, 'must not contain dots')
+    .optional(),
   conversationId: z.string().min(1).optional()
 })
 

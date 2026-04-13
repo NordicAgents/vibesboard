@@ -5,13 +5,13 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import {
   mapStripePriceToPlan,
-  findTenantByStripeCustomer,
+  findTenantByStripeCustomer
 } from './stripe-helpers'
 import {
   getPlanTemplate,
   computeMessageLimit,
   DEFAULT_PLANS,
-  type PlanId,
+  type PlanId
 } from './plans'
 import { syncTenantFeatureFlags } from './plan-sync'
 
@@ -28,9 +28,7 @@ async function resolveTenantId(
   if (metadata?.tenantId) return metadata.tenantId
 
   const custId =
-    typeof customerId === 'string'
-      ? customerId
-      : customerId?.id ?? null
+    typeof customerId === 'string' ? customerId : (customerId?.id ?? null)
   if (!custId) return null
 
   return findTenantByStripeCustomer(custId)
@@ -56,7 +54,7 @@ function findOverageItem(
 ): Stripe.SubscriptionItem | null {
   return (
     subscription.items.data.find(
-      (item) => item.price.recurring?.usage_type === 'metered'
+      item => item.price.recurring?.usage_type === 'metered'
     ) ?? null
   )
 }
@@ -69,7 +67,7 @@ function findBaseItem(
 ): Stripe.SubscriptionItem | null {
   return (
     subscription.items.data.find(
-      (item) => item.price.recurring?.usage_type !== 'metered'
+      item => item.price.recurring?.usage_type !== 'metered'
     ) ?? null
   )
 }
@@ -101,7 +99,7 @@ export async function handleSubscriptionChange(
 
   // Determine plan from price
   const planId: PlanId = basePriceId
-    ? (await mapStripePriceToPlan(basePriceId)) ?? 'pro'
+    ? ((await mapStripePriceToPlan(basePriceId)) ?? 'pro')
     : 'pro'
 
   const plan = await getPlanTemplate(planId)
@@ -115,13 +113,14 @@ export async function handleSubscriptionChange(
   const latestInvoiceId =
     typeof subscription.latest_invoice === 'string'
       ? subscription.latest_invoice
-      : subscription.latest_invoice?.id ?? null
+      : (subscription.latest_invoice?.id ?? null)
 
   if (latestInvoiceId) {
     try {
-      const inv = typeof subscription.latest_invoice === 'string'
-        ? await stripe.invoices.retrieve(latestInvoiceId)
-        : subscription.latest_invoice!
+      const inv =
+        typeof subscription.latest_invoice === 'string'
+          ? await stripe.invoices.retrieve(latestInvoiceId)
+          : subscription.latest_invoice!
       cycleStart = new Date(inv.period_start * 1000).toISOString()
       cycleEnd = new Date(inv.period_end * 1000).toISOString()
     } catch {
@@ -162,7 +161,7 @@ export async function handleSubscriptionChange(
     'subscription.stripeOverageItemId': overageItem?.id ?? null,
     'subscription.billingCycleStart': cycleStart,
     'subscription.billingCycleEnd': cycleEnd,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 
   // Sync feature flags to match the new plan
@@ -224,7 +223,7 @@ export async function handleSubscriptionDeleted(
     'subscription.billingCycleEnd': cycleEnd,
     'subscription.messageCount': 0,
     'subscription.overageCount': 0,
-    updatedAt: now.toISOString(),
+    updatedAt: now.toISOString()
   })
 
   // Sync feature flags to free plan
@@ -298,7 +297,7 @@ export async function handleInvoiceCreated(
       invoice: invoice.id,
       amount: totalAmount,
       currency: 'usd',
-      description: `Message overage: ${overageCount} messages × $${(effectiveOverageRate / 100).toFixed(4)}/msg`,
+      description: `Message overage: ${overageCount} messages × $${(effectiveOverageRate / 100).toFixed(4)}/msg`
     })
 
     console.log(
@@ -327,12 +326,8 @@ export async function handlePaymentSucceeded(
   if (!tenantId) return
 
   // Use the invoice period as the new billing cycle
-  const cycleStart = new Date(
-    invoice.period_start * 1000
-  ).toISOString()
-  const cycleEnd = new Date(
-    invoice.period_end * 1000
-  ).toISOString()
+  const cycleStart = new Date(invoice.period_start * 1000).toISOString()
+  const cycleEnd = new Date(invoice.period_end * 1000).toISOString()
 
   const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
   await tenantRef.update({
@@ -340,7 +335,7 @@ export async function handlePaymentSucceeded(
     'subscription.overageCount': 0,
     'subscription.billingCycleStart': cycleStart,
     'subscription.billingCycleEnd': cycleEnd,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 
   console.log(
@@ -371,7 +366,7 @@ export async function handlePaymentFailed(
     const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
     await tenantRef.update({
       status: 'suspended',
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     })
 
     console.log(

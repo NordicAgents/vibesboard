@@ -22,12 +22,17 @@ function loadEnv() {
       if (eqIndex === -1) continue
       const key = trimmed.slice(0, eqIndex).trim()
       let value = trimmed.slice(eqIndex + 1).trim()
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
       if (!process.env[key]) process.env[key] = value
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 loadEnv()
@@ -68,10 +73,11 @@ describe('openai-compat error handling', () => {
     const mod = await import('../openai-compat.ts')
     try {
       await assert.rejects(
-        () => mod.chatCompletion({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: 'hi' }]
-        }),
+        () =>
+          mod.chatCompletion({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: 'hi' }]
+          }),
         { message: /OPENAI_API_KEY/ }
       )
     } finally {
@@ -86,10 +92,11 @@ describe('openai-compat error handling', () => {
     const mod = await import('../openai-compat.ts')
     try {
       await assert.rejects(
-        () => mod.createEmbedding({
-          model: 'text-embedding-3-small',
-          input: 'test'
-        }),
+        () =>
+          mod.createEmbedding({
+            model: 'text-embedding-3-small',
+            input: 'test'
+          }),
         { message: /OPENAI_API_KEY/ }
       )
     } finally {
@@ -139,7 +146,13 @@ describe('openai-compat live API', () => {
 
     assert.ok(result.data, 'Response should have data')
     assert.ok(result.data.length > 0, 'Should have at least one embedding')
-    assert.ok(Array.isArray(result.data[0].embedding), 'Embedding should be an array')
-    assert.ok(result.data[0].embedding.length > 100, 'Embedding vector should have many dimensions')
+    assert.ok(
+      Array.isArray(result.data[0].embedding),
+      'Embedding should be an array'
+    )
+    assert.ok(
+      result.data[0].embedding.length > 100,
+      'Embedding vector should have many dimensions'
+    )
   })
 })

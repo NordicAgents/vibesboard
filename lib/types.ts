@@ -40,7 +40,13 @@ export type AgentMode = 'provider' | 'collector'
 
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 
-export type CollectionFieldType = 'text' | 'email' | 'phone' | 'number' | 'long_text' | 'choice'
+export type CollectionFieldType =
+  | 'text'
+  | 'email'
+  | 'phone'
+  | 'number'
+  | 'long_text'
+  | 'choice'
 
 export interface CollectionField {
   id: string
@@ -71,7 +77,7 @@ export interface AgentAction {
 export interface VibeAgent {
   id: string
   userId: string
-  tenantId?: string
+  tenantId: string
   tenantSlug?: string
   name: string
   instructions: string

@@ -38,7 +38,9 @@ export interface CompletionCheckResult {
  * in AgentChat. It reads remainingResponses synchronously (via ref)
  * and respects the isCorrecting guard.
  */
-export function checkCompletion(params: CompletionCheckParams): CompletionCheckResult {
+export function checkCompletion(
+  params: CompletionCheckParams
+): CompletionCheckResult {
   const { messages, isAgentDisabled, remainingResponses, isCorrecting } = params
 
   if (isAgentDisabled) {
@@ -63,7 +65,9 @@ export function checkCompletion(params: CompletionCheckParams): CompletionCheckR
       COMPLETION_MARKERS.CHAT_COMPLETE_REGEX.test(content)
     ) {
       // Check if CHAT_COMPLETE has chatComplete: false (agent handoff)
-      const chatCompleteMatch = content.match(COMPLETION_MARKERS.CHAT_COMPLETE_REGEX)
+      const chatCompleteMatch = content.match(
+        COMPLETION_MARKERS.CHAT_COMPLETE_REGEX
+      )
       if (chatCompleteMatch) {
         try {
           const meta = JSON.parse(chatCompleteMatch[1])
