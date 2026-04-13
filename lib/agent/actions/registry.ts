@@ -33,22 +33,24 @@ function buildLegacyAppointmentsAction(agent: VibeAgent): AgentAction | null {
   }
 }
 
-function buildLegacyBookingAction(agent: VibeAgent): AgentAction | null {
+function buildLegacyBookingConfigAction(agent: VibeAgent): AgentAction | null {
   const bc = agent.bookingConfig
-  if (bc?.enabled && bc.resources.length > 0) {
-    return {
-      id: 'legacy-booking',
-      type: 'booking',
-      enabled: true,
-      config: {
-        mode: bc.mode ?? 'enquiry',
-        resources: bc.resources,
-        eventTitleTemplate: bc.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)',
-        eventTimeMode: bc.eventTimeMode ?? 'all-day',
-        overlapProtection: bc.overlapProtection !== false
-      }
+  if (!bc?.enabled || bc.resources.length === 0) return null
+  return {
+    id: 'legacy-booking',
+    type: 'booking',
+    enabled: true,
+    config: {
+      mode: bc.mode ?? 'enquiry',
+      resources: bc.resources,
+      eventTitleTemplate: bc.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)',
+      eventTimeMode: bc.eventTimeMode ?? 'all-day',
+      overlapProtection: bc.overlapProtection !== false
     }
   }
+}
+
+function buildLegacyCalendarAvailabilityAction(agent: VibeAgent): AgentAction | null {
   const ca = agent.calendarAvailabilityConfig
   if (!ca?.enabled || !ca.calendarConnectionId) return null
   return {
@@ -70,6 +72,10 @@ function buildLegacyBookingAction(agent: VibeAgent): AgentAction | null {
       overlapProtection: true
     }
   }
+}
+
+function buildLegacyBookingAction(agent: VibeAgent): AgentAction | null {
+  return buildLegacyBookingConfigAction(agent) ?? buildLegacyCalendarAvailabilityAction(agent)
 }
 
 function buildLegacyDataAction(agent: VibeAgent): AgentAction | null {
