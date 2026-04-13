@@ -168,7 +168,7 @@ You have access to scheduling tools. Use them to help users book, reschedule, or
 BOOKING FLOW:
 1. Always call check_availability FIRST to see open slots before booking
 2. Present 3-5 available time options in a clear, human-readable format
-3. Only call book_meeting AFTER the user explicitly confirms a specific time slot
+3. Only call book_appointment AFTER the user explicitly confirms a specific time slot
 4. After booking, confirm: time, duration, and meeting link (if any)
 
 RESCHEDULING FLOW:
@@ -245,13 +245,13 @@ function getCalendarAvailabilityInstructions(agent: VibeAgent): string {
 
   return `
 ## Availability Checking
-You have access to the check_calendar_availability tool. Use it whenever a user asks about availability, free dates, or whether they can book ${resource}.
+You have access to the check_booking_availability tool. Use it whenever a user asks about availability, free dates, or whether they can book ${resource}.
 
 RULES:
-- Always call check_calendar_availability before telling the user whether dates are available or not — never guess
-- Required inputs: check_in and check_out dates in YYYY-MM-DD format
-- If the user gives vague dates like "next weekend" or "in May", convert them to exact YYYY-MM-DD dates before calling the tool
-- If the user only gives a check-in date, ask for the check-out date before calling the tool
+- Always call check_booking_availability before telling the user whether dates are available or not — never guess
+- Required inputs: resource_name ("${resource}"), start_datetime and end_datetime in YYYY-MM-DDTHH:MM format
+- If the user gives vague dates like "next weekend" or "in May", convert them to exact YYYY-MM-DDTHH:MM datetimes before calling the tool
+- If the user only gives a start date, ask for the end date before calling the tool
 - After getting the result, respond naturally — do not expose raw tool output to the user
 - If unavailable, suggest they try different dates`
 }
@@ -280,10 +280,10 @@ RULES:
 - When the owner asks about availability or bookings without specifying a room, query all rooms
 
 TOOL USAGE:
-- list_calendar_events: Query bookings across rooms. Use when the owner asks about bookings, availability, or schedule.
-- create_calendar_event: Create a new booking. Collect room, check-in, check-out, guest name, and guest count first. Confirm before creating.
-- update_calendar_event: Edit a booking. Find it first with list_calendar_events, then confirm changes before updating.
-- delete_calendar_event: Cancel a booking. Find it first with list_calendar_events, confirm before deleting.`
+- list_bookings: Query bookings across rooms. Use when the owner asks about bookings, availability, or schedule.
+- create_booking: Create a new booking. Collect room, check-in, check-out, guest name, and guest count first. Confirm before creating.
+- update_booking: Edit a booking. Find it first with list_bookings, then confirm changes before updating.
+- cancel_booking: Cancel a booking. Find it first with list_bookings, confirm before deleting.`
 }
 
 interface PromptOptions {
