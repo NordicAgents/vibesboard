@@ -32,19 +32,42 @@ export async function POST(req: Request) {
     const createdAt = Date.now()
     const path = `/chat/${id}`
     const payload = {
-      id, title, userId, createdAt, path,
+      id,
+      title,
+      userId,
+      createdAt,
+      path,
       messages: [...messages, { content: completion, role: 'assistant' }]
     }
-    await adminDb.collection(Collections.chats).doc(id).set({ id, userId, payload }, { merge: true })
+    await adminDb
+      .collection(Collections.chats)
+      .doc(id)
+      .set({ id, userId, payload }, { merge: true })
   }
 
   if (isResponsesModel(model)) {
     const conversation = Array.isArray(messages)
-      ? messages.map((m: any) => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''}`).join('\n\n')
+      ? messages
+          .map(
+            (m: any) =>
+              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''}`
+          )
+          .join('\n\n')
       : ''
-    const prompt = (conversation || '').trim() || 'You are a helpful assistant. Answer the user succinctly.'
-    const stream = await streamText({ prompt, model, apiKey, async onDone(completion) { await saveChat(completion) } })
-    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    const prompt =
+      (conversation || '').trim() ||
+      'You are a helpful assistant. Answer the user succinctly.'
+    const stream = await streamText({
+      prompt,
+      model,
+      apiKey,
+      async onDone(completion) {
+        await saveChat(completion)
+      }
+    })
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
   }
 
   const openaiClient = createOpenAI({ apiKey })
@@ -52,7 +75,9 @@ export async function POST(req: Request) {
     model: openaiClient(model),
     messages,
     temperature: 0.0,
-    async onFinish({ text }) { await saveChat(text) }
+    async onFinish({ text }) {
+      await saveChat(text)
+    }
   })
 
   return result.toTextStreamResponse()

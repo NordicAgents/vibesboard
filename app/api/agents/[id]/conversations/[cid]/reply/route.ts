@@ -5,14 +5,23 @@ import { nanoid } from 'nanoid'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getAgentById } from '@/lib/agents/server'
 import { canEditAgent } from '@/lib/agents/permissions'
-import { getConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import {
+  getConversation,
+  updateConversationMessages
+} from '@/lib/agents/conversations'
 import { sendChatwootMessage } from '@/lib/chatwoot/api-client'
-import { listChatwootConnections, decryptToken } from '@/lib/chatwoot/connections'
+import {
+  listChatwootConnections,
+  decryptToken
+} from '@/lib/chatwoot/connections'
 
 export const runtime = 'nodejs'
 
 const ReplySchema = z.object({
-  text: z.string().min(1, 'Message text is required').max(4096, 'Message too long')
+  text: z
+    .string()
+    .min(1, 'Message text is required')
+    .max(4096, 'Message too long')
 })
 
 type RouteParams = {
@@ -50,7 +59,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Load conversation
     const conversation = await getConversation(agent.tenantId, agentId, cid)
     if (!conversation) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Conversation not found' },
+        { status: 404 }
+      )
     }
 
     if (!conversation.externalId?.startsWith('chatwoot:')) {
@@ -73,8 +85,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Find matching Chatwoot connection
-    const connections = await listChatwootConnections(agent.tenantId, agentId, 'active')
-    const connection = connections.find(c => c.chatwootAccountId === chatwootAccountId)
+    const connections = await listChatwootConnections(
+      agent.tenantId,
+      agentId,
+      'active'
+    )
+    const connection = connections.find(
+      c => c.chatwootAccountId === chatwootAccountId
+    )
     if (!connection) {
       return NextResponse.json(
         { error: 'No active Chatwoot connection found for this conversation' },
@@ -83,9 +101,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Use bot token for consistent identity, fall back to user token
-    const token = connection.useAgentBot && connection.encryptedBotToken
-      ? decryptToken(connection.encryptedBotToken)
-      : decryptToken(connection.encryptedApiToken)
+    const token =
+      connection.useAgentBot && connection.encryptedBotToken
+        ? decryptToken(connection.encryptedBotToken)
+        : decryptToken(connection.encryptedApiToken)
 
     // Send to Chatwoot
     await sendChatwootMessage(
@@ -110,7 +129,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       messages: allMessages
     })
 
-    return NextResponse.json({ ok: true, messageId: assistantMessage.id }, { status: 201 })
+    return NextResponse.json(
+      { ok: true, messageId: assistantMessage.id },
+      { status: 201 }
+    )
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -119,6 +141,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
     console.error('[chatwoot] Error sending human reply:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

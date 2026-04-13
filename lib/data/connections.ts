@@ -65,7 +65,15 @@ export async function createDataConnection(
 
   const base: Pick<
     DataConnectionDocument,
-    'id' | 'tenantId' | 'provider' | 'name' | 'status' | 'connectedBy' | 'connectedAt' | 'createdAt' | 'updatedAt'
+    | 'id'
+    | 'tenantId'
+    | 'provider'
+    | 'name'
+    | 'status'
+    | 'connectedBy'
+    | 'connectedAt'
+    | 'createdAt'
+    | 'updatedAt'
   > = {
     id: docRef.id,
     tenantId: params.tenantId,
@@ -162,13 +170,28 @@ export async function updateDataConnectionStatus(
 export async function updateDataConnection(
   tenantId: string,
   connectionId: string,
-  updates: Partial<Pick<DataConnectionDocument, 'name' | 'sheetName' | 'spreadsheetId' | 'tableId' | 'tableName' | 'webhookUrl' | 'webhookMethod' | 'webhookHeaders'>>
+  updates: Partial<
+    Pick<
+      DataConnectionDocument,
+      | 'name'
+      | 'sheetName'
+      | 'spreadsheetId'
+      | 'tableId'
+      | 'tableName'
+      | 'webhookUrl'
+      | 'webhookMethod'
+      | 'webhookHeaders'
+    >
+  >
 ): Promise<void> {
   const collPath = Collections.dataConnections(tenantId)
-  await adminDb.collection(collPath).doc(connectionId).update({
-    ...updates,
-    updatedAt: new Date().toISOString()
-  })
+  await adminDb
+    .collection(collPath)
+    .doc(connectionId)
+    .update({
+      ...updates,
+      updatedAt: new Date().toISOString()
+    })
 }
 
 // ─── Token Management ───────────────────────────────────────────────
@@ -197,14 +220,21 @@ export async function getValidDataAccessToken(
       try {
         const refreshed = await refreshAccessToken(refreshToken)
         const collPath = Collections.dataConnections(connection.tenantId)
-        await adminDb.collection(collPath).doc(connection.id).update({
-          accessToken: encryptToken(refreshed.accessToken),
-          tokenExpiresAt: refreshed.expiresAt,
-          updatedAt: new Date().toISOString()
-        })
+        await adminDb
+          .collection(collPath)
+          .doc(connection.id)
+          .update({
+            accessToken: encryptToken(refreshed.accessToken),
+            tokenExpiresAt: refreshed.expiresAt,
+            updatedAt: new Date().toISOString()
+          })
         return refreshed.accessToken
       } catch (error) {
-        await updateDataConnectionStatus(connection.tenantId, connection.id, 'expired')
+        await updateDataConnectionStatus(
+          connection.tenantId,
+          connection.id,
+          'expired'
+        )
         throw new Error(
           `Google Sheets token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         )

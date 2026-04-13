@@ -5,7 +5,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Copy, Trash2, Plus, Eye, EyeOff, ChevronDown, ChevronUp, Link } from 'lucide-react'
+import {
+  Copy,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
+  Link
+} from 'lucide-react'
 import type { InviteCodeDocument } from '@/lib/firestore-types'
 
 interface InviteCodeManagerProps {
@@ -16,16 +25,21 @@ interface InviteCodeManagerProps {
   disabled?: boolean
 }
 
-function codeStatus(code: InviteCodeDocument): 'active' | 'expired' | 'revoked' | 'exhausted' {
+function codeStatus(
+  code: InviteCodeDocument
+): 'active' | 'expired' | 'revoked' | 'exhausted' {
   if (code.revoked) return 'revoked'
   if (code.expiresAt && new Date(code.expiresAt) < new Date()) return 'expired'
-  if (code.maxUses !== null && code.usedCount >= code.maxUses) return 'exhausted'
+  if (code.maxUses !== null && code.usedCount >= code.maxUses)
+    return 'exhausted'
   return 'active'
 }
 
 const statusColors: Record<string, string> = {
-  active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  expired: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  active:
+    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  expired:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   revoked: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   exhausted: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
 }
@@ -62,7 +76,9 @@ export function InviteCodeManager({
     }
   }, [agentId])
 
-  useEffect(() => { fetchCodes() }, [fetchCodes])
+  useEffect(() => {
+    fetchCodes()
+  }, [fetchCodes])
 
   // ─── Password handlers ───
   async function savePassword() {
@@ -83,7 +99,9 @@ export function InviteCodeManager({
   async function removePassword() {
     setSavingPassword(true)
     try {
-      await fetch(`/api/agents/${agentId}/access-password`, { method: 'DELETE' })
+      await fetch(`/api/agents/${agentId}/access-password`, {
+        method: 'DELETE'
+      })
       setHasPassword(false)
     } finally {
       setSavingPassword(false)
@@ -115,7 +133,9 @@ export function InviteCodeManager({
   }
 
   async function revoke(codeId: string) {
-    await fetch(`/api/agents/${agentId}/invite-codes/${codeId}`, { method: 'PATCH' })
+    await fetch(`/api/agents/${agentId}/invite-codes/${codeId}`, {
+      method: 'PATCH'
+    })
     fetchCodes()
   }
 
@@ -142,7 +162,9 @@ export function InviteCodeManager({
           </p>
           {hasPassword ? (
             <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">Password set</Badge>
+              <Badge variant="secondary" className="text-xs">
+                Password set
+              </Badge>
               <Button
                 size="sm"
                 variant="ghost"
@@ -168,7 +190,11 @@ export function InviteCodeManager({
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
               <Button
@@ -219,7 +245,9 @@ export function InviteCodeManager({
                 />
               </div>
               <div className="w-24">
-                <label className="text-xs text-muted-foreground">Max uses</label>
+                <label className="text-xs text-muted-foreground">
+                  Max uses
+                </label>
                 <Input
                   type="number"
                   min={1}
@@ -246,15 +274,15 @@ export function InviteCodeManager({
                 const status = codeStatus(code)
                 const isExpanded = expandedId === code.id
                 return (
-                  <div
-                    key={code.id}
-                    className="rounded-md border p-3"
-                  >
+                  <div key={code.id} className="rounded-md border p-3">
                     <div className="flex items-center gap-2">
                       <code className="text-sm font-medium">{code.code}</code>
-                      <Badge className={`text-xs ${statusColors[status]}`}>{status}</Badge>
+                      <Badge className={`text-xs ${statusColors[status]}`}>
+                        {status}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {code.usedCount}{code.maxUses !== null ? `/${code.maxUses}` : ''} uses
+                        {code.usedCount}
+                        {code.maxUses !== null ? `/${code.maxUses}` : ''} uses
                       </span>
                       <span className="flex-1" />
                       <button
@@ -265,7 +293,9 @@ export function InviteCodeManager({
                         <Copy className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => copyText(inviteLink(code.code), `link-${code.id}`)}
+                        onClick={() =>
+                          copyText(inviteLink(code.code), `link-${code.id}`)
+                        }
                         className="text-muted-foreground hover:text-foreground"
                         title="Copy invite link"
                       >
@@ -283,28 +313,54 @@ export function InviteCodeManager({
                       )}
                       {code.redemptions.length > 0 && (
                         <button
-                          onClick={() => setExpandedId(isExpanded ? null : code.id)}
+                          onClick={() =>
+                            setExpandedId(isExpanded ? null : code.id)
+                          }
                           className="text-muted-foreground hover:text-foreground"
                         >
-                          {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          {isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
                         </button>
                       )}
                     </div>
-                    {copied === `code-${code.id}` && <span className="text-xs text-green-600">Copied!</span>}
-                    {copied === `link-${code.id}` && <span className="text-xs text-green-600">Link copied!</span>}
+                    {copied === `code-${code.id}` && (
+                      <span className="text-xs text-green-600">Copied!</span>
+                    )}
+                    {copied === `link-${code.id}` && (
+                      <span className="text-xs text-green-600">
+                        Link copied!
+                      </span>
+                    )}
                     <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
                       {code.expiresAt && (
-                        <span>Expires: {new Date(code.expiresAt).toLocaleDateString()}</span>
+                        <span>
+                          Expires:{' '}
+                          {new Date(code.expiresAt).toLocaleDateString()}
+                        </span>
                       )}
-                      <span>Created: {new Date(code.createdAt).toLocaleDateString()}</span>
+                      <span>
+                        Created: {new Date(code.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
                     {isExpanded && code.redemptions.length > 0 && (
                       <div className="mt-2 border-t pt-2">
-                        <p className="mb-1 text-xs font-medium text-muted-foreground">Redemptions</p>
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">
+                          Redemptions
+                        </p>
                         {code.redemptions.map((r, i) => (
-                          <div key={i} className="flex justify-between text-xs text-muted-foreground">
-                            <span className="font-mono">{r.externalId.slice(0, 8)}...</span>
-                            <span>{new Date(r.redeemedAt).toLocaleString()}</span>
+                          <div
+                            key={i}
+                            className="flex justify-between text-xs text-muted-foreground"
+                          >
+                            <span className="font-mono">
+                              {r.externalId.slice(0, 8)}...
+                            </span>
+                            <span>
+                              {new Date(r.redeemedAt).toLocaleString()}
+                            </span>
                           </div>
                         ))}
                       </div>

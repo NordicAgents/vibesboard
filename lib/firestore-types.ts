@@ -35,15 +35,15 @@ export type DataConnectionStatus = 'active' | 'disconnected' | 'expired'
 export type DataActionType = 'append_row' | 'update_row' | 'webhook_submit'
 
 export interface DataFieldMapping {
-  collectionFieldId: string  // references CollectionField.id
-  targetColumn: string       // column header (Sheets) or field name (Airtable)
+  collectionFieldId: string // references CollectionField.id
+  targetColumn: string // column header (Sheets) or field name (Airtable)
 }
 
 export interface AgentDataConfig {
   enabled: boolean
   dataConnectionId: string | null
   fieldMappings: DataFieldMapping[]
-  autoSubmitOnComplete: boolean  // auto-push when collector-mode completes
+  autoSubmitOnComplete: boolean // auto-push when collector-mode completes
   updateKeyField?: string | null // field used to find existing rows for updates
 }
 
@@ -90,8 +90,8 @@ export interface BookingEnquiryDocument {
 export interface AgentCalendarAvailabilityConfig {
   enabled: boolean
   calendarConnectionId: string | null
-  calendarId?: string | null  // specific calendar to check — overrides the connection's default
-  resourceName?: string       // e.g. "Glass Cabin", "Conference Room A"
+  calendarId?: string | null // specific calendar to check — overrides the connection's default
+  resourceName?: string // e.g. "Glass Cabin", "Conference Room A"
 }
 
 // ─── Agent notifications ────────────────────────────────────────────
@@ -126,43 +126,43 @@ export type InboxMessageType =
 
 // ─── Usage metering ─────────────────────────────────────────────────
 export type UsageSource =
-  | 'chat'           // in-app agent chat
-  | 'ask_ai'         // conversation analysis
-  | 'public_chat'    // anonymous agent link
-  | 'hook_chat'      // hook /chat endpoint
-  | 'hook_stream'    // hook /stream endpoint
-  | 'hook_async'     // hook /async endpoint
-  | 'whatsapp'       // WhatsApp messages
-  | 'instagram'      // Instagram messages
-  | 'embed'          // embed widget
+  | 'chat' // in-app agent chat
+  | 'ask_ai' // conversation analysis
+  | 'public_chat' // anonymous agent link
+  | 'hook_chat' // hook /chat endpoint
+  | 'hook_stream' // hook /stream endpoint
+  | 'hook_async' // hook /async endpoint
+  | 'whatsapp' // WhatsApp messages
+  | 'instagram' // Instagram messages
+  | 'embed' // embed widget
 
 export interface TenantSubscription {
   planId: PlanId
-  seatCount: number                   // 1 for Free/Pro, 3+ for Team
-  billingCycleStart: string           // ISO date, start of current billing cycle
-  billingCycleEnd: string             // ISO date, end of current billing cycle
-  messageCount: number                // messages used in current cycle
-  messageLimit: number                // computed: plan.includedMessages or seatCount * plan.includedMessagesPerSeat
-  overageCount: number                // messages beyond limit in current cycle
-  customMessageLimit?: number | null  // admin override — null = use plan default
-  customOverageRate?: number | null   // admin override — null = use plan default
+  seatCount: number // 1 for Free/Pro, 3+ for Team
+  billingCycleStart: string // ISO date, start of current billing cycle
+  billingCycleEnd: string // ISO date, end of current billing cycle
+  messageCount: number // messages used in current cycle
+  messageLimit: number // computed: plan.includedMessages or seatCount * plan.includedMessagesPerSeat
+  overageCount: number // messages beyond limit in current cycle
+  customMessageLimit?: number | null // admin override — null = use plan default
+  customOverageRate?: number | null // admin override — null = use plan default
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   stripePriceId: string | null
-  stripeOverageItemId: string | null   // Stripe subscription item ID for metered overage line
+  stripeOverageItemId: string | null // Stripe subscription item ID for metered overage line
 }
 
 /** /plan_templates/{planId} */
 export interface PlanTemplateDocument {
   id: string
   name: string
-  price: number                       // monthly price in cents
-  pricePerSeat?: number | null        // cents per seat (Team only)
-  minSeats?: number | null            // minimum seats (Team only)
-  includedMessages: number            // per month
+  price: number // monthly price in cents
+  pricePerSeat?: number | null // cents per seat (Team only)
+  minSeats?: number | null // minimum seats (Team only)
+  includedMessages: number // per month
   includedMessagesPerSeat?: number | null // Team only
-  overageRate: number                 // cents per message (0 = hard cap)
-  featureFlags: string[]              // FeatureFlagName[] stored as strings
+  overageRate: number // cents per message (0 = hard cap)
+  featureFlags: string[] // FeatureFlagName[] stored as strings
   createdAt: string
   updatedAt: string
   // Stripe integration
@@ -184,17 +184,17 @@ export interface UsageLogDocument {
   tenantId: string
   agentId: string
   conversationId: string | null
-  userId: string | null               // null for anonymous/public chat
-  timestamp: string                   // ISO datetime
+  userId: string | null // null for anonymous/public chat
+  timestamp: string // ISO datetime
   source: UsageSource
-  model: string                       // e.g. 'gpt-4o-mini', 'gpt-4o'
-  inputTokens: number                 // from API response usage
-  outputTokens: number                // from API response usage
+  model: string // e.g. 'gpt-4o-mini', 'gpt-4o'
+  inputTokens: number // from API response usage
+  outputTokens: number // from API response usage
   totalTokens: number
   retrievalStrategy: 'direct' | 'rag' | 'bash' | null
   toolCalled: string | null
   latencyMs: number
-  billingCycleId: string              // YYYY-MM format for easy querying
+  billingCycleId: string // YYYY-MM format for easy querying
 }
 
 /** Per-user per-agent token usage breakdown */
@@ -215,14 +215,14 @@ export interface UserUsage {
 /** /tenants/{tenantId}/usage_rollups/{billingCycleId} */
 export interface UsageRollupDocument {
   tenantId: string
-  billingCycleId: string              // YYYY-MM
+  billingCycleId: string // YYYY-MM
   totalMessages: number
   totalInputTokens: number
   totalOutputTokens: number
   bySource: Partial<Record<UsageSource, number>>
   byAgent: Record<string, number>
   byModel: Record<string, number>
-  byUser: Record<string, UserUsage>   // user -> agents -> tokens hierarchy
+  byUser: Record<string, UserUsage> // user -> agents -> tokens hierarchy
   updatedAt: string
 }
 
@@ -428,11 +428,11 @@ export type HookJobStatus = 'pending' | 'running' | 'completed' | 'failed'
  * returned again.
  */
 export interface HookDocument {
-  id: string            // nanoid(21) — used as the URL token
+  id: string // nanoid(21) — used as the URL token
   agentId: string
   tenantId: string
-  name: string          // human label e.g. "Negotiation Service"
-  secretHash: string    // SHA-256 hex of the raw secret
+  name: string // human label e.g. "Negotiation Service"
+  secretHash: string // SHA-256 hex of the raw secret
   status: HookStatus
   requestCount: number
   lastUsedAt?: string
@@ -460,7 +460,7 @@ export interface HookJobDocument {
   status: HookJobStatus
   reply?: string
   error?: string
-  callbackStatus?: number   // HTTP status returned by the callback endpoint
+  callbackStatus?: number // HTTP status returned by the callback endpoint
   callbackAttempts: number
   createdAt: string
   startedAt?: string
@@ -740,10 +740,10 @@ export interface CalendarConnectionDocument {
   provider: CalendarProvider
   name: string
   calendarId: string
-  accessToken: string        // AES encrypted
-  refreshToken: string       // AES encrypted
+  accessToken: string // AES encrypted
+  refreshToken: string // AES encrypted
   tokenExpiresAt: string
-  apiKey?: string            // AES encrypted (Cal.com)
+  apiKey?: string // AES encrypted (Cal.com)
   apiBaseUrl?: string
   email?: string
   scopes: string[]
@@ -790,8 +790,8 @@ export interface DataConnectionDocument {
   name: string
 
   // Google Sheets (OAuth)
-  accessToken?: string         // AES encrypted
-  refreshToken?: string        // AES encrypted
+  accessToken?: string // AES encrypted
+  refreshToken?: string // AES encrypted
   tokenExpiresAt?: string
   email?: string
   spreadsheetId?: string
@@ -799,7 +799,7 @@ export interface DataConnectionDocument {
   scopes?: string[]
 
   // Airtable (personal access token)
-  apiToken?: string            // AES encrypted
+  apiToken?: string // AES encrypted
   baseId?: string
   tableId?: string
   tableName?: string
@@ -828,7 +828,7 @@ export interface DataActionLogDocument {
   action: DataActionType
   status: 'success' | 'failed'
   rowData: Record<string, any>
-  externalRef?: string       // row number, Airtable record ID, etc.
+  externalRef?: string // row number, Airtable record ID, etc.
   error?: string
   createdAt: string
 }
@@ -864,8 +864,7 @@ export const Collections = {
   platformConfig: 'platform_config',
 
   // Tenant-scoped
-  agentLinks: (tenantId: string) =>
-    `tenants/${tenantId}/agent_links` as const,
+  agentLinks: (tenantId: string) => `tenants/${tenantId}/agent_links` as const,
   branding: (tenantId: string) => `tenants/${tenantId}/branding` as const,
   members: (tenantId: string) => `tenants/${tenantId}/members` as const,
   featureToggles: (tenantId: string) =>
@@ -915,8 +914,7 @@ export const Collections = {
     `tenants/${tenantId}/whatsapp_inbox_accounts/${accountId}/conversations/${contactPhone}/messages` as const,
 
   // Usage metering
-  usageLogs: (tenantId: string) =>
-    `tenants/${tenantId}/usage_logs` as const,
+  usageLogs: (tenantId: string) => `tenants/${tenantId}/usage_logs` as const,
   usageRollups: (tenantId: string) =>
     `tenants/${tenantId}/usage_rollups` as const,
 

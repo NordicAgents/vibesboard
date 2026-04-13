@@ -1,0 +1,106 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # Every 6 hours
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check (staging)
+        id: check
+        run: |
+          URL="${{ secrets.STAGING_NEXT_PUBLIC_APP_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::warning::No URL configured for staging"
+            exit 0
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
+          echo "status=$HTTP_CODE" >> $GITHUB_OUTPUT
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::staging returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "staging is healthy (HTTP $HTTP_CODE)"
+
+      - name: Create incident issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const env = 'staging';
+            const status = '${{ steps.check.outputs.status }}';
+            const title = `[incident] ${env} health check failed (HTTP ${status})`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'incident',
+              state: 'open',
+            });
+            const duplicate = existing.data.find(i => i.title.includes(env));
+            if (duplicate) {
+              console.log(`Open incident already exists: #${duplicate.number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: `## Health Check Failure\n\n- **Environment:** ${env}\n- **HTTP Status:** ${status}\n- **Time:** ${new Date().toISOString()}\n- **Workflow Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nPlease investigate immediately.`,
+              labels: ['incident'],
+            });
+
+  production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check (production)
+        id: check
+        run: |
+          URL="${{ secrets.PROD_NEXT_PUBLIC_APP_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::warning::No URL configured for production"
+            exit 0
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$URL")
+          echo "status=$HTTP_CODE" >> $GITHUB_OUTPUT
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::production returned HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "production is healthy (HTTP $HTTP_CODE)"
+
+      - name: Create incident issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const env = 'production';
+            const status = '${{ steps.check.outputs.status }}';
+            const title = `[incident] ${env} health check failed (HTTP ${status})`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'incident',
+              state: 'open',
+            });
+            const duplicate = existing.data.find(i => i.title.includes(env));
+            if (duplicate) {
+              console.log(`Open incident already exists: #${duplicate.number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: `## Health Check Failure\n\n- **Environment:** ${env}\n- **HTTP Status:** ${status}\n- **Time:** ${new Date().toISOString()}\n- **Workflow Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nPlease investigate immediately.`,
+              labels: ['incident'],
+            });

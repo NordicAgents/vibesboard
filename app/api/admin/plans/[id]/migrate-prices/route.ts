@@ -20,10 +20,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   const { id } = await params
 
   // Verify plan exists and has a pending migration
-  const snap = await adminDb
-    .collection(Collections.planTemplates)
-    .doc(id)
-    .get()
+  const snap = await adminDb.collection(Collections.planTemplates).doc(id).get()
 
   if (!snap.exists) {
     return NextResponse.json(
@@ -45,7 +42,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       migrated: result.migrated,
-      errors: result.errors,
+      errors: result.errors
     })
   } catch (err) {
     console.error('[admin/plans] Price migration failed:', err)

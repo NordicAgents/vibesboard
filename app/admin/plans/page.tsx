@@ -141,7 +141,8 @@ export default function PlansPage() {
                 <div className="flex items-center gap-2 text-sm">
                   <Users className="size-4 text-[#6f7f80]" />
                   <span className="text-[#445e5f] dark:text-[#6f7f80]">
-                    {plan.tenantCount} {plan.tenantCount === 1 ? 'tenant' : 'tenants'}
+                    {plan.tenantCount}{' '}
+                    {plan.tenantCount === 1 ? 'tenant' : 'tenants'}
                   </span>
                 </div>
 

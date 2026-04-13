@@ -2,12 +2,16 @@ import { Bash } from 'just-bash'
 import { readFullFileContent } from '@/lib/agent/file-search'
 import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 import { type RegisteredTool } from '@/lib/agent/tools/base'
-import { type Retriever, type RetrieverConfig, type RetrieverResult } from '../types'
+import {
+  type Retriever,
+  type RetrieverConfig,
+  type RetrieverResult
+} from '../types'
 
 const MAX_CONTEXT_CHARS = 30_000
 const MAX_OUTPUT_CHARS = 8_000
 const MAX_COMMAND_LENGTH = 4_000
-const MAX_FILE_CHARS = 200_000  // ~200k chars per file in virtual FS
+const MAX_FILE_CHARS = 200_000 // ~200k chars per file in virtual FS
 const EXEC_TIMEOUT_MS = 10_000
 
 const EXECUTION_LIMITS = {
@@ -31,9 +35,9 @@ function sanitiseFileName(name: string): string {
   return (
     name
       .replace(/[^a-zA-Z0-9._-]/g, '_') // allowlist safe chars
-      .replace(/\.{2,}/g, '.')           // collapse .. → .
-      .replace(/^\.+/, '')               // strip leading dots
-    || 'file'
+      .replace(/\.{2,}/g, '.') // collapse .. → .
+      .replace(/^\.+/, '') || // strip leading dots
+    'file'
   )
 }
 
@@ -49,7 +53,10 @@ async function execWithTimeout(
   return Promise.race([
     bash.exec(command),
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Command timed out after ${timeoutMs}ms`)), timeoutMs)
+      setTimeout(
+        () => reject(new Error(`Command timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      )
     )
   ])
 }
@@ -85,7 +92,8 @@ export class BashRetriever implements Retriever {
 
       const safeName = sanitiseFileName(fileName)
       // Truncate file content to prevent unbounded memory use in virtual FS
-      const content = text.length > MAX_FILE_CHARS ? text.slice(0, MAX_FILE_CHARS) : text
+      const content =
+        text.length > MAX_FILE_CHARS ? text.slice(0, MAX_FILE_CHARS) : text
 
       this.bash.fs.writeFile(`${PROJECT_DIR}/${safeName}`, content)
       this.fileNames.push(safeName)
@@ -133,7 +141,9 @@ export class BashRetriever implements Retriever {
     // Inject a file listing hint into the system context
     let contextText = parts.length > 0 ? parts.join('\n\n---\n\n') : ''
     if (this.fileNames.length > 0) {
-      const listing = this.fileNames.map(f => `  - ${PROJECT_DIR}/${f}`).join('\n')
+      const listing = this.fileNames
+        .map(f => `  - ${PROJECT_DIR}/${f}`)
+        .join('\n')
       const hint =
         `[Uploaded files are available in a sandboxed virtual filesystem]\n` +
         `Use the bash tool to read and analyze them. Files written during bash calls ` +
@@ -170,9 +180,10 @@ export class BashRetriever implements Retriever {
         if (!bash) return 'Bash sandbox not initialised.'
 
         // Cap command length to prevent parser abuse
-        const command = raw.length > MAX_COMMAND_LENGTH
-          ? raw.slice(0, MAX_COMMAND_LENGTH)
-          : raw
+        const command =
+          raw.length > MAX_COMMAND_LENGTH
+            ? raw.slice(0, MAX_COMMAND_LENGTH)
+            : raw
 
         try {
           const result = await execWithTimeout(bash, command, EXEC_TIMEOUT_MS)

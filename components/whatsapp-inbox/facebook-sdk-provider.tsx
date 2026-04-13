@@ -12,7 +12,7 @@ interface FacebookSDKContextType {
 const FacebookSDKContext = createContext<FacebookSDKContextType>({
   isLoaded: false,
   isLoading: true,
-  error: null,
+  error: null
 })
 
 export function useFacebookSDK() {
@@ -50,7 +50,7 @@ declare global {
 }
 
 export function FacebookSDKProvider({
-  children,
+  children
 }: {
   children: React.ReactNode
 }) {
@@ -71,7 +71,7 @@ export function FacebookSDKProvider({
         appId,
         cookie: true,
         xfbml: false,
-        version: 'v21.0',
+        version: 'v21.0'
       })
       setIsLoaded(true)
       setIsLoading(false)

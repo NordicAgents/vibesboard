@@ -134,10 +134,9 @@ export function AgentDataSettings({
     setTestingId(connectionId)
     setTestResult(null)
     try {
-      const res = await fetch(
-        `/api/data/connections/${connectionId}/test`,
-        { method: 'POST' }
-      )
+      const res = await fetch(`/api/data/connections/${connectionId}/test`, {
+        method: 'POST'
+      })
       const data = await res.json()
       setTestResult({ id: connectionId, ok: data.ok, error: data.error })
     } catch {
@@ -209,10 +208,7 @@ export function AgentDataSettings({
     update({ fieldMappings: mappings })
   }
 
-  const updateMapping = (
-    index: number,
-    patch: Partial<DataFieldMapping>
-  ) => {
+  const updateMapping = (index: number, patch: Partial<DataFieldMapping>) => {
     const updated = [...current.fieldMappings]
     updated[index] = { ...updated[index], ...patch }
     update({ fieldMappings: updated })
@@ -308,9 +304,7 @@ export function AgentDataSettings({
                         type="radio"
                         name="data-connection"
                         checked={current.dataConnectionId === conn.id}
-                        onChange={() =>
-                          update({ dataConnectionId: conn.id })
-                        }
+                        onChange={() => update({ dataConnectionId: conn.id })}
                         disabled={disabled}
                         className="accent-primary"
                       />
@@ -440,9 +434,7 @@ export function AgentDataSettings({
                   <select
                     value={formWebhookMethod}
                     onChange={e =>
-                      setFormWebhookMethod(
-                        e.target.value as 'POST' | 'PUT'
-                      )
+                      setFormWebhookMethod(e.target.value as 'POST' | 'PUT')
                     }
                     disabled={addingLoading}
                     className="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -454,9 +446,7 @@ export function AgentDataSettings({
                     <Button
                       size="sm"
                       onClick={handleAddConnection}
-                      disabled={
-                        addingLoading || !formName || !formWebhookUrl
-                      }
+                      disabled={addingLoading || !formName || !formWebhookUrl}
                     >
                       {addingLoading ? 'Adding...' : 'Add Connection'}
                     </Button>
@@ -534,10 +524,7 @@ export function AgentDataSettings({
                       )
 
                       return (
-                        <div
-                          key={field.id}
-                          className="flex items-center gap-2"
-                        >
+                        <div key={field.id} className="flex items-center gap-2">
                           <span className="w-1/3 truncate text-xs text-muted-foreground">
                             {field.label}
                           </span>

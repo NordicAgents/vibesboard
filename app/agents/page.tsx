@@ -54,7 +54,8 @@ export default function AgentsPage() {
       }
     }
     window.addEventListener('tenantChanged', handleTenantChanged)
-    return () => window.removeEventListener('tenantChanged', handleTenantChanged)
+    return () =>
+      window.removeEventListener('tenantChanged', handleTenantChanged)
   }, [])
 
   useEffect(() => {
@@ -98,7 +99,9 @@ export default function AgentsPage() {
       }
     } catch (error) {
       console.error('Error fetching agents:', error)
-      toastWithRetry('Could not load agents. Check your connection.', () => fetchAgents(currentPage))
+      toastWithRetry('Could not load agents. Check your connection.', () =>
+        fetchAgents(currentPage)
+      )
     } finally {
       setIsLoading(false)
     }

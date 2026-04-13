@@ -17,13 +17,16 @@ function getCollectionFieldsPrompt(agent: VibeAgent): string {
   const required = sorted.filter(f => f.required)
   const optional = sorted.filter(f => !f.required)
 
-  let prompt = '\n## Information to Collect\nYou MUST collect the following fields from the user:\n'
+  let prompt =
+    '\n## Information to Collect\nYou MUST collect the following fields from the user:\n'
 
   if (required.length) {
     prompt += '\n**Required fields (must collect all before completing):**\n'
     for (const f of required) {
       const hint = f.description ? ` — ${f.description}` : ''
-      const choices = f.choices?.length ? ` (options: ${f.choices.join(', ')})` : ''
+      const choices = f.choices?.length
+        ? ` (options: ${f.choices.join(', ')})`
+        : ''
       prompt += `- **${f.label}** (${f.type})${hint}${choices}\n`
     }
   }
@@ -32,7 +35,9 @@ function getCollectionFieldsPrompt(agent: VibeAgent): string {
     prompt += '\n**Optional fields (ask if conversation allows):**\n'
     for (const f of optional) {
       const hint = f.description ? ` — ${f.description}` : ''
-      const choices = f.choices?.length ? ` (options: ${f.choices.join(', ')})` : ''
+      const choices = f.choices?.length
+        ? ` (options: ${f.choices.join(', ')})`
+        : ''
       prompt += `- ${f.label} (${f.type})${hint}${choices}\n`
     }
   }
@@ -142,7 +147,15 @@ function getSchedulingInstructions(agent: VibeAgent): string {
   const config = agent.schedulingConfig
   if (!config?.enabled) return ''
 
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const dayNames = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday'
+  ]
   const availableDaysList = config.availableDays
     .sort((a, b) => a - b)
     .map(d => dayNames[d])
@@ -185,7 +198,9 @@ function getDataActionInstructions(agent: VibeAgent): string {
   if (config.fieldMappings.length > 0 && agent.collectionFields?.length) {
     fieldMappingDesc = config.fieldMappings
       .map(m => {
-        const field = agent.collectionFields?.find(f => f.id === m.collectionFieldId)
+        const field = agent.collectionFields?.find(
+          f => f.id === m.collectionFieldId
+        )
         return field ? `- "${field.label}" → "${m.targetColumn}"` : null
       })
       .filter(Boolean)
@@ -245,7 +260,9 @@ function getDirectBookingInstructions(agent: VibeAgent): string {
   const config = agent.bookingConfig
   if (!config?.enabled || config.mode !== 'direct') return ''
 
-  const resourceNames = config.resources.map(r => `${r.name} (${r.timezone})`).join(', ')
+  const resourceNames = config.resources
+    .map(r => `${r.name} (${r.timezone})`)
+    .join(', ')
 
   return `
 ## Booking Management
@@ -291,13 +308,13 @@ export function buildAgentSystemPrompt(
   // Context block: adapts wording based on whether content was pre-loaded
   let contextBlock: string
   if (context) {
-    contextBlock =
-      `REFERENCE DOCUMENTS — The following documents and sources have been loaded. Use them to answer questions accurately and cite filenames or URLs when relevant.\n${context}`
+    contextBlock = `REFERENCE DOCUMENTS — The following documents and sources have been loaded. Use them to answer questions accurately and cite filenames or URLs when relevant.\n${context}`
     if (hasFileOverflow) {
       contextBlock += `\nNote: Some documents were too large to include in full. Use the file_search tool to query their content when needed.`
     }
   } else {
-    contextBlock = 'No additional reference material is available for this query.'
+    contextBlock =
+      'No additional reference material is available for this query.'
   }
 
   const fileSearchGuidance = agent.tools.some(
@@ -315,7 +332,10 @@ export function buildAgentSystemPrompt(
     : ''
 
   const quickSuggestionsMode = agent.quickSuggestionsMode ?? 'off'
-  const quickSuggestionsCount = Math.max(1, Math.min(5, agent.quickSuggestionsCount ?? 4))
+  const quickSuggestionsCount = Math.max(
+    1,
+    Math.min(5, agent.quickSuggestionsCount ?? 4)
+  )
   const quickSuggestionsGuidance =
     quickSuggestionsMode !== 'off'
       ? `Quick Suggestions (mode: "${quickSuggestionsMode}", count: ${quickSuggestionsCount}):
@@ -333,16 +353,21 @@ export function buildAgentSystemPrompt(
   const modeInstructions = getModeInstructions(agent)
 
   const handoffInstructions =
-    agent.handoffTargets?.length && options?.handoffTargetNames &&
+    agent.handoffTargets?.length &&
+    options?.handoffTargetNames &&
     Object.keys(options.handoffTargetNames).length > 0
       ? getHandoffInstructions(options.handoffTargetNames)
       : ''
 
-  const wrapUpInstructions = getWrapUpInstructions(agent.mode, remainingResponses)
+  const wrapUpInstructions = getWrapUpInstructions(
+    agent.mode,
+    remainingResponses
+  )
 
   const schedulingInstructions = getSchedulingInstructions(agent)
   const dataActionInstructions = getDataActionInstructions(agent)
-  const calendarAvailabilityInstructions = getCalendarAvailabilityInstructions(agent)
+  const calendarAvailabilityInstructions =
+    getCalendarAvailabilityInstructions(agent)
   const directBookingInstructions = getDirectBookingInstructions(agent)
 
   const agentName = sanitizeForPrompt(agent.name)

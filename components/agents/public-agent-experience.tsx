@@ -29,36 +29,46 @@ export function PublicAgentExperience({
   const router = useRouter()
   const [showThankYou, setShowThankYou] = useState(false)
   const [completedMessages, setCompletedMessages] = useState<Message[]>([])
-  const [completedConversationId, setCompletedConversationId] = useState<string | null>(null)
+  const [completedConversationId, setCompletedConversationId] = useState<
+    string | null
+  >(null)
   const [reviewShared, setReviewShared] = useState(false)
-  const [feedbackRating, setFeedbackRating] = useState<'positive' | 'negative' | null>(null)
+  const [feedbackRating, setFeedbackRating] = useState<
+    'positive' | 'negative' | null
+  >(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
 
-  const handleChatComplete = useCallback((messages?: Message[], conversationId?: string) => {
-    if (messages) setCompletedMessages(messages)
-    if (conversationId) setCompletedConversationId(conversationId)
-    setShowThankYou(true)
-  }, [])
+  const handleChatComplete = useCallback(
+    (messages?: Message[], conversationId?: string) => {
+      if (messages) setCompletedMessages(messages)
+      if (conversationId) setCompletedConversationId(conversationId)
+      setShowThankYou(true)
+    },
+    []
+  )
 
-  const handleFeedback = useCallback(async (rating: 'positive' | 'negative') => {
-    if (!completedConversationId || feedbackRating) return
-    setFeedbackSubmitting(true)
-    try {
-      await fetch(
-        `/api/public/agents/${agent.id}/conversations/${completedConversationId}/feedback`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rating })
-        }
-      )
-      setFeedbackRating(rating)
-    } catch {
-      // Silently fail — feedback is non-critical
-    } finally {
-      setFeedbackSubmitting(false)
-    }
-  }, [agent.id, completedConversationId, feedbackRating])
+  const handleFeedback = useCallback(
+    async (rating: 'positive' | 'negative') => {
+      if (!completedConversationId || feedbackRating) return
+      setFeedbackSubmitting(true)
+      try {
+        await fetch(
+          `/api/public/agents/${agent.id}/conversations/${completedConversationId}/feedback`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating })
+          }
+        )
+        setFeedbackRating(rating)
+      } catch {
+        // Silently fail — feedback is non-critical
+      } finally {
+        setFeedbackSubmitting(false)
+      }
+    },
+    [agent.id, completedConversationId, feedbackRating]
+  )
 
   const handleClose = useCallback(() => {
     if (embed) {
@@ -202,7 +212,7 @@ export function PublicAgentExperience({
                   src={logoUrl || '/logo_1.png'}
                   alt="agent"
                   className="size-6 object-contain"
-                  onError={(e) => {
+                  onError={e => {
                     // Fall back to default logo if custom logo fails to load
                     e.currentTarget.src = '/logo_1.png'
                   }}

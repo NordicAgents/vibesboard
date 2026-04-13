@@ -7,12 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
+  DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Key, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import {
+  Loader2,
+  Key,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ConnectApiKeyDialogProps {
@@ -25,43 +31,43 @@ const SETUP_STEPS = [
   {
     title: 'Link Instagram to a Facebook Page',
     description:
-      'Your Instagram account must be a Business or Creator account linked to a Facebook Page. In Instagram, go to Settings > Account > Linked Accounts > Facebook and connect your Page.',
+      'Your Instagram account must be a Business or Creator account linked to a Facebook Page. In Instagram, go to Settings > Account > Linked Accounts > Facebook and connect your Page.'
   },
   {
     title: 'Open Meta Business Settings',
     description:
       'Go to Meta Business Settings and select the business that owns your Facebook Page.',
     link: 'https://business.facebook.com/settings',
-    linkLabel: 'Open Business Settings',
+    linkLabel: 'Open Business Settings'
   },
   {
     title: 'Find your Facebook Page ID',
     description:
-      'In Business Settings, go to Accounts > Pages. Select your Page — the Page ID is the numeric ID shown at the top of the page details panel.',
+      'In Business Settings, go to Accounts > Pages. Select your Page — the Page ID is the numeric ID shown at the top of the page details panel.'
   },
   {
     title: 'Create a System User',
     description:
       'Go to Users > System Users. Click "Add" to create a new System User (choose "Admin" role). If you already have one, you can reuse it.',
     link: 'https://business.facebook.com/settings/system-users',
-    linkLabel: 'Open System Users',
+    linkLabel: 'Open System Users'
   },
   {
     title: 'Assign Page & Instagram permissions',
     description:
-      'Click "Add Assets" on your System User. Select "Pages", pick your Page, and enable "Manage Page". Then select "Instagram Accounts", pick your Instagram account, and enable "Manage Instagram account".',
+      'Click "Add Assets" on your System User. Select "Pages", pick your Page, and enable "Manage Page". Then select "Instagram Accounts", pick your Instagram account, and enable "Manage Instagram account".'
   },
   {
     title: 'Generate Page Access Token',
     description:
-      'Click "Generate New Token" on the System User. Select your app and check these permissions: pages_manage_metadata, instagram_basic, instagram_manage_messages. Set token expiry to "Never". Copy the token.',
-  },
+      'Click "Generate New Token" on the System User. Select your app and check these permissions: pages_manage_metadata, instagram_basic, instagram_manage_messages. Set token expiry to "Never". Copy the token.'
+  }
 ]
 
 export function ConnectApiKeyDialog({
   open,
   onOpenChange,
-  onSuccess,
+  onSuccess
 }: ConnectApiKeyDialogProps) {
   const [accessToken, setAccessToken] = useState('')
   const [pageId, setPageId] = useState('')
@@ -90,8 +96,8 @@ export function ConnectApiKeyDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accessToken: accessToken.trim(),
-          pageId: pageId.trim(),
-        }),
+          pageId: pageId.trim()
+        })
       })
 
       if (!res.ok) {
@@ -117,7 +123,8 @@ export function ConnectApiKeyDialog({
         <DialogHeader>
           <DialogTitle>Connect via API Key</DialogTitle>
           <DialogDescription>
-            Connect your Instagram Business account using a Page Access Token from Meta Business Suite.
+            Connect your Instagram Business account using a Page Access Token
+            from Meta Business Suite.
           </DialogDescription>
         </DialogHeader>
 
@@ -187,7 +194,7 @@ export function ConnectApiKeyDialog({
               id="page-id"
               placeholder="123456789012345"
               value={pageId}
-              onChange={(e) => setPageId(e.target.value)}
+              onChange={e => setPageId(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -202,17 +209,16 @@ export function ConnectApiKeyDialog({
               type="password"
               placeholder="EAABsbCS..."
               value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
+              onChange={e => setAccessToken(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              Generated from System Users page with pages_manage_metadata, instagram_basic, and instagram_manage_messages permissions
+              Generated from System Users page with pages_manage_metadata,
+              instagram_basic, and instagram_manage_messages permissions
             </p>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
             <Button

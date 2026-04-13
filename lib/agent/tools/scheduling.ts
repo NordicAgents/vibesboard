@@ -38,7 +38,11 @@ function formatSlotForDisplay(isoDate: string, timezone: string): string {
  * If the Google Calendar request times out and the tool is retried, the same
  * doc ID is generated — the existing booking is returned instead of creating a duplicate.
  */
-function bookingDocId(agentId: string, startTime: string, attendeeEmail: string): string {
+function bookingDocId(
+  agentId: string,
+  startTime: string,
+  attendeeEmail: string
+): string {
   // Normalize startTime to canonical ISO form so that equivalent times expressed
   // differently (e.g. "2026-05-10T14:00:00" vs "2026-05-10T14:00:00.000Z") produce
   // the same hash and the idempotency check is not bypassed.
@@ -49,7 +53,9 @@ function bookingDocId(agentId: string, startTime: string, attendeeEmail: string)
     .slice(0, 32)
 }
 
-function buildCheckAvailabilityTool(ctx: SchedulingToolContext): RegisteredTool {
+function buildCheckAvailabilityTool(
+  ctx: SchedulingToolContext
+): RegisteredTool {
   return {
     function: {
       name: 'check_availability',
@@ -71,7 +77,7 @@ function buildCheckAvailabilityTool(ctx: SchedulingToolContext): RegisteredTool 
         required: ['date']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const date = String(args.date ?? '').trim()
       if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return 'Please provide a valid date in YYYY-MM-DD format.'
@@ -153,7 +159,7 @@ function buildBookMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
         required: ['start_time', 'attendee_name', 'attendee_email']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const startTime = String(args.start_time ?? '').trim()
       const attendeeName = String(args.attendee_name ?? '').trim()
       const attendeeEmail = String(args.attendee_email ?? '').trim()
@@ -172,7 +178,9 @@ function buildBookMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
       if (isNaN(startMs)) {
         return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
       }
-      const endTime = new Date(startMs + durationMinutes * 60 * 1000).toISOString()
+      const endTime = new Date(
+        startMs + durationMinutes * 60 * 1000
+      ).toISOString()
 
       // Build title from template
       const title = args.title
@@ -212,7 +220,7 @@ function buildBookMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
           attendeeName,
           description: args.description
             ? String(args.description)
-            : ctx.config.meetingDescription ?? undefined,
+            : (ctx.config.meetingDescription ?? undefined),
           timezone: ctx.config.timezone,
           createMeetLink: ctx.config.createMeetLink
         })
@@ -262,7 +270,9 @@ function buildBookMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
   }
 }
 
-function buildRescheduleMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
+function buildRescheduleMeetingTool(
+  ctx: SchedulingToolContext
+): RegisteredTool {
   return {
     function: {
       name: 'reschedule_meeting',
@@ -277,8 +287,7 @@ function buildRescheduleMeetingTool(ctx: SchedulingToolContext): RegisteredTool 
           },
           original_start_time: {
             type: 'string',
-            description:
-              'Original meeting start time in ISO 8601 format.'
+            description: 'Original meeting start time in ISO 8601 format.'
           },
           new_start_time: {
             type: 'string',
@@ -286,13 +295,14 @@ function buildRescheduleMeetingTool(ctx: SchedulingToolContext): RegisteredTool 
           },
           duration_minutes: {
             type: 'number',
-            description: 'New duration in minutes. Optional — keeps original if omitted.'
+            description:
+              'New duration in minutes. Optional — keeps original if omitted.'
           }
         },
         required: ['attendee_email', 'original_start_time', 'new_start_time']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const attendeeEmail = String(args.attendee_email ?? '').trim()
       const originalStartTime = String(args.original_start_time ?? '').trim()
       const newStartTime = String(args.new_start_time ?? '').trim()
@@ -303,7 +313,10 @@ function buildRescheduleMeetingTool(ctx: SchedulingToolContext): RegisteredTool 
 
       try {
         // Find the booking
-        const bookingsPath = Collections.bookings(ctx.agent.tenantId!, ctx.agent.id)
+        const bookingsPath = Collections.bookings(
+          ctx.agent.tenantId!,
+          ctx.agent.id
+        )
         const snapshot = await adminDb
           .collection(bookingsPath)
           .where('attendeeEmail', '==', attendeeEmail)
@@ -311,7 +324,10 @@ function buildRescheduleMeetingTool(ctx: SchedulingToolContext): RegisteredTool 
           .get()
 
         const booking = snapshot.docs
-          .map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as BookingDocument))
+          .map(
+            (d: FirebaseFirestore.QueryDocumentSnapshot) =>
+              ({ id: d.id, ...d.data() }) as BookingDocument
+          )
           .find((b: BookingDocument) => {
             const bStart = new Date(b.startTime).getTime()
             const oStart = new Date(originalStartTime).getTime()
@@ -324,7 +340,8 @@ function buildRescheduleMeetingTool(ctx: SchedulingToolContext): RegisteredTool 
 
         // Calculate new end time
         const originalDuration =
-          new Date(booking.endTime).getTime() - new Date(booking.startTime).getTime()
+          new Date(booking.endTime).getTime() -
+          new Date(booking.startTime).getTime()
         const durationMs =
           typeof args.duration_minutes === 'number' && args.duration_minutes > 0
             ? args.duration_minutes * 60_000
@@ -385,7 +402,7 @@ function buildCancelMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
         required: ['attendee_email', 'start_time']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const attendeeEmail = String(args.attendee_email ?? '').trim()
       const startTime = String(args.start_time ?? '').trim()
 
@@ -395,7 +412,10 @@ function buildCancelMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
 
       try {
         // Find the booking
-        const bookingsPath = Collections.bookings(ctx.agent.tenantId!, ctx.agent.id)
+        const bookingsPath = Collections.bookings(
+          ctx.agent.tenantId!,
+          ctx.agent.id
+        )
         const snapshot = await adminDb
           .collection(bookingsPath)
           .where('attendeeEmail', '==', attendeeEmail)
@@ -403,7 +423,10 @@ function buildCancelMeetingTool(ctx: SchedulingToolContext): RegisteredTool {
           .get()
 
         const booking = snapshot.docs
-          .map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as BookingDocument))
+          .map(
+            (d: FirebaseFirestore.QueryDocumentSnapshot) =>
+              ({ id: d.id, ...d.data() }) as BookingDocument
+          )
           .find((b: BookingDocument) => {
             const bStart = new Date(b.startTime).getTime()
             const sStart = new Date(startTime).getTime()

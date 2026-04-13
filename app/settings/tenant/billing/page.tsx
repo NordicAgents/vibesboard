@@ -7,7 +7,7 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -20,11 +20,17 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CreditCard, ExternalLink, FileText, Loader2, Users } from 'lucide-react'
+import {
+  CreditCard,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Users
+} from 'lucide-react'
 import type { TenantSubscription } from '@/lib/firestore-types'
 import type { PlanDefinition, PlanId } from '@/lib/plans'
 
@@ -122,11 +128,7 @@ export default function BillingPage() {
             setData(newData)
             clearInterval(interval)
             // Clean up URL params
-            window.history.replaceState(
-              {},
-              '',
-              '/settings/tenant/billing'
-            )
+            window.history.replaceState({}, '', '/settings/tenant/billing')
           }
         }
       } catch {
@@ -163,8 +165,8 @@ export default function BillingPage() {
         body: JSON.stringify({
           tenantId: checkoutTenantId,
           planId,
-          seatCount,
-        }),
+          seatCount
+        })
       })
 
       const result = await res.json()
@@ -191,7 +193,7 @@ export default function BillingPage() {
       const createRes = await fetch('/api/tenants/create-team', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: teamName.trim() }),
+        body: JSON.stringify({ name: teamName.trim() })
       })
 
       const createResult = await createRes.json()
@@ -206,7 +208,7 @@ export default function BillingPage() {
       await fetch('/api/user/active-tenant', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: newTenantId }),
+        body: JSON.stringify({ tenant_id: newTenantId })
       })
 
       setTenantId(newTenantId)
@@ -230,7 +232,7 @@ export default function BillingPage() {
       const res = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId }),
+        body: JSON.stringify({ tenantId })
       })
 
       const result = await res.json()
@@ -290,14 +292,14 @@ export default function BillingPage() {
       {checkoutSuccess && (
         <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30">
           <CardContent className="py-4 text-center text-sm text-emerald-700 dark:text-emerald-300">
-            {subscription?.stripeSubscriptionId
-              ? 'Your subscription is now active!'
-              : (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="size-4 animate-spin" />
-                  Processing your payment...
-                </span>
-              )}
+            {subscription?.stripeSubscriptionId ? (
+              'Your subscription is now active!'
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Processing your payment...
+              </span>
+            )}
           </CardContent>
         </Card>
       )}
@@ -356,8 +358,8 @@ export default function BillingPage() {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {allPlans
-            .filter((p) => p.id !== 'enterprise')
-            .map((plan) => (
+            .filter(p => p.id !== 'enterprise')
+            .map(plan => (
               <PlanCard
                 key={plan.id}
                 plan={plan}
@@ -397,12 +399,13 @@ export default function BillingPage() {
           <CardHeader>
             <CardTitle>Recent Invoices</CardTitle>
             <CardDescription>
-              Your last {invoices.length} invoice{invoices.length !== 1 ? 's' : ''}
+              Your last {invoices.length} invoice
+              {invoices.length !== 1 ? 's' : ''}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {invoices.map((inv) => (
+              {invoices.map(inv => (
                 <div
                   key={inv.id}
                   className="flex items-center justify-between rounded-lg border border-[#e4e3e3] p-3 dark:border-[#344348]"
@@ -460,7 +463,7 @@ export default function BillingPage() {
                 id="team-name"
                 placeholder="My Team"
                 value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
+                onChange={e => setTeamName(e.target.value)}
                 disabled={creatingTeam}
               />
             </div>
@@ -473,15 +476,15 @@ export default function BillingPage() {
                   min={3}
                   max={100}
                   value={teamSeatCount}
-                  onChange={(e) =>
+                  onChange={e =>
                     setTeamSeatCount(Math.max(3, parseInt(e.target.value) || 3))
                   }
                   className="w-24"
                   disabled={creatingTeam}
                 />
                 <span className="text-sm text-[#6f7f80]">
-                  <Users className="mr-1 inline-block size-3.5" />
-                  ${teamSeatCount * 10}/mo
+                  <Users className="mr-1 inline-block size-3.5" />$
+                  {teamSeatCount * 10}/mo
                 </span>
               </div>
             </div>

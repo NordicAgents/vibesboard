@@ -109,7 +109,9 @@ export async function createAgentFilesAndTriggerProcessing(params: {
       console.error('[Agent Creation] Background file processing error:', error)
     })
 
-    console.log(`[Agent Creation] Triggered processing for ${createdFiles.length} files`)
+    console.log(
+      `[Agent Creation] Triggered processing for ${createdFiles.length} files`
+    )
   } catch (error) {
     console.error('[Agent Creation] Error in file processing setup:', error)
   }

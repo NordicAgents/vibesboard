@@ -34,7 +34,11 @@ describe('UsageRollupDocument type hierarchy', () => {
           inputTokens: 30000,
           outputTokens: 15000,
           byAgent: {
-            'agent-1': { messages: 40, inputTokens: 20000, outputTokens: 10000 },
+            'agent-1': {
+              messages: 40,
+              inputTokens: 20000,
+              outputTokens: 10000
+            },
             'agent-2': { messages: 20, inputTokens: 10000, outputTokens: 5000 }
           }
         },
@@ -84,13 +88,19 @@ describe('UsageRollupDocument type hierarchy', () => {
     // External user (public chat session)
     const extSession = rollup.byUser['ext:session-abc']
     assert.equal(extSession.messages, 10)
-    assert.ok(extSession.byAgent['agent-2'], 'external session should have agent-2 usage')
+    assert.ok(
+      extSession.byAgent['agent-2'],
+      'external session should have agent-2 usage'
+    )
     assert.equal(extSession.byAgent['agent-2'].inputTokens, 5000)
 
     // External user (hook)
     const extHook = rollup.byUser['ext:hook-xyz']
     assert.equal(extHook.messages, 10)
-    assert.ok(extHook.byAgent['agent-1'], 'external hook should have agent-1 usage')
+    assert.ok(
+      extHook.byAgent['agent-1'],
+      'external hook should have agent-1 usage'
+    )
   })
 
   test('ext: prefixed users are individually tracked, not merged', () => {
@@ -108,19 +118,25 @@ describe('UsageRollupDocument type hierarchy', () => {
           messages: 10,
           inputTokens: 5000,
           outputTokens: 2500,
-          byAgent: { 'agent-1': { messages: 10, inputTokens: 5000, outputTokens: 2500 } }
+          byAgent: {
+            'agent-1': { messages: 10, inputTokens: 5000, outputTokens: 2500 }
+          }
         },
         'ext:session-bbb': {
           messages: 10,
           inputTokens: 5000,
           outputTokens: 2500,
-          byAgent: { 'agent-1': { messages: 10, inputTokens: 5000, outputTokens: 2500 } }
+          byAgent: {
+            'agent-1': { messages: 10, inputTokens: 5000, outputTokens: 2500 }
+          }
         },
         'ext:hook-ccc': {
           messages: 10,
           inputTokens: 5000,
           outputTokens: 2500,
-          byAgent: { 'agent-2': { messages: 10, inputTokens: 5000, outputTokens: 2500 } }
+          byAgent: {
+            'agent-2': { messages: 10, inputTokens: 5000, outputTokens: 2500 }
+          }
         }
       },
       updatedAt: '2026-04-01T00:00:00Z'
@@ -181,14 +197,35 @@ describe('UsageRollupDocument type hierarchy', () => {
       }
     }
 
-    const sumMessages = Object.values(user.byAgent).reduce((s, a) => s + a.messages, 0)
-    assert.equal(sumMessages, user.messages, 'user messages should equal sum of agent messages')
+    const sumMessages = Object.values(user.byAgent).reduce(
+      (s, a) => s + a.messages,
+      0
+    )
+    assert.equal(
+      sumMessages,
+      user.messages,
+      'user messages should equal sum of agent messages'
+    )
 
-    const sumInput = Object.values(user.byAgent).reduce((s, a) => s + a.inputTokens, 0)
-    assert.equal(sumInput, user.inputTokens, 'user inputTokens should equal sum of agent inputTokens')
+    const sumInput = Object.values(user.byAgent).reduce(
+      (s, a) => s + a.inputTokens,
+      0
+    )
+    assert.equal(
+      sumInput,
+      user.inputTokens,
+      'user inputTokens should equal sum of agent inputTokens'
+    )
 
-    const sumOutput = Object.values(user.byAgent).reduce((s, a) => s + a.outputTokens, 0)
-    assert.equal(sumOutput, user.outputTokens, 'user outputTokens should equal sum of agent outputTokens')
+    const sumOutput = Object.values(user.byAgent).reduce(
+      (s, a) => s + a.outputTokens,
+      0
+    )
+    assert.equal(
+      sumOutput,
+      user.outputTokens,
+      'user outputTokens should equal sum of agent outputTokens'
+    )
   })
 
   test('tenant totals can be derived by summing all user usage (auth + ext)', () => {
@@ -206,32 +243,59 @@ describe('UsageRollupDocument type hierarchy', () => {
           messages: 20,
           inputTokens: 10000,
           outputTokens: 5000,
-          byAgent: { 'a1': { messages: 20, inputTokens: 10000, outputTokens: 5000 } }
+          byAgent: {
+            a1: { messages: 20, inputTokens: 10000, outputTokens: 5000 }
+          }
         },
         'ext:session-abc': {
           messages: 10,
           inputTokens: 5000,
           outputTokens: 2500,
-          byAgent: { 'a1': { messages: 10, inputTokens: 5000, outputTokens: 2500 } }
+          byAgent: {
+            a1: { messages: 10, inputTokens: 5000, outputTokens: 2500 }
+          }
         },
         'ext:hook-def': {
           messages: 10,
           inputTokens: 5000,
           outputTokens: 2500,
-          byAgent: { 'a2': { messages: 10, inputTokens: 5000, outputTokens: 2500 } }
+          byAgent: {
+            a2: { messages: 10, inputTokens: 5000, outputTokens: 2500 }
+          }
         }
       },
       updatedAt: '2026-04-01T00:00:00Z'
     }
 
-    const sumMessages = Object.values(rollup.byUser).reduce((s, u) => s + u.messages, 0)
-    assert.equal(sumMessages, rollup.totalMessages, 'tenant messages should equal sum of all user messages')
+    const sumMessages = Object.values(rollup.byUser).reduce(
+      (s, u) => s + u.messages,
+      0
+    )
+    assert.equal(
+      sumMessages,
+      rollup.totalMessages,
+      'tenant messages should equal sum of all user messages'
+    )
 
-    const sumInput = Object.values(rollup.byUser).reduce((s, u) => s + u.inputTokens, 0)
-    assert.equal(sumInput, rollup.totalInputTokens, 'tenant inputTokens should equal sum of all user inputTokens')
+    const sumInput = Object.values(rollup.byUser).reduce(
+      (s, u) => s + u.inputTokens,
+      0
+    )
+    assert.equal(
+      sumInput,
+      rollup.totalInputTokens,
+      'tenant inputTokens should equal sum of all user inputTokens'
+    )
 
-    const sumOutput = Object.values(rollup.byUser).reduce((s, u) => s + u.outputTokens, 0)
-    assert.equal(sumOutput, rollup.totalOutputTokens, 'tenant outputTokens should equal sum of all user outputTokens')
+    const sumOutput = Object.values(rollup.byUser).reduce(
+      (s, u) => s + u.outputTokens,
+      0
+    )
+    assert.equal(
+      sumOutput,
+      rollup.totalOutputTokens,
+      'tenant outputTokens should equal sum of all user outputTokens'
+    )
   })
 
   test('each external user can be traced back to specific agents and tenant', () => {
@@ -267,7 +331,11 @@ describe('UsageRollupDocument type hierarchy', () => {
           inputTokens: 5000,
           outputTokens: 2500,
           byAgent: {
-            'bot-support': { messages: 8, inputTokens: 4000, outputTokens: 2000 },
+            'bot-support': {
+              messages: 8,
+              inputTokens: 4000,
+              outputTokens: 2000
+            },
             'bot-sales': { messages: 2, inputTokens: 1000, outputTokens: 500 }
           }
         }
@@ -283,7 +351,11 @@ describe('UsageRollupDocument type hierarchy', () => {
     assert.equal(visitor1.messages, 5)
 
     // Can see which agents each external user consumed
-    assert.equal(Object.keys(visitor1.byAgent).length, 2, 'visitor-001 used 2 agents')
+    assert.equal(
+      Object.keys(visitor1.byAgent).length,
+      2,
+      'visitor-001 used 2 agents'
+    )
     assert.equal(visitor1.byAgent['bot-sales'].messages, 3)
     assert.equal(visitor1.byAgent['bot-support'].messages, 2)
 

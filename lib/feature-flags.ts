@@ -32,7 +32,9 @@ export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
  * Maps child flag → parent flag.
  * If a parent is disabled, all children are automatically disabled.
  */
-export const FEATURE_FLAG_HIERARCHY: Partial<Record<FeatureFlagName, FeatureFlagName>> = {
+export const FEATURE_FLAG_HIERARCHY: Partial<
+  Record<FeatureFlagName, FeatureFlagName>
+> = {
   WHATSAPP_INBOX: 'INBOX',
   WHATSAPP_INBOX_OAUTH: 'WHATSAPP_INBOX',
   WHATSAPP_INBOX_API_KEY: 'WHATSAPP_INBOX',
@@ -46,23 +48,32 @@ export const FEATURE_FLAG_HIERARCHY: Partial<Record<FeatureFlagName, FeatureFlag
   AGENT_NOTIFICATIONS_WEBHOOK: 'AGENT_NOTIFICATIONS',
   AGENT_ACTIONS_SCHEDULE: 'AGENT_ACTIONS',
   AGENT_ACTIONS_DATA: 'AGENT_ACTIONS',
-  AGENT_ACTIONS_BOOKING: 'AGENT_ACTIONS',
+  AGENT_ACTIONS_BOOKING: 'AGENT_ACTIONS'
 }
 
 /** Get the parent flag name for a given flag, or null if it has no parent. */
-export function getParentFlag(flagName: FeatureFlagName): FeatureFlagName | null {
+export function getParentFlag(
+  flagName: FeatureFlagName
+): FeatureFlagName | null {
   return FEATURE_FLAG_HIERARCHY[flagName] ?? null
 }
 
 /** Get all child flag names for a given parent flag. */
 export function getChildFlags(flagName: FeatureFlagName): FeatureFlagName[] {
-  return (Object.entries(FEATURE_FLAG_HIERARCHY) as [FeatureFlagName, FeatureFlagName][])
+  return (
+    Object.entries(FEATURE_FLAG_HIERARCHY) as [
+      FeatureFlagName,
+      FeatureFlagName
+    ][]
+  )
     .filter(([, parent]) => parent === flagName)
     .map(([child]) => child)
 }
 
 /** Get all descendant flag names recursively (children, grandchildren, etc.). */
-export function getAllDescendants(flagName: FeatureFlagName): FeatureFlagName[] {
+export function getAllDescendants(
+  flagName: FeatureFlagName
+): FeatureFlagName[] {
   const descendants: FeatureFlagName[] = []
   const children = getChildFlags(flagName)
   for (const child of children) {

@@ -3,7 +3,7 @@ import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import {
   processInboundMessage,
   processDeliveryUpdate,
-  processReadUpdate,
+  processReadUpdate
 } from '@/lib/instagram-inbox/webhook-handlers'
 
 export const runtime = 'nodejs'
@@ -26,10 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   console.error('[Instagram Inbox] Webhook verification failed')
-  return NextResponse.json(
-    { error: 'Verification failed' },
-    { status: 403 }
-  )
+  return NextResponse.json({ error: 'Verification failed' }, { status: 403 })
 }
 
 /**
@@ -43,7 +40,11 @@ export async function POST(request: NextRequest) {
     // Verify Meta webhook signature
     const signature = request.headers.get('x-hub-signature-256')
     const appSecret = process.env.META_APP_SECRET
-    if (!appSecret || !signature || !verifyWebhookSignature(rawBody, signature, appSecret)) {
+    if (
+      !appSecret ||
+      !signature ||
+      !verifyWebhookSignature(rawBody, signature, appSecret)
+    ) {
       console.error('[Instagram Inbox] Invalid webhook signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
     }
@@ -63,7 +64,11 @@ export async function POST(request: NextRequest) {
 
       for (const event of entry.messaging || []) {
         // Handle inbound messages
-        if (event.message && !event.message.is_echo && !event.message.is_deleted) {
+        if (
+          event.message &&
+          !event.message.is_echo &&
+          !event.message.is_deleted
+        ) {
           await processInboundMessage(pageId, event)
         }
 

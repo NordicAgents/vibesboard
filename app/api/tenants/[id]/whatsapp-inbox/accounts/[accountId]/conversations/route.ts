@@ -14,10 +14,7 @@ type RouteParams = {
   params: Promise<{ id: string; accountId: string }>
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)

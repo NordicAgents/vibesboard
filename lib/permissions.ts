@@ -18,10 +18,7 @@ export async function getUserRole(
 
 export async function isSuperAdmin(userId: string): Promise<boolean> {
   // Check the user document for the isSuperAdmin flag
-  const userDoc = await adminDb
-    .collection(Collections.users)
-    .doc(userId)
-    .get()
+  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
 
   if (userDoc.exists && userDoc.data()?.isSuperAdmin) {
     return true
@@ -71,9 +68,7 @@ export async function isMemberOfTenant(
   return doc.exists
 }
 
-export async function hasTenantAdminAccess(
-  userId: string
-): Promise<boolean> {
+export async function hasTenantAdminAccess(userId: string): Promise<boolean> {
   // Check across all tenants if user has admin access
   const snapshot = await adminDb
     .collectionGroup('members')

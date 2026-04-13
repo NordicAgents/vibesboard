@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react'
 import { ArrowRightLeft } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 
 interface AgentOption {
   id: string
@@ -35,10 +41,9 @@ export function AgentHandoffSettings({
     async function fetchAgents() {
       setLoading(true)
       try {
-        const res = await fetch(
-          `/api/agents?tenant_id=${tenantId}&limit=50`,
-          { signal: controller.signal }
-        )
+        const res = await fetch(`/api/agents?tenant_id=${tenantId}&limit=50`, {
+          signal: controller.signal
+        })
         if (!res.ok) return
 
         const data = await res.json()

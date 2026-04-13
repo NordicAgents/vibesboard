@@ -13,10 +13,7 @@ type RouteParams = {
  * GET — List messages for a conversation.
  * Query params: ?limit=50&before=ISO_TIMESTAMP
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -31,10 +28,7 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = Math.min(
-      parseInt(searchParams.get('limit') || '50', 10),
-      100
-    )
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100)
     const before = searchParams.get('before') || undefined
 
     const messages = await listMessages(
@@ -59,10 +53,7 @@ export async function GET(
  * POST — Send a reply message.
  * Body: { text: string }
  */
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -98,7 +89,7 @@ export async function POST(
       accountId,
       contactIgsid: contactId,
       text: text.trim(),
-      userId: authResult.user.id,
+      userId: authResult.user.id
     })
 
     return NextResponse.json(message, { status: 201 })

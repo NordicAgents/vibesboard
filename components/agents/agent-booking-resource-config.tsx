@@ -6,9 +6,18 @@ import { nanoid } from 'nanoid'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
 import { Trash2, Plus } from 'lucide-react'
-import type { AgentBookingConfig, BookableResource } from '@/lib/firestore-types'
+import type {
+  AgentBookingConfig,
+  BookableResource
+} from '@/lib/firestore-types'
 
 interface CalendarConnectionSummary {
   id: string
@@ -54,10 +63,17 @@ const EMPTY_DRAFT: DraftResource = {
   timezone: 'UTC'
 }
 
-export function AgentBookingResourceConfig({ config, onChange, disabled, tenantId }: Props) {
+export function AgentBookingResourceConfig({
+  config,
+  onChange,
+  disabled,
+  tenantId
+}: Props) {
   const current = config ?? DEFAULT_CONFIG
 
-  const [connections, setConnections] = useState<CalendarConnectionSummary[]>([])
+  const [connections, setConnections] = useState<CalendarConnectionSummary[]>(
+    []
+  )
   const [loadingConnections, setLoadingConnections] = useState(true)
 
   const [adding, setAdding] = useState(false)
@@ -74,13 +90,20 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
         if (mounted) setConnections(data.connections ?? [])
       })
       .catch(() => toast.error('Failed to load calendar connections'))
-      .finally(() => { if (mounted) setLoadingConnections(false) })
-    return () => { mounted = false }
+      .finally(() => {
+        if (mounted) setLoadingConnections(false)
+      })
+    return () => {
+      mounted = false
+    }
   }, [tenantId])
 
   // Load calendars when draft connection changes
   useEffect(() => {
-    if (!draft.calendarConnectionId) { setCalendars([]); return }
+    if (!draft.calendarConnectionId) {
+      setCalendars([])
+      return
+    }
     let mounted = true
     setLoadingCalendars(true)
     fetch(`/api/scheduling/connections/${draft.calendarConnectionId}/calendars`)
@@ -92,27 +115,47 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
         // Auto-select first calendar
         if (items.length > 0 && !draft.calendarId) {
           const first = items.find(c => c.primary) ?? items[0]
-          setDraft(d => ({ ...d, calendarId: first.id, calendarName: first.summary }))
+          setDraft(d => ({
+            ...d,
+            calendarId: first.id,
+            calendarName: first.summary
+          }))
         }
       })
-      .catch(() => toast.error('Could not load calendars — check your connection'))
-      .finally(() => { if (mounted) setLoadingCalendars(false) })
-    return () => { mounted = false }
+      .catch(() =>
+        toast.error('Could not load calendars — check your connection')
+      )
+      .finally(() => {
+        if (mounted) setLoadingCalendars(false)
+      })
+    return () => {
+      mounted = false
+    }
   }, [draft.calendarConnectionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const update = (patch: Partial<AgentBookingConfig>) => onChange({ ...current, ...patch })
+  const update = (patch: Partial<AgentBookingConfig>) =>
+    onChange({ ...current, ...patch })
 
   const addResource = () => {
-    if (!draft.name.trim() || !draft.calendarConnectionId || !draft.calendarId) {
-      toast.error('Fill in resource name, connection, and calendar before adding.')
+    if (
+      !draft.name.trim() ||
+      !draft.calendarConnectionId ||
+      !draft.calendarId
+    ) {
+      toast.error(
+        'Fill in resource name, connection, and calendar before adding.'
+      )
       return
     }
     const tz = draft.timezone.trim() || 'UTC'
-    const validTimezones: readonly string[] = typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
-      ? (Intl as any).supportedValuesOf('timeZone')
-      : []
+    const validTimezones: readonly string[] =
+      typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+        ? (Intl as any).supportedValuesOf('timeZone')
+        : []
     if (validTimezones.length > 0 && !validTimezones.includes(tz)) {
-      toast.error(`"${tz}" is not a valid IANA timezone. Try e.g. Asia/Kolkata, America/New_York.`)
+      toast.error(
+        `"${tz}" is not a valid IANA timezone. Try e.g. Asia/Kolkata, America/New_York.`
+      )
       return
     }
     const resource: BookableResource = {
@@ -145,7 +188,7 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
           <CardDescription>
             {current.mode === 'direct'
               ? 'Manage room bookings directly through the agent via Google Calendar.'
-              : 'Let guests check availability and submit booking enquiries via the agent. You\'ll receive an email with an .ics attachment for each enquiry.'}
+              : "Let guests check availability and submit booking enquiries via the agent. You'll receive an email with an .ics attachment for each enquiry."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -153,7 +196,9 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
             <div>
               <p className="text-sm font-medium">Enable simple booking</p>
               <p className="text-xs text-muted-foreground">
-                {canEnable ? 'Guests can check availability and submit enquiries' : 'Add at least one resource to enable'}
+                {canEnable
+                  ? 'Guests can check availability and submit enquiries'
+                  : 'Add at least one resource to enable'}
               </p>
             </div>
             <Switch
@@ -176,26 +221,41 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Mode</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Mode
+              </label>
               <select
                 value={current.mode ?? 'enquiry'}
-                onChange={e => update({ mode: e.target.value as 'enquiry' | 'direct' })}
+                onChange={e =>
+                  update({ mode: e.target.value as 'enquiry' | 'direct' })
+                }
                 disabled={disabled}
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
-                <option value="enquiry">Enquiry — guests submit booking requests</option>
-                <option value="direct">Direct — owner manages bookings via chat</option>
+                <option value="enquiry">
+                  Enquiry — guests submit booking requests
+                </option>
+                <option value="direct">
+                  Direct — owner manages bookings via chat
+                </option>
               </select>
             </div>
 
             {current.mode === 'direct' && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Event title template</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Event title template
+                  </label>
                   <Input
                     placeholder="{guest_name} ({guest_count} guests)"
-                    value={current.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)'}
-                    onChange={e => update({ eventTitleTemplate: e.target.value })}
+                    value={
+                      current.eventTitleTemplate ??
+                      '{guest_name} ({guest_count} guests)'
+                    }
+                    onChange={e =>
+                      update({ eventTitleTemplate: e.target.value })
+                    }
                     disabled={disabled}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -204,27 +264,39 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Event time mode</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Event time mode
+                  </label>
                   <select
                     value={current.eventTimeMode ?? 'all-day'}
-                    onChange={e => update({ eventTimeMode: e.target.value as 'all-day' | 'timed' })}
+                    onChange={e =>
+                      update({
+                        eventTimeMode: e.target.value as 'all-day' | 'timed'
+                      })
+                    }
                     disabled={disabled}
                     className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                   >
                     <option value="all-day">All-day events (date only)</option>
-                    <option value="timed">Timed events (2pm check-in, 11am check-out)</option>
+                    <option value="timed">
+                      Timed events (2pm check-in, 11am check-out)
+                    </option>
                   </select>
                 </div>
 
                 <div className="flex items-center justify-between rounded-md border p-3">
                   <div>
                     <p className="text-sm font-medium">Overlap protection</p>
-                    <p className="text-xs text-muted-foreground">Block bookings that overlap with existing events</p>
+                    <p className="text-xs text-muted-foreground">
+                      Block bookings that overlap with existing events
+                    </p>
                   </div>
                   <Switch
                     checked={current.overlapProtection !== false}
                     disabled={disabled}
-                    onCheckedChange={overlapProtection => update({ overlapProtection })}
+                    onCheckedChange={overlapProtection =>
+                      update({ overlapProtection })
+                    }
                   />
                 </div>
               </>
@@ -243,10 +315,15 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
         </CardHeader>
         <CardContent className="space-y-3">
           {current.resources.map(r => (
-            <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+            <div
+              key={r.id}
+              className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+            >
               <div>
                 <p className="font-medium">{r.name}</p>
-                <p className="text-xs text-muted-foreground">{r.calendarName} · {r.timezone}</p>
+                <p className="text-xs text-muted-foreground">
+                  {r.calendarName} · {r.timezone}
+                </p>
               </div>
               <button
                 onClick={() => removeResource(r.id)}
@@ -261,29 +338,44 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
           {adding ? (
             <div className="space-y-3 rounded-lg border p-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Resource name</label>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Resource name
+                </label>
                 <Input
                   placeholder="e.g. Glass Cabin"
                   value={draft.name}
-                  onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                  onChange={e =>
+                    setDraft(d => ({ ...d, name: e.target.value }))
+                  }
                   disabled={disabled}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Calendar connection</label>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Calendar connection
+                </label>
                 {loadingConnections ? (
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : (
                   <select
                     value={draft.calendarConnectionId}
-                    onChange={e => setDraft(d => ({ ...d, calendarConnectionId: e.target.value, calendarId: '', calendarName: '' }))}
+                    onChange={e =>
+                      setDraft(d => ({
+                        ...d,
+                        calendarConnectionId: e.target.value,
+                        calendarId: '',
+                        calendarName: ''
+                      }))
+                    }
                     disabled={disabled}
                     className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                   >
                     <option value="">Select a connection…</option>
                     {activeConnections.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 )}
@@ -291,15 +383,24 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
 
               {draft.calendarConnectionId && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Calendar</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Calendar
+                  </label>
                   {loadingCalendars ? (
-                    <p className="text-xs text-muted-foreground">Loading calendars...</p>
+                    <p className="text-xs text-muted-foreground">
+                      Loading calendars...
+                    </p>
                   ) : (
                     <select
                       value={draft.calendarId}
                       onChange={e => {
                         const cal = calendars.find(c => c.id === e.target.value)
-                        if (cal) setDraft(d => ({ ...d, calendarId: cal.id, calendarName: cal.summary }))
+                        if (cal)
+                          setDraft(d => ({
+                            ...d,
+                            calendarId: cal.id,
+                            calendarName: cal.summary
+                          }))
                       }}
                       disabled={disabled}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -307,7 +408,8 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
                       <option value="">Select a calendar…</option>
                       {calendars.map(cal => (
                         <option key={cal.id} value={cal.id}>
-                          {cal.summary}{cal.primary ? ' (primary)' : ''}
+                          {cal.summary}
+                          {cal.primary ? ' (primary)' : ''}
                         </option>
                       ))}
                     </select>
@@ -316,18 +418,32 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Timezone</label>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Timezone
+                </label>
                 <Input
                   placeholder="e.g. Asia/Kolkata"
                   value={draft.timezone}
-                  onChange={e => setDraft(d => ({ ...d, timezone: e.target.value }))}
+                  onChange={e =>
+                    setDraft(d => ({ ...d, timezone: e.target.value }))
+                  }
                   disabled={disabled}
                 />
               </div>
 
               <div className="flex gap-2">
-                <Button size="sm" onClick={addResource} disabled={disabled}>Add Resource</Button>
-                <Button size="sm" variant="outline" onClick={() => { setAdding(false); setDraft(EMPTY_DRAFT); setCalendars([]) }}>
+                <Button size="sm" onClick={addResource} disabled={disabled}>
+                  Add Resource
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAdding(false)
+                    setDraft(EMPTY_DRAFT)
+                    setCalendars([])
+                  }}
+                >
                   Cancel
                 </Button>
               </div>

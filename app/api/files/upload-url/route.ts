@@ -52,10 +52,7 @@ export async function POST(req: NextRequest) {
     fileName.includes('/') ||
     fileName.includes('\\')
   ) {
-    return NextResponse.json(
-      { error: 'Invalid file name' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Invalid file name' }, { status: 400 })
   }
 
   if (!ACCEPTED_MIME_TYPES.has(contentType)) {

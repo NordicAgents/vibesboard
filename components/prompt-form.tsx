@@ -178,8 +178,12 @@ export function PromptForm({
                     ? 'cursor-not-allowed opacity-40'
                     : 'hover:border-[#a7e26e]/30 hover:bg-[#e6ede6] hover:text-[#445e5f] dark:hover:bg-[#253435]'
                 )}
-                aria-label={atMaxFiles ? `Maximum ${maxFiles} files` : 'Attach files'}
-                title={atMaxFiles ? `Maximum ${maxFiles} files` : 'Attach files'}
+                aria-label={
+                  atMaxFiles ? `Maximum ${maxFiles} files` : 'Attach files'
+                }
+                title={
+                  atMaxFiles ? `Maximum ${maxFiles} files` : 'Attach files'
+                }
               >
                 <IconPaperclip className="size-3.5" />
               </button>

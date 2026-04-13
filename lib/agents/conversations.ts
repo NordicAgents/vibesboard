@@ -2,7 +2,10 @@ import { type Message } from '@/lib/types/message'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type ConversationRefDocument } from '@/lib/firestore-types'
+import {
+  Collections,
+  type ConversationRefDocument
+} from '@/lib/firestore-types'
 import { mapConversationDoc } from './db'
 import { type VibeAgentConversation } from '@/lib/types'
 
@@ -29,10 +32,7 @@ export async function ensureConversation({
   const collPath = Collections.conversations(tenantId, agentId)
 
   if (conversationId) {
-    const doc = await adminDb
-      .collection(collPath)
-      .doc(conversationId)
-      .get()
+    const doc = await adminDb.collection(collPath).doc(conversationId).get()
 
     if (doc.exists) {
       const data = doc.data()!
@@ -117,10 +117,7 @@ export async function updateConversationMessages({
     updateData[`responseCounts.${respondingAgentId}`] = FieldValue.increment(1)
   }
 
-  await adminDb
-    .collection(collPath)
-    .doc(conversationId)
-    .update(updateData)
+  await adminDb.collection(collPath).doc(conversationId).update(updateData)
 }
 
 export async function listAgentConversations(
@@ -256,23 +253,22 @@ export async function createConversationRef(
   ref: ConversationRefDocument
 ): Promise<void> {
   const collPath = Collections.conversationRefs(tenantId, targetAgentId)
-  await adminDb
-    .collection(collPath)
-    .doc(ref.sourceConversationId)
-    .set(ref)
+  await adminDb.collection(collPath).doc(ref.sourceConversationId).set(ref)
 }
 
 export async function updateConversationRef(
   tenantId: string,
   targetAgentId: string,
   conversationId: string,
-  updates: Partial<Pick<ConversationRefDocument, 'responseCount' | 'lastMessageAt' | 'summary' | 'role'>>
+  updates: Partial<
+    Pick<
+      ConversationRefDocument,
+      'responseCount' | 'lastMessageAt' | 'summary' | 'role'
+    >
+  >
 ): Promise<void> {
   const collPath = Collections.conversationRefs(tenantId, targetAgentId)
-  await adminDb
-    .collection(collPath)
-    .doc(conversationId)
-    .update(updates)
+  await adminDb.collection(collPath).doc(conversationId).update(updates)
 }
 
 export async function listConversationRefs(
@@ -285,7 +281,10 @@ export async function listConversationRefs(
     .orderBy('lastMessageAt', 'desc')
     .get()
 
-  return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => doc.data() as ConversationRefDocument)
+  return snapshot.docs.map(
+    (doc: FirebaseFirestore.QueryDocumentSnapshot) =>
+      doc.data() as ConversationRefDocument
+  )
 }
 
 /**
@@ -314,13 +313,19 @@ export async function deleteConversation(
 
   for (let i = 0; i < chunksSnap.docs.length; i += BATCH_LIMIT) {
     const batch = adminDb.batch()
-    chunksSnap.docs.slice(i, i + BATCH_LIMIT).forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) => batch.delete(doc.ref))
+    chunksSnap.docs
+      .slice(i, i + BATCH_LIMIT)
+      .forEach((doc: FirebaseFirestore.QueryDocumentSnapshot) =>
+        batch.delete(doc.ref)
+      )
     await batch.commit()
   }
 
   // 3. Delete conversation_refs in target agents (from handoff chain)
   const data = convDoc.data()!
-  const handoffChain = data.handoffChain as Array<{ toAgentId: string }> | undefined
+  const handoffChain = data.handoffChain as
+    | Array<{ toAgentId: string }>
+    | undefined
   if (handoffChain?.length) {
     for (const entry of handoffChain) {
       try {

@@ -20,8 +20,15 @@ import {
   stripCompletionMarkers
 } from '@/lib/agent/completion'
 import { nanoid } from '@/lib/utils'
-import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
-import { validateHandoff, buildHandoffContext, MAX_HANDOFF_DEPTH } from '@/lib/agent/handoff'
+import {
+  dispatchAgentNotification,
+  mapCompletionToEvent
+} from '@/lib/agents/notifications'
+import {
+  validateHandoff,
+  buildHandoffContext,
+  MAX_HANDOFF_DEPTH
+} from '@/lib/agent/handoff'
 import { Collections } from '@/lib/firestore-types'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import { OPENAI_CHAT_MODEL } from '@/lib/openai'
@@ -30,7 +37,12 @@ export const runtime = 'nodejs'
 
 const hookChatSchema = z.object({
   message: z.string().min(1).max(10_000).trim(),
-  externalUserId: z.string().min(1).max(256).regex(/^[^.]+$/, 'must not contain dots').optional(),
+  externalUserId: z
+    .string()
+    .min(1)
+    .max(256)
+    .regex(/^[^.]+$/, 'must not contain dots')
+    .optional(),
   conversationId: z.string().min(1).optional()
 })
 
@@ -123,14 +135,20 @@ export async function POST(
     // Resolve handoff target names for the current agent
     let handoffTargetNames: Record<string, string> = {}
     if (currentAgent.handoffTargets?.length) {
-      handoffTargetNames = await getAgentNamesByTenant(agent.tenantId!, currentAgent.handoffTargets)
+      handoffTargetNames = await getAgentNamesByTenant(
+        agent.tenantId!,
+        currentAgent.handoffTargets
+      )
     }
 
     const stream = await runAgentStream({
       agent: currentAgent,
       messages: allMessages,
       handoffTargetNames,
-      onCompletion: async (completion: string, usage?: { promptTokens: number; completionTokens: number }) => {
+      onCompletion: async (
+        completion: string,
+        usage?: { promptTokens: number; completionTokens: number }
+      ) => {
         const reason = detectCompletionMarker(completion)
         handoffTargetId = extractHandoffTarget(completion)
         reply = stripCompletionMarkers(completion)
@@ -155,7 +173,9 @@ export async function POST(
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
           responseCounts: conversation.responseCounts
-        }).catch(err => console.error('[hook-chat] Auto-summarize failed:', err))
+        }).catch(err =>
+          console.error('[hook-chat] Auto-summarize failed:', err)
+        )
 
         // Increment current agent's lifetime response counter
         adminDb
@@ -176,7 +196,7 @@ export async function POST(
           source: 'hook_chat',
           model: OPENAI_CHAT_MODEL,
           inputTokens: usage?.promptTokens,
-          outputTokens: usage?.completionTokens,
+          outputTokens: usage?.completionTokens
         })
 
         const event = mapCompletionToEvent(reason)

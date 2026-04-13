@@ -16,12 +16,14 @@ interface AuthResult {
  * Returns the user or a 401 response.
  */
 export async function requireAuth(): Promise<
-  | { ok: true; user: SessionUser }
-  | { ok: false; response: NextResponse }
+  { ok: true; user: SessionUser } | { ok: false; response: NextResponse }
 > {
   const session = await auth()
   if (!session?.user) {
-    return { ok: false, response: new NextResponse('Unauthorized', { status: 401 }) }
+    return {
+      ok: false,
+      response: new NextResponse('Unauthorized', { status: 401 })
+    }
   }
   return { ok: true, user: session.user }
 }
@@ -44,7 +46,10 @@ export async function requireTenantMember(
     .get()
 
   if (!memberDoc.exists) {
-    return { ok: false, response: new NextResponse('Forbidden', { status: 403 }) }
+    return {
+      ok: false,
+      response: new NextResponse('Forbidden', { status: 403 })
+    }
   }
 
   return {
@@ -67,7 +72,10 @@ export async function requireTenantAdmin(
   if (!result.ok) return result
 
   if (result.role !== 'TENANT_ADMIN' && result.role !== 'SUPER_ADMIN') {
-    return { ok: false, response: new NextResponse('Forbidden', { status: 403 }) }
+    return {
+      ok: false,
+      response: new NextResponse('Forbidden', { status: 403 })
+    }
   }
 
   return result
@@ -77,8 +85,7 @@ export async function requireTenantAdmin(
  * Verify the session and check that the user is a super admin.
  */
 export async function requireSuperAdmin(): Promise<
-  | { ok: true; user: SessionUser }
-  | { ok: false; response: NextResponse }
+  { ok: true; user: SessionUser } | { ok: false; response: NextResponse }
 > {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult
@@ -98,7 +105,10 @@ export async function requireSuperAdmin(): Promise<
       .get()
 
     if (snapshot.empty) {
-      return { ok: false, response: new NextResponse('Forbidden', { status: 403 }) }
+      return {
+        ok: false,
+        response: new NextResponse('Forbidden', { status: 403 })
+      }
     }
   }
 

@@ -18,16 +18,15 @@ export async function POST(request: NextRequest) {
 
     const tenantId = await getActiveTenant(authResult.user.id)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'No active tenant' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
     }
 
     const hasAccess = await isFeatureEnabled(tenantId, 'WHATSAPP_INBOX_API_KEY')
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'WhatsApp API Key connection is not enabled for your workspace' },
+        {
+          error: 'WhatsApp API Key connection is not enabled for your workspace'
+        },
         { status: 403 }
       )
     }
@@ -60,7 +59,7 @@ export async function POST(request: NextRequest) {
       tenantId,
       accessToken: accessToken.trim(),
       wabaId: wabaId.trim(),
-      userId: authResult.user.id,
+      userId: authResult.user.id
     })
 
     const { accessToken: _token, ...safeAccount } = account

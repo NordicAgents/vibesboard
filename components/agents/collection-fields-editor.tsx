@@ -8,12 +8,7 @@ import { nanoid } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -55,9 +50,7 @@ export function CollectionFieldsEditor({
 
   const updateField = useCallback(
     (id: string, updates: Partial<CollectionField>) => {
-      onChange(
-        fields.map(f => (f.id === id ? { ...f, ...updates } : f))
-      )
+      onChange(fields.map(f => (f.id === id ? { ...f, ...updates } : f)))
     },
     [fields, onChange]
   )
@@ -65,9 +58,7 @@ export function CollectionFieldsEditor({
   const removeField = useCallback(
     (id: string) => {
       onChange(
-        fields
-          .filter(f => f.id !== id)
-          .map((f, i) => ({ ...f, order: i }))
+        fields.filter(f => f.id !== id).map((f, i) => ({ ...f, order: i }))
       )
     },
     [fields, onChange]
@@ -104,20 +95,20 @@ export function CollectionFieldsEditor({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Define the information your agent should collect. The AI will ask questions in order and won&apos;t complete until all required fields are answered.
+          Define the information your agent should collect. The AI will ask
+          questions in order and won&apos;t complete until all required fields
+          are answered.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
         {sorted.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No fields defined. The agent will use its instructions to decide what to collect.
+            No fields defined. The agent will use its instructions to decide
+            what to collect.
           </p>
         ) : (
           sorted.map((field, index) => (
-            <div
-              key={field.id}
-              className="flex gap-2 rounded-lg border p-3"
-            >
+            <div key={field.id} className="flex gap-2 rounded-lg border p-3">
               {/* Drag handle / reorder */}
               <div className="flex flex-col items-center justify-center gap-0.5">
                 <button
@@ -148,7 +139,8 @@ export function CollectionFieldsEditor({
                     onValueChange={(val: CollectionFieldType) =>
                       updateField(field.id, {
                         type: val,
-                        choices: val === 'choice' ? field.choices ?? [''] : undefined
+                        choices:
+                          val === 'choice' ? (field.choices ?? ['']) : undefined
                       })
                     }
                     disabled={disabled}

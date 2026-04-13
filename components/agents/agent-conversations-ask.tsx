@@ -76,14 +76,18 @@ export function AgentConversationsAsk({
               <SelectItem value="all">All conversations</SelectItem>
               {conversations.map(conversation => (
                 <SelectItem key={conversation.id} value={conversation.id}>
-                  {getConversationPreview(conversation.messages, conversation.summary)}
+                  {getConversationPreview(
+                    conversation.messages,
+                    conversation.summary
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {scope !== 'all' && selectedConversation && (
             <p className="text-xs text-muted-foreground">
-              Using conversation updated {formatDate(selectedConversation.updatedAt)}
+              Using conversation updated{' '}
+              {formatDate(selectedConversation.updatedAt)}
             </p>
           )}
         </div>
@@ -112,9 +116,7 @@ export function AgentConversationsAsk({
             </Button>
           </div>
         </form>
-        {error && (
-          <p className="text-sm text-destructive">{error.message}</p>
-        )}
+        {error && <p className="text-sm text-destructive">{error.message}</p>}
         {completion && (
           <div className="space-y-2 rounded-md border bg-muted/30 p-4 text-sm">
             <p className="font-medium text-muted-foreground">Answer</p>

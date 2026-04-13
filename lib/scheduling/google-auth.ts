@@ -47,7 +47,10 @@ interface TokenResponse {
 /**
  * Exchange an authorization code for access + refresh tokens.
  */
-export async function exchangeCode(code: string, redirectUri: string): Promise<TokenResponse> {
+export async function exchangeCode(
+  code: string,
+  redirectUri: string
+): Promise<TokenResponse> {
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

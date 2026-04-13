@@ -63,7 +63,9 @@ export default async function AgentConversationPage({
       if (refDoc.exists) {
         const refData = refDoc.data()!
         convoDoc = await adminDb
-          .collection(Collections.conversations(tenantId, refData.sourceAgentId))
+          .collection(
+            Collections.conversations(tenantId, refData.sourceAgentId)
+          )
           .doc(refData.sourceConversationId)
           .get()
       }

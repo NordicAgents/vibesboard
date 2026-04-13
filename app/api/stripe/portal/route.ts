@@ -11,10 +11,7 @@ export async function POST(request: Request) {
   const { tenantId } = body as { tenantId: string }
 
   if (!tenantId) {
-    return NextResponse.json(
-      { error: 'tenantId is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'tenantId is required' }, { status: 400 })
   }
 
   // Auth check
@@ -27,8 +24,7 @@ export async function POST(request: Request) {
     .doc(tenantId)
     .get()
 
-  const stripeCustomerId =
-    tenantDoc.data()?.subscription?.stripeCustomerId
+  const stripeCustomerId = tenantDoc.data()?.subscription?.stripeCustomerId
   if (!stripeCustomerId) {
     return NextResponse.json(
       { error: 'No billing account found. Subscribe to a plan first.' },
@@ -36,12 +32,11 @@ export async function POST(request: Request) {
     )
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   const session = await stripe.billingPortal.sessions.create({
     customer: stripeCustomerId,
-    return_url: `${appUrl}/settings/tenant/billing`,
+    return_url: `${appUrl}/settings/tenant/billing`
   })
 
   return NextResponse.json({ url: session.url })

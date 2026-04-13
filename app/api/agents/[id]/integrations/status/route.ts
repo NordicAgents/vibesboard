@@ -60,9 +60,8 @@ export async function GET(
         }
         case 'chatwoot': {
           try {
-            const { listChatwootConnections } = await import(
-              '@/lib/chatwoot/connections'
-            )
+            const { listChatwootConnections } =
+              await import('@/lib/chatwoot/connections')
             const connections = await listChatwootConnections(
               tenantId,
               agent.id,

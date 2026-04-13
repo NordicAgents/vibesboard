@@ -100,7 +100,10 @@ export async function PATCH(
   }
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'No valid fields to update' },
+      { status: 400 }
+    )
   }
 
   // Validate webhook URL if being updated

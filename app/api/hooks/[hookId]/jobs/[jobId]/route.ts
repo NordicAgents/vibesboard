@@ -57,7 +57,9 @@ export async function GET(
     ...(job.reply !== undefined && { reply: job.reply }),
     ...(job.error !== undefined && { error: job.error }),
     ...(job.conversationId && { conversationId: job.conversationId }),
-    ...(job.callbackStatus !== undefined && { callbackStatus: job.callbackStatus }),
+    ...(job.callbackStatus !== undefined && {
+      callbackStatus: job.callbackStatus
+    }),
     callbackAttempts: job.callbackAttempts,
     createdAt: job.createdAt,
     ...(job.startedAt && { startedAt: job.startedAt }),

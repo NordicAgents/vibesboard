@@ -91,8 +91,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   }
 
   if (parsed.data.name !== undefined) updates.name = parsed.data.name
-  if (parsed.data.description !== undefined) updates.description = parsed.data.description
-  if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive
+  if (parsed.data.description !== undefined)
+    updates.description = parsed.data.description
+  if (parsed.data.isActive !== undefined)
+    updates.isActive = parsed.data.isActive
 
   await adminDb
     .collection(Collections.agentLinks(tenantId))
