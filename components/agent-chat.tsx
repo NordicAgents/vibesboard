@@ -497,7 +497,6 @@ export function AgentChat({
 
       {/* Sticky input panel */}
       <ChatPanel
-        id={conversationId}
         isLoading={isLoading}
         stop={stop}
         append={append}

@@ -1,6 +1,7 @@
 import type { ActionModule, ActionContext, AgentAction } from './types'
 import type { RegisteredTool } from '@/lib/agent/tools/base'
 import type { VibeAgent } from '@/lib/types'
+import { isFeatureEnabled } from '@/lib/features'
 import { AppointmentsModule } from './appointments'
 import { BookingModule } from './booking'
 import { DataModule } from './data'
@@ -100,9 +101,12 @@ export async function injectActionTools(
   agent: VibeAgent,
   toolkit: { functions: any[]; executors: Record<string, any> }
 ): Promise<void> {
-  const actions: AgentAction[] = agent.actions ?? buildLegacyActions(agent)
-
   if (!agent.tenantId) return
+
+  const enabled = await isFeatureEnabled(agent.tenantId, 'AGENT_ACTIONS')
+  if (!enabled) return
+
+  const actions: AgentAction[] = agent.actions ?? buildLegacyActions(agent)
 
   for (const action of actions) {
     if (!action.enabled) continue

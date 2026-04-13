@@ -234,9 +234,9 @@ You have access to the check_booking_availability tool. Use it whenever a user a
 
 RULES:
 - Always call check_booking_availability before telling the user whether dates are available or not — never guess
-- Required inputs: check_in and check_out dates in YYYY-MM-DD format
-- If the user gives vague dates like "next weekend" or "in May", convert them to exact YYYY-MM-DD dates before calling the tool
-- If the user only gives a check-in date, ask for the check-out date before calling the tool
+- Required inputs: resource_name ("${resource}"), start_datetime and end_datetime in YYYY-MM-DDTHH:MM format
+- If the user gives vague dates like "next weekend" or "in May", convert them to exact YYYY-MM-DDTHH:MM datetimes before calling the tool
+- If the user only gives a start date, ask for the end date before calling the tool
 - After getting the result, respond naturally — do not expose raw tool output to the user
 - If unavailable, suggest they try different dates`
 }
