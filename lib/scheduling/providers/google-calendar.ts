@@ -221,3 +221,183 @@ function getTimezoneOffset(timezone: string, date?: string): string {
     return 'Z'
   }
 }
+
+// ─── Standalone Calendar Events API (used by direct-booking tools) ───
+
+export interface CalendarEvent {
+  id: string
+  summary: string
+  description?: string
+  start: string  // ISO datetime or date
+  end: string    // ISO datetime or date
+  htmlLink?: string
+}
+
+/**
+ * List events from a Google Calendar within a date range.
+ * Returns parsed CalendarEvent objects sorted by start date.
+ */
+export async function listCalendarEvents(
+  accessToken: string,
+  calendarId: string,
+  timeMin: string,
+  timeMax: string
+): Promise<CalendarEvent[]> {
+  const params = new URLSearchParams({
+    timeMin: new Date(timeMin).toISOString(),
+    timeMax: new Date(timeMax).toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '250'
+  })
+
+  const url = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events?${params}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Google Calendar API error (${res.status}): ${text}`)
+  }
+
+  const data = await res.json()
+  const items: any[] = data.items ?? []
+
+  return items.map(item => ({
+    id: item.id,
+    summary: item.summary ?? '(no title)',
+    description: item.description ?? '',
+    start: item.start?.dateTime ?? item.start?.date ?? '',
+    end: item.end?.dateTime ?? item.end?.date ?? '',
+    htmlLink: item.htmlLink
+  }))
+}
+
+/**
+ * Create an event on a Google Calendar. Returns the created event.
+ */
+export async function createCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  event: {
+    summary: string
+    description?: string
+    start: { date?: string; dateTime?: string; timeZone?: string }
+    end: { date?: string; dateTime?: string; timeZone?: string }
+  }
+): Promise<CalendarEvent> {
+  const url = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(event)
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Google Calendar API error (${res.status}): ${text}`)
+  }
+
+  const item = await res.json()
+  return {
+    id: item.id,
+    summary: item.summary ?? '',
+    description: item.description ?? '',
+    start: item.start?.dateTime ?? item.start?.date ?? '',
+    end: item.end?.dateTime ?? item.end?.date ?? '',
+    htmlLink: item.htmlLink
+  }
+}
+
+/**
+ * Update an event on a Google Calendar (PATCH).
+ */
+export async function updateCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  updates: {
+    summary?: string
+    description?: string
+    start?: { date?: string; dateTime?: string; timeZone?: string }
+    end?: { date?: string; dateTime?: string; timeZone?: string }
+  }
+): Promise<CalendarEvent> {
+  const url = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updates)
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Google Calendar API error (${res.status}): ${text}`)
+  }
+
+  const item = await res.json()
+  return {
+    id: item.id,
+    summary: item.summary ?? '',
+    description: item.description ?? '',
+    start: item.start?.dateTime ?? item.start?.date ?? '',
+    end: item.end?.dateTime ?? item.end?.date ?? '',
+    htmlLink: item.htmlLink
+  }
+}
+
+/**
+ * Get a single event from a Google Calendar by ID.
+ */
+export async function getCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<CalendarEvent> {
+  const url = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Google Calendar API error (${res.status}): ${text}`)
+  }
+
+  const item = await res.json()
+  return {
+    id: item.id,
+    summary: item.summary ?? '',
+    description: item.description ?? '',
+    start: item.start?.dateTime ?? item.start?.date ?? '',
+    end: item.end?.dateTime ?? item.end?.date ?? '',
+    htmlLink: item.htmlLink
+  }
+}
+
+/**
+ * Delete an event from a Google Calendar.
+ */
+export async function deleteCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<void> {
+  const url = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` }
+  })
+
+  if (!res.ok && res.status !== 410) {
+    const text = await res.text()
+    throw new Error(`Google Calendar API error (${res.status}): ${text}`)
+  }
+}

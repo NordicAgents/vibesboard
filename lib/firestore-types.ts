@@ -57,9 +57,15 @@ export interface BookableResource {
   timezone: string
 }
 
+export type BookingMode = 'enquiry' | 'direct'
+
 export interface AgentBookingConfig {
   enabled: boolean
   resources: BookableResource[]
+  mode?: BookingMode
+  eventTitleTemplate?: string
+  eventTimeMode?: 'all-day' | 'timed'
+  overlapProtection?: boolean
 }
 
 export interface BookingEnquiryDocument {
