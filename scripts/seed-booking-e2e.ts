@@ -55,8 +55,6 @@ const db = getFirestore()
 
 const FLAGS = [
   { name: 'AGENT_ACTIONS', description: 'Parent flag for agent action features', defaultValue: true },
-  { name: 'AGENT_ACTIONS_SCHEDULE', description: 'Calendar scheduling tools', defaultValue: true },
-  { name: 'AGENT_ACTIONS_BOOKING', description: 'Simple booking / direct booking tools', defaultValue: true },
 ]
 
 async function seedFlags() {
