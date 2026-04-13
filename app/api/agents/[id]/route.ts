@@ -140,15 +140,15 @@ export async function PATCH(
     updatedAt: new Date().toISOString()
   }
 
-  const docRef = adminDb
-    .collection(`tenants/${agent.tenantId}/agents`)
-    .doc(id)
+  const docRef = adminDb.collection(`tenants/${agent.tenantId}/agents`).doc(id)
 
   try {
     await docRef.update(updates)
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to update agent' },
+      {
+        error: error instanceof Error ? error.message : 'Unable to update agent'
+      },
       { status: 500 }
     )
   }
@@ -205,9 +205,7 @@ export async function DELETE(
   // (conversations, bookings, hooks, etc.). Firestore does not cascade-delete
   // subcollections automatically — without this, all subcollection data
   // becomes orphaned and is never cleaned up.
-  const docRef = adminDb
-    .collection(`tenants/${agent.tenantId}/agents`)
-    .doc(id)
+  const docRef = adminDb.collection(`tenants/${agent.tenantId}/agents`).doc(id)
 
   try {
     await adminDb.recursiveDelete(docRef)

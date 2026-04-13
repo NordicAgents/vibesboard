@@ -7,12 +7,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
+  DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Building2, ChevronDown, ChevronUp, ExternalLink, Copy, Check } from 'lucide-react'
+import {
+  Loader2,
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Copy,
+  Check
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ConnectByoaDialogProps {
@@ -24,34 +32,40 @@ interface ConnectByoaDialogProps {
 const SETUP_STEPS = [
   {
     title: 'Create a Meta App',
-    description: 'Go to the Meta Developer Portal and create a new app. Select "Business" as the app type.',
+    description:
+      'Go to the Meta Developer Portal and create a new app. Select "Business" as the app type.',
     link: 'https://developers.facebook.com/apps/create/',
-    linkLabel: 'Create Meta App',
+    linkLabel: 'Create Meta App'
   },
   {
     title: 'Add WhatsApp product',
-    description: 'In your app dashboard, click "Add Products" and add the WhatsApp product. Follow the setup wizard to connect your WhatsApp Business Account.',
+    description:
+      'In your app dashboard, click "Add Products" and add the WhatsApp product. Follow the setup wizard to connect your WhatsApp Business Account.'
   },
   {
     title: 'Copy App ID and App Secret',
-    description: 'Go to App Settings > Basic. Copy the App ID and App Secret from there.',
+    description:
+      'Go to App Settings > Basic. Copy the App ID and App Secret from there.',
     link: 'https://developers.facebook.com/apps/',
-    linkLabel: 'Open App Settings',
+    linkLabel: 'Open App Settings'
   },
   {
     title: 'Create a System User and generate token',
-    description: 'In Meta Business Settings > System Users, create an Admin system user. Assign your app and WhatsApp account permissions. Generate a token with whatsapp_business_management and whatsapp_business_messaging scopes. Set expiry to "Never".',
+    description:
+      'In Meta Business Settings > System Users, create an Admin system user. Assign your app and WhatsApp account permissions. Generate a token with whatsapp_business_management and whatsapp_business_messaging scopes. Set expiry to "Never".',
     link: 'https://business.facebook.com/settings/system-users',
-    linkLabel: 'Open System Users',
+    linkLabel: 'Open System Users'
   },
   {
     title: 'Find your WABA ID',
-    description: 'In Business Settings > WhatsApp Accounts, select your account. The numeric WABA ID is shown at the top of the page.',
+    description:
+      'In Business Settings > WhatsApp Accounts, select your account. The numeric WABA ID is shown at the top of the page.'
   },
   {
     title: 'Configure webhook (after connecting)',
-    description: 'After connecting below, you\'ll receive a webhook URL. Configure it in your Meta App Dashboard under WhatsApp > Configuration > Webhook URL, using the Verify Token you enter below.',
-  },
+    description:
+      "After connecting below, you'll receive a webhook URL. Configure it in your Meta App Dashboard under WhatsApp > Configuration > Webhook URL, using the Verify Token you enter below."
+  }
 ]
 
 function generateRandomToken(): string {
@@ -66,7 +80,7 @@ function generateRandomToken(): string {
 export function ConnectByoaDialog({
   open,
   onOpenChange,
-  onSuccess,
+  onSuccess
 }: ConnectByoaDialogProps) {
   const [metaAppId, setMetaAppId] = useState('')
   const [metaAppSecret, setMetaAppSecret] = useState('')
@@ -104,7 +118,13 @@ export function ConnectByoaDialog({
     e.preventDefault()
     setError(null)
 
-    if (!metaAppId.trim() || !metaAppSecret.trim() || !accessToken.trim() || !webhookVerifyToken.trim() || !wabaId.trim()) {
+    if (
+      !metaAppId.trim() ||
+      !metaAppSecret.trim() ||
+      !accessToken.trim() ||
+      !webhookVerifyToken.trim() ||
+      !wabaId.trim()
+    ) {
       setError('All fields are required')
       return
     }
@@ -129,8 +149,8 @@ export function ConnectByoaDialog({
           metaAppSecret: metaAppSecret.trim(),
           accessToken: accessToken.trim(),
           webhookVerifyToken: webhookVerifyToken.trim(),
-          wabaId: wabaId.trim(),
-        }),
+          wabaId: wabaId.trim()
+        })
       })
 
       if (!res.ok) {
@@ -189,7 +209,11 @@ export function ConnectByoaDialog({
                   size="icon"
                   onClick={handleCopyUrl}
                 >
-                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copied ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -208,7 +232,11 @@ export function ConnectByoaDialog({
                   size="icon"
                   onClick={handleCopyToken}
                 >
-                  {copiedToken ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copiedToken ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -239,7 +267,8 @@ export function ConnectByoaDialog({
         <DialogHeader>
           <DialogTitle>Connect via BYOA</DialogTitle>
           <DialogDescription>
-            Bring your own Meta App to connect WhatsApp. You manage the app and webhook configuration.
+            Bring your own Meta App to connect WhatsApp. You manage the app and
+            webhook configuration.
           </DialogDescription>
         </DialogHeader>
 
@@ -298,7 +327,7 @@ export function ConnectByoaDialog({
               id="byoa-app-id"
               placeholder="123456789012345"
               value={metaAppId}
-              onChange={(e) => setMetaAppId(e.target.value)}
+              onChange={e => setMetaAppId(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -313,7 +342,7 @@ export function ConnectByoaDialog({
               type="password"
               placeholder="abc123def456..."
               value={metaAppSecret}
-              onChange={(e) => setMetaAppSecret(e.target.value)}
+              onChange={e => setMetaAppSecret(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -328,11 +357,12 @@ export function ConnectByoaDialog({
               type="password"
               placeholder="EAABsbCS..."
               value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
+              onChange={e => setAccessToken(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              Generated from System Users with whatsapp_business_management and whatsapp_business_messaging permissions
+              Generated from System Users with whatsapp_business_management and
+              whatsapp_business_messaging permissions
             </p>
           </div>
 
@@ -354,11 +384,12 @@ export function ConnectByoaDialog({
               id="byoa-verify-token"
               placeholder="my-custom-verify-token"
               value={webhookVerifyToken}
-              onChange={(e) => setWebhookVerifyToken(e.target.value)}
+              onChange={e => setWebhookVerifyToken(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              You&apos;ll enter this same token in your Meta App&apos;s webhook configuration
+              You&apos;ll enter this same token in your Meta App&apos;s webhook
+              configuration
             </p>
           </div>
 
@@ -368,7 +399,7 @@ export function ConnectByoaDialog({
               id="byoa-waba-id"
               placeholder="123456789012345"
               value={wabaId}
-              onChange={(e) => setWabaId(e.target.value)}
+              onChange={e => setWabaId(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -376,9 +407,7 @@ export function ConnectByoaDialog({
             </p>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
             <Button

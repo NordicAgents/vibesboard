@@ -39,16 +39,26 @@ const BASE_PARAMS = {
 
 describe('fmtLocal — wall-clock to iCal compact datetime', () => {
   test('HH:MM input produces exactly 15 chars', () => {
-    const ics = generateIcs({ ...BASE_PARAMS, startDatetime: '2026-05-10T14:00' })
+    const ics = generateIcs({
+      ...BASE_PARAMS,
+      startDatetime: '2026-05-10T14:00'
+    })
     const map = parseIcs(ics)
     const dtstart = map.get('DTSTART;TZID=Asia/Kolkata')
     assert.ok(dtstart, 'DTSTART;TZID line must exist')
-    assert.equal(dtstart!.length, 15, `Expected 15 chars, got ${dtstart!.length}: "${dtstart}"`)
+    assert.equal(
+      dtstart!.length,
+      15,
+      `Expected 15 chars, got ${dtstart!.length}: "${dtstart}"`
+    )
     assert.equal(dtstart, '20260510T140000')
   })
 
   test('HH:MM:SS input produces exactly 15 chars', () => {
-    const ics = generateIcs({ ...BASE_PARAMS, startDatetime: '2026-05-10T14:00:00' })
+    const ics = generateIcs({
+      ...BASE_PARAMS,
+      startDatetime: '2026-05-10T14:00:00'
+    })
     const map = parseIcs(ics)
     const dtstart = map.get('DTSTART;TZID=Asia/Kolkata')
     assert.equal(dtstart!.length, 15)
@@ -71,13 +81,19 @@ describe('fmtLocal — wall-clock to iCal compact datetime', () => {
   })
 
   test('midnight time produces T000000', () => {
-    const ics = generateIcs({ ...BASE_PARAMS, startDatetime: '2026-06-01T00:00' })
+    const ics = generateIcs({
+      ...BASE_PARAMS,
+      startDatetime: '2026-06-01T00:00'
+    })
     const map = parseIcs(ics)
     assert.equal(map.get('DTSTART;TZID=Asia/Kolkata'), '20260601T000000')
   })
 
   test('no dashes or colons remain in compact datetime', () => {
-    const ics = generateIcs({ ...BASE_PARAMS, startDatetime: '2026-12-31T23:59' })
+    const ics = generateIcs({
+      ...BASE_PARAMS,
+      startDatetime: '2026-12-31T23:59'
+    })
     const map = parseIcs(ics)
     const dtstart = map.get('DTSTART;TZID=Asia/Kolkata')!
     assert.ok(!dtstart.includes('-'), 'No dashes in compact datetime')
@@ -90,7 +106,10 @@ describe('fmtLocal — wall-clock to iCal compact datetime', () => {
 describe('escText — RFC 5545 §3.3.11 TEXT escaping', () => {
   test('backslash is escaped', () => {
     const ics = generateIcs({ ...BASE_PARAMS, summary: 'Cabin\\Resort' })
-    assert.ok(ics.includes('SUMMARY:Cabin\\\\Resort'), 'backslash must be doubled')
+    assert.ok(
+      ics.includes('SUMMARY:Cabin\\\\Resort'),
+      'backslash must be doubled'
+    )
   })
 
   test('semicolon is escaped', () => {
@@ -139,7 +158,10 @@ describe('generateIcs — structure', () => {
     const ics = generateIcs(BASE_PARAMS)
     const map = parseIcs(ics)
     const dtstamp = map.get('DTSTAMP')
-    assert.ok(dtstamp?.endsWith('Z'), `DTSTAMP must end with Z, got: ${dtstamp}`)
+    assert.ok(
+      dtstamp?.endsWith('Z'),
+      `DTSTAMP must end with Z, got: ${dtstamp}`
+    )
     assert.equal(dtstamp!.length, 16, 'DTSTAMP should be 15 chars + Z')
   })
 

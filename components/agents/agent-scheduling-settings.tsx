@@ -61,7 +61,9 @@ export function AgentSchedulingSettings({
   tenantId
 }: Props) {
   const current = config ?? DEFAULT_CONFIG
-  const [connections, setConnections] = useState<CalendarConnectionSummary[]>([])
+  const [connections, setConnections] = useState<CalendarConnectionSummary[]>(
+    []
+  )
   const [loadingConnections, setLoadingConnections] = useState(true)
 
   useEffect(() => {
@@ -78,7 +80,9 @@ export function AgentSchedulingSettings({
 
         // Auto-select if none selected or if selected ID doesn't match any active connection
         const active = conns.filter(c => c.status === 'active')
-        const selectedIsValid = active.some(c => c.id === current.calendarConnectionId)
+        const selectedIsValid = active.some(
+          c => c.id === current.calendarConnectionId
+        )
         if (active.length > 0 && !selectedIsValid) {
           onChange({ ...current, calendarConnectionId: active[0].id })
         }
@@ -217,7 +221,9 @@ export function AgentSchedulingSettings({
             <Switch
               checked={current.enabled}
               disabled={
-                disabled || activeConnections.length === 0 || !current.calendarConnectionId
+                disabled ||
+                activeConnections.length === 0 ||
+                !current.calendarConnectionId
               }
               onCheckedChange={enabled => update({ enabled })}
             />
@@ -373,9 +379,7 @@ export function AgentSchedulingSettings({
                 <Switch
                   checked={current.createMeetLink}
                   disabled={disabled}
-                  onCheckedChange={createMeetLink =>
-                    update({ createMeetLink })
-                  }
+                  onCheckedChange={createMeetLink => update({ createMeetLink })}
                 />
               </div>
             </>

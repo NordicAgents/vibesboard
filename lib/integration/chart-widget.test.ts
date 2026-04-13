@@ -52,8 +52,14 @@ function parseChartConfig(raw: string): ChartConfig | null {
 }
 
 const COLORS = [
-  '#a7e26e', '#6dbfd4', '#f4a261', '#e76f51',
-  '#2a9d8f', '#e9c46a', '#264653', '#a8dadc',
+  '#a7e26e',
+  '#6dbfd4',
+  '#f4a261',
+  '#e76f51',
+  '#2a9d8f',
+  '#e9c46a',
+  '#264653',
+  '#a8dadc'
 ]
 
 function buildChartData(config: ChartConfig) {
@@ -66,8 +72,8 @@ function buildChartData(config: ChartConfig) {
       borderColor: ds.color ?? COLORS[i % COLORS.length],
       borderWidth: 2,
       fill: false,
-      tension: 0.3,
-    })),
+      tension: 0.3
+    }))
   }
 }
 
@@ -124,12 +130,14 @@ describe('parseChartConfig', () => {
   })
 
   test('handles trailing newline (code fence strips it)', () => {
-    const raw = '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]}]}\n'
+    const raw =
+      '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]}]}\n'
     assert.ok(parseChartConfig(raw))
   })
 
   test('handles whitespace padding', () => {
-    const raw = '  {"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]}]}  '
+    const raw =
+      '  {"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]}]}  '
     assert.ok(parseChartConfig(raw))
   })
 
@@ -285,12 +293,14 @@ describe('parseChartConfig', () => {
   })
 
   test('returns null for malformed JSON with trailing comma', () => {
-    const raw = '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]},]}'
+    const raw =
+      '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]},]}'
     assert.strictEqual(parseChartConfig(raw), null)
   })
 
   test('returns null for JSON with single quotes', () => {
-    const raw = "{'type':'bar','title':'T','labels':['A'],'datasets':[{'label':'D','data':[1]}]}"
+    const raw =
+      "{'type':'bar','title':'T','labels':['A'],'datasets':[{'label':'D','data':[1]}]}"
     assert.strictEqual(parseChartConfig(raw), null)
   })
 })

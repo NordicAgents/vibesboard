@@ -108,9 +108,7 @@ export function AgentRetrievalSettings({
                   selected ? 'border-primary' : 'border-muted-foreground/40'
                 )}
               >
-                {selected && (
-                  <div className="size-2 rounded-full bg-primary" />
-                )}
+                {selected && <div className="size-2 rounded-full bg-primary" />}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">

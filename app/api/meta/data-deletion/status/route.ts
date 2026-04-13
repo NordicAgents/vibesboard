@@ -12,10 +12,7 @@ export async function GET(request: NextRequest) {
   const id = searchParams.get('id')
 
   if (!id) {
-    return NextResponse.json(
-      { error: 'Missing id parameter' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 })
   }
 
   const doc = await adminDb
@@ -35,6 +32,6 @@ export async function GET(request: NextRequest) {
     confirmation_code: data.confirmationCode,
     status: data.status,
     created_at: data.createdAt?.toDate?.()?.toISOString() ?? null,
-    completed_at: data.completedAt?.toDate?.()?.toISOString() ?? null,
+    completed_at: data.completedAt?.toDate?.()?.toISOString() ?? null
   })
 }

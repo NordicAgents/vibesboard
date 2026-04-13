@@ -1,4 +1,8 @@
-import { type Retriever, type RetrieverConfig, type RetrievalStrategy } from './types'
+import {
+  type Retriever,
+  type RetrieverConfig,
+  type RetrievalStrategy
+} from './types'
 import { DirectRetriever } from './strategies/direct'
 import { RagRetriever } from './strategies/rag'
 import { BashRetriever } from './strategies/bash'
@@ -19,4 +23,9 @@ export function createRetriever(
   }
 }
 
-export type { Retriever, RetrieverConfig, RetrieverResult, RetrievalStrategy } from './types'
+export type {
+  Retriever,
+  RetrieverConfig,
+  RetrieverResult,
+  RetrievalStrategy
+} from './types'

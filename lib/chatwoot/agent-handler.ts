@@ -5,7 +5,10 @@ import type { Message } from '@/lib/types/message'
 import type { VibeAgent } from '@/lib/types'
 import type { ChatwootConnectionDocument } from '@/lib/firestore-types'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { detectCompletionMarker, stripCompletionMarkers } from '@/lib/agent/completion'
+import {
+  detectCompletionMarker,
+  stripCompletionMarkers
+} from '@/lib/agent/completion'
 import {
   ensureConversation,
   markConversationHandedOff,
@@ -14,7 +17,10 @@ import {
 import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { sendChatwootMessage, handoffChatwootConversation } from './api-client'
 import { decryptToken, updateConnectionStats } from './connections'
-import { dispatchAgentNotification, mapCompletionToEvent } from '@/lib/agents/notifications'
+import {
+  dispatchAgentNotification,
+  mapCompletionToEvent
+} from '@/lib/agents/notifications'
 
 export interface ChatwootMessagePayload {
   conversationId: number

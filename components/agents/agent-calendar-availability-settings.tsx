@@ -50,7 +50,9 @@ export function AgentCalendarAvailabilitySettings({
   tenantId
 }: Props) {
   const current = config ?? DEFAULT_CONFIG
-  const [connections, setConnections] = useState<CalendarConnectionSummary[]>([])
+  const [connections, setConnections] = useState<CalendarConnectionSummary[]>(
+    []
+  )
   const [loadingConnections, setLoadingConnections] = useState(true)
   const [calendars, setCalendars] = useState<GoogleCalendarItem[]>([])
   const [loadingCalendars, setLoadingCalendars] = useState(false)
@@ -78,12 +80,20 @@ export function AgentCalendarAvailabilitySettings({
         // Auto-select only if nothing is already selected
         if (!current.calendarConnectionId) {
           const first = conns.find(c => c.status === 'active')
-          if (first) onChange({ ...current, calendarConnectionId: first.id, calendarId: null })
+          if (first)
+            onChange({
+              ...current,
+              calendarConnectionId: first.id,
+              calendarId: null
+            })
         }
       } catch (err) {
         if (!mounted) return
         if (err instanceof Error && err.name !== 'AbortError') {
-          console.error('[calendar-availability] Failed to load connections:', err.message)
+          console.error(
+            '[calendar-availability] Failed to load connections:',
+            err.message
+          )
           toast.error('Failed to load calendar connections')
         }
       } finally {
@@ -124,7 +134,10 @@ export function AgentCalendarAvailabilitySettings({
           if (code === 'TOKEN_EXPIRED') {
             toast.error('Calendar connection expired — please reconnect')
           } else {
-            console.error('[calendar-availability] Failed to load calendars:', data.error)
+            console.error(
+              '[calendar-availability] Failed to load calendars:',
+              data.error
+            )
           }
           return
         }
@@ -143,7 +156,10 @@ export function AgentCalendarAvailabilitySettings({
       } catch (err) {
         if (!mounted) return
         if (err instanceof Error && err.name !== 'AbortError') {
-          console.error('[calendar-availability] Failed to load calendars:', err.message)
+          console.error(
+            '[calendar-availability] Failed to load calendars:',
+            err.message
+          )
         }
       } finally {
         if (mounted) setLoadingCalendars(false)
@@ -186,7 +202,10 @@ export function AgentCalendarAvailabilitySettings({
   }
 
   const activeConnections = connections.filter(c => c.status === 'active')
-  const canEnable = activeConnections.length > 0 && !!current.calendarConnectionId && !!current.calendarId
+  const canEnable =
+    activeConnections.length > 0 &&
+    !!current.calendarConnectionId &&
+    !!current.calendarId
 
   return (
     <div className="space-y-5 pb-8">
@@ -195,7 +214,8 @@ export function AgentCalendarAvailabilitySettings({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Calendar Connection</CardTitle>
           <CardDescription>
-            Connect a Google Calendar — the agent will check this account for bookings
+            Connect a Google Calendar — the agent will check this account for
+            bookings
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -229,7 +249,11 @@ export function AgentCalendarAvailabilitySettings({
                         name="availability-calendar-connection"
                         checked={current.calendarConnectionId === conn.id}
                         onChange={() =>
-                          update({ calendarConnectionId: conn.id, calendarId: null, enabled: false })
+                          update({
+                            calendarConnectionId: conn.id,
+                            calendarId: null,
+                            enabled: false
+                          })
                         }
                         disabled={disabled}
                         className="accent-primary"
@@ -273,21 +297,30 @@ export function AgentCalendarAvailabilitySettings({
           <CardContent>
             {loadingCalendars ? (
               <div className="flex h-10 items-center">
-                <p className="text-xs text-muted-foreground">Loading calendars...</p>
+                <p className="text-xs text-muted-foreground">
+                  Loading calendars...
+                </p>
               </div>
             ) : calendars.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No calendars found.</p>
+              <p className="text-xs text-muted-foreground">
+                No calendars found.
+              </p>
             ) : (
               <select
                 value={current.calendarId ?? ''}
-                onChange={e => { if (e.target.value) update({ calendarId: e.target.value }) }}
+                onChange={e => {
+                  if (e.target.value) update({ calendarId: e.target.value })
+                }}
                 disabled={disabled}
                 className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
-                <option value="" disabled>Select a calendar…</option>
+                <option value="" disabled>
+                  Select a calendar…
+                </option>
                 {calendars.map(cal => (
                   <option key={cal.id} value={cal.id}>
-                    {cal.summary}{cal.primary ? ' (primary)' : ''}
+                    {cal.summary}
+                    {cal.primary ? ' (primary)' : ''}
                   </option>
                 ))}
               </select>
@@ -312,8 +345,8 @@ export function AgentCalendarAvailabilitySettings({
                 {!current.calendarConnectionId
                   ? 'Connect a calendar first'
                   : !current.calendarId
-                  ? 'Select a calendar above'
-                  : 'Agent can check if dates are available'}
+                    ? 'Select a calendar above'
+                    : 'Agent can check if dates are available'}
               </p>
             </div>
             <Switch
@@ -335,7 +368,8 @@ export function AgentCalendarAvailabilitySettings({
                 disabled={disabled}
               />
               <p className="text-[10px] text-muted-foreground">
-                Used in responses — e.g. &quot;Glass Cabin is available on those dates&quot;
+                Used in responses — e.g. &quot;Glass Cabin is available on those
+                dates&quot;
               </p>
             </div>
           )}

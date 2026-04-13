@@ -13,7 +13,10 @@ import assert from 'node:assert/strict'
 
 // ─── Replicated pure logic ───────────────────────────────────────────────────
 
-interface BusySlot { start: number; end: number }
+interface BusySlot {
+  start: number
+  end: number
+}
 
 const SEARCH_WINDOW_DAYS = 60
 const MAX_SUGGESTIONS = 3
@@ -21,7 +24,9 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function parseWallClock(datetime: string): Date {
   const iso = datetime.includes('T') ? datetime : `${datetime}T00:00:00`
-  return new Date(iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : `${iso}Z`)
+  return new Date(
+    iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : `${iso}Z`
+  )
 }
 
 function findNearestSlots(
@@ -44,7 +49,9 @@ function findNearestSlots(
       forward.push(fCursor)
       fCursor += durationMs
     } else {
-      const overlap = busySlots.find(b => fCursor < b.end && (fCursor + durationMs) > b.start)
+      const overlap = busySlots.find(
+        b => fCursor < b.end && fCursor + durationMs > b.start
+      )
       fCursor = overlap ? overlap.end : fCursor + durationMs
     }
   }
@@ -56,7 +63,9 @@ function findNearestSlots(
       backward.unshift(bCursor)
       bCursor -= durationMs
     } else {
-      const overlap = busySlots.find(b => bCursor < b.end && (bCursor + durationMs) > b.start)
+      const overlap = busySlots.find(
+        b => bCursor < b.end && bCursor + durationMs > b.start
+      )
       bCursor = overlap ? overlap.start - durationMs : bCursor - durationMs
     }
   }
@@ -67,8 +76,12 @@ function findNearestSlots(
     .sort((a, b) => a - b)
 }
 
-function hasConflict(busySlots: BusySlot[], startMs: number, durationMs: number): boolean {
-  return busySlots.some(b => startMs < b.end && (startMs + durationMs) > b.start)
+function hasConflict(
+  busySlots: BusySlot[],
+  startMs: number,
+  durationMs: number
+): boolean {
+  return busySlots.some(b => startMs < b.end && startMs + durationMs > b.start)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -198,12 +211,13 @@ describe('findNearestSlots', () => {
 
   test('returns slot after the busy block when requested slot is blocked', () => {
     const busyEnd = requestedStart + duration + HOUR
-    const busySlots: BusySlot[] = [
-      { start: requestedStart, end: busyEnd }
-    ]
+    const busySlots: BusySlot[] = [{ start: requestedStart, end: busyEnd }]
     const slots = findNearestSlots(busySlots, requestedStart, duration, now)
     // First available slot forward is busyEnd
-    assert.ok(slots.some(s => s >= busyEnd), 'should find slot after busy block')
+    assert.ok(
+      slots.some(s => s >= busyEnd),
+      'should find slot after busy block'
+    )
   })
 
   test('includes slots before requestedStart (backward scan)', () => {
@@ -225,12 +239,19 @@ describe('findNearestSlots', () => {
 
   test('returns empty when everything in window is busy', () => {
     // Fill entire search window with busy slots
-    const busySlots: BusySlot[] = [{
-      start: requestedStart,
-      end: requestedStart + (SEARCH_WINDOW_DAYS + 1) * DAY
-    }]
+    const busySlots: BusySlot[] = [
+      {
+        start: requestedStart,
+        end: requestedStart + (SEARCH_WINDOW_DAYS + 1) * DAY
+      }
+    ]
     // backward scan can't go before now=requestedStart-1day since duration=2days would require start >=now
-    const slots = findNearestSlots(busySlots, requestedStart, duration, requestedStart - DAY)
+    const slots = findNearestSlots(
+      busySlots,
+      requestedStart,
+      duration,
+      requestedStart - DAY
+    )
     assert.equal(slots.length, 0)
   })
 
@@ -238,7 +259,10 @@ describe('findNearestSlots', () => {
     // Backward scan also runs (now=0), so chronologically requestedStart may not be first.
     // What matters is it is in the returned set.
     const slots = findNearestSlots([], requestedStart, duration, now)
-    assert.ok(slots.includes(requestedStart), 'requestedStart should be one of the suggestions')
+    assert.ok(
+      slots.includes(requestedStart),
+      'requestedStart should be one of the suggestions'
+    )
   })
 
   test('skips over multiple consecutive busy blocks (forward scan)', () => {
@@ -254,7 +278,10 @@ describe('findNearestSlots', () => {
       assert.ok(!conflict, `slot ${s} conflicts with a busy block`)
     }
     // At least one forward slot must be found (after the busy blocks)
-    assert.ok(slots.some(s => s >= requestedStart + 2 * duration), 'should find a slot after both busy blocks')
+    assert.ok(
+      slots.some(s => s >= requestedStart + 2 * duration),
+      'should find a slot after both busy blocks'
+    )
   })
 })
 

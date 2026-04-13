@@ -99,18 +99,24 @@ export async function POST(
 
   // If client requested handoff to another agent
   if (payload.handoffAgentId) {
-    const existingConv = await getConversation(tenantId, agent.id, conversation.id)
+    const existingConv = await getConversation(
+      tenantId,
+      agent.id,
+      conversation.id
+    )
     const chain = existingConv?.handoffChain ?? []
     const lastEntry = chain[chain.length - 1]
-    const isContinuation =
-      lastEntry?.toAgentId === payload.handoffAgentId
+    const isContinuation = lastEntry?.toAgentId === payload.handoffAgentId
 
     if (isContinuation) {
       // This is a continuation — the handoff was already recorded.
       // Just load the target agent and route to it.
       const targetAgent = await getAgentById(payload.handoffAgentId)
       if (!targetAgent) {
-        return NextResponse.json({ error: 'Target agent not found' }, { status: 404 })
+        return NextResponse.json(
+          { error: 'Target agent not found' },
+          { status: 404 }
+        )
       }
       if (!targetAgent.allowAnonymous) {
         const hasAccess = await hasValidAccessCookie(targetAgent.id)
@@ -183,7 +189,10 @@ export async function POST(
 
   // Resolve handoff target names for the active agent's system prompt
   if (activeAgent.handoffTargets?.length) {
-    handoffTargetNames = await getAgentNamesByTenant(tenantId, activeAgent.handoffTargets)
+    handoffTargetNames = await getAgentNamesByTenant(
+      tenantId,
+      activeAgent.handoffTargets
+    )
   }
 
   const agentMessages = handoffContext
@@ -233,7 +242,9 @@ export async function POST(
         currentSummary: conversation.summary,
         summaryResponseCount: conversation.summaryResponseCount,
         responseCounts: conversation.responseCounts
-      }).catch(err => console.error('[public-chat] Auto-summarize failed:', err))
+      }).catch(err =>
+        console.error('[public-chat] Auto-summarize failed:', err)
+      )
 
       if (reason === 'handoff_to_agent') {
         const targetId = extractHandoffTarget(completion)
@@ -249,12 +260,17 @@ export async function POST(
             handoffChain: existingConvForHandoff?.handoffChain ?? []
           })
           if (validation.valid && validation.targetAgent) {
-            await recordConversationHandoff(tenantId, agent.id, conversation.id, {
-              fromAgentId: activeAgent.id,
-              fromAgentName: activeAgent.name,
-              toAgentId: validation.targetAgent.id,
-              toAgentName: validation.targetAgent.name
-            })
+            await recordConversationHandoff(
+              tenantId,
+              agent.id,
+              conversation.id,
+              {
+                fromAgentId: activeAgent.id,
+                fromAgentName: activeAgent.name,
+                toAgentId: validation.targetAgent.id,
+                toAgentName: validation.targetAgent.name
+              }
+            )
           }
         }
       }
@@ -262,18 +278,23 @@ export async function POST(
       // Increment active agent's lifetime response counter
       if (
         activeAgent.maxAgentResponses &&
-        (activeAgent.totalResponseCount ?? 0) + 5 >= activeAgent.maxAgentResponses
+        (activeAgent.totalResponseCount ?? 0) + 5 >=
+          activeAgent.maxAgentResponses
       ) {
         const agentRef = adminDb
           .collection(Collections.agents(activeAgent.tenantId!))
           .doc(activeAgent.id)
-        adminDb.runTransaction(async (tx: any) => {
-          const snap = await tx.get(agentRef)
-          const current = (snap.data() as Record<string, any> | undefined)?.totalResponseCount ?? 0
-          tx.update(agentRef, { totalResponseCount: current + 1 })
-        }).catch((e: unknown) =>
-          console.error('[chat] Failed to increment response count (tx):', e)
-        )
+        adminDb
+          .runTransaction(async (tx: any) => {
+            const snap = await tx.get(agentRef)
+            const current =
+              (snap.data() as Record<string, any> | undefined)
+                ?.totalResponseCount ?? 0
+            tx.update(agentRef, { totalResponseCount: current + 1 })
+          })
+          .catch((e: unknown) =>
+            console.error('[chat] Failed to increment response count (tx):', e)
+          )
       } else {
         adminDb
           .collection(Collections.agents(activeAgent.tenantId!))
@@ -294,20 +315,15 @@ export async function POST(
         source: isEmbed ? 'embed' : 'public_chat',
         model: OPENAI_CHAT_MODEL,
         inputTokens: usage?.promptTokens,
-        outputTokens: usage?.completionTokens,
+        outputTokens: usage?.completionTokens
       })
 
       // Update conversation ref if this is a handoff target agent
       if (activeAgent.id !== agent.id) {
-        updateConversationRef(
-          tenantId,
-          activeAgent.id,
-          conversation.id,
-          {
-            responseCount: agentResponseCount + 1,
-            lastMessageAt: new Date().toISOString()
-          }
-        ).catch(err =>
+        updateConversationRef(tenantId, activeAgent.id, conversation.id, {
+          responseCount: agentResponseCount + 1,
+          lastMessageAt: new Date().toISOString()
+        }).catch(err =>
           console.error('[chat] Failed to update conversation ref:', err)
         )
       }
@@ -342,7 +358,9 @@ export async function POST(
       'x-agent-mode': activeAgent.mode,
       'x-max-responses': String(activeAgent.maxResponses ?? ''),
       'x-max-agent-responses': String(activeAgent.maxAgentResponses ?? ''),
-      'x-total-response-count': String((activeAgent.totalResponseCount ?? 0) + 1),
+      'x-total-response-count': String(
+        (activeAgent.totalResponseCount ?? 0) + 1
+      ),
       'x-agent-id': activeAgent.id,
       'x-agent-name': activeAgent.name,
       'x-remaining-responses': String(currentRemainingResponses ?? '')

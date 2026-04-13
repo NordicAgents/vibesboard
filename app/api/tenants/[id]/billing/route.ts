@@ -55,21 +55,21 @@ export async function GET(req: Request, { params }: RouteParams) {
       const paymentMethods = await stripe.paymentMethods.list({
         customer: subscription.stripeCustomerId,
         type: 'card',
-        limit: 1,
+        limit: 1
       })
       hasPaymentMethod = paymentMethods.data.length > 0
 
       // Fetch recent invoices
       const stripeInvoices = await stripe.invoices.list({
         customer: subscription.stripeCustomerId,
-        limit: 5,
+        limit: 5
       })
-      invoices = stripeInvoices.data.map((inv) => ({
+      invoices = stripeInvoices.data.map(inv => ({
         id: inv.id,
         date: new Date((inv.created ?? 0) * 1000).toISOString(),
         amount: inv.amount_paid ?? 0,
         status: inv.status ?? 'unknown',
-        pdfUrl: inv.invoice_pdf ?? null,
+        pdfUrl: inv.invoice_pdf ?? null
       }))
     } catch (err) {
       console.error('[billing] Failed to fetch Stripe data:', err)
@@ -82,6 +82,6 @@ export async function GET(req: Request, { params }: RouteParams) {
     allPlans,
     hasPaymentMethod,
     invoices,
-    isPersonal: tenant.isPersonal ?? false,
+    isPersonal: tenant.isPersonal ?? false
   })
 }

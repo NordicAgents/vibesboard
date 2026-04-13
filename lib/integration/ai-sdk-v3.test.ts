@@ -28,7 +28,10 @@ function loadEnv() {
       const key = trimmed.slice(0, eqIndex).trim()
       let value = trimmed.slice(eqIndex + 1).trim()
       // Strip surrounding quotes
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
       if (!process.env[key]) {
@@ -51,7 +54,9 @@ function hasRealApiKey(): boolean {
 
 function skipIfNoKey(): boolean {
   if (!hasRealApiKey()) {
-    console.log('  ⏭ Skipping: OPENAI_API_KEY is not a real key (set a sk-… key to enable live tests)')
+    console.log(
+      '  ⏭ Skipping: OPENAI_API_KEY is not a real key (set a sk-… key to enable live tests)'
+    )
     return true
   }
   return false
@@ -245,7 +250,9 @@ describe('tool() helper', () => {
       }
     })
 
-    const result = await myTool.execute!({ a: 3, b: 7 }, { abortSignal: new AbortController().signal } as any)
+    const result = await myTool.execute!({ a: 3, b: 7 }, {
+      abortSignal: new AbortController().signal
+    } as any)
     assert.strictEqual(result, '10')
   })
 })
@@ -337,8 +344,14 @@ describe('textStream to ReadableStream conversion', () => {
     })
 
     assert.ok(httpResponse.body, 'Response should have a body')
-    assert.strictEqual(httpResponse.headers.get('Content-Type'), 'text/plain; charset=utf-8')
-    assert.strictEqual(httpResponse.headers.get('x-conversation-id'), 'test-123')
+    assert.strictEqual(
+      httpResponse.headers.get('Content-Type'),
+      'text/plain; charset=utf-8'
+    )
+    assert.strictEqual(
+      httpResponse.headers.get('x-conversation-id'),
+      'test-123'
+    )
 
     // Consume to avoid hanging
     const text = await httpResponse.text()
@@ -352,7 +365,8 @@ describe('textStream to ReadableStream conversion', () => {
 describe('isResponsesModel', () => {
   // Inline the logic since we can't import @/ paths from Node test runner
   const isResponsesModel = (model?: string | null) =>
-    !!model && (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
+    !!model &&
+    (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
 
   test('detects gpt-5.4-nano as responses model', () => {
     assert.strictEqual(isResponsesModel('gpt-5.4-nano'), true)
@@ -466,14 +480,20 @@ describe('pull()-based ReadableStream', () => {
     let returnCalled = false
     const fakeIterator = {
       next: async () => ({ value: 'chunk', done: false }),
-      return: async () => { returnCalled = true; return { value: undefined, done: true as const } }
+      return: async () => {
+        returnCalled = true
+        return { value: undefined, done: true as const }
+      }
     }
 
     const encoder = new TextEncoder()
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         const { value, done } = await fakeIterator.next()
-        if (done) { controller.close(); return }
+        if (done) {
+          controller.close()
+          return
+        }
         controller.enqueue(encoder.encode(value))
       },
       cancel() {
@@ -485,7 +505,10 @@ describe('pull()-based ReadableStream', () => {
     await reader.read() // consume one chunk
     await reader.cancel()
 
-    assert.ok(returnCalled, 'iterator.return() should have been called on cancel')
+    assert.ok(
+      returnCalled,
+      'iterator.return() should have been called on cancel'
+    )
   })
 })
 
@@ -565,7 +588,8 @@ describe('AI SDK v3 regression checks', () => {
     })
 
     // Must consume stream for onFinish to fire
-    for await (const _chunk of result.textStream) {}
+    for await (const _chunk of result.textStream) {
+    }
     await new Promise(r => setTimeout(r, 200))
 
     assert.ok(finishUsage, 'onFinish should provide usage data')
@@ -599,7 +623,8 @@ describe('AI SDK v3 regression checks', () => {
     )
 
     // Consume to avoid hanging
-    for await (const _chunk of result.textStream) {}
+    for await (const _chunk of result.textStream) {
+    }
   })
 
   test('multi-turn messages produce contextual response', async () => {
@@ -613,7 +638,10 @@ describe('AI SDK v3 regression checks', () => {
     const result = await streamText({
       model: openai('gpt-4o-mini'),
       messages: [
-        { role: 'system', content: 'You are a helpful assistant. Be very concise.' },
+        {
+          role: 'system',
+          content: 'You are a helpful assistant. Be very concise.'
+        },
         { role: 'user', content: 'My name is TestUser42.' },
         { role: 'assistant', content: 'Nice to meet you, TestUser42!' },
         { role: 'user', content: 'What is my name?' }

@@ -17,4 +17,9 @@ export function createProvider(
   }
 }
 
-export type { SchedulingProvider, TimeSlot, CreateEventParams, CreateEventResult } from './types'
+export type {
+  SchedulingProvider,
+  TimeSlot,
+  CreateEventParams,
+  CreateEventResult
+} from './types'

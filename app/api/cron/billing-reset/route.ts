@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         'subscription.overageCount': 0,
         'subscription.billingCycleStart': cycleStart,
         'subscription.billingCycleEnd': cycleEnd,
-        updatedAt: now.toISOString(),
+        updatedAt: now.toISOString()
       })
       resetCount++
     }

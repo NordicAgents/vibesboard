@@ -23,7 +23,10 @@ export async function GET() {
 
   const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS_SCHEDULE')
   if (!enabled) {
-    return NextResponse.json({ error: 'Scheduling feature is not enabled' }, { status: 403 })
+    return NextResponse.json(
+      { error: 'Scheduling feature is not enabled' },
+      { status: 403 }
+    )
   }
 
   const connections = await getCalendarConnections(tenantId)

@@ -7,7 +7,7 @@ import {
   getConversation,
   updateConversationStatus,
   assignConversation,
-  markAsRead,
+  markAsRead
 } from '@/lib/instagram-inbox/conversations'
 import type { InboxConversationStatus } from '@/lib/firestore-types'
 
@@ -20,10 +20,7 @@ type RouteParams = {
 /**
  * GET — Get a single conversation.
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -59,10 +56,7 @@ export async function GET(
  * PATCH — Update conversation (status, assignee, mark as read).
  * Body: { status?, assignedTo?, markAsRead? }
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId, contactId } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -82,7 +76,7 @@ export async function PATCH(
       const validStatuses: InboxConversationStatus[] = [
         'open',
         'resolved',
-        'snoozed',
+        'snoozed'
       ]
       if (!validStatuses.includes(body.status)) {
         return NextResponse.json(
@@ -90,16 +84,16 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      await updateConversationStatus(tenantId, accountId, contactId, body.status)
-    }
-
-    if (body.assignedTo !== undefined) {
-      await assignConversation(
+      await updateConversationStatus(
         tenantId,
         accountId,
         contactId,
-        body.assignedTo
+        body.status
       )
+    }
+
+    if (body.assignedTo !== undefined) {
+      await assignConversation(tenantId, accountId, contactId, body.assignedTo)
     }
 
     if (body.markAsRead) {
@@ -125,22 +119,35 @@ export async function PATCH(
         if (convo?.agentConversationId) {
           const effectiveAgentId = convo.assignedAgentId || null
           if (effectiveAgentId) {
-            const agentConvoPath = Collections.conversations(tenantId, effectiveAgentId)
-            await adminDb.collection(agentConvoPath).doc(convo.agentConversationId).update({
-              handedOff: false,
-              updatedAt: new Date().toISOString(),
-            }).catch(() => {}) // Non-critical
+            const agentConvoPath = Collections.conversations(
+              tenantId,
+              effectiveAgentId
+            )
+            await adminDb
+              .collection(agentConvoPath)
+              .doc(convo.agentConversationId)
+              .update({
+                handedOff: false,
+                updatedAt: new Date().toISOString()
+              })
+              .catch(() => {}) // Non-critical
           }
         }
       }
     }
 
     if (Object.keys(agentUpdates).length > 0) {
-      const convoPath = Collections.instagramInboxConversations(tenantId, accountId)
-      await adminDb.collection(convoPath).doc(contactId).update({
-        ...agentUpdates,
-        updatedAt: new Date().toISOString(),
-      })
+      const convoPath = Collections.instagramInboxConversations(
+        tenantId,
+        accountId
+      )
+      await adminDb
+        .collection(convoPath)
+        .doc(contactId)
+        .update({
+          ...agentUpdates,
+          updatedAt: new Date().toISOString()
+        })
     }
 
     return NextResponse.json({ success: true })

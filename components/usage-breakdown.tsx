@@ -11,7 +11,7 @@ const SOURCE_LABELS: Record<string, string> = {
   hook_async: 'Webhook Async',
   whatsapp: 'WhatsApp',
   instagram: 'Instagram',
-  embed: 'Embed Widget',
+  embed: 'Embed Widget'
 }
 
 interface UsageBreakdownProps {
@@ -24,7 +24,7 @@ interface UsageBreakdownProps {
 export function UsageBreakdown({
   data,
   labels,
-  className,
+  className
 }: UsageBreakdownProps) {
   const entries = Object.entries(data)
     .filter(([, count]) => count > 0)
@@ -33,9 +33,7 @@ export function UsageBreakdown({
   const total = entries.reduce((sum, [, count]) => sum + count, 0)
 
   if (entries.length === 0) {
-    return (
-      <p className="text-sm text-[#6f7f80]">No usage data yet.</p>
-    )
+    return <p className="text-sm text-[#6f7f80]">No usage data yet.</p>
   }
 
   return (

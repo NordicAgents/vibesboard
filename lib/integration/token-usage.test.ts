@@ -27,12 +27,17 @@ function loadEnv() {
       if (eqIndex === -1) continue
       const key = trimmed.slice(0, eqIndex).trim()
       let value = trimmed.slice(eqIndex + 1).trim()
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
       if (!process.env[key]) process.env[key] = value
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 loadEnv()
@@ -88,7 +93,11 @@ describe('admin usage API response shape', () => {
     assert.ok('dailyUsage' in data, 'should have dailyUsage')
 
     // billingCycleId format: YYYY-MM
-    assert.match(data.billingCycleId, /^\d{4}-\d{2}$/, 'billingCycleId should be YYYY-MM format')
+    assert.match(
+      data.billingCycleId,
+      /^\d{4}-\d{2}$/,
+      'billingCycleId should be YYYY-MM format'
+    )
 
     // agentNames and userNames should be objects
     assert.equal(typeof data.agentNames, 'object')
@@ -130,18 +139,47 @@ describe('admin usage API response shape', () => {
       assert.equal(typeof data.rollup.byUser, 'object')
 
       // Each user entry should have the expected shape
-      for (const [userId, userUsage] of Object.entries(data.rollup.byUser) as [string, any][]) {
-        assert.equal(typeof userUsage.messages, 'number', `${userId} should have messages count`)
-        assert.equal(typeof userUsage.inputTokens, 'number', `${userId} should have inputTokens`)
-        assert.equal(typeof userUsage.outputTokens, 'number', `${userId} should have outputTokens`)
+      for (const [userId, userUsage] of Object.entries(data.rollup.byUser) as [
+        string,
+        any
+      ][]) {
+        assert.equal(
+          typeof userUsage.messages,
+          'number',
+          `${userId} should have messages count`
+        )
+        assert.equal(
+          typeof userUsage.inputTokens,
+          'number',
+          `${userId} should have inputTokens`
+        )
+        assert.equal(
+          typeof userUsage.outputTokens,
+          'number',
+          `${userId} should have outputTokens`
+        )
 
         // byAgent nested under user
         if (userUsage.byAgent) {
           assert.equal(typeof userUsage.byAgent, 'object')
-          for (const [agentId, agentUsage] of Object.entries(userUsage.byAgent) as [string, any][]) {
-            assert.equal(typeof agentUsage.messages, 'number', `${userId}/${agentId} should have messages`)
-            assert.equal(typeof agentUsage.inputTokens, 'number', `${userId}/${agentId} should have inputTokens`)
-            assert.equal(typeof agentUsage.outputTokens, 'number', `${userId}/${agentId} should have outputTokens`)
+          for (const [agentId, agentUsage] of Object.entries(
+            userUsage.byAgent
+          ) as [string, any][]) {
+            assert.equal(
+              typeof agentUsage.messages,
+              'number',
+              `${userId}/${agentId} should have messages`
+            )
+            assert.equal(
+              typeof agentUsage.inputTokens,
+              'number',
+              `${userId}/${agentId} should have inputTokens`
+            )
+            assert.equal(
+              typeof agentUsage.outputTokens,
+              'number',
+              `${userId}/${agentId} should have outputTokens`
+            )
           }
         }
       }
@@ -155,7 +193,9 @@ describe('admin usage API response shape', () => {
 describe('end-to-end token tracking', () => {
   test('chat message records non-zero token usage', async () => {
     if (!canRunIntegration() || !TEST_AGENT_ID) {
-      console.log('  ⏭ Skipping: TEST_AUTH_COOKIE, TEST_TENANT_ID, or TEST_AGENT_ID not set')
+      console.log(
+        '  ⏭ Skipping: TEST_AUTH_COOKIE, TEST_TENANT_ID, or TEST_AGENT_ID not set'
+      )
       return
     }
     if (!(await isServerRunning())) {
@@ -214,9 +254,13 @@ describe('end-to-end token tracking', () => {
     // Token counts should be non-zero if the feature is working
     if (usage.rollup.totalInputTokens > 0) {
       console.log(`  ✓ Input tokens recorded: ${usage.rollup.totalInputTokens}`)
-      console.log(`  ✓ Output tokens recorded: ${usage.rollup.totalOutputTokens}`)
+      console.log(
+        `  ✓ Output tokens recorded: ${usage.rollup.totalOutputTokens}`
+      )
     } else {
-      console.log('  ⚠ Input tokens still 0 — check if Responses API returns usage in response.completed event')
+      console.log(
+        '  ⚠ Input tokens still 0 — check if Responses API returns usage in response.completed event'
+      )
     }
 
     // Verify byUser exists and has entries
@@ -234,7 +278,10 @@ describe('end-to-end token tracking', () => {
           break
         }
       }
-      assert.ok(hasAgentBreakdown, 'At least one user should have agent breakdown')
+      assert.ok(
+        hasAgentBreakdown,
+        'At least one user should have agent breakdown'
+      )
     }
   })
 })

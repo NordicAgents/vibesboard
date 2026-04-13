@@ -8,14 +8,20 @@ import { getHook, updateHook, deleteHook } from '@/lib/agents/hooks'
 
 export const runtime = 'nodejs'
 
-const patchHookSchema = z.object({
-  name: z.string().min(1).max(100).trim().optional(),
-  status: z.enum(['active', 'inactive']).optional()
-}).refine(d => d.name !== undefined || d.status !== undefined, {
-  message: 'At least one of name or status must be provided'
-})
+const patchHookSchema = z
+  .object({
+    name: z.string().min(1).max(100).trim().optional(),
+    status: z.enum(['active', 'inactive']).optional()
+  })
+  .refine(d => d.name !== undefined || d.status !== undefined, {
+    message: 'At least one of name or status must be provided'
+  })
 
-async function resolveAndAuthorise(agentId: string, hookId: string, userId: string) {
+async function resolveAndAuthorise(
+  agentId: string,
+  hookId: string,
+  userId: string
+) {
   const agent = await getAgentById(agentId)
   if (!agent) return { error: new NextResponse('Not found', { status: 404 }) }
 
@@ -27,7 +33,8 @@ async function resolveAndAuthorise(agentId: string, hookId: string, userId: stri
   if (!canEdit) return { error: new NextResponse('Forbidden', { status: 403 }) }
 
   const hook = await getHook(agent.tenantId!, agent.id, hookId)
-  if (!hook) return { error: new NextResponse('Hook not found', { status: 404 }) }
+  if (!hook)
+    return { error: new NextResponse('Hook not found', { status: 404 }) }
 
   return { agent, hook }
 }

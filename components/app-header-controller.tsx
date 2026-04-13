@@ -14,7 +14,7 @@ const SYSTEM_PREFIXES = [
   '/share',
   '/landing',
   '/privacy-policy',
-  '/terms-of-service',
+  '/terms-of-service'
 ]
 
 export function AppHeaderController({

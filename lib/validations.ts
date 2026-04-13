@@ -9,31 +9,31 @@
  * - Length between 3 and 50 characters
  */
 export function validateTenantSlug(slug: string): boolean {
-    if (!slug || slug.length < 3 || slug.length > 50) {
-        return false
-    }
+  if (!slug || slug.length < 3 || slug.length > 50) {
+    return false
+  }
 
-    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-    return slugRegex.test(slug)
+  const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+  return slugRegex.test(slug)
 }
 
 /**
  * Validates hex color code
  */
 export function validateHexColor(color: string): boolean {
-    if (!color) return false
-    const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
-    return hexRegex.test(color)
+  if (!color) return false
+  const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
+  return hexRegex.test(color)
 }
 
 /**
  * Validates branding colors
  */
 export function validateBrandingColors(
-    primary: string,
-    secondary: string
+  primary: string,
+  secondary: string
 ): boolean {
-    return validateHexColor(primary) && validateHexColor(secondary)
+  return validateHexColor(primary) && validateHexColor(secondary)
 }
 
 /**
@@ -42,47 +42,47 @@ export function validateBrandingColors(
  * - Length between 3 and 50 characters
  */
 export function validateFeatureFlagName(name: string): boolean {
-    if (!name || name.length < 3 || name.length > 50) {
-        return false
-    }
+  if (!name || name.length < 3 || name.length > 50) {
+    return false
+  }
 
-    const nameRegex = /^[A-Z][A-Z0-9_]*$/
-    return nameRegex.test(name)
+  const nameRegex = /^[A-Z][A-Z0-9_]*$/
+  return nameRegex.test(name)
 }
 
 /**
  * Validates email address
  */
 export function validateEmail(email: string): boolean {
-    if (!email) return false
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
+  if (!email) return false
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
 }
 
 /**
  * Generate slug from name
  */
 export function generateSlug(name: string): string {
-    return name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '') // Remove special characters
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
 }
 
 /**
  * Validates URL format
  */
 export function validateUrl(url: string): boolean {
-    if (!url) return false
-    try {
-        new URL(url)
-        return true
-    } catch {
-        return false
-    }
+  if (!url) return false
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -91,10 +91,10 @@ export function validateUrl(url: string): boolean {
  * - No special characters except spaces, hyphens, and underscores
  */
 export function validateTenantName(name: string): boolean {
-    if (!name || name.length < 2 || name.length > 100) {
-        return false
-    }
+  if (!name || name.length < 2 || name.length > 100) {
+    return false
+  }
 
-    const nameRegex = /^[a-zA-Z0-9\s\-_]+$/
-    return nameRegex.test(name)
+  const nameRegex = /^[a-zA-Z0-9\s\-_]+$/
+  return nameRegex.test(name)
 }

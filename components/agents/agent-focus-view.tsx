@@ -15,7 +15,7 @@ export function AgentFocusView({
   agent,
   share,
   canEdit,
-  onSwitchToAdvanced,
+  onSwitchToAdvanced
 }: AgentFocusViewProps) {
   const form = useAgentForm(agent)
 
@@ -46,7 +46,6 @@ export function AgentFocusView({
           onSwitchToAdvanced={handleSwitchToAdvanced}
         />
       </div>
-
     </div>
   )
 }

@@ -32,7 +32,9 @@ export function AgentEmbedSettings({
   const [copied, setCopied] = useState(false)
 
   const host =
-    typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://your-domain.com'
 
   const embedCode = useMemo(() => {
     const attrs = [`data-agent-id="${agent.id}"`]
@@ -106,9 +108,7 @@ export function AgentEmbedSettings({
 
         {/* Customization */}
         <div className="space-y-3 border-t pt-3">
-          <p className="text-xs font-medium text-muted-foreground">
-            Customize
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">Customize</p>
 
           {/* Position */}
           <div className="space-y-1.5">
@@ -117,9 +117,7 @@ export function AgentEmbedSettings({
             </label>
             <div className="flex gap-2">
               <Badge
-                variant={
-                  position === 'bottom-right' ? 'default' : 'secondary'
-                }
+                variant={position === 'bottom-right' ? 'default' : 'secondary'}
                 className={cn(
                   'flex-1 cursor-pointer justify-center py-1.5 transition-all',
                   position === 'bottom-right' &&
@@ -130,9 +128,7 @@ export function AgentEmbedSettings({
                 Bottom Right
               </Badge>
               <Badge
-                variant={
-                  position === 'bottom-left' ? 'default' : 'secondary'
-                }
+                variant={position === 'bottom-left' ? 'default' : 'secondary'}
                 className={cn(
                   'flex-1 cursor-pointer justify-center py-1.5 transition-all',
                   position === 'bottom-left' &&

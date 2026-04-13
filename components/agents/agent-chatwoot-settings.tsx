@@ -101,9 +101,7 @@ export function AgentChatwootSettings({
   const loadConnections = async () => {
     try {
       setLoading(true)
-      const res = await fetch(
-        `/api/agents/${agentId}/chatwoot/connections`
-      )
+      const res = await fetch(`/api/agents/${agentId}/chatwoot/connections`)
       if (!res.ok) throw new Error('Failed to load connections')
       const data = await res.json()
       setConnections(data.connections || [])
@@ -177,20 +175,17 @@ export function AgentChatwootSettings({
       setConnecting(true)
       setSetupStep('connecting')
 
-      const res = await fetch(
-        `/api/agents/${agentId}/chatwoot/connections`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chatwootUrl: chatwootUrl.trim(),
-            apiToken: apiToken.trim(),
-            inboxId: selectedInboxId,
-            enableAgentBot,
-            botName: enableAgentBot ? botName.trim() || undefined : undefined
-          })
-        }
-      )
+      const res = await fetch(`/api/agents/${agentId}/chatwoot/connections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatwootUrl: chatwootUrl.trim(),
+          apiToken: apiToken.trim(),
+          inboxId: selectedInboxId,
+          enableAgentBot,
+          botName: enableAgentBot ? botName.trim() || undefined : undefined
+        })
+      })
 
       if (!res.ok) {
         const data = await res.json()
@@ -350,9 +345,7 @@ export function AgentChatwootSettings({
                 <p className="text-sm font-medium text-muted-foreground">
                   Active
                 </p>
-                <p className="text-2xl font-bold">
-                  {activeConnections.length}
-                </p>
+                <p className="text-2xl font-bold">{activeConnections.length}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">
@@ -544,8 +537,7 @@ export function AgentChatwootSettings({
                 'Choose which inbox this agent should handle'}
               {setupStep === 'bot-config' &&
                 'Choose how your agent responds in Chatwoot'}
-              {setupStep === 'connecting' &&
-                'Setting up the connection...'}
+              {setupStep === 'connecting' && 'Setting up the connection...'}
               {setupStep === 'done' &&
                 'Your agent is now connected to Chatwoot'}
             </AlertDialogDescription>
@@ -701,8 +693,7 @@ export function AgentChatwootSettings({
                 <Check className="size-6 text-green-600" />
               </div>
               <p className="mt-4 text-sm font-medium">
-                Connected to{' '}
-                {inboxes.find(i => i.id === selectedInboxId)?.name}
+                Connected to {inboxes.find(i => i.id === selectedInboxId)?.name}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Messages from this inbox will now be handled by your agent
@@ -744,16 +735,10 @@ export function AgentChatwootSettings({
             )}
             {setupStep === 'bot-config' && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => setSetupStep('inbox')}
-                >
+                <Button variant="outline" onClick={() => setSetupStep('inbox')}>
                   Back
                 </Button>
-                <Button
-                  onClick={handleConnect}
-                  disabled={connecting}
-                >
+                <Button onClick={handleConnect} disabled={connecting}>
                   {connecting && (
                     <Loader2 className="mr-2 size-4 animate-spin" />
                   )}
@@ -818,8 +803,8 @@ export function AgentChatwootSettings({
             <AlertDialogTitle>Delete Connection</AlertDialogTitle>
             <AlertDialogDescription>
               Permanently delete the connection to &quot;
-              {selectedConnection?.chatwootInboxName}&quot;? This action
-              cannot be undone.
+              {selectedConnection?.chatwootInboxName}&quot;? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

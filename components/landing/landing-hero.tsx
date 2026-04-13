@@ -333,89 +333,142 @@ export function LandingHero() {
               className="relative w-[300px] xs:w-[330px] sm:w-[360px] md:w-[380px] lg:w-[350px] xl:w-[390px]"
               animate={phoneFloat}
             >
-            {/* Orbital rings + particles — centered on phone */}
-            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="relative h-[500px] w-[500px] sm:h-[580px] sm:w-[580px] lg:h-[640px] lg:w-[640px]">
-                {/* Outer ring — slow spin */}
-                <motion.div
-                  className="absolute inset-0 rounded-full border border-[#a7e26e]/10"
-                  initial={{ opacity: 0, scale: 0.6 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 360 }}
-                  transition={{
-                    opacity: { duration: 1, delay: 0.2 },
-                    scale: { duration: 1.4, delay: 0.2, ease: springEase },
-                    rotate: { duration: 90, repeat: Infinity, ease: 'linear' as const }
-                  }}
-                >
-                  {/* Dot on outer ring */}
-                  <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-[#a7e26e]/40" />
-                  <div className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#a7e26e]/25" />
-                </motion.div>
+              {/* Orbital rings + particles — centered on phone */}
+              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                <div className="relative h-[500px] w-[500px] sm:h-[580px] sm:w-[580px] lg:h-[640px] lg:w-[640px]">
+                  {/* Outer ring — slow spin */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full border border-[#a7e26e]/10"
+                    initial={{ opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 360 }}
+                    transition={{
+                      opacity: { duration: 1, delay: 0.2 },
+                      scale: { duration: 1.4, delay: 0.2, ease: springEase },
+                      rotate: {
+                        duration: 90,
+                        repeat: Infinity,
+                        ease: 'linear' as const
+                      }
+                    }}
+                  >
+                    {/* Dot on outer ring */}
+                    <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-[#a7e26e]/40" />
+                    <div className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#a7e26e]/25" />
+                  </motion.div>
 
-                {/* Middle ring — dashed, reverse spin */}
-                <motion.div
-                  className="absolute inset-[18%] rounded-full border border-dashed border-[#a7e26e]/[0.07]"
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1, rotate: -360 }}
-                  transition={{
-                    opacity: { duration: 1, delay: 0.4 },
-                    scale: { duration: 1.4, delay: 0.4, ease: springEase },
-                    rotate: { duration: 120, repeat: Infinity, ease: 'linear' as const }
-                  }}
-                >
-                  <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#cef79e]/30" />
-                </motion.div>
+                  {/* Middle ring — dashed, reverse spin */}
+                  <motion.div
+                    className="absolute inset-[18%] rounded-full border border-dashed border-[#a7e26e]/[0.07]"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1, rotate: -360 }}
+                    transition={{
+                      opacity: { duration: 1, delay: 0.4 },
+                      scale: { duration: 1.4, delay: 0.4, ease: springEase },
+                      rotate: {
+                        duration: 120,
+                        repeat: Infinity,
+                        ease: 'linear' as const
+                      }
+                    }}
+                  >
+                    <div className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#cef79e]/30" />
+                  </motion.div>
 
-                {/* Inner ring — subtle glow */}
-                <motion.div
-                  className="absolute inset-[36%] rounded-full border border-[#a7e26e]/[0.06]"
-                  initial={{ opacity: 0, scale: 0.4 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 360 }}
-                  transition={{
-                    opacity: { duration: 1, delay: 0.6 },
-                    scale: { duration: 1.4, delay: 0.6, ease: springEase },
-                    rotate: { duration: 70, repeat: Infinity, ease: 'linear' as const }
-                  }}
-                >
-                  <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1/2 rounded-full bg-[#a7e26e]/35 shadow-[0_0_8px_rgba(167,226,110,0.3)]" />
-                </motion.div>
+                  {/* Inner ring — subtle glow */}
+                  <motion.div
+                    className="absolute inset-[36%] rounded-full border border-[#a7e26e]/[0.06]"
+                    initial={{ opacity: 0, scale: 0.4 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 360 }}
+                    transition={{
+                      opacity: { duration: 1, delay: 0.6 },
+                      scale: { duration: 1.4, delay: 0.6, ease: springEase },
+                      rotate: {
+                        duration: 70,
+                        repeat: Infinity,
+                        ease: 'linear' as const
+                      }
+                    }}
+                  >
+                    <div className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 translate-x-1/2 rounded-full bg-[#a7e26e]/35 shadow-[0_0_8px_rgba(167,226,110,0.3)]" />
+                  </motion.div>
 
-                {/* Center glow */}
-                <div
-                  className="absolute inset-[30%] rounded-full"
-                  style={{
-                    background: 'radial-gradient(circle, rgba(167,226,110,0.06) 0%, transparent 70%)'
-                  }}
-                />
+                  {/* Center glow */}
+                  <div
+                    className="absolute inset-[30%] rounded-full"
+                    style={{
+                      background:
+                        'radial-gradient(circle, rgba(167,226,110,0.06) 0%, transparent 70%)'
+                    }}
+                  />
 
-                {/* Floating particles */}
-                <motion.div
-                  className="absolute left-[12%] top-[20%] h-1 w-1 rounded-full bg-[#a7e26e]/30"
-                  animate={{ y: [0, -8, 0] as number[], opacity: [0.2, 0.5, 0.2] as number[] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' as const }}
-                />
-                <motion.div
-                  className="absolute right-[15%] top-[30%] h-1.5 w-1.5 rounded-full bg-[#cef79e]/20"
-                  animate={{ y: [0, 10, 0] as number[], opacity: [0.15, 0.4, 0.15] as number[] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' as const, delay: 1 }}
-                />
-                <motion.div
-                  className="absolute bottom-[18%] left-[22%] h-1 w-1 rounded-full bg-[#a7e26e]/25"
-                  animate={{ y: [0, -6, 0] as number[], x: [0, 4, 0] as number[], opacity: [0.2, 0.45, 0.2] as number[] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' as const, delay: 2 }}
-                />
-                <motion.div
-                  className="absolute bottom-[25%] right-[10%] h-1 w-1 rounded-full bg-[#cef79e]/30"
-                  animate={{ y: [0, 7, 0] as number[], opacity: [0.25, 0.5, 0.25] as number[] }}
-                  transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' as const, delay: 0.5 }}
-                />
-                <motion.div
-                  className="absolute left-[45%] top-[8%] h-[3px] w-[3px] rounded-full bg-[#a7e26e]/20"
-                  animate={{ y: [0, -10, 0] as number[], opacity: [0.1, 0.35, 0.1] as number[] }}
-                  transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' as const, delay: 3 }}
-                />
+                  {/* Floating particles */}
+                  <motion.div
+                    className="absolute left-[12%] top-[20%] h-1 w-1 rounded-full bg-[#a7e26e]/30"
+                    animate={{
+                      y: [0, -8, 0] as number[],
+                      opacity: [0.2, 0.5, 0.2] as number[]
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: 'easeInOut' as const
+                    }}
+                  />
+                  <motion.div
+                    className="absolute right-[15%] top-[30%] h-1.5 w-1.5 rounded-full bg-[#cef79e]/20"
+                    animate={{
+                      y: [0, 10, 0] as number[],
+                      opacity: [0.15, 0.4, 0.15] as number[]
+                    }}
+                    transition={{
+                      duration: 5,
+                      repeat: Infinity,
+                      ease: 'easeInOut' as const,
+                      delay: 1
+                    }}
+                  />
+                  <motion.div
+                    className="absolute bottom-[18%] left-[22%] h-1 w-1 rounded-full bg-[#a7e26e]/25"
+                    animate={{
+                      y: [0, -6, 0] as number[],
+                      x: [0, 4, 0] as number[],
+                      opacity: [0.2, 0.45, 0.2] as number[]
+                    }}
+                    transition={{
+                      duration: 6,
+                      repeat: Infinity,
+                      ease: 'easeInOut' as const,
+                      delay: 2
+                    }}
+                  />
+                  <motion.div
+                    className="absolute bottom-[25%] right-[10%] h-1 w-1 rounded-full bg-[#cef79e]/30"
+                    animate={{
+                      y: [0, 7, 0] as number[],
+                      opacity: [0.25, 0.5, 0.25] as number[]
+                    }}
+                    transition={{
+                      duration: 3.5,
+                      repeat: Infinity,
+                      ease: 'easeInOut' as const,
+                      delay: 0.5
+                    }}
+                  />
+                  <motion.div
+                    className="absolute left-[45%] top-[8%] h-[3px] w-[3px] rounded-full bg-[#a7e26e]/20"
+                    animate={{
+                      y: [0, -10, 0] as number[],
+                      opacity: [0.1, 0.35, 0.1] as number[]
+                    }}
+                    transition={{
+                      duration: 5.5,
+                      repeat: Infinity,
+                      ease: 'easeInOut' as const,
+                      delay: 3
+                    }}
+                  />
+                </div>
               </div>
-            </div>
 
               {/* Phone frame */}
               <div className="relative rounded-[2.8rem] border-[7px] border-[#1e3233] bg-[#1e3233] shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:rounded-[3rem]">
@@ -430,7 +483,16 @@ export function LandingHero() {
                   {/* App header */}
                   <div className="flex items-center gap-3 bg-[#1e3233] px-5 pb-3 pt-8 sm:px-6 sm:pt-10">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#a7e26e]">
-                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#111918" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#111918"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                       </svg>
                     </div>
@@ -448,36 +510,61 @@ export function LandingHero() {
                     animate="visible"
                   >
                     {/* Timestamp */}
-                    <motion.div variants={msgReveal(0.8)} className="text-center">
+                    <motion.div
+                      variants={msgReveal(0.8)}
+                      className="text-center"
+                    >
                       <span className="rounded-full bg-[#192828] px-3 py-1 text-[9px] font-medium text-[#6f7f80]">
                         Today, 9:41 AM
                       </span>
                     </motion.div>
 
                     {/* Bot message 1 */}
-                    <motion.div variants={msgReveal(1.0)} className="flex items-end gap-2">
+                    <motion.div
+                      variants={msgReveal(1.0)}
+                      className="flex items-end gap-2"
+                    >
                       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
                         <div className="h-3 w-3 rounded-full bg-[#a7e26e]" />
                       </div>
                       <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-[#192828] px-3.5 py-2.5">
                         <p className="text-[12.5px] leading-[1.5] text-[#e8ede8] sm:text-[13px]">
                           Hey! I&apos;m your{' '}
-                          <span className="font-semibold text-[#a7e26e]">VibeAgent</span>
-                          {' '}&mdash; ready to handle customer conversations 24/7.
+                          <span className="font-semibold text-[#a7e26e]">
+                            VibeAgent
+                          </span>{' '}
+                          &mdash; ready to handle customer conversations 24/7.
                         </p>
-                        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">9:41 AM</span>
+                        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">
+                          9:41 AM
+                        </span>
                       </div>
                     </motion.div>
 
                     {/* User message 1 */}
-                    <motion.div variants={msgReveal(1.5)} className="flex justify-end">
+                    <motion.div
+                      variants={msgReveal(1.5)}
+                      className="flex justify-end"
+                    >
                       <div className="max-w-[75%] rounded-2xl rounded-br-md bg-[#a7e26e] px-3.5 py-2.5">
                         <p className="text-[12.5px] leading-[1.5] text-[#111918] sm:text-[13px]">
                           Can you auto-reply on WhatsApp?
                         </p>
                         <div className="mt-1 flex items-center justify-end gap-1">
-                          <span className="text-[9px] text-[#111918]/50">9:41 AM</span>
-                          <svg width="14" height="8" viewBox="0 0 16 9" fill="none" stroke="#111918" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.5">
+                          <span className="text-[9px] text-[#111918]/50">
+                            9:41 AM
+                          </span>
+                          <svg
+                            width="14"
+                            height="8"
+                            viewBox="0 0 16 9"
+                            fill="none"
+                            stroke="#111918"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.5"
+                          >
                             <polyline points="1 4.5 4 7.5 11 1" />
                             <polyline points="5 4.5 8 7.5 15 1" />
                           </svg>
@@ -486,27 +573,48 @@ export function LandingHero() {
                     </motion.div>
 
                     {/* Bot message 2 */}
-                    <motion.div variants={msgReveal(2.0)} className="flex items-end gap-2">
+                    <motion.div
+                      variants={msgReveal(2.0)}
+                      className="flex items-end gap-2"
+                    >
                       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
                         <div className="h-3 w-3 rounded-full bg-[#a7e26e]" />
                       </div>
                       <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-[#192828] px-3.5 py-2.5">
                         <p className="text-[12.5px] leading-[1.5] text-[#e8ede8] sm:text-[13px]">
-                          Absolutely! I read, understand, and reply naturally &mdash; keeping every conversation on-brand.
+                          Absolutely! I read, understand, and reply naturally
+                          &mdash; keeping every conversation on-brand.
                         </p>
-                        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">9:42 AM</span>
+                        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">
+                          9:42 AM
+                        </span>
                       </div>
                     </motion.div>
 
                     {/* User message 2 */}
-                    <motion.div variants={msgReveal(2.5)} className="flex justify-end">
+                    <motion.div
+                      variants={msgReveal(2.5)}
+                      className="flex justify-end"
+                    >
                       <div className="max-w-[68%] rounded-2xl rounded-br-md bg-[#a7e26e] px-3.5 py-2.5">
                         <p className="text-[12.5px] leading-[1.5] text-[#111918] sm:text-[13px]">
                           Let&apos;s set it up!
                         </p>
                         <div className="mt-1 flex items-center justify-end gap-1">
-                          <span className="text-[9px] text-[#111918]/50">9:42 AM</span>
-                          <svg width="14" height="8" viewBox="0 0 16 9" fill="none" stroke="#3b7a1a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7">
+                          <span className="text-[9px] text-[#111918]/50">
+                            9:42 AM
+                          </span>
+                          <svg
+                            width="14"
+                            height="8"
+                            viewBox="0 0 16 9"
+                            fill="none"
+                            stroke="#3b7a1a"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            opacity="0.7"
+                          >
                             <polyline points="1 4.5 4 7.5 11 1" />
                             <polyline points="5 4.5 8 7.5 15 1" />
                           </svg>
@@ -515,25 +623,51 @@ export function LandingHero() {
                     </motion.div>
 
                     {/* Typing indicator */}
-                    <motion.div variants={msgReveal(3.0)} className="flex items-end gap-2">
+                    <motion.div
+                      variants={msgReveal(3.0)}
+                      className="flex items-end gap-2"
+                    >
                       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
                         <div className="h-3 w-3 rounded-full bg-[#a7e26e]" />
                       </div>
                       <div className="flex items-center gap-[5px] rounded-2xl rounded-bl-md bg-[#192828] px-4 py-3">
                         <motion.span
                           className="inline-block h-[6px] w-[6px] rounded-full bg-[#6f7f80]"
-                          animate={{ opacity: [0.3, 1, 0.3] as number[], y: [0, -3, 0] as number[] }}
-                          transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' as const }}
+                          animate={{
+                            opacity: [0.3, 1, 0.3] as number[],
+                            y: [0, -3, 0] as number[]
+                          }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            ease: 'easeInOut' as const
+                          }}
                         />
                         <motion.span
                           className="inline-block h-[6px] w-[6px] rounded-full bg-[#6f7f80]"
-                          animate={{ opacity: [0.3, 1, 0.3] as number[], y: [0, -3, 0] as number[] }}
-                          transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' as const, delay: 0.15 }}
+                          animate={{
+                            opacity: [0.3, 1, 0.3] as number[],
+                            y: [0, -3, 0] as number[]
+                          }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            ease: 'easeInOut' as const,
+                            delay: 0.15
+                          }}
                         />
                         <motion.span
                           className="inline-block h-[6px] w-[6px] rounded-full bg-[#6f7f80]"
-                          animate={{ opacity: [0.3, 1, 0.3] as number[], y: [0, -3, 0] as number[] }}
-                          transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' as const, delay: 0.3 }}
+                          animate={{
+                            opacity: [0.3, 1, 0.3] as number[],
+                            y: [0, -3, 0] as number[]
+                          }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            ease: 'easeInOut' as const,
+                            delay: 0.3
+                          }}
                         />
                       </div>
                     </motion.div>
@@ -547,7 +681,16 @@ export function LandingHero() {
                     transition={{ duration: 0.5, delay: 0.6 }}
                   >
                     <div className="flex h-8 w-8 items-center justify-center text-white/40">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <circle cx="12" cy="12" r="10" />
                         <path d="M8 14s1.5 2 4 2 4-2 4-2" />
                         <line x1="9" y1="9" x2="9.01" y2="9" />
@@ -555,10 +698,21 @@ export function LandingHero() {
                       </svg>
                     </div>
                     <div className="flex-1 rounded-full bg-[#192828] px-4 py-2">
-                      <p className="text-[11px] text-[#6f7f80]">Type a message…</p>
+                      <p className="text-[11px] text-[#6f7f80]">
+                        Type a message…
+                      </p>
                     </div>
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#a7e26e]">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111918" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#111918"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <line x1="22" y1="2" x2="11" y2="13" />
                         <polygon points="22 2 15 22 11 13 2 9 22 2" />
                       </svg>

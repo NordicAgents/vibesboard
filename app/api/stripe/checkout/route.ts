@@ -5,7 +5,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import {
   getOrCreateStripeCustomer,
-  mapPlanToStripePrices,
+  mapPlanToStripePrices
 } from '@/lib/stripe-helpers'
 import type { PlanId } from '@/lib/plans'
 
@@ -50,10 +50,7 @@ export async function POST(request: Request) {
     .doc(tenantId)
     .get()
   if (!tenantDoc.exists) {
-    return NextResponse.json(
-      { error: 'Tenant not found' },
-      { status: 404 }
-    )
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
   const tenant = tenantDoc.data()!
@@ -61,7 +58,10 @@ export async function POST(request: Request) {
   // Check if already subscribed via Stripe
   if (tenant.subscription?.stripeSubscriptionId) {
     return NextResponse.json(
-      { error: 'Tenant already has an active Stripe subscription. Use the customer portal to manage it.' },
+      {
+        error:
+          'Tenant already has an active Stripe subscription. Use the customer portal to manage it.'
+      },
       { status: 409 }
     )
   }
@@ -86,16 +86,15 @@ export async function POST(request: Request) {
   const lineItems: Array<{ price: string; quantity?: number }> = [
     {
       price: prices.basePriceId,
-      quantity: planId === 'team' ? (seatCount ?? 3) : 1,
+      quantity: planId === 'team' ? (seatCount ?? 3) : 1
     },
     {
-      price: prices.overagePriceId,
+      price: prices.overagePriceId
       // No quantity for metered prices
-    },
+    }
   ]
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   // Create Checkout Session
   const session = await stripe.checkout.sessions.create({
@@ -103,11 +102,11 @@ export async function POST(request: Request) {
     customer: stripeCustomerId,
     line_items: lineItems,
     subscription_data: {
-      metadata: { tenantId, planId },
+      metadata: { tenantId, planId }
     },
     success_url: `${appUrl}/settings/tenant/billing?success=true`,
     cancel_url: `${appUrl}/settings/tenant/billing?canceled=true`,
-    metadata: { tenantId, planId },
+    metadata: { tenantId, planId }
   })
 
   return NextResponse.json({ url: session.url })

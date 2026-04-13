@@ -23,7 +23,8 @@ const formatDate = (value: string) => {
   return date.toISOString().slice(0, 10)
 }
 
-const roleLabel = (role: Message['role']) => (role === 'assistant' ? 'Agent' : 'User')
+const roleLabel = (role: Message['role']) =>
+  role === 'assistant' ? 'Agent' : 'User'
 
 const truncate = (value: string, maxChars: number) => {
   if (value.length <= maxChars) return value
@@ -67,7 +68,11 @@ export async function buildAskAiConversationContext({
 }> {
   const trimmedQuestion = question.trim()
   if (!trimmedQuestion) {
-    return { context: 'No question provided.', usedVectorSearch: false, sourceCount: 0 }
+    return {
+      context: 'No question provided.',
+      usedVectorSearch: false,
+      sourceCount: 0
+    }
   }
 
   const vectorContext = await buildVectorContext({
@@ -149,8 +154,10 @@ async function buildVectorContext({
     return { context: '', usedVectorSearch: true, sourceCount: 0 }
   }
 
-  const uniqueMessageHits: Array<{ conversationId: string; messageIndex: number }> =
-    []
+  const uniqueMessageHits: Array<{
+    conversationId: string
+    messageIndex: number
+  }> = []
   const seen = new Set<string>()
 
   for (const row of rows) {
@@ -172,7 +179,7 @@ async function buildVectorContext({
   let conversations: ReturnType<typeof mapConversationRow>[]
   try {
     const convResults = await Promise.all(
-      conversationIds.map(async (cid) => {
+      conversationIds.map(async cid => {
         const doc = await adminDb.collection(convCollPath).doc(cid).get()
         return doc.exists ? mapConversationRow(doc.data()!) : null
       })
@@ -286,7 +293,9 @@ async function buildFallbackContext({
   conversations.forEach((conversation, index) => {
     if (totalChars >= MAX_TOTAL_CONTEXT_CHARS) return
 
-    const messages = (conversation.messages ?? []).slice(-FALLBACK_MESSAGES_PER_CONVO)
+    const messages = (conversation.messages ?? []).slice(
+      -FALLBACK_MESSAGES_PER_CONVO
+    )
     const lines = renderMessageLines(messages)
     if (!lines.trim()) return
 

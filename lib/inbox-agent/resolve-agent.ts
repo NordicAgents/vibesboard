@@ -6,7 +6,7 @@ import type {
   WhatsAppInboxAccountDocument,
   InstagramInboxAccountDocument,
   WhatsAppInboxConversationDocument,
-  InstagramInboxConversationDocument,
+  InstagramInboxConversationDocument
 } from '@/lib/firestore-types'
 import { getAgentForMember } from '@/lib/agents/server'
 import type { VibeAgent } from '@/lib/types'

@@ -1,7 +1,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import {
   Collections,
-  type WhatsAppInboxAccountDocument,
+  type WhatsAppInboxAccountDocument
 } from '@/lib/firestore-types'
 import CryptoJS from 'crypto-js'
 import type {
@@ -10,7 +10,7 @@ import type {
   ConnectByoaParams,
   PhoneNumberInfo,
   MetaTokenResponse,
-  MetaDebugTokenData,
+  MetaDebugTokenData
 } from './types'
 
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0'
@@ -51,7 +51,9 @@ export async function exchangeCodeForToken(
   const appSecret = process.env.META_APP_SECRET
 
   if (!appId || !appSecret) {
-    throw new Error('META_APP_ID or META_APP_SECRET environment variables not set')
+    throw new Error(
+      'META_APP_ID or META_APP_SECRET environment variables not set'
+    )
   }
 
   const url = new URL(`${META_GRAPH_API}/oauth/access_token`)
@@ -84,8 +86,8 @@ export async function getWABAFromToken(
     `${META_GRAPH_API}/debug_token?input_token=${userToken}`,
     {
       headers: {
-        Authorization: `Bearer ${appId}|${appSecret}`,
-      },
+        Authorization: `Bearer ${appId}|${appSecret}`
+      }
     }
   )
 
@@ -100,7 +102,7 @@ export async function getWABAFromToken(
 
   // Extract WABA ID from granular scopes
   const messagingScope = data.granular_scopes?.find(
-    (s) => s.scope === 'whatsapp_business_messaging'
+    s => s.scope === 'whatsapp_business_messaging'
   )
   const wabaId = messagingScope?.target_ids?.[0]
 
@@ -121,15 +123,12 @@ export async function subscribeToWebhooks(
   wabaId: string,
   accessToken: string
 ): Promise<void> {
-  const response = await fetch(
-    `${META_GRAPH_API}/${wabaId}/subscribed_apps`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+  const response = await fetch(`${META_GRAPH_API}/${wabaId}/subscribed_apps`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`
     }
-  )
+  })
 
   if (!response.ok) {
     const error = await response.json()
@@ -146,14 +145,11 @@ export async function getPhoneNumbers(
   wabaId: string,
   accessToken: string
 ): Promise<PhoneNumberInfo[]> {
-  const response = await fetch(
-    `${META_GRAPH_API}/${wabaId}/phone_numbers`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+  const response = await fetch(`${META_GRAPH_API}/${wabaId}/phone_numbers`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
     }
-  )
+  })
 
   if (!response.ok) {
     const error = await response.json()
@@ -235,7 +231,7 @@ export async function connectOAuthAccount(
     connectionMethod: 'oauth',
     webhookSubscribed: true,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(account)
@@ -300,7 +296,7 @@ export async function connectApiKeyAccount(
     connectionMethod: 'api_key',
     webhookSubscribed: true,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(account)
@@ -315,7 +311,15 @@ export async function connectApiKeyAccount(
 export async function connectByoaAccount(
   params: ConnectByoaParams
 ): Promise<WhatsAppInboxAccountDocument> {
-  const { tenantId, metaAppId, metaAppSecret, accessToken, webhookVerifyToken, wabaId, userId } = params
+  const {
+    tenantId,
+    metaAppId,
+    metaAppSecret,
+    accessToken,
+    webhookVerifyToken,
+    wabaId,
+    userId
+  } = params
 
   // 1. Validate token by fetching phone numbers for this WABA
   const phones = await getPhoneNumbers(wabaId, accessToken)
@@ -354,8 +358,14 @@ export async function connectByoaAccount(
 
   // 4. Generate document and webhook URL
   const docRef = collRef.doc()
-  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/^http:/, 'https:')
-  if (appUrl.includes('vibesboard.com') && !appUrl.includes('www.vibesboard.com')) {
+  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(
+    /^http:/,
+    'https:'
+  )
+  if (
+    appUrl.includes('vibesboard.com') &&
+    !appUrl.includes('www.vibesboard.com')
+  ) {
     appUrl = appUrl.replace('://vibesboard.com', '://www.vibesboard.com')
   }
   const byoaWebhookUrl = `${appUrl}/api/webhooks/whatsapp-inbox/byoa/${docRef.id}`
@@ -381,7 +391,7 @@ export async function connectByoaAccount(
     byoaWebhookUrl,
     webhookSubscribed,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(account)
@@ -438,9 +448,7 @@ export async function getInboxAccount(
     .doc(accountId)
     .get()
 
-  return snap.exists
-    ? (snap.data() as WhatsAppInboxAccountDocument)
-    : null
+  return snap.exists ? (snap.data() as WhatsAppInboxAccountDocument) : null
 }
 
 /**
@@ -455,7 +463,7 @@ export async function disconnectInboxAccount(
     .doc(accountId)
     .update({
       status: 'disconnected',
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     })
 }
 

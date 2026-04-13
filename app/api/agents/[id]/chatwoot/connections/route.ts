@@ -161,12 +161,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           credResult.accountId,
           { name: botName, outgoingUrl: webhookUrl }
         )
-        console.log(`[chatwoot] Agent bot created: id=${bot?.id}, has_token=${!!bot?.access_token}`)
+        console.log(
+          `[chatwoot] Agent bot created: id=${bot?.id}, has_token=${!!bot?.access_token}`
+        )
       } catch (err) {
         console.error('[chatwoot] Failed to create agent bot:', err)
         // Roll back webhook
         if (chatwootWebhookId) {
-          await deleteChatwootWebhook(validated.chatwootUrl, validated.apiToken, credResult.accountId, chatwootWebhookId)
+          await deleteChatwootWebhook(
+            validated.chatwootUrl,
+            validated.apiToken,
+            credResult.accountId,
+            chatwootWebhookId
+          )
         }
         const detail = err instanceof Error ? err.message : String(err)
         return NextResponse.json(
@@ -176,13 +183,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       if (!bot?.id || !bot?.access_token) {
-        console.error('[chatwoot] Bot created but response missing id or access_token:', JSON.stringify(bot))
+        console.error(
+          '[chatwoot] Bot created but response missing id or access_token:',
+          JSON.stringify(bot)
+        )
         // Roll back webhook
         if (chatwootWebhookId) {
-          await deleteChatwootWebhook(validated.chatwootUrl, validated.apiToken, credResult.accountId, chatwootWebhookId)
+          await deleteChatwootWebhook(
+            validated.chatwootUrl,
+            validated.apiToken,
+            credResult.accountId,
+            chatwootWebhookId
+          )
         }
         return NextResponse.json(
-          { error: 'Agent bot was created but Chatwoot returned an incomplete response (missing id or token). Check your Chatwoot version.' },
+          {
+            error:
+              'Agent bot was created but Chatwoot returned an incomplete response (missing id or token). Check your Chatwoot version.'
+          },
           { status: 400 }
         )
       }
@@ -200,17 +218,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           validated.inboxId,
           bot.id
         )
-        console.log(`[chatwoot] Agent bot ${bot.id} assigned to inbox ${validated.inboxId}`)
+        console.log(
+          `[chatwoot] Agent bot ${bot.id} assigned to inbox ${validated.inboxId}`
+        )
       } catch (err) {
         console.error('[chatwoot] Failed to assign agent bot to inbox:', err)
         // Roll back bot + webhook
-        await deleteChatwootAgentBot(validated.chatwootUrl, validated.apiToken, credResult.accountId, bot.id)
+        await deleteChatwootAgentBot(
+          validated.chatwootUrl,
+          validated.apiToken,
+          credResult.accountId,
+          bot.id
+        )
         if (chatwootWebhookId) {
-          await deleteChatwootWebhook(validated.chatwootUrl, validated.apiToken, credResult.accountId, chatwootWebhookId)
+          await deleteChatwootWebhook(
+            validated.chatwootUrl,
+            validated.apiToken,
+            credResult.accountId,
+            chatwootWebhookId
+          )
         }
         const detail = err instanceof Error ? err.message : String(err)
         return NextResponse.json(
-          { error: `Agent bot created but failed to assign to inbox: ${detail}` },
+          {
+            error: `Agent bot created but failed to assign to inbox: ${detail}`
+          },
           { status: 400 }
         )
       }
@@ -237,7 +269,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       connectionId
     )
 
-    const { encryptedApiToken, webhookSecretHash, encryptedBotToken, ...safeConnection } = connection
+    const {
+      encryptedApiToken,
+      webhookSecretHash,
+      encryptedBotToken,
+      ...safeConnection
+    } = connection
     return NextResponse.json({ connection: safeConnection }, { status: 201 })
   } catch (error) {
     console.error('Error creating Chatwoot connection:', error)
@@ -287,7 +324,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const connections = await listChatwootConnections(tenantId, agentId)
     const safeConnections = connections.map(
-      ({ encryptedApiToken, webhookSecretHash, encryptedBotToken, ...rest }) => rest
+      ({ encryptedApiToken, webhookSecretHash, encryptedBotToken, ...rest }) =>
+        rest
     )
 
     return NextResponse.json({

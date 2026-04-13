@@ -1,7 +1,7 @@
 import type {
   InstagramInboxAccountDocument,
   InstagramInboxConversationDocument,
-  InstagramInboxMessageDocument,
+  InstagramInboxMessageDocument
 } from '@/lib/firestore-types'
 
 export type InboxAccount = InstagramInboxAccountDocument

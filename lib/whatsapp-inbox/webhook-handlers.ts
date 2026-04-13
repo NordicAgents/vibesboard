@@ -1,7 +1,13 @@
 import { findAccountByWabaId } from '@/lib/whatsapp-inbox/accounts'
-import { storeInboundMessage, updateMessageStatus } from '@/lib/whatsapp-inbox/messages'
+import {
+  storeInboundMessage,
+  updateMessageStatus
+} from '@/lib/whatsapp-inbox/messages'
 import { triggerInboxAgent } from '@/lib/inbox-agent'
-import type { MetaWebhookMessage, MetaWebhookContact } from '@/lib/whatsapp-inbox/types'
+import type {
+  MetaWebhookMessage,
+  MetaWebhookContact
+} from '@/lib/whatsapp-inbox/types'
 import type { WhatsAppInboxAccountDocument } from '@/lib/firestore-types'
 
 /**
@@ -15,9 +21,7 @@ export async function processInboundMessages(
 ) {
   const result = await findAccountByWabaId(wabaId)
   if (!result) {
-    console.warn(
-      `[WhatsApp Inbox] No active account found for WABA ${wabaId}`
-    )
+    console.warn(`[WhatsApp Inbox] No active account found for WABA ${wabaId}`)
     return
   }
 
@@ -44,7 +48,7 @@ export async function processInboundMessagesForAccount(
 ) {
   for (const message of messages) {
     try {
-      const contact = contacts?.find((c) => c.wa_id === message.from)
+      const contact = contacts?.find(c => c.wa_id === message.from)
 
       await storeInboundMessage({
         tenantId,
@@ -52,13 +56,16 @@ export async function processInboundMessagesForAccount(
         wabaId,
         phoneNumberId,
         message,
-        contact,
+        contact
       })
 
       // Fire-and-forget: trigger agent if assigned
-      const messageText = message.type === 'text'
-        ? message.text?.body
-        : message.image?.caption || message.video?.caption || message.document?.caption
+      const messageText =
+        message.type === 'text'
+          ? message.text?.body
+          : message.image?.caption ||
+            message.video?.caption ||
+            message.document?.caption
       if (messageText) {
         triggerInboxAgent({
           channel: 'whatsapp',
@@ -67,8 +74,10 @@ export async function processInboundMessagesForAccount(
           contactId: message.from.replace(/\D/g, ''),
           contactName: contact?.profile?.name,
           messageText,
-          windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        }).catch((err) => {
+          windowExpiresAt: new Date(
+            Date.now() + 24 * 60 * 60 * 1000
+          ).toISOString()
+        }).catch(err => {
           console.error('[WhatsApp Inbox] Agent handler error:', err)
         })
       }
@@ -94,11 +103,7 @@ export async function processStatusUpdates(statuses: any[]) {
         : undefined
 
       if (['sent', 'delivered', 'read', 'failed'].includes(statusType)) {
-        await updateMessageStatus(
-          messageId,
-          statusType as any,
-          timestamp
-        )
+        await updateMessageStatus(messageId, statusType as any, timestamp)
       }
     } catch (err) {
       console.error(

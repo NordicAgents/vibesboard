@@ -11,7 +11,7 @@ export function getStripeServer(): Stripe {
   if (!_stripe) {
     _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: '2026-03-25.dahlia',
-      typescript: true,
+      typescript: true
     })
   }
   return _stripe
@@ -24,5 +24,5 @@ export function getStripeServer(): Stripe {
 export const stripe = new Proxy({} as Stripe, {
   get(_target, prop, receiver) {
     return Reflect.get(getStripeServer(), prop, receiver)
-  },
+  }
 })

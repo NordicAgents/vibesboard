@@ -19,4 +19,3 @@ describe('maskEmail', () => {
     assert.strictEqual(maskEmail(undefined), '***')
   })
 })
-

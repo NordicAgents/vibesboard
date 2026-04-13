@@ -20,10 +20,7 @@ export async function POST(
 
   const { fileKey } = await req.json()
   if (!fileKey) {
-    return NextResponse.json(
-      { error: 'fileKey is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'fileKey is required' }, { status: 400 })
   }
 
   try {

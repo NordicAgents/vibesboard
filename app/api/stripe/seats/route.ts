@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   )
 
   const baseItem = stripeSub.items.data.find(
-    (item) => item.price.recurring?.usage_type !== 'metered'
+    item => item.price.recurring?.usage_type !== 'metered'
   )
 
   if (!baseItem) {
@@ -73,15 +73,15 @@ export async function POST(request: Request) {
     items: [
       {
         id: baseItem.id,
-        quantity: seatCount,
-      },
+        quantity: seatCount
+      }
     ],
-    proration_behavior: 'create_prorations',
+    proration_behavior: 'create_prorations'
   })
 
   return NextResponse.json({
     success: true,
     previousSeats: baseItem.quantity,
-    newSeats: seatCount,
+    newSeats: seatCount
   })
 }

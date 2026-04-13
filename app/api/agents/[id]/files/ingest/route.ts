@@ -17,8 +17,10 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}))
   const fileKey = String(body?.fileKey ?? '').trim()
-  const fileName = typeof body?.fileName === 'string' ? body.fileName : undefined
-  const mimeType = typeof body?.mimeType === 'string' ? body.mimeType : undefined
+  const fileName =
+    typeof body?.fileName === 'string' ? body.fileName : undefined
+  const mimeType =
+    typeof body?.mimeType === 'string' ? body.mimeType : undefined
 
   if (!fileKey) {
     return NextResponse.json(

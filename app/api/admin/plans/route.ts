@@ -14,7 +14,9 @@ export async function GET() {
   if (!auth.ok) return auth.response
 
   const plansSnap = await adminDb.collection(Collections.planTemplates).get()
-  const plans = plansSnap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() }))
+  const plans = plansSnap.docs.map(
+    (d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() })
+  )
 
   // Count tenants per plan
   const tenantsSnap = await adminDb.collection(Collections.tenants).get()
@@ -26,14 +28,19 @@ export async function GET() {
     }
   }
 
-  const plansWithCounts = plans.map((p: { id: string; [key: string]: unknown }) => ({
-    ...p,
-    tenantCount: countByPlan[p.id] ?? 0,
-  }))
+  const plansWithCounts = plans.map(
+    (p: { id: string; [key: string]: unknown }) => ({
+      ...p,
+      tenantCount: countByPlan[p.id] ?? 0
+    })
+  )
 
   // Sort: free, pro, team, enterprise
   const order = ['free', 'pro', 'team', 'enterprise']
-  plansWithCounts.sort((a: { id: string }, b: { id: string }) => order.indexOf(a.id) - order.indexOf(b.id))
+  plansWithCounts.sort(
+    (a: { id: string }, b: { id: string }) =>
+      order.indexOf(a.id) - order.indexOf(b.id)
+  )
 
   return NextResponse.json({ plans: plansWithCounts })
 }
@@ -47,16 +54,35 @@ export async function POST(req: Request) {
   if (!auth.ok) return auth.response
 
   const body = await req.json()
-  const { id, name, price, pricePerSeat, minSeats, includedMessages, includedMessagesPerSeat, overageRate, featureFlags } = body
+  const {
+    id,
+    name,
+    price,
+    pricePerSeat,
+    minSeats,
+    includedMessages,
+    includedMessagesPerSeat,
+    overageRate,
+    featureFlags
+  } = body
 
   if (!id || !name) {
-    return NextResponse.json({ error: 'id and name are required' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'id and name are required' },
+      { status: 400 }
+    )
   }
 
   // Check for duplicate
-  const existing = await adminDb.collection(Collections.planTemplates).doc(id).get()
+  const existing = await adminDb
+    .collection(Collections.planTemplates)
+    .doc(id)
+    .get()
   if (existing.exists) {
-    return NextResponse.json({ error: 'Plan template already exists' }, { status: 409 })
+    return NextResponse.json(
+      { error: 'Plan template already exists' },
+      { status: 409 }
+    )
   }
 
   const now = new Date().toISOString()
@@ -71,7 +97,7 @@ export async function POST(req: Request) {
     overageRate: overageRate ?? 0,
     featureFlags: featureFlags ?? [],
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await adminDb.collection(Collections.planTemplates).doc(id).set(doc)

@@ -78,14 +78,29 @@ function UserAgentBreakdown({
         </thead>
         <tbody>
           {Object.entries(byAgent)
-            .sort(([, a], [, b]) => (b.inputTokens + b.outputTokens) - (a.inputTokens + a.outputTokens))
+            .sort(
+              ([, a], [, b]) =>
+                b.inputTokens +
+                b.outputTokens -
+                (a.inputTokens + a.outputTokens)
+            )
             .map(([agentId, usage]) => (
               <tr key={agentId} className="border-t border-muted/50">
-                <td className="py-1.5">{agentNames[agentId] || agentId.slice(0, 8)}</td>
-                <td className="text-right py-1.5">{usage.messages.toLocaleString()}</td>
-                <td className="text-right py-1.5">{usage.inputTokens.toLocaleString()}</td>
-                <td className="text-right py-1.5">{usage.outputTokens.toLocaleString()}</td>
-                <td className="text-right py-1.5">{(usage.inputTokens + usage.outputTokens).toLocaleString()}</td>
+                <td className="py-1.5">
+                  {agentNames[agentId] || agentId.slice(0, 8)}
+                </td>
+                <td className="text-right py-1.5">
+                  {usage.messages.toLocaleString()}
+                </td>
+                <td className="text-right py-1.5">
+                  {usage.inputTokens.toLocaleString()}
+                </td>
+                <td className="text-right py-1.5">
+                  {usage.outputTokens.toLocaleString()}
+                </td>
+                <td className="text-right py-1.5">
+                  {(usage.inputTokens + usage.outputTokens).toLocaleString()}
+                </td>
               </tr>
             ))}
         </tbody>
@@ -97,10 +112,13 @@ function UserAgentBreakdown({
 export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [rollup, setRollup] = React.useState<RollupData | null>(null)
-  const [billingCycleId, setBillingCycleId] = React.useState(getCurrentCycleId())
+  const [billingCycleId, setBillingCycleId] =
+    React.useState(getCurrentCycleId())
   const [agentNames, setAgentNames] = React.useState<Record<string, string>>({})
   const [userNames, setUserNames] = React.useState<Record<string, string>>({})
-  const [expandedUsers, setExpandedUsers] = React.useState<Set<string>>(new Set())
+  const [expandedUsers, setExpandedUsers] = React.useState<Set<string>>(
+    new Set()
+  )
 
   React.useEffect(() => {
     async function fetchUsage() {
@@ -144,7 +162,9 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground">No usage data for this billing cycle.</p>
+          <p className="text-muted-foreground">
+            No usage data for this billing cycle.
+          </p>
         </CardContent>
       </Card>
     )
@@ -155,11 +175,12 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
     ? Object.entries(rollup.byUser)
         .map(([userId, usage]) => ({
           id: userId,
-          name: userId === '_anonymous'
-            ? 'Anonymous / Public'
-            : userId.startsWith('ext:')
-              ? userNames[userId] || userId.slice(4, 16)
-              : userNames[userId] || userId.slice(0, 8),
+          name:
+            userId === '_anonymous'
+              ? 'Anonymous / Public'
+              : userId.startsWith('ext:')
+                ? userNames[userId] || userId.slice(4, 16)
+                : userNames[userId] || userId.slice(0, 8),
           messages: usage.messages ?? 0,
           inputTokens: usage.inputTokens ?? 0,
           outputTokens: usage.outputTokens ?? 0,
@@ -174,7 +195,7 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
       key: 'name',
       label: 'User',
       sortable: true,
-      render: (row) => (
+      render: row => (
         <div className="flex items-center gap-2">
           {Object.keys(row.byAgent).length > 0 ? (
             expandedUsers.has(row.id) ? (
@@ -185,11 +206,19 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
           ) : (
             <span className="w-4" />
           )}
-          <span className={row.id === '_anonymous' || row.id.startsWith('ext:') ? 'text-muted-foreground italic' : ''}>
+          <span
+            className={
+              row.id === '_anonymous' || row.id.startsWith('ext:')
+                ? 'text-muted-foreground italic'
+                : ''
+            }
+          >
             {row.name}
           </span>
           {row.id.startsWith('ext:') && (
-            <Badge variant="outline" className="ml-1 text-xs">external</Badge>
+            <Badge variant="outline" className="ml-1 text-xs">
+              external
+            </Badge>
           )}
         </div>
       )
@@ -199,28 +228,28 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
       label: 'Messages',
       sortable: true,
       className: 'text-right',
-      render: (row) => row.messages.toLocaleString()
+      render: row => row.messages.toLocaleString()
     },
     {
       key: 'inputTokens',
       label: 'Input Tokens',
       sortable: true,
       className: 'text-right',
-      render: (row) => row.inputTokens.toLocaleString()
+      render: row => row.inputTokens.toLocaleString()
     },
     {
       key: 'outputTokens',
       label: 'Output Tokens',
       sortable: true,
       className: 'text-right',
-      render: (row) => row.outputTokens.toLocaleString()
+      render: row => row.outputTokens.toLocaleString()
     },
     {
       key: 'totalTokens',
       label: 'Total Tokens',
       sortable: true,
       className: 'text-right',
-      render: (row) => row.totalTokens.toLocaleString()
+      render: row => row.totalTokens.toLocaleString()
     }
   ]
 
@@ -235,15 +264,21 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs text-muted-foreground">Total Messages</p>
-              <p className="text-2xl font-medium">{rollup.totalMessages.toLocaleString()}</p>
+              <p className="text-2xl font-medium">
+                {rollup.totalMessages.toLocaleString()}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Input Tokens</p>
-              <p className="text-2xl font-medium">{rollup.totalInputTokens.toLocaleString()}</p>
+              <p className="text-2xl font-medium">
+                {rollup.totalInputTokens.toLocaleString()}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Output Tokens</p>
-              <p className="text-2xl font-medium">{rollup.totalOutputTokens.toLocaleString()}</p>
+              <p className="text-2xl font-medium">
+                {rollup.totalOutputTokens.toLocaleString()}
+              </p>
             </div>
           </div>
 
@@ -270,7 +305,8 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
                   .sort(([, a], [, b]) => b - a)
                   .map(([agentId, count]) => (
                     <Badge key={agentId} variant="secondary">
-                      {agentNames[agentId] || agentId.slice(0, 8)}: {count.toLocaleString()}
+                      {agentNames[agentId] || agentId.slice(0, 8)}:{' '}
+                      {count.toLocaleString()}
                     </Badge>
                   ))}
               </div>
@@ -299,7 +335,8 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
           <CardHeader>
             <CardTitle>Usage by User</CardTitle>
             <CardDescription>
-              Token consumption per user with agent breakdown. Click a row to expand.
+              Token consumption per user with agent breakdown. Click a row to
+              expand.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -309,7 +346,10 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
                   <thead>
                     <tr className="border-b bg-muted/50">
                       {userColumns.map(col => (
-                        <th key={col.key} className={`px-4 py-3 text-left text-sm font-medium ${col.className ?? ''}`}>
+                        <th
+                          key={col.key}
+                          className={`px-4 py-3 text-left text-sm font-medium ${col.className ?? ''}`}
+                        >
                           {col.label}
                         </th>
                       ))}
@@ -323,21 +363,30 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
                           onClick={() => toggleUser(row.id)}
                         >
                           {userColumns.map(col => (
-                            <td key={col.key} className={`px-4 py-3 text-sm ${col.className ?? ''}`}>
-                              {col.render ? col.render(row) : (row as any)[col.key]}
+                            <td
+                              key={col.key}
+                              className={`px-4 py-3 text-sm ${col.className ?? ''}`}
+                            >
+                              {col.render
+                                ? col.render(row)
+                                : (row as any)[col.key]}
                             </td>
                           ))}
                         </tr>
-                        {expandedUsers.has(row.id) && Object.keys(row.byAgent).length > 0 && (
-                          <tr>
-                            <td colSpan={userColumns.length} className="px-4 py-2 bg-muted/25">
-                              <UserAgentBreakdown
-                                byAgent={row.byAgent}
-                                agentNames={agentNames}
-                              />
-                            </td>
-                          </tr>
-                        )}
+                        {expandedUsers.has(row.id) &&
+                          Object.keys(row.byAgent).length > 0 && (
+                            <tr>
+                              <td
+                                colSpan={userColumns.length}
+                                className="px-4 py-2 bg-muted/25"
+                              >
+                                <UserAgentBreakdown
+                                  byAgent={row.byAgent}
+                                  agentNames={agentNames}
+                                />
+                              </td>
+                            </tr>
+                          )}
                       </React.Fragment>
                     ))}
                   </tbody>

@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: RouteParams) {
   if (!exists) {
     return new NextResponse(null, {
       status: 404,
-      headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300' },
+      headers: { 'Cache-Control': 'public, max-age=60, s-maxage=300' }
     })
   }
 
@@ -32,7 +32,7 @@ export async function GET(req: Request, { params }: RouteParams) {
   return new NextResponse(buffer, {
     headers: {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400'
     }
   })
 }

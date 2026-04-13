@@ -10,9 +10,9 @@ export function generateIcs(params: {
   uid: string
   summary: string
   description: string
-  startDatetime: string  // wall-clock, e.g. "2026-05-10T14:00" — no tz suffix
+  startDatetime: string // wall-clock, e.g. "2026-05-10T14:00" — no tz suffix
   endDatetime: string
-  timezone: string       // IANA tz, e.g. "Asia/Kolkata" — used as TZID, not for conversion
+  timezone: string // IANA tz, e.g. "Asia/Kolkata" — used as TZID, not for conversion
   organizerEmail: string
 }): string {
   // "2026-05-10T14:00" → "20260510T140000"
@@ -24,10 +24,16 @@ export function generateIcs(params: {
   }
 
   // RFC 5545 §3.3.11: escape backslash, semicolon, comma in TEXT properties.
-  const escText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
+  const escText = (s: string) =>
+    s
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n')
 
   // DTSTAMP must be UTC
-  const dtstamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z'
+  const dtstamp =
+    new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z'
 
   const lines = [
     'BEGIN:VCALENDAR',

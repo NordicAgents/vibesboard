@@ -4,12 +4,21 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { MessageWindowIndicator } from './message-window-indicator'
-import { Send, Check, CheckCheck, AlertCircle, Bot, Pause, Play, UserPlus } from 'lucide-react'
+import {
+  Send,
+  Check,
+  CheckCheck,
+  AlertCircle,
+  Bot,
+  Pause,
+  Play,
+  UserPlus
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type {
   InstagramInboxMessageDocument,
-  InstagramInboxConversationDocument,
+  InstagramInboxConversationDocument
 } from '@/lib/firestore-types'
 
 interface MessageThreadProps {
@@ -23,7 +32,7 @@ interface MessageThreadProps {
 function formatMessageTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString(undefined, {
     hour: '2-digit',
-    minute: '2-digit',
+    minute: '2-digit'
   })
 }
 
@@ -65,7 +74,7 @@ export function MessageThread({
   accountId,
   conversation,
   messages,
-  onMessageSent,
+  onMessageSent
 }: MessageThreadProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -85,7 +94,7 @@ export function MessageThread({
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(updates)
       }
     )
     onMessageSent() // refresh data
@@ -113,7 +122,7 @@ export function MessageThread({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: trimmed }),
+          body: JSON.stringify({ text: trimmed })
         }
       )
 
@@ -143,9 +152,7 @@ export function MessageThread({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
-          <h3 className="text-sm font-medium text-foreground">
-            {displayName}
-          </h3>
+          <h3 className="text-sm font-medium text-foreground">{displayName}</h3>
           {conversation.contactUsername && conversation.contactName && (
             <p className="text-xs text-muted-foreground">
               {conversation.contactName}
@@ -178,7 +185,9 @@ export function MessageThread({
               variant="ghost"
               size="sm"
               className="h-7 gap-1 text-xs text-accent-orange"
-              onClick={() => patchConversation({ agentHandedOff: false, agentPaused: false })}
+              onClick={() =>
+                patchConversation({ agentHandedOff: false, agentPaused: false })
+              }
             >
               <UserPlus className="size-3" />
               Re-assign Agent
@@ -191,10 +200,7 @@ export function MessageThread({
       </div>
 
       {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 space-y-3 overflow-y-auto p-4"
-      >
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-sm text-muted-foreground">
@@ -202,7 +208,7 @@ export function MessageThread({
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
+          messages.map(msg => (
             <div
               key={msg.id}
               className={cn(
@@ -258,7 +264,9 @@ export function MessageThread({
             variant="ghost"
             size="sm"
             className="h-6 text-xs text-accent-orange"
-            onClick={() => patchConversation({ agentHandedOff: false, agentPaused: false })}
+            onClick={() =>
+              patchConversation({ agentHandedOff: false, agentPaused: false })
+            }
           >
             Re-assign Agent
           </Button>
@@ -271,7 +279,7 @@ export function MessageThread({
           <div className="flex items-end gap-2">
             <Textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={e => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
               className="min-h-[44px] max-h-32 resize-none"

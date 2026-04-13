@@ -17,7 +17,10 @@ import {
   handoffChatwootConversation,
   resumeChatwootConversation
 } from '@/lib/chatwoot/api-client'
-import { listChatwootConnections, decryptToken } from '@/lib/chatwoot/connections'
+import {
+  listChatwootConnections,
+  decryptToken
+} from '@/lib/chatwoot/connections'
 
 export const runtime = 'nodejs'
 
@@ -89,7 +92,10 @@ export async function PATCH(
 
     const conversation = await getConversation(agent.tenantId, agentId, cid)
     if (!conversation) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Conversation not found' },
+        { status: 404 }
+      )
     }
 
     if (!conversation.externalId?.startsWith('chatwoot:')) {
@@ -105,8 +111,14 @@ export async function PATCH(
     const chatwootConversationId = parseInt(parts[2], 10)
 
     // Find matching Chatwoot connection
-    const connections = await listChatwootConnections(agent.tenantId, agentId, 'active')
-    const connection = connections.find(c => c.chatwootAccountId === chatwootAccountId)
+    const connections = await listChatwootConnections(
+      agent.tenantId,
+      agentId,
+      'active'
+    )
+    const connection = connections.find(
+      c => c.chatwootAccountId === chatwootAccountId
+    )
     if (!connection) {
       return NextResponse.json(
         { error: 'No active Chatwoot connection found for this conversation' },
@@ -143,7 +155,10 @@ export async function PATCH(
       )
     }
     console.error('[chatwoot] Error toggling conversation handoff:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -177,12 +192,18 @@ export async function DELETE(
 
     const deleted = await deleteConversation(agent.tenantId, agentId, cid)
     if (!deleted) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Conversation not found' },
+        { status: 404 }
+      )
     }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('[conversation] Error deleting conversation:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

@@ -2,7 +2,10 @@ import { type VibeAgent } from '@/lib/types'
 import { createRetriever } from '@/lib/retrieval'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
 import { isFeatureEnabled } from '@/lib/features'
-import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/connections'
+import {
+  getCalendarConnection,
+  getValidAccessToken
+} from '@/lib/scheduling/connections'
 import { buildSchedulingTools } from './tools/scheduling'
 import { getDataConnection } from '@/lib/data/connections'
 import { buildDataTools } from './tools/data-actions'
@@ -52,14 +55,20 @@ export async function buildAgentContext(
   ]
   const executors = {
     ...Object.fromEntries(
-      Object.entries(fullToolkit.executors).filter(([name]) => !retrieverToolNames.has(name))
+      Object.entries(fullToolkit.executors).filter(
+        ([name]) => !retrieverToolNames.has(name)
+      )
     ),
     ...Object.fromEntries(result.tools.map(t => [t.function.name, t.execute]))
   }
 
   // For direct strategy: remove file_search if all files fit in context
   let toolkit: ToolKit = { functions, executors }
-  if (strategy === 'direct' && !result.hasOverflow && agent.fileKeys.length > 0) {
+  if (
+    strategy === 'direct' &&
+    !result.hasOverflow &&
+    agent.fileKeys.length > 0
+  ) {
     toolkit = {
       functions: functions.filter(fn => fn.name !== 'file_search'),
       executors: Object.fromEntries(
@@ -132,12 +141,16 @@ export async function buildAgentContext(
   // legacy calendar-availability. Never register both (same tool name conflict).
   if (agent.bookingConfig?.enabled && agent.tenantId) {
     try {
-      const bookingEnabled = await isFeatureEnabled(agent.tenantId, 'AGENT_ACTIONS_BOOKING')
+      const bookingEnabled = await isFeatureEnabled(
+        agent.tenantId,
+        'AGENT_ACTIONS_BOOKING'
+      )
       if (bookingEnabled) {
         // Direct mode: owner CRUD tools. Enquiry mode: guest-facing tools.
-        const bookingTools = agent.bookingConfig.mode === 'direct'
-          ? buildDirectBookingTools(agent)
-          : buildSimpleBookingTools(agent)
+        const bookingTools =
+          agent.bookingConfig.mode === 'direct'
+            ? buildDirectBookingTools(agent)
+            : buildSimpleBookingTools(agent)
         for (const tool of bookingTools) {
           toolkit.functions.push(tool.function)
           toolkit.executors[tool.function.name] = tool.execute
@@ -162,7 +175,10 @@ export async function buildAgentContext(
           agent.calendarAvailabilityConfig.calendarConnectionId
         )
         if (connection && connection.status === 'active') {
-          const availabilityTools = buildCalendarAvailabilityTools(agent, connection)
+          const availabilityTools = buildCalendarAvailabilityTools(
+            agent,
+            connection
+          )
           for (const tool of availabilityTools) {
             toolkit.functions.push(tool.function)
             toolkit.executors[tool.function.name] = tool.execute

@@ -8,26 +8,24 @@ import { Collections } from '@/lib/firestore-types'
 import { runAgentStream } from '@/lib/agent/runtime'
 import {
   detectCompletionMarker,
-  stripCompletionMarkers,
+  stripCompletionMarkers
 } from '@/lib/agent/completion'
-import {
-  maybeAutoSummarize
-} from '@/lib/agents/auto-summarize'
+import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import {
   ensureConversation,
   isConversationHandedOff,
   markConversationHandedOff,
-  updateConversationMessages,
+  updateConversationMessages
 } from '@/lib/agents/conversations'
 import {
   dispatchAgentNotification,
-  mapCompletionToEvent,
+  mapCompletionToEvent
 } from '@/lib/agents/notifications'
 import { resolveInboxAgent, type InboxChannel } from './resolve-agent'
 import {
   sendWhatsAppAgentReply,
   sendInstagramAgentReply,
-  type InboxReplyParams,
+  type InboxReplyParams
 } from './reply-adapters'
 
 export interface InboxAgentContext {
@@ -53,7 +51,12 @@ export async function triggerInboxAgent(
 
   if (!messageText) return
 
-  const result = await resolveInboxAgent(tenantId, accountId, contactId, channel)
+  const result = await resolveInboxAgent(
+    tenantId,
+    accountId,
+    contactId,
+    channel
+  )
   if (!result) return
 
   const { agent } = result
@@ -75,8 +78,14 @@ async function handleInboxAgentMessage(
   agent: VibeAgent,
   replyFn: ReplyFunction
 ): Promise<void> {
-  const { channel, tenantId, accountId, contactId, messageText, windowExpiresAt } =
-    context
+  const {
+    channel,
+    tenantId,
+    accountId,
+    contactId,
+    messageText,
+    windowExpiresAt
+  } = context
 
   const externalId = `inbox:${channel}:${accountId}:${contactId}`
 
@@ -92,13 +101,17 @@ async function handleInboxAgentMessage(
       externalId
     )
     if (handedOff) {
-      console.log(`[inbox-agent] Conversation ${externalId} is handed off, skipping`)
+      console.log(
+        `[inbox-agent] Conversation ${externalId} is handed off, skipping`
+      )
       return
     }
 
     // 2. Check 24h messaging window
     if (new Date(windowExpiresAt) <= new Date()) {
-      console.log(`[inbox-agent] 24h window expired for ${externalId}, skipping`)
+      console.log(
+        `[inbox-agent] 24h window expired for ${externalId}, skipping`
+      )
       return
     }
 
@@ -106,7 +119,7 @@ async function handleInboxAgentMessage(
     const userMessage: Message = {
       id: nanoid(),
       role: 'user',
-      content: messageText,
+      content: messageText
     }
 
     const conversation = await ensureConversation({
@@ -114,7 +127,7 @@ async function handleInboxAgentMessage(
       agentId: agent.id,
       userId: null,
       externalId,
-      initialMessages: [userMessage],
+      initialMessages: [userMessage]
     })
 
     // 4. Reconstruct message history
@@ -130,7 +143,7 @@ async function handleInboxAgentMessage(
       ...agent,
       instructions:
         (agent.instructions || '') +
-        '\n\nIMPORTANT: If the customer asks to speak to a human agent, requests escalation, or you cannot resolve their issue, let them know you are connecting them with a human agent and end your response with [HANDOFF_TO_HUMAN].',
+        '\n\nIMPORTANT: If the customer asks to speak to a human agent, requests escalation, or you cannot resolve their issue, let them know you are connecting them with a human agent and end your response with [HANDOFF_TO_HUMAN].'
     }
 
     // 6. Run agent stream
@@ -147,14 +160,14 @@ async function handleInboxAgentMessage(
 
         const nextMessages = [
           ...allMessages,
-          { id: nanoid(), role: 'assistant' as const, content: reply },
+          { id: nanoid(), role: 'assistant' as const, content: reply }
         ]
 
         await updateConversationMessages({
           tenantId,
           agentId: agent.id,
           conversationId: conversation.id,
-          messages: nextMessages,
+          messages: nextMessages
         })
 
         maybeAutoSummarize({
@@ -164,7 +177,7 @@ async function handleInboxAgentMessage(
           messages: nextMessages,
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
-          responseCounts: conversation.responseCounts,
+          responseCounts: conversation.responseCounts
         }).catch(err => console.error('[inbox] Auto-summarize failed:', err))
 
         const event = mapCompletionToEvent(reason)
@@ -173,10 +186,10 @@ async function handleInboxAgentMessage(
             agent,
             conversationId: conversation.id,
             event,
-            messageCount: allMessages.filter((m) => m.role === 'user').length,
+            messageCount: allMessages.filter(m => m.role === 'user').length
           })
         }
-      },
+      }
     })
 
     // 7. Drain stream to trigger onCompletion
@@ -194,7 +207,7 @@ async function handleInboxAgentMessage(
         contactId,
         text: reply,
         agentId: agent.id,
-        agentName: agent.name,
+        agentName: agent.name
       })
     }
 
@@ -211,14 +224,17 @@ async function handleInboxAgentMessage(
 
         await adminDb.collection(convoPath).doc(contactId).update({
           agentHandedOff: true,
-          updatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         })
 
         console.log(
           `[inbox-agent] Handed off ${channel} conversation ${contactId} to human`
         )
       } catch (handoffErr) {
-        console.error('[inbox-agent] Failed to hand off conversation:', handoffErr)
+        console.error(
+          '[inbox-agent] Failed to hand off conversation:',
+          handoffErr
+        )
       }
     }
 
@@ -232,7 +248,7 @@ async function handleInboxAgentMessage(
 
         await adminDb.collection(convoPath).doc(contactId).update({
           agentConversationId: conversation.id,
-          updatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         })
       } catch {
         // Non-critical — don't fail the message handling

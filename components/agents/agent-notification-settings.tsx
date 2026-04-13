@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AgentNotificationConfig, NotificationEvent } from '@/lib/firestore-types'
+import type {
+  AgentNotificationConfig,
+  NotificationEvent
+} from '@/lib/firestore-types'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -97,9 +100,7 @@ export function AgentNotificationSettings({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">Notifications</CardTitle>
-        <CardDescription>
-          Get notified when conversations end
-        </CardDescription>
+        <CardDescription>Get notified when conversations end</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Master toggle */}
