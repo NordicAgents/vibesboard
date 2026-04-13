@@ -7,7 +7,7 @@ on:
     branches: [dev]
 
 permissions:
-  contents: read
+  contents: write
   actions: read
   statuses: write
 
