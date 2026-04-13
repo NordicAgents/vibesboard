@@ -61,7 +61,7 @@ export interface VibeAgentTool {
 export interface VibeAgent {
   id: string
   userId: string
-  tenantId?: string
+  tenantId: string
   tenantSlug?: string
   name: string
   instructions: string

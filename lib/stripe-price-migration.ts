@@ -51,7 +51,7 @@ export async function rotatePlanPrices(
 
   const newOveragePrice = await stripe.prices.create({
     product: overageProductId,
-    unit_amount_decimal: newOverageAmountDecimal,
+    unit_amount_decimal: newOverageAmountDecimal as any,
     currency: oldOveragePrice.currency,
     recurring: {
       interval: oldOveragePrice.recurring!.interval,

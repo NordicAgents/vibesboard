@@ -99,7 +99,7 @@ async function vectorSearch(
 
     if (snapshot.empty) return []
 
-    return snapshot.docs.map(doc => {
+    return snapshot.docs.map((doc: any) => {
       const data = doc.data()
       return {
         fileId: data.fileId ?? '',
@@ -135,12 +135,12 @@ async function keywordSearch(
 
     const queryLower = query.toLowerCase()
     return snapshot.docs
-      .filter(doc => {
+      .filter((doc: any) => {
         const content: string = doc.data().content ?? ''
         return content.toLowerCase().includes(queryLower)
       })
       .slice(0, topK)
-      .map(doc => {
+      .map((doc: any) => {
         const data = doc.data()
         return {
           fileId: data.fileId ?? '',

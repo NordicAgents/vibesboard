@@ -48,7 +48,7 @@ export default async function AgentSectionLayout({
       .orderBy('updatedAt', 'desc')
       .get()
 
-    conversations = convoSnapshot.docs.map(doc =>
+    conversations = convoSnapshot.docs.map((doc: any) =>
       mapConversationDoc(doc.data())
     )
   }

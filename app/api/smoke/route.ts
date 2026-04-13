@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const agent: VibeAgent = {
     id: 'smoke-agent',
     userId: 'smoke-user',
+    tenantId: 'smoke-tenant',
     name: 'SmokeTest Agent',
     instructions:
       'Follow directions. When the user explicitly asks to call a tool, do so. Keep the final answer concise.',

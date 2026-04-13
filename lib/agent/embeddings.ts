@@ -105,7 +105,7 @@ export async function upsertConversationEmbeddings({
 
   if (!existingSnapshot.empty) {
     const deleteBatch = adminDb.batch()
-    existingSnapshot.docs.forEach(doc => deleteBatch.delete(doc.ref))
+    existingSnapshot.docs.forEach((doc: any) => deleteBatch.delete(doc.ref))
     await deleteBatch.commit()
   }
 

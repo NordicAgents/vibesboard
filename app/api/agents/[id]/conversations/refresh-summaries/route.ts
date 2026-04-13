@@ -49,8 +49,8 @@ export async function POST(
 
   // Filter in memory: no userId (visitor conversations) and no summary yet
   const convoRows = snapshot.docs
-    .map(doc => ({ ref: doc.ref, data: doc.data() }))
-    .filter(({ data }) => !data.userId && !data.summary)
+    .map((doc: any) => ({ ref: doc.ref, data: doc.data() }))
+    .filter(({ data }: any) => !data.userId && !data.summary)
     .slice(0, MAX_REFRESH)
 
   if (!convoRows.length) {
@@ -64,7 +64,7 @@ export async function POST(
     const chunk = convoRows.slice(i, i + CONCURRENCY)
 
     const results = await Promise.all(
-      chunk.map(async ({ ref, data }) => {
+      chunk.map(async ({ ref, data }: any) => {
         try {
           const conversation = mapConversationDoc(data)
           const summary = await summarizeConversation(conversation.messages)

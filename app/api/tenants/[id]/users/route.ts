@@ -35,7 +35,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   // Fetch user details for each member
   const users = await Promise.all(
-    membersSnapshot.docs.map(async memberDoc => {
+    membersSnapshot.docs.map(async (memberDoc: any) => {
       const memberData = memberDoc.data()
       const userId = memberDoc.id
 

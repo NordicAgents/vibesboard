@@ -68,7 +68,7 @@ export async function getAgentNamesByTenant(
   const snaps = await adminDb.getAll(...refs)
 
   const names: Record<string, string> = {}
-  snaps.forEach((snap, i) => {
+  snaps.forEach((snap: any, i: any) => {
     if (snap.exists) {
       names[agentIds[i]] = (snap.data() as Record<string, any>).name
     }

@@ -72,7 +72,7 @@ const extractFromHtml = (raw: string) =>
 const extractFromWorkbook = async (buffer: Buffer) => {
   const ExcelJS = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.load(buffer)
+  await workbook.xlsx.load(buffer as any)
   const parts: string[] = []
 
   workbook.eachSheet((worksheet, _sheetId) => {
@@ -360,7 +360,7 @@ const deleteExistingChunks = async (
     const batch = adminDb.batch()
     snapshot.docs
       .slice(i, i + BATCH_LIMIT)
-      .forEach(doc => batch.delete(doc.ref))
+      .forEach((doc: any) => batch.delete(doc.ref))
     await batch.commit()
   }
 }

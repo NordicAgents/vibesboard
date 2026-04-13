@@ -642,7 +642,7 @@ export async function deleteInboxAccount(
     for (let i = 0; i < messagesSnap.docs.length; i += BATCH_SIZE) {
       const chunk = messagesSnap.docs.slice(i, i + BATCH_SIZE)
       const batch = adminDb.batch()
-      chunk.forEach(msgDoc => batch.delete(msgDoc.ref))
+      chunk.forEach((msgDoc: any) => batch.delete(msgDoc.ref))
       await batch.commit()
     }
 

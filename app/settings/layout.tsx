@@ -34,11 +34,11 @@ async function getManageableTenants(userId: string): Promise<TenantDocument[]> {
   if (membersSnapshot.empty) return []
 
   const tenantIds = membersSnapshot.docs.map(
-    doc => doc.data().tenantId as string
+    (doc: any) => doc.data().tenantId as string
   )
 
   const tenantDocs = await Promise.all(
-    tenantIds.map(id => adminDb.collection(Collections.tenants).doc(id).get())
+    tenantIds.map((id: any) => adminDb.collection(Collections.tenants).doc(id).get())
   )
 
   return tenantDocs

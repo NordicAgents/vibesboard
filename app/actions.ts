@@ -23,7 +23,7 @@ export async function getChats(userId?: string | null) {
       .orderBy('createdAt', 'desc')
       .get()
 
-    return snapshot.docs.map(doc => doc.data().payload as Chat)
+    return snapshot.docs.map((doc: any) => doc.data().payload as Chat)
   } catch {
     return []
   }
@@ -49,7 +49,7 @@ export async function clearChats() {
     // Delete all chats — in production, scope this to the user
     const snapshot = await adminDb.collection(Collections.chats).get()
     const batch = adminDb.batch()
-    snapshot.docs.forEach(doc => batch.delete(doc.ref))
+    snapshot.docs.forEach((doc: any) => batch.delete(doc.ref))
     await batch.commit()
 
     revalidatePath('/')
@@ -91,7 +91,7 @@ export async function getAgents(userId?: string | null): Promise<VibeAgent[]> {
         .orderBy('createdAt', 'desc')
         .get()
 
-      return snapshot.docs.map(doc => mapAgentDoc(doc.data()))
+      return snapshot.docs.map((doc: any) => mapAgentDoc(doc.data()))
     }
 
     // No active tenant — shouldn't happen with ensureActiveTenant but handle gracefully

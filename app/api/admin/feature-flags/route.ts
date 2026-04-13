@@ -19,7 +19,7 @@ export async function GET() {
     .orderBy('name', 'asc')
     .get()
 
-  const flags = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  const flags = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }))
 
   return NextResponse.json({ flags })
 }

@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         .where('id', 'in', fileIds)
         .get()
 
-      filesToProcess = snapshot.docs.map(doc => {
+      filesToProcess = snapshot.docs.map((doc: any) => {
         const data = doc.data()
         return {
           fileId: doc.id,
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
         .limit(limit)
         .get()
 
-      filesToProcess = snapshot.docs.map(doc => {
+      filesToProcess = snapshot.docs.map((doc: any) => {
         const data = doc.data()
         return {
           fileId: doc.id,

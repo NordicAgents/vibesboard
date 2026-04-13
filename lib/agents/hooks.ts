@@ -99,7 +99,7 @@ export async function listHooks(
     .orderBy('createdAt', 'desc')
     .get()
 
-  return snap.docs.map(d => {
+  return snap.docs.map((d: any) => {
     const { secretHash: _, ...safe } = d.data() as HookDocument
     return safe
   })

@@ -86,10 +86,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  { params }: RouteParams
 ) {
   try {
-    const { id: tenantId, accountId } = params
+    const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)
     if (!authResult.ok) return authResult.response
 
