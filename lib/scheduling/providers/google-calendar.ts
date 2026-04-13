@@ -49,7 +49,14 @@ export class GoogleCalendarProvider implements SchedulingProvider {
     availableDays: number[]
     bufferMinutes: number
   }): Promise<TimeSlot[]> {
-    const { date, durationMinutes, timezone, availableHours, availableDays, bufferMinutes } = params
+    const {
+      date,
+      durationMinutes,
+      timezone,
+      availableHours,
+      availableDays,
+      bufferMinutes
+    } = params
 
     // Check if the requested date's day-of-week is in available days
     const requestedDate = new Date(`${date}T00:00:00`)
@@ -65,8 +72,12 @@ export class GoogleCalendarProvider implements SchedulingProvider {
     const freeBusyRes = await this.request('/freeBusy', {
       method: 'POST',
       body: JSON.stringify({
-        timeMin: new Date(`${dayStart}${getTimezoneOffset(timezone, date)}`).toISOString(),
-        timeMax: new Date(`${dayEnd}${getTimezoneOffset(timezone, date)}`).toISOString(),
+        timeMin: new Date(
+          `${dayStart}${getTimezoneOffset(timezone, date)}`
+        ).toISOString(),
+        timeMax: new Date(
+          `${dayEnd}${getTimezoneOffset(timezone, date)}`
+        ).toISOString(),
         timeZone: timezone,
         items: [{ id: this.calendarId }]
       })
@@ -82,7 +93,9 @@ export class GoogleCalendarProvider implements SchedulingProvider {
 
     // Parse start/end as local time in the given timezone
     let cursor = new Date(`${dayStart}${getTimezoneOffset(timezone, date)}`)
-    const endBoundary = new Date(`${dayEnd}${getTimezoneOffset(timezone, date)}`)
+    const endBoundary = new Date(
+      `${dayEnd}${getTimezoneOffset(timezone, date)}`
+    )
 
     while (cursor.getTime() + slotDurationMs <= endBoundary.getTime()) {
       const slotStart = cursor.toISOString()
@@ -148,9 +161,10 @@ export class GoogleCalendarProvider implements SchedulingProvider {
 
     return {
       eventId: event.id,
-      meetLink: event.conferenceData?.entryPoints?.find(
-        (e: any) => e.entryPointType === 'video'
-      )?.uri ?? undefined,
+      meetLink:
+        event.conferenceData?.entryPoints?.find(
+          (e: any) => e.entryPointType === 'video'
+        )?.uri ?? undefined,
       htmlLink: event.htmlLink
     }
   }
@@ -228,8 +242,8 @@ export interface CalendarEvent {
   id: string
   summary: string
   description?: string
-  start: string  // ISO datetime or date
-  end: string    // ISO datetime or date
+  start: string // ISO datetime or date
+  end: string // ISO datetime or date
   htmlLink?: string
 }
 

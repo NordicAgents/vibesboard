@@ -31,7 +31,10 @@ function loadEnv() {
       if (eqIndex === -1) continue
       const key = trimmed.slice(0, eqIndex).trim()
       let value = trimmed.slice(eqIndex + 1).trim()
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
       if (!process.env[key]) {
@@ -50,7 +53,10 @@ const AUTH_COOKIE = process.env.TEST_AUTH_COOKIE ?? ''
 
 async function isServerRunning(): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE_URL}/api/smoke`, { method: 'GET', signal: AbortSignal.timeout(3000) })
+    const res = await fetch(`${BASE_URL}/api/smoke`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(3000)
+    })
     return res.status !== 0
   } catch {
     return false
@@ -80,7 +86,12 @@ describe('POST /api/chat streaming', () => {
         Cookie: AUTH_COOKIE
       },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Write a short paragraph about the weather.' }]
+        messages: [
+          {
+            role: 'user',
+            content: 'Write a short paragraph about the weather.'
+          }
+        ]
       })
     })
 
@@ -146,7 +157,9 @@ describe('POST /api/chat streaming', () => {
         Cookie: AUTH_COOKIE
       },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Tell me a long story about a dragon.' }]
+        messages: [
+          { role: 'user', content: 'Tell me a long story about a dragon.' }
+        ]
       }),
       signal: controller.signal
     })
@@ -166,7 +179,10 @@ describe('POST /api/chat streaming', () => {
       method: 'GET',
       signal: AbortSignal.timeout(3000)
     })
-    assert.ok(healthCheck.status !== 0, 'Server should still respond after stream cancel')
+    assert.ok(
+      healthCheck.status !== 0,
+      'Server should still respond after stream cancel'
+    )
   })
 })
 
@@ -185,7 +201,12 @@ describe('POST /api/agent-helper streaming', () => {
         Cookie: AUTH_COOKIE
       },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Write instructions for a customer service agent' }]
+        messages: [
+          {
+            role: 'user',
+            content: 'Write instructions for a customer service agent'
+          }
+        ]
       })
     })
 
@@ -223,10 +244,13 @@ describe('POST /api/agent-creator streaming', () => {
         Cookie: AUTH_COOKIE
       },
       body: JSON.stringify({
-        messages: [{
-          role: 'user',
-          content: 'Create a pizza delivery support agent called PizzaBot that helps customers track orders'
-        }]
+        messages: [
+          {
+            role: 'user',
+            content:
+              'Create a pizza delivery support agent called PizzaBot that helps customers track orders'
+          }
+        ]
       })
     })
 

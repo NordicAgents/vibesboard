@@ -34,13 +34,12 @@ export function FocusForm({
   agent,
   share,
   form,
-  onSwitchToAdvanced,
+  onSwitchToAdvanced
 }: FocusFormProps) {
   const { fields, setters, hasChanges, saving, handleSaveAll } = form
   const [copied, setCopied] = useState(false)
 
-  const showTemplates =
-    !fields.instructions || fields.instructions.length < 20
+  const showTemplates = !fields.instructions || fields.instructions.length < 20
 
   const handleCopy = async () => {
     try {
@@ -67,169 +66,170 @@ export function FocusForm({
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div className="space-y-5">
-      {/* Health Indicator */}
-      <AgentHealthIndicator
-        agent={agent}
-        fields={fields}
-        onAdvancedClick={onSwitchToAdvanced}
-      />
-
-      {/* Template Cards */}
-      {showTemplates && (
-        <AgentTemplateCards onApply={handleApplyTemplate} />
-      )}
-
-      {/* Agent Name */}
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-[#445e5f] dark:text-[#c9cbbe]">
-          Agent name
-        </Label>
-        <Input
-          value={fields.name}
-          onChange={e => setters.setName(e.target.value)}
-          placeholder="e.g. Support Bot"
-          disabled={saving}
+      <div className="space-y-5">
+        {/* Health Indicator */}
+        <AgentHealthIndicator
+          agent={agent}
+          fields={fields}
+          onAdvancedClick={onSwitchToAdvanced}
         />
-      </div>
 
-      {/* Instructions */}
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5">
+        {/* Template Cards */}
+        {showTemplates && <AgentTemplateCards onApply={handleApplyTemplate} />}
+
+        {/* Agent Name */}
+        <div className="space-y-1.5">
           <Label className="text-xs font-medium text-[#445e5f] dark:text-[#c9cbbe]">
-            Instructions
+            Agent name
           </Label>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-[220px]">
-              Define your agent&apos;s personality, knowledge scope, and conversation boundaries.
-            </TooltipContent>
-          </Tooltip>
+          <Input
+            value={fields.name}
+            onChange={e => setters.setName(e.target.value)}
+            placeholder="e.g. Support Bot"
+            disabled={saving}
+          />
         </div>
-        <p className="text-[11px] text-[#9d9790]">
-          Tell your agent how to behave &mdash; its personality, what it knows
-          about, and what it should never discuss.
-        </p>
-        <Textarea
-          value={fields.instructions}
-          onChange={e => setters.setInstructions(e.target.value)}
-          placeholder="You are a helpful agent that..."
-          rows={6}
-          disabled={saving}
-        />
-      </div>
 
-      {/* First Message */}
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5">
-          <Label className="text-xs font-medium text-[#445e5f] dark:text-[#c9cbbe]">
-            First message
-          </Label>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-[220px]">
-              The greeting visitors see when they open a chat. Make it welcoming and set expectations.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <p className="text-[11px] text-[#9d9790]">
-          The first thing visitors see when they open a chat.
-        </p>
-        <Textarea
-          value={fields.greetingText}
-          onChange={e => setters.setGreetingText(e.target.value)}
-          placeholder="Hi! How can I help you today?"
-          rows={3}
-          disabled={saving}
-        />
-      </div>
-
-      {/* Suggested Replies */}
-      <div className="flex items-center justify-between rounded-xl border border-[#e4e3e3] bg-card px-4 py-3 dark:border-[#344348]">
-        <div>
+        {/* Instructions */}
+        <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
-            <Label className="text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
-              Suggested replies
+            <Label className="text-xs font-medium text-[#445e5f] dark:text-[#c9cbbe]">
+              Instructions
             </Label>
             <Tooltip>
               <TooltipTrigger asChild>
                 <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
               </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[220px]">
-                AI-generated clickable suggestions appear after each agent response to guide conversation.
+              <TooltipContent side="right" className="max-w-[220px]">
+                Define your agent&apos;s personality, knowledge scope, and
+                conversation boundaries.
               </TooltipContent>
             </Tooltip>
           </div>
           <p className="text-[11px] text-[#9d9790]">
-            Show clickable suggestions to guide the conversation
+            Tell your agent how to behave &mdash; its personality, what it knows
+            about, and what it should never discuss.
           </p>
+          <Textarea
+            value={fields.instructions}
+            onChange={e => setters.setInstructions(e.target.value)}
+            placeholder="You are a helpful agent that..."
+            rows={6}
+            disabled={saving}
+          />
         </div>
-        <Switch
-          checked={fields.quickSuggestionsMode !== 'off'}
-          onCheckedChange={checked =>
-            setters.setQuickSuggestionsMode(checked ? 'smart' : 'off')
-          }
-          disabled={saving}
-        />
-      </div>
 
-      {/* Share Link */}
-      {share.url && (
-        <Card>
-          <CardContent className="space-y-3 p-4">
+        {/* First Message */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
             <Label className="text-xs font-medium text-[#445e5f] dark:text-[#c9cbbe]">
-              Share link
+              First message
             </Label>
-            <div className="flex items-center gap-2 rounded-lg border border-[#e4e3e3] p-2 dark:border-[#344348]">
-              <span className="flex-1 truncate text-xs text-[#445e5f] dark:text-[#c9cbbe]">
-                {share.url}
-              </span>
-              <Button size="sm" variant="secondary" onClick={handleCopy}>
-                {copied ? 'Copied' : 'Copy'}
-              </Button>
-              <Button size="sm" variant="ghost" asChild>
-                <Link
-                  href={share.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <IconExternalLink className="size-4" />
-                </Link>
-              </Button>
-            </div>
-            <div className="flex items-center justify-center">
-              <QrCode dataUrl={share.qrDataUrl} size={160} />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[220px]">
+                The greeting visitors see when they open a chat. Make it
+                welcoming and set expectations.
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <p className="text-[11px] text-[#9d9790]">
+            The first thing visitors see when they open a chat.
+          </p>
+          <Textarea
+            value={fields.greetingText}
+            onChange={e => setters.setGreetingText(e.target.value)}
+            placeholder="Hi! How can I help you today?"
+            rows={3}
+            disabled={saving}
+          />
+        </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onSwitchToAdvanced}
-          className="flex items-center gap-1.5 text-xs text-[#6f7f80] transition-colors hover:text-[#222f30] dark:hover:text-[#f5f8f7]"
-        >
-          <Settings2 className="size-3.5" />
-          Advanced Settings
-        </button>
-      </div>
+        {/* Suggested Replies */}
+        <div className="flex items-center justify-between rounded-xl border border-[#e4e3e3] bg-card px-4 py-3 dark:border-[#344348]">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
+                Suggested replies
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[220px]">
+                  AI-generated clickable suggestions appear after each agent
+                  response to guide conversation.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <p className="text-[11px] text-[#9d9790]">
+              Show clickable suggestions to guide the conversation
+            </p>
+          </div>
+          <Switch
+            checked={fields.quickSuggestionsMode !== 'off'}
+            onCheckedChange={checked =>
+              setters.setQuickSuggestionsMode(checked ? 'smart' : 'off')
+            }
+            disabled={saving}
+          />
+        </div>
 
-      {/* Save Button */}
-      <div className="sticky bottom-0 border-t border-[#e4e3e3] bg-[#f7f7f5]/95 pb-4 pt-3 backdrop-blur dark:border-[#344348] dark:bg-[#222f30]/95">
-        <Button
-          onClick={handleSaveAll}
-          disabled={saving || !hasChanges}
-          className="w-full rounded-full"
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </Button>
+        {/* Share Link */}
+        {share.url && (
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <Label className="text-xs font-medium text-[#445e5f] dark:text-[#c9cbbe]">
+                Share link
+              </Label>
+              <div className="flex items-center gap-2 rounded-lg border border-[#e4e3e3] p-2 dark:border-[#344348]">
+                <span className="flex-1 truncate text-xs text-[#445e5f] dark:text-[#c9cbbe]">
+                  {share.url}
+                </span>
+                <Button size="sm" variant="secondary" onClick={handleCopy}>
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+                <Button size="sm" variant="ghost" asChild>
+                  <Link
+                    href={share.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconExternalLink className="size-4" />
+                  </Link>
+                </Button>
+              </div>
+              <div className="flex items-center justify-center">
+                <QrCode dataUrl={share.qrDataUrl} size={160} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onSwitchToAdvanced}
+            className="flex items-center gap-1.5 text-xs text-[#6f7f80] transition-colors hover:text-[#222f30] dark:hover:text-[#f5f8f7]"
+          >
+            <Settings2 className="size-3.5" />
+            Advanced Settings
+          </button>
+        </div>
+
+        {/* Save Button */}
+        <div className="sticky bottom-0 border-t border-[#e4e3e3] bg-[#f7f7f5]/95 pb-4 pt-3 backdrop-blur dark:border-[#344348] dark:bg-[#222f30]/95">
+          <Button
+            onClick={handleSaveAll}
+            disabled={saving || !hasChanges}
+            className="w-full rounded-full"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
-    </div>
     </TooltipProvider>
   )
 }

@@ -64,7 +64,9 @@ export default async function AgentPageAsChat({
       .orderBy('updatedAt', 'desc')
       .get()
 
-    conversations = convoSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
+    conversations = convoSnapshot.docs.map(doc =>
+      mapConversationDoc(doc.data())
+    )
 
     // Fetch conversation refs (conversations handed off to this agent)
     const refsSnapshot = await adminDb

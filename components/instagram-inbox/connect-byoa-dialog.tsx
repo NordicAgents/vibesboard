@@ -7,12 +7,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
+  DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Building2, ChevronDown, ChevronUp, ExternalLink, Copy, Check } from 'lucide-react'
+import {
+  Loader2,
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Copy,
+  Check
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ConnectByoaDialogProps {
@@ -24,34 +32,40 @@ interface ConnectByoaDialogProps {
 const SETUP_STEPS = [
   {
     title: 'Create a Meta App',
-    description: 'Go to the Meta Developer Portal and create a new app. Select "Business" as the app type.',
+    description:
+      'Go to the Meta Developer Portal and create a new app. Select "Business" as the app type.',
     link: 'https://developers.facebook.com/apps/create/',
-    linkLabel: 'Create Meta App',
+    linkLabel: 'Create Meta App'
   },
   {
     title: 'Add Instagram product',
-    description: 'In your app dashboard, click "Add Products" and add the Instagram product. Complete the App Review for instagram_manage_messages permission.',
+    description:
+      'In your app dashboard, click "Add Products" and add the Instagram product. Complete the App Review for instagram_manage_messages permission.'
   },
   {
     title: 'Copy App ID and App Secret',
-    description: 'Go to App Settings > Basic. Copy the App ID and App Secret from there.',
+    description:
+      'Go to App Settings > Basic. Copy the App ID and App Secret from there.',
     link: 'https://developers.facebook.com/apps/',
-    linkLabel: 'Open App Settings',
+    linkLabel: 'Open App Settings'
   },
   {
     title: 'Create a System User and generate token',
-    description: 'In Meta Business Settings > System Users, create an Admin system user. Assign your app, page, and Instagram permissions. Generate a token with pages_manage_metadata, instagram_basic, and instagram_manage_messages scopes. Set expiry to "Never".',
+    description:
+      'In Meta Business Settings > System Users, create an Admin system user. Assign your app, page, and Instagram permissions. Generate a token with pages_manage_metadata, instagram_basic, and instagram_manage_messages scopes. Set expiry to "Never".',
     link: 'https://business.facebook.com/settings/system-users',
-    linkLabel: 'Open System Users',
+    linkLabel: 'Open System Users'
   },
   {
     title: 'Find your Facebook Page ID',
-    description: 'In Business Settings > Pages, select the page linked to your Instagram account. The numeric Page ID is shown at the top.',
+    description:
+      'In Business Settings > Pages, select the page linked to your Instagram account. The numeric Page ID is shown at the top.'
   },
   {
     title: 'Configure webhook (after connecting)',
-    description: 'After connecting below, you\'ll receive a webhook URL. Configure it in your Meta App Dashboard under Instagram > Webhooks, using the Verify Token you enter below. Subscribe to the "messages" field.',
-  },
+    description:
+      'After connecting below, you\'ll receive a webhook URL. Configure it in your Meta App Dashboard under Instagram > Webhooks, using the Verify Token you enter below. Subscribe to the "messages" field.'
+  }
 ]
 
 function generateRandomToken(): string {
@@ -66,7 +80,7 @@ function generateRandomToken(): string {
 export function ConnectByoaDialog({
   open,
   onOpenChange,
-  onSuccess,
+  onSuccess
 }: ConnectByoaDialogProps) {
   const [metaAppId, setMetaAppId] = useState('')
   const [metaAppSecret, setMetaAppSecret] = useState('')
@@ -104,7 +118,13 @@ export function ConnectByoaDialog({
     e.preventDefault()
     setError(null)
 
-    if (!metaAppId.trim() || !metaAppSecret.trim() || !accessToken.trim() || !webhookVerifyToken.trim() || !pageId.trim()) {
+    if (
+      !metaAppId.trim() ||
+      !metaAppSecret.trim() ||
+      !accessToken.trim() ||
+      !webhookVerifyToken.trim() ||
+      !pageId.trim()
+    ) {
       setError('All fields are required')
       return
     }
@@ -129,8 +149,8 @@ export function ConnectByoaDialog({
           metaAppSecret: metaAppSecret.trim(),
           accessToken: accessToken.trim(),
           webhookVerifyToken: webhookVerifyToken.trim(),
-          pageId: pageId.trim(),
-        }),
+          pageId: pageId.trim()
+        })
       })
 
       if (!res.ok) {
@@ -189,7 +209,11 @@ export function ConnectByoaDialog({
                   size="icon"
                   onClick={handleCopyUrl}
                 >
-                  {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copied ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -208,7 +232,11 @@ export function ConnectByoaDialog({
                   size="icon"
                   onClick={handleCopyToken}
                 >
-                  {copiedToken ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {copiedToken ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -239,7 +267,8 @@ export function ConnectByoaDialog({
         <DialogHeader>
           <DialogTitle>Connect via BYOA</DialogTitle>
           <DialogDescription>
-            Bring your own Meta App to connect Instagram. You manage the app, App Review, and webhook configuration.
+            Bring your own Meta App to connect Instagram. You manage the app,
+            App Review, and webhook configuration.
           </DialogDescription>
         </DialogHeader>
 
@@ -298,7 +327,7 @@ export function ConnectByoaDialog({
               id="ig-byoa-app-id"
               placeholder="123456789012345"
               value={metaAppId}
-              onChange={(e) => setMetaAppId(e.target.value)}
+              onChange={e => setMetaAppId(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -313,7 +342,7 @@ export function ConnectByoaDialog({
               type="password"
               placeholder="abc123def456..."
               value={metaAppSecret}
-              onChange={(e) => setMetaAppSecret(e.target.value)}
+              onChange={e => setMetaAppSecret(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -328,11 +357,12 @@ export function ConnectByoaDialog({
               type="password"
               placeholder="EAABsbCS..."
               value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
+              onChange={e => setAccessToken(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              Generated from System Users with pages_manage_metadata, instagram_basic, and instagram_manage_messages permissions
+              Generated from System Users with pages_manage_metadata,
+              instagram_basic, and instagram_manage_messages permissions
             </p>
           </div>
 
@@ -354,11 +384,12 @@ export function ConnectByoaDialog({
               id="ig-byoa-verify-token"
               placeholder="my-custom-verify-token"
               value={webhookVerifyToken}
-              onChange={(e) => setWebhookVerifyToken(e.target.value)}
+              onChange={e => setWebhookVerifyToken(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              You&apos;ll enter this same token in your Meta App&apos;s webhook configuration
+              You&apos;ll enter this same token in your Meta App&apos;s webhook
+              configuration
             </p>
           </div>
 
@@ -368,17 +399,16 @@ export function ConnectByoaDialog({
               id="ig-byoa-page-id"
               placeholder="123456789012345"
               value={pageId}
-              onChange={(e) => setPageId(e.target.value)}
+              onChange={e => setPageId(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              Found in Business Settings &gt; Pages (the page linked to your Instagram account)
+              Found in Business Settings &gt; Pages (the page linked to your
+              Instagram account)
             </p>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
             <Button

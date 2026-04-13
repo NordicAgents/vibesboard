@@ -89,8 +89,8 @@ export class GoogleSheetsProvider implements DataProvider {
     }
 
     // Build update row in header order
-    const updateRow = headers.map(h =>
-      h in data ? data[h] : '' // only update provided fields, leave rest empty to skip
+    const updateRow = headers.map(
+      h => (h in data ? data[h] : '') // only update provided fields, leave rest empty to skip
     )
 
     // We need to update only the fields provided, so we'll update cell by cell
@@ -111,7 +111,11 @@ export class GoogleSheetsProvider implements DataProvider {
     }
 
     if (updateRequests.length === 0) {
-      return { success: true, matched: true, externalRef: `row ${matchRowIndex}` }
+      return {
+        success: true,
+        matched: true,
+        externalRef: `row ${matchRowIndex}`
+      }
     }
 
     const batchUrl = `${SHEETS_API}/${this.config.spreadsheetId}/values:batchUpdate`

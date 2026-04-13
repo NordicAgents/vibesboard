@@ -3,7 +3,7 @@ import type {
   WhatsAppInboxConversationDocument,
   WhatsAppInboxMessageDocument,
   InboxConversationStatus,
-  InboxMessageStatus,
+  InboxMessageStatus
 } from '@/lib/firestore-types'
 
 export type InboxAccount = WhatsAppInboxAccountDocument
@@ -65,10 +65,20 @@ export interface MetaWebhookMessage {
   type: string
   text?: { body: string }
   image?: { id: string; mime_type: string; caption?: string }
-  document?: { id: string; mime_type: string; filename?: string; caption?: string }
+  document?: {
+    id: string
+    mime_type: string
+    filename?: string
+    caption?: string
+  }
   audio?: { id: string; mime_type: string }
   video?: { id: string; mime_type: string; caption?: string }
-  location?: { latitude: number; longitude: number; name?: string; address?: string }
+  location?: {
+    latitude: number
+    longitude: number
+    name?: string
+    address?: string
+  }
   contacts?: any[]
 }
 

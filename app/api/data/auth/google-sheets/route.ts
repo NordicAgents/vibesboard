@@ -33,7 +33,9 @@ export async function GET(req: Request) {
   }
 
   const h = await headers()
-  const host = (h.get('x-forwarded-host') || h.get('host'))?.split(',')[0]?.trim()
+  const host = (h.get('x-forwarded-host') || h.get('host'))
+    ?.split(',')[0]
+    ?.trim()
   const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
   const origin = host ? `${proto}://${host}` : new URL(req.url).origin
   const redirectUri = `${origin}${CALLBACK_PATH}`

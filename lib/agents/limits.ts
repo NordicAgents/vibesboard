@@ -20,9 +20,7 @@ export async function reserveAgentResponseSlot(
   agentId: string,
   maxAgentResponses: number
 ): Promise<boolean> {
-  const agentRef = adminDb
-    .collection(Collections.agents(tenantId))
-    .doc(agentId)
+  const agentRef = adminDb.collection(Collections.agents(tenantId)).doc(agentId)
 
   let slotReserved = false
 

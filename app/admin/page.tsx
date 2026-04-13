@@ -1,5 +1,12 @@
 import Link from 'next/link'
-import { Building2, Flag, FileText, CreditCard, Palette, ArrowRight } from 'lucide-react'
+import {
+  Building2,
+  Flag,
+  FileText,
+  CreditCard,
+  Palette,
+  ArrowRight
+} from 'lucide-react'
 import {
   Card,
   CardContent,

@@ -12,7 +12,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from '@/components/ui/select'
 import { ConversationList } from '@/components/whatsapp-inbox/conversation-list'
 import { MessageThread } from '@/components/whatsapp-inbox/message-thread'
@@ -20,7 +20,7 @@ import { Inbox, Search, MessageSquare, Bot } from 'lucide-react'
 import type {
   WhatsAppInboxConversationDocument,
   WhatsAppInboxMessageDocument,
-  InboxConversationStatus,
+  InboxConversationStatus
 } from '@/lib/firestore-types'
 
 interface InboxAccount {
@@ -61,8 +61,8 @@ export default function WhatsAppInboxConversationsPage() {
   // Fetch tenant
   useEffect(() => {
     fetch('/api/tenants/current')
-      .then((r) => r.json())
-      .then((data) => setTenantId(data.tenantId))
+      .then(r => r.json())
+      .then(data => setTenantId(data.tenantId))
       .catch(() => {})
   }, [])
 
@@ -70,11 +70,9 @@ export default function WhatsAppInboxConversationsPage() {
   useEffect(() => {
     if (!tenantId) return
     fetch(`/api/tenants/${tenantId}/whatsapp-inbox/accounts`)
-      .then((r) => r.json())
-      .then((data) => {
-        const active = data.filter(
-          (a: InboxAccount) => a.status === 'active'
-        )
+      .then(r => r.json())
+      .then(data => {
+        const active = data.filter((a: InboxAccount) => a.status === 'active')
         setAccounts(active)
         if (active.length > 0 && !selectedAccountId) {
           setSelectedAccountId(active[0].id)
@@ -88,8 +86,8 @@ export default function WhatsAppInboxConversationsPage() {
   useEffect(() => {
     if (!tenantId) return
     fetch(`/api/agents?tenant_id=${tenantId}&limit=50`)
-      .then((r) => r.json())
-      .then((data) => {
+      .then(r => r.json())
+      .then(data => {
         setAgents(
           (data.agents || []).map((a: any) => ({ id: a.id, name: a.name }))
         )
@@ -99,7 +97,7 @@ export default function WhatsAppInboxConversationsPage() {
 
   // Track assigned agent for selected account
   useEffect(() => {
-    const account = accounts.find((a) => a.id === selectedAccountId)
+    const account = accounts.find(a => a.id === selectedAccountId)
     setAssignedAgentId(account?.assignedAgentId || null)
   }, [selectedAccountId, accounts])
 
@@ -112,7 +110,7 @@ export default function WhatsAppInboxConversationsPage() {
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedAgentId: newAgentId }),
+        body: JSON.stringify({ assignedAgentId: newAgentId })
       }
     )
   }
@@ -172,7 +170,7 @@ export default function WhatsAppInboxConversationsPage() {
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAsRead: true }),
+        body: JSON.stringify({ markAsRead: true })
       }
     ).catch(() => {})
   }, [tenantId, selectedAccountId, selectedPhone])
@@ -198,16 +196,14 @@ export default function WhatsAppInboxConversationsPage() {
 
   const filteredConversations = search
     ? conversations.filter(
-        (c) =>
-          c.contactProfileName
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
+        c =>
+          c.contactProfileName?.toLowerCase().includes(search.toLowerCase()) ||
           c.contactPhone.includes(search)
       )
     : conversations
 
   const selectedConversation = conversations.find(
-    (c) => c.contactPhone === selectedPhone
+    c => c.contactPhone === selectedPhone
   )
 
   // No accounts connected
@@ -246,7 +242,7 @@ export default function WhatsAppInboxConversationsPage() {
                 <SelectValue placeholder="Select account" />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((acc) => (
+                {accounts.map(acc => (
                   <SelectItem key={acc.id} value={acc.id}>
                     {acc.businessName}
                   </SelectItem>
@@ -266,7 +262,7 @@ export default function WhatsAppInboxConversationsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">No Agent</SelectItem>
-              {agents.map((agent) => (
+              {agents.map(agent => (
                 <SelectItem key={agent.id} value={agent.id}>
                   {agent.name}
                 </SelectItem>
@@ -287,14 +283,11 @@ export default function WhatsAppInboxConversationsPage() {
               <Input
                 placeholder="Search conversations..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Tabs
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-            >
+            <Tabs value={statusFilter} onValueChange={setStatusFilter}>
               <TabsList className="w-full">
                 <TabsTrigger value="all" className="flex-1">
                   All

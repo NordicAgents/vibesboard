@@ -32,7 +32,13 @@ export type AgentMode = 'provider' | 'collector'
 
 export type QuickSuggestionsMode = 'off' | 'smart' | 'always'
 
-export type CollectionFieldType = 'text' | 'email' | 'phone' | 'number' | 'long_text' | 'choice'
+export type CollectionFieldType =
+  | 'text'
+  | 'email'
+  | 'phone'
+  | 'number'
+  | 'long_text'
+  | 'choice'
 
 export interface CollectionField {
   id: string

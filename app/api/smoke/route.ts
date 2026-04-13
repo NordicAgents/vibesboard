@@ -73,7 +73,9 @@ export async function GET(req: Request) {
       temperature: 0
     })
 
-    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message ?? 'Smoke test failed' },

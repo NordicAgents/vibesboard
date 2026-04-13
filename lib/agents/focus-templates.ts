@@ -1,4 +1,8 @@
-import type { AgentMode, CollectionField, QuickSuggestionsMode } from '@/lib/types'
+import type {
+  AgentMode,
+  CollectionField,
+  QuickSuggestionsMode
+} from '@/lib/types'
 import { nanoid } from '@/lib/utils'
 
 export interface AgentTemplate {
@@ -23,7 +27,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     icon: 'Headphones',
     defaults: {
       instructions:
-        'You are a helpful customer support agent for [Company Name]. Answer questions about our products, services, pricing, and policies. Be friendly and professional. If you don\'t know the answer, say so and offer to connect them with a human.',
+        "You are a helpful customer support agent for [Company Name]. Answer questions about our products, services, pricing, and policies. Be friendly and professional. If you don't know the answer, say so and offer to connect them with a human.",
       greetingText: 'Hi there! How can I help you today?',
       mode: 'provider',
       quickSuggestionsMode: 'smart'
@@ -36,9 +40,9 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     icon: 'UserPlus',
     defaults: {
       instructions:
-        'You are a friendly lead qualification agent. Your goal is to collect the visitor\'s name, email, company, and what they\'re looking for. Be conversational, not robotic. Ask one question at a time.',
+        "You are a friendly lead qualification agent. Your goal is to collect the visitor's name, email, company, and what they're looking for. Be conversational, not robotic. Ask one question at a time.",
       greetingText:
-        'Welcome! I\'d love to learn a bit about you so we can help.',
+        "Welcome! I'd love to learn a bit about you so we can help.",
       mode: 'collector',
       quickSuggestionsMode: 'always',
       collectionFields: [
@@ -71,7 +75,7 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
       instructions:
         'You help visitors book appointments. Collect their name, email, preferred date/time, and the reason for the meeting. Be warm and efficient. Confirm the details before completing.',
       greetingText:
-        'Hi! I can help you schedule an appointment. Let\'s get started.',
+        "Hi! I can help you schedule an appointment. Let's get started.",
       mode: 'collector',
       quickSuggestionsMode: 'always',
       collectionFields: [
@@ -84,7 +88,12 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
           description: 'Ask for their preferred date and time',
           order: 2
         },
-        { label: 'Reason for Visit', type: 'long_text', required: false, order: 3 }
+        {
+          label: 'Reason for Visit',
+          type: 'long_text',
+          required: false,
+          order: 3
+        }
       ]
     }
   }

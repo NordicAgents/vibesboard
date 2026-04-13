@@ -33,8 +33,7 @@ function mapDataToColumns(
       data[mapping.targetColumn] ??
       // Also try matching the field label directly from the data keys
       Object.entries(data).find(
-        ([key]) =>
-          key.toLowerCase() === mapping.targetColumn.toLowerCase()
+        ([key]) => key.toLowerCase() === mapping.targetColumn.toLowerCase()
       )?.[1]
 
     if (value !== undefined) {
@@ -107,9 +106,13 @@ function buildSubmitDataTool(ctx: DataToolContext): RegisteredTool {
         required: ['data']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const rawData = args.data as Record<string, any> | undefined
-      if (!rawData || typeof rawData !== 'object' || Object.keys(rawData).length === 0) {
+      if (
+        !rawData ||
+        typeof rawData !== 'object' ||
+        Object.keys(rawData).length === 0
+      ) {
         return 'Please provide data as key-value pairs. Example: {"Name": "John", "Email": "john@example.com"}'
       }
 
@@ -146,8 +149,16 @@ function buildSubmitDataTool(ctx: DataToolContext): RegisteredTool {
         }
         return lines.join('\n')
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-        await logDataAction(ctx, 'append_row', 'failed', rawData, undefined, errorMsg)
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error'
+        await logDataAction(
+          ctx,
+          'append_row',
+          'failed',
+          rawData,
+          undefined,
+          errorMsg
+        )
         return `Error submitting data: ${errorMsg}`
       }
     }
@@ -177,14 +188,18 @@ function buildUpdateRecordTool(ctx: DataToolContext): RegisteredTool {
         required: ['key_value', 'data']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const keyValue = String(args.key_value ?? '').trim()
       const rawData = args.data as Record<string, any> | undefined
 
       if (!keyValue) {
         return `Please provide the value to search for in the "${keyField}" field.`
       }
-      if (!rawData || typeof rawData !== 'object' || Object.keys(rawData).length === 0) {
+      if (
+        !rawData ||
+        typeof rawData !== 'object' ||
+        Object.keys(rawData).length === 0
+      ) {
         return 'Please provide data to update as key-value pairs.'
       }
 
@@ -196,11 +211,24 @@ function buildUpdateRecordTool(ctx: DataToolContext): RegisteredTool {
         const result = await provider.updateRow(keyField, keyValue, mappedData)
 
         if (!result.matched) {
-          await logDataAction(ctx, 'update_row', 'failed', rawData, undefined, `No record found with ${keyField}="${keyValue}"`)
+          await logDataAction(
+            ctx,
+            'update_row',
+            'failed',
+            rawData,
+            undefined,
+            `No record found with ${keyField}="${keyValue}"`
+          )
           return `No record found where "${keyField}" = "${keyValue}". Please check the value and try again.`
         }
 
-        await logDataAction(ctx, 'update_row', 'success', mappedData, result.externalRef)
+        await logDataAction(
+          ctx,
+          'update_row',
+          'success',
+          mappedData,
+          result.externalRef
+        )
 
         const lines = [
           `Record updated successfully!`,
@@ -212,8 +240,16 @@ function buildUpdateRecordTool(ctx: DataToolContext): RegisteredTool {
         }
         return lines.join('\n')
       } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-        await logDataAction(ctx, 'update_row', 'failed', rawData, undefined, errorMsg)
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error'
+        await logDataAction(
+          ctx,
+          'update_row',
+          'failed',
+          rawData,
+          undefined,
+          errorMsg
+        )
         return `Error updating record: ${errorMsg}`
       }
     }

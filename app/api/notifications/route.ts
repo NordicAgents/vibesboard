@@ -23,10 +23,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const unreadOnly = url.searchParams.get('unread') === 'true'
-  const limit = Math.min(
-    Number(url.searchParams.get('limit') || '20'),
-    50
-  )
+  const limit = Math.min(Number(url.searchParams.get('limit') || '20'), 50)
 
   let query = adminDb
     .collection(Collections.notifications(tenantId))

@@ -27,8 +27,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const subscriptionId =
-    tenantDoc.data()?.subscription?.stripeSubscriptionId
+  const subscriptionId = tenantDoc.data()?.subscription?.stripeSubscriptionId
   if (!subscriptionId) {
     return NextResponse.json(
       { error: 'Tenant has no Stripe subscription' },
@@ -38,7 +37,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   // Fetch fresh subscription from Stripe (expand latest_invoice for period dates)
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
-    expand: ['latest_invoice'],
+    expand: ['latest_invoice']
   })
 
   // Re-run the subscription change handler to sync all fields
@@ -52,6 +51,6 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   return NextResponse.json({
     subscription: updatedDoc.data()?.subscription ?? null,
-    synced: true,
+    synced: true
   })
 }

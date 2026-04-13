@@ -2,7 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, ShieldCheck, Building2, Flag, FileText, CreditCard, Palette } from 'lucide-react'
+import {
+  Menu,
+  ShieldCheck,
+  Building2,
+  Flag,
+  FileText,
+  CreditCard,
+  Palette
+} from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import type { LucideIcon } from 'lucide-react'

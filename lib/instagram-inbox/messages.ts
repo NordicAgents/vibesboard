@@ -3,7 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import {
   Collections,
   type InstagramInboxMessageDocument,
-  type InboxMessageStatus,
+  type InboxMessageStatus
 } from '@/lib/firestore-types'
 import { getOrCreateConversation } from './conversations'
 import { getAccountWithToken } from './accounts'
@@ -24,7 +24,13 @@ export async function storeInboundMessage(
   const contactUsername = sender?.username
 
   // Ensure conversation exists
-  await getOrCreateConversation(tenantId, accountId, contactIgsid, contactName, contactUsername)
+  await getOrCreateConversation(
+    tenantId,
+    accountId,
+    contactIgsid,
+    contactName,
+    contactUsername
+  )
 
   // Determine text and media from Instagram message
   let text: string | undefined
@@ -86,7 +92,7 @@ export async function storeInboundMessage(
     direction: 'inbound',
     status: 'received',
     timestamp: now,
-    createdAt: now,
+    createdAt: now
   }
 
   // Update conversation metadata in a batch
@@ -104,7 +110,7 @@ export async function storeInboundMessage(
     // Reset 24h window on each inbound message
     windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     status: 'open',
-    updatedAt: now,
+    updatedAt: now
   })
 
   await batch.commit()
@@ -119,27 +125,22 @@ export async function storeInboundMessage(
 export async function sendReply(
   params: SendReplyParams
 ): Promise<InstagramInboxMessageDocument> {
-  const { tenantId, accountId, contactIgsid, text, userId, sentByAgentName } = params
+  const { tenantId, accountId, contactIgsid, text, userId, sentByAgentName } =
+    params
 
   // Check conversation exists and window is open
   const convoPath = Collections.instagramInboxConversations(tenantId, accountId)
-  const convoSnap = await adminDb
-    .collection(convoPath)
-    .doc(contactIgsid)
-    .get()
+  const convoSnap = await adminDb.collection(convoPath).doc(contactIgsid).get()
 
   if (!convoSnap.exists) {
     throw new Error('Conversation not found')
   }
 
   const convo = convoSnap.data()!
-  if (
-    convo.windowExpiresAt &&
-    new Date(convo.windowExpiresAt) <= new Date()
-  ) {
+  if (convo.windowExpiresAt && new Date(convo.windowExpiresAt) <= new Date()) {
     throw new Error(
       'The 24-hour messaging window has expired. ' +
-        'You can only reply within 24 hours of the customer\'s last message.'
+        "You can only reply within 24 hours of the customer's last message."
     )
   }
 
@@ -150,20 +151,17 @@ export async function sendReply(
   )
 
   // Send via Meta Graph API (Instagram Messaging)
-  const response = await fetch(
-    `${META_GRAPH_API}/me/messages`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipient: { id: contactIgsid },
-        message: { text },
-      }),
-    }
-  )
+  const response = await fetch(`${META_GRAPH_API}/me/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      recipient: { id: contactIgsid },
+      message: { text }
+    })
+  })
 
   if (!response.ok) {
     const error = await response.json()
@@ -196,7 +194,7 @@ export async function sendReply(
     timestamp: now,
     sentBy: userId,
     ...(sentByAgentName ? { sentByAgentName } : {}),
-    createdAt: now,
+    createdAt: now
   }
 
   // Update conversation
@@ -206,7 +204,7 @@ export async function sendReply(
   batch.update(convoRef, {
     lastMessageAt: now,
     lastMessagePreview: text.slice(0, 100),
-    updatedAt: now,
+    updatedAt: now
   })
 
   await batch.commit()
@@ -230,9 +228,7 @@ export async function listMessages(
     contactIgsid
   )
 
-  let query = adminDb
-    .collection(messagesPath)
-    .orderBy('timestamp', 'asc')
+  let query = adminDb.collection(messagesPath).orderBy('timestamp', 'asc')
 
   if (before) {
     query = query.where('timestamp', '<', before)
@@ -268,7 +264,7 @@ export async function updateMessageStatus(
     sent: 1,
     delivered: 2,
     read: 3,
-    failed: 4,
+    failed: 4
   }
 
   if (
@@ -281,6 +277,6 @@ export async function updateMessageStatus(
 
   await doc.ref.update({
     status,
-    ...(timestamp ? { [`${status}At`]: timestamp } : {}),
+    ...(timestamp ? { [`${status}At`]: timestamp } : {})
   })
 }

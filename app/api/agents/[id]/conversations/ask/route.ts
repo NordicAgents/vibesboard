@@ -120,7 +120,10 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const model = OPENAI_CHAT_MODEL
 
-  const saveAndRecord = async (completion: string, tokenUsage?: { inputTokens?: number; outputTokens?: number }) => {
+  const saveAndRecord = async (
+    completion: string,
+    tokenUsage?: { inputTokens?: number; outputTokens?: number }
+  ) => {
     const nextMessages = [
       ...pendingMessages,
       { id: nanoid(), role: 'assistant' as const, content: completion }
@@ -141,7 +144,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       source: 'ask_ai',
       model,
       inputTokens: tokenUsage?.inputTokens,
-      outputTokens: tokenUsage?.outputTokens,
+      outputTokens: tokenUsage?.outputTokens
     })
   }
 
@@ -158,7 +161,9 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     const stream = await streamText({
       prompt,
       model,
-      async onDone(completion, usage) { await saveAndRecord(completion, usage) }
+      async onDone(completion, usage) {
+        await saveAndRecord(completion, usage)
+      }
     })
 
     return new Response(stream, {
@@ -169,7 +174,10 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     })
   }
 
-  const chatMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+  const chatMessages: Array<{
+    role: 'system' | 'user' | 'assistant'
+    content: string
+  }> = [
     { role: 'system', content: systemPrompt },
     ...existingMessages.map(m => ({
       role: m.role as 'user' | 'assistant',
@@ -178,12 +186,19 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     { role: 'user', content: payload.question }
   ]
 
-  const openaiClient = createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })
+  const openaiClient = createOpenAI({
+    apiKey: process.env.OPENAI_API_KEY ?? ''
+  })
   const result = await aiStreamText({
     model: openaiClient(model),
     messages: chatMessages,
     temperature: 0.2,
-    async onFinish({ text, usage }) { await saveAndRecord(text, { inputTokens: usage?.promptTokens, outputTokens: usage?.completionTokens }) }
+    async onFinish({ text, usage }) {
+      await saveAndRecord(text, {
+        inputTokens: usage?.promptTokens,
+        outputTokens: usage?.completionTokens
+      })
+    }
   })
 
   return new Response(result.textStream, {

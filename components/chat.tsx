@@ -53,7 +53,10 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
   return (
     <>
       <div className={cn('flex h-full flex-col overflow-hidden', className)}>
-        <div data-chat-scroll className="min-h-0 flex-1 overflow-y-auto py-4 md:pt-10">
+        <div
+          data-chat-scroll
+          className="min-h-0 flex-1 overflow-y-auto py-4 md:pt-10"
+        >
           {messages.length ? (
             <>
               <ChatList messages={messages} isLoading={isLoading} />

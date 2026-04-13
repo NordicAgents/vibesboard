@@ -1,4 +1,7 @@
-import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/connections'
+import {
+  getCalendarConnection,
+  getValidAccessToken
+} from '@/lib/scheduling/connections'
 import {
   listCalendarEvents,
   getCalendarEvent,
@@ -6,7 +9,10 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent
 } from '@/lib/scheduling/providers/google-calendar'
-import type { CalendarConnectionDocument, BookableResource } from '@/lib/firestore-types'
+import type {
+  CalendarConnectionDocument,
+  BookableResource
+} from '@/lib/firestore-types'
 import type { VibeAgent } from '@/lib/types'
 import type { RegisteredTool } from './base'
 
@@ -29,7 +35,10 @@ async function resolveResource(
   )
   if (!resource) return null
 
-  const connection = await getCalendarConnection(agent.tenantId!, resource.calendarConnectionId)
+  const connection = await getCalendarConnection(
+    agent.tenantId!,
+    resource.calendarConnectionId
+  )
   if (!connection) return null
 
   let accessToken: string
@@ -47,7 +56,10 @@ async function resolveAllResources(
 ): Promise<ResolvedResource[]> {
   const results: ResolvedResource[] = []
   for (const resource of agent.bookingConfig!.resources) {
-    const connection = await getCalendarConnection(agent.tenantId!, resource.calendarConnectionId)
+    const connection = await getCalendarConnection(
+      agent.tenantId!,
+      resource.calendarConnectionId
+    )
     if (!connection) continue
     try {
       const accessToken = await getValidAccessToken(connection)
@@ -59,7 +71,11 @@ async function resolveAllResources(
   return results
 }
 
-function buildTitle(template: string, guestName: string, guestCount: number): string {
+function buildTitle(
+  template: string,
+  guestName: string,
+  guestCount: number
+): string {
   return template
     .replace('{guest_name}', guestName)
     .replace('{guest_count}', String(guestCount))
@@ -69,7 +85,9 @@ function buildDescription(guestName: string, guestCount: number): string {
   return `Guest: ${guestName}\nGuests: ${guestCount}`
 }
 
-function parseGuestInfo(description: string): { name: string; count: number } | null {
+function parseGuestInfo(
+  description: string
+): { name: string; count: number } | null {
   const nameMatch = description.match(/^Guest:\s*(.+)$/m)
   const countMatch = description.match(/^Guests:\s*(\d+)$/m)
   if (!nameMatch) return null
@@ -97,7 +115,9 @@ function formatEventDate(dateStr: string, timezone: string): string {
 // ─── Tool: list_calendar_events ─────────────���──────────────────────
 
 function buildListEventsTool(agent: VibeAgent): RegisteredTool {
-  const resourceNames = agent.bookingConfig!.resources.map(r => r.name).join(', ')
+  const resourceNames = agent
+    .bookingConfig!.resources.map(r => r.name)
+    .join(', ')
 
   return {
     function: {
@@ -124,17 +144,21 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
         required: ['start_date', 'end_date']
       }
     },
-    execute: async (args) => {
-      const resourceName = args.resource_name ? String(args.resource_name).trim() : ''
+    execute: async args => {
+      const resourceName = args.resource_name
+        ? String(args.resource_name).trim()
+        : ''
       const startDate = String(args.start_date ?? '').trim()
       const endDate = String(args.end_date ?? '').trim()
 
-      if (!startDate || !endDate) return 'start_date and end_date are required (YYYY-MM-DD).'
+      if (!startDate || !endDate)
+        return 'start_date and end_date are required (YYYY-MM-DD).'
 
       let resources: ResolvedResource[]
       if (resourceName) {
         const resolved = await resolveResource(agent, resourceName)
-        if (!resolved) return `Unknown room "${resourceName}". Available: ${resourceNames}.`
+        if (!resolved)
+          return `Unknown room "${resourceName}". Available: ${resourceNames}.`
         resources = [resolved]
       } else {
         resources = await resolveAllResources(agent)
@@ -142,7 +166,15 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
       }
 
       try {
-        const allEvents: Array<{ room: string; id: string; title: string; rawStart: string; start: string; end: string; description: string }> = []
+        const allEvents: Array<{
+          room: string
+          id: string
+          title: string
+          rawStart: string
+          start: string
+          end: string
+          description: string
+        }> = []
 
         for (const { resource, accessToken } of resources) {
           const events = await listCalendarEvents(
@@ -171,8 +203,9 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
 
         allEvents.sort((a, b) => a.rawStart.localeCompare(b.rawStart))
 
-        const lines = allEvents.map(ev =>
-          `- [${ev.room}] ${ev.title} | ${ev.start} → ${ev.end} | Event ID: ${ev.id}${ev.description ? ` | ${ev.description}` : ''}`
+        const lines = allEvents.map(
+          ev =>
+            `- [${ev.room}] ${ev.title} | ${ev.start} → ${ev.end} | Event ID: ${ev.id}${ev.description ? ` | ${ev.description}` : ''}`
         )
         return `Found ${allEvents.length} booking(s):\n${lines.join('\n')}`
       } catch (err) {
@@ -185,8 +218,12 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
 // ─── Tool: create_calendar_event ───────────────────────────────────
 
 function buildCreateEventTool(agent: VibeAgent): RegisteredTool {
-  const resourceNames = agent.bookingConfig!.resources.map(r => r.name).join(', ')
-  const titleTemplate = agent.bookingConfig!.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)'
+  const resourceNames = agent
+    .bookingConfig!.resources.map(r => r.name)
+    .join(', ')
+  const titleTemplate =
+    agent.bookingConfig!.eventTitleTemplate ??
+    '{guest_name} ({guest_count} guests)'
   const timeMode = agent.bookingConfig!.eventTimeMode ?? 'all-day'
   const overlapProtection = agent.bookingConfig!.overlapProtection !== false
 
@@ -220,23 +257,32 @@ function buildCreateEventTool(agent: VibeAgent): RegisteredTool {
             description: 'Number of guests.'
           }
         },
-        required: ['resource_name', 'check_in_date', 'check_out_date', 'guest_name', 'guest_count']
+        required: [
+          'resource_name',
+          'check_in_date',
+          'check_out_date',
+          'guest_name',
+          'guest_count'
+        ]
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const resourceName = String(args.resource_name ?? '').trim()
       const checkIn = String(args.check_in_date ?? '').trim()
       const checkOut = String(args.check_out_date ?? '').trim()
       const guestName = String(args.guest_name ?? '').trim()
-      const guestCount = typeof args.guest_count === 'number' ? args.guest_count : 1
+      const guestCount =
+        typeof args.guest_count === 'number' ? args.guest_count : 1
 
       if (!resourceName || !checkIn || !checkOut || !guestName) {
         return 'Missing required fields: resource_name, check_in_date, check_out_date, guest_name.'
       }
-      if (checkOut <= checkIn) return 'check_out_date must be after check_in_date.'
+      if (checkOut <= checkIn)
+        return 'check_out_date must be after check_in_date.'
 
       const resolved = await resolveResource(agent, resourceName)
-      if (!resolved) return `Unknown room "${resourceName}". Available: ${resourceNames}.`
+      if (!resolved)
+        return `Unknown room "${resourceName}". Available: ${resourceNames}.`
 
       const { resource, accessToken } = resolved
 
@@ -249,9 +295,12 @@ function buildCreateEventTool(agent: VibeAgent): RegisteredTool {
             `${checkOut}T23:59:59`
           )
           if (existing.length > 0) {
-            const conflicts = existing.map(ev =>
-              `- ${ev.summary} | ${formatEventDate(ev.start, resource.timezone)} → ${formatEventDate(ev.end, resource.timezone)}`
-            ).join('\n')
+            const conflicts = existing
+              .map(
+                ev =>
+                  `- ${ev.summary} | ${formatEventDate(ev.start, resource.timezone)} → ${formatEventDate(ev.end, resource.timezone)}`
+              )
+              .join('\n')
             return `Cannot create booking — ${resource.name} has overlapping bookings:\n${conflicts}`
           }
         }
@@ -266,16 +315,26 @@ function buildCreateEventTool(agent: VibeAgent): RegisteredTool {
           startField = { date: checkIn }
           endField = { date: checkOut }
         } else {
-          startField = { dateTime: `${checkIn}T14:00:00`, timeZone: resource.timezone }
-          endField = { dateTime: `${checkOut}T11:00:00`, timeZone: resource.timezone }
+          startField = {
+            dateTime: `${checkIn}T14:00:00`,
+            timeZone: resource.timezone
+          }
+          endField = {
+            dateTime: `${checkOut}T11:00:00`,
+            timeZone: resource.timezone
+          }
         }
 
-        const created = await createCalendarEvent(accessToken, resource.calendarId, {
-          summary: title,
-          description,
-          start: startField,
-          end: endField
-        })
+        const created = await createCalendarEvent(
+          accessToken,
+          resource.calendarId,
+          {
+            summary: title,
+            description,
+            start: startField,
+            end: endField
+          }
+        )
 
         return (
           `Booking created for ${resource.name}:\n` +
@@ -295,8 +354,12 @@ function buildCreateEventTool(agent: VibeAgent): RegisteredTool {
 // ─── Tool: update_calendar_event ───────��───────────────────────────
 
 function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
-  const resourceNames = agent.bookingConfig!.resources.map(r => r.name).join(', ')
-  const titleTemplate = agent.bookingConfig!.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)'
+  const resourceNames = agent
+    .bookingConfig!.resources.map(r => r.name)
+    .join(', ')
+  const titleTemplate =
+    agent.bookingConfig!.eventTitleTemplate ??
+    '{guest_name} ({guest_count} guests)'
   const timeMode = agent.bookingConfig!.eventTimeMode ?? 'all-day'
   const overlapProtection = agent.bookingConfig!.overlapProtection !== false
 
@@ -338,32 +401,53 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
         required: ['event_id', 'resource_name']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const eventId = String(args.event_id ?? '').trim()
       const resourceName = String(args.resource_name ?? '').trim()
-      const checkIn = args.check_in_date ? String(args.check_in_date).trim() : undefined
-      const checkOut = args.check_out_date ? String(args.check_out_date).trim() : undefined
-      const guestName = args.guest_name ? String(args.guest_name).trim() : undefined
-      const guestCount = typeof args.guest_count === 'number' ? args.guest_count : undefined
+      const checkIn = args.check_in_date
+        ? String(args.check_in_date).trim()
+        : undefined
+      const checkOut = args.check_out_date
+        ? String(args.check_out_date).trim()
+        : undefined
+      const guestName = args.guest_name
+        ? String(args.guest_name).trim()
+        : undefined
+      const guestCount =
+        typeof args.guest_count === 'number' ? args.guest_count : undefined
 
-      if (!eventId || !resourceName) return 'event_id and resource_name are required.'
+      if (!eventId || !resourceName)
+        return 'event_id and resource_name are required.'
 
       const resolved = await resolveResource(agent, resourceName)
-      if (!resolved) return `Unknown room "${resourceName}". Available: ${resourceNames}.`
+      if (!resolved)
+        return `Unknown room "${resourceName}". Available: ${resourceNames}.`
 
       const { resource, accessToken } = resolved
 
       try {
         // Fetch the current event when we need it for overlap checks or guest info
-        let currentEvent: Awaited<ReturnType<typeof getCalendarEvent>> | null = null
-        if ((overlapProtection && (checkIn || checkOut)) || guestName || guestCount !== undefined) {
-          currentEvent = await getCalendarEvent(accessToken, resource.calendarId, eventId)
+        let currentEvent: Awaited<ReturnType<typeof getCalendarEvent>> | null =
+          null
+        if (
+          (overlapProtection && (checkIn || checkOut)) ||
+          guestName ||
+          guestCount !== undefined
+        ) {
+          currentEvent = await getCalendarEvent(
+            accessToken,
+            resource.calendarId,
+            eventId
+          )
         }
 
         if (overlapProtection && (checkIn || checkOut)) {
-          const effectiveCheckIn = checkIn ?? (currentEvent!.start.split('T')[0] ?? '')
-          const effectiveCheckOut = checkOut ?? (currentEvent!.end.split('T')[0] ?? '')
-          if (effectiveCheckOut <= effectiveCheckIn) return 'check_out_date must be after check_in_date.'
+          const effectiveCheckIn =
+            checkIn ?? currentEvent!.start.split('T')[0] ?? ''
+          const effectiveCheckOut =
+            checkOut ?? currentEvent!.end.split('T')[0] ?? ''
+          if (effectiveCheckOut <= effectiveCheckIn)
+            return 'check_out_date must be after check_in_date.'
           const existing = await listCalendarEvents(
             accessToken,
             resource.calendarId,
@@ -372,9 +456,12 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
           )
           const conflicts = existing.filter(ev => ev.id !== eventId)
           if (conflicts.length > 0) {
-            const lines = conflicts.map(ev =>
-              `- ${ev.summary} | ${formatEventDate(ev.start, resource.timezone)} → ${formatEventDate(ev.end, resource.timezone)}`
-            ).join('\n')
+            const lines = conflicts
+              .map(
+                ev =>
+                  `- ${ev.summary} | ${formatEventDate(ev.start, resource.timezone)} → ${formatEventDate(ev.end, resource.timezone)}`
+              )
+              .join('\n')
             return `Cannot update — new dates overlap with existing bookings:\n${lines}`
           }
         }
@@ -382,9 +469,11 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
         const updates: Record<string, any> = {}
 
         if (guestName || guestCount !== undefined) {
-          const existingInfo = currentEvent?.description ? parseGuestInfo(currentEvent.description) : null
-          const currentName = guestName ?? (existingInfo?.name ?? 'Guest')
-          const currentCount = guestCount ?? (existingInfo?.count ?? 1)
+          const existingInfo = currentEvent?.description
+            ? parseGuestInfo(currentEvent.description)
+            : null
+          const currentName = guestName ?? existingInfo?.name ?? 'Guest'
+          const currentCount = guestCount ?? existingInfo?.count ?? 1
           updates.summary = buildTitle(titleTemplate, currentName, currentCount)
           updates.description = buildDescription(currentName, currentCount)
         }
@@ -393,7 +482,10 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
           if (timeMode === 'all-day') {
             updates.start = { date: checkIn }
           } else {
-            updates.start = { dateTime: `${checkIn}T14:00:00`, timeZone: resource.timezone }
+            updates.start = {
+              dateTime: `${checkIn}T14:00:00`,
+              timeZone: resource.timezone
+            }
           }
         }
 
@@ -401,13 +493,21 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
           if (timeMode === 'all-day') {
             updates.end = { date: checkOut }
           } else {
-            updates.end = { dateTime: `${checkOut}T11:00:00`, timeZone: resource.timezone }
+            updates.end = {
+              dateTime: `${checkOut}T11:00:00`,
+              timeZone: resource.timezone
+            }
           }
         }
 
         if (Object.keys(updates).length === 0) return 'No changes specified.'
 
-        const updated = await updateCalendarEvent(accessToken, resource.calendarId, eventId, updates)
+        const updated = await updateCalendarEvent(
+          accessToken,
+          resource.calendarId,
+          eventId,
+          updates
+        )
 
         return (
           `Booking updated for ${resource.name}:\n` +
@@ -426,7 +526,9 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
 // ─── Tool: delete_calendar_event ───────────────���───────────────────
 
 function buildDeleteEventTool(agent: VibeAgent): RegisteredTool {
-  const resourceNames = agent.bookingConfig!.resources.map(r => r.name).join(', ')
+  const resourceNames = agent
+    .bookingConfig!.resources.map(r => r.name)
+    .join(', ')
 
   return {
     function: {
@@ -450,14 +552,16 @@ function buildDeleteEventTool(agent: VibeAgent): RegisteredTool {
         required: ['event_id', 'resource_name']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const eventId = String(args.event_id ?? '').trim()
       const resourceName = String(args.resource_name ?? '').trim()
 
-      if (!eventId || !resourceName) return 'event_id and resource_name are required.'
+      if (!eventId || !resourceName)
+        return 'event_id and resource_name are required.'
 
       const resolved = await resolveResource(agent, resourceName)
-      if (!resolved) return `Unknown room "${resourceName}". Available: ${resourceNames}.`
+      if (!resolved)
+        return `Unknown room "${resourceName}". Available: ${resourceNames}.`
 
       const { resource, accessToken } = resolved
 

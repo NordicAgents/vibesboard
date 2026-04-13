@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireTenantMember, requireTenantAdmin } from '@/lib/firebase/route-handler'
+import {
+  requireTenantMember,
+  requireTenantAdmin
+} from '@/lib/firebase/route-handler'
 import { isFeatureEnabled } from '@/lib/features'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
 import { getAgentForMember } from '@/lib/agents/server'
 import {
   getInboxAccount,
-  disconnectInboxAccount,
+  disconnectInboxAccount
 } from '@/lib/whatsapp-inbox/accounts'
 
 export const runtime = 'nodejs'
@@ -18,10 +21,7 @@ type RouteParams = {
   params: Promise<{ id: string; accountId: string }>
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -37,10 +37,7 @@ export async function GET(
 
     const account = await getInboxAccount(tenantId, accountId)
     if (!account) {
-      return NextResponse.json(
-        { error: 'Account not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 })
     }
 
     // Strip encrypted token
@@ -58,10 +55,7 @@ export async function GET(
 /**
  * DELETE — Disconnect an inbox account.
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId } = await params
     const authResult = await requireTenantAdmin(tenantId)
@@ -109,7 +103,7 @@ export async function PATCH(
 
     const body = await request.json()
     const updates: Record<string, any> = {
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
 
     if (body.assignedAgentId !== undefined) {

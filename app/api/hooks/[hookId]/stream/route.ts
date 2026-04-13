@@ -3,7 +3,10 @@ import { z } from 'zod'
 
 import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
 import { getAgentById } from '@/lib/agents/server'
-import { ensureConversation, updateConversationMessages } from '@/lib/agents/conversations'
+import {
+  ensureConversation,
+  updateConversationMessages
+} from '@/lib/agents/conversations'
 import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
 import { stripCompletionMarkers } from '@/lib/agent/completion'
@@ -15,7 +18,12 @@ export const runtime = 'nodejs'
 
 const hookStreamSchema = z.object({
   message: z.string().min(1).max(10_000).trim(),
-  externalUserId: z.string().min(1).max(256).regex(/^[^.]+$/, 'must not contain dots').optional(),
+  externalUserId: z
+    .string()
+    .min(1)
+    .max(256)
+    .regex(/^[^.]+$/, 'must not contain dots')
+    .optional(),
   conversationId: z.string().min(1).optional()
 })
 
@@ -126,7 +134,10 @@ export async function POST(
         const agentStream = await runAgentStream({
           agent,
           messages: allMessages,
-          onCompletion: async (completion: string, usage?: { promptTokens: number; completionTokens: number }) => {
+          onCompletion: async (
+            completion: string,
+            usage?: { promptTokens: number; completionTokens: number }
+          ) => {
             const cleaned = stripCompletionMarkers(completion)
             const nextMessages = [
               ...allMessages,
@@ -147,7 +158,9 @@ export async function POST(
               currentSummary: conversation.summary,
               summaryResponseCount: conversation.summaryResponseCount,
               responseCounts: conversation.responseCounts
-            }).catch(err => console.error('[hook-stream] Auto-summarize failed:', err))
+            }).catch(err =>
+              console.error('[hook-stream] Auto-summarize failed:', err)
+            )
 
             // Record usage for metering (fire-and-forget)
             recordUsage({
@@ -159,7 +172,7 @@ export async function POST(
               source: 'hook_stream',
               model: OPENAI_CHAT_MODEL,
               inputTokens: usage?.promptTokens,
-              outputTokens: usage?.completionTokens,
+              outputTokens: usage?.completionTokens
             })
           }
         })

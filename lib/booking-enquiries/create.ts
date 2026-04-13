@@ -18,10 +18,14 @@ export interface CreateEnquiryParams {
   notes?: string
 }
 
-export async function createEnquiry(params: CreateEnquiryParams): Promise<string> {
+export async function createEnquiry(
+  params: CreateEnquiryParams
+): Promise<string> {
   const now = new Date().toISOString()
   const ref = adminDb
-    .collection(Collections.bookingEnquiries(params.agent.tenantId!, params.agent.id))
+    .collection(
+      Collections.bookingEnquiries(params.agent.tenantId!, params.agent.id)
+    )
     .doc()
 
   const doc: BookingEnquiryDocument = {

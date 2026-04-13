@@ -38,9 +38,12 @@ export function verifyToken(token: string, agentId: string): boolean {
   if (!b64 || !sig) return false
   try {
     const payload = Buffer.from(b64, 'base64').toString()
-    const expected = createHmac('sha256', getSecret()).update(payload).digest('hex')
+    const expected = createHmac('sha256', getSecret())
+      .update(payload)
+      .digest('hex')
     if (sig.length !== expected.length) return false
-    if (!timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))) return false
+    if (!timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex')))
+      return false
     const data = JSON.parse(payload)
     return data.agentId === agentId
   } catch {

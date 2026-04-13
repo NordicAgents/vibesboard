@@ -13,7 +13,7 @@ interface ConnectWhatsAppButtonProps {
 
 export function ConnectWhatsAppButton({
   tenantId,
-  onSuccess,
+  onSuccess
 }: ConnectWhatsAppButtonProps) {
   const { isLoaded, isLoading: sdkLoading, error: sdkError } = useFacebookSDK()
   const [connecting, setConnecting] = useState(false)
@@ -33,16 +33,16 @@ export function ConnectWhatsAppButton({
     setConnecting(true)
 
     window.FB.login(
-      (response) => {
+      response => {
         if (response.authResponse?.code) {
           fetch('/api/whatsapp-inbox/auth/callback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: response.authResponse.code }),
+            body: JSON.stringify({ code: response.authResponse.code })
           })
-            .then((res) => {
+            .then(res => {
               if (!res.ok) {
-                return res.json().then((data) => {
+                return res.json().then(data => {
                   throw new Error(data.error || 'Failed to connect account')
                 })
               }
@@ -69,8 +69,8 @@ export function ConnectWhatsAppButton({
         extras: {
           setup: {},
           featureType: '',
-          sessionInfoVersion: 2,
-        },
+          sessionInfoVersion: 2
+        }
       }
     )
   }

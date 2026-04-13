@@ -99,11 +99,11 @@ export async function POST(request: NextRequest) {
         metaUserId,
         status: 'pending',
         createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
       })
 
     // Find and delete Instagram inbox data for this Meta user asynchronously
-    deleteUserData(metaUserId, confirmationCode).catch((err) => {
+    deleteUserData(metaUserId, confirmationCode).catch(err => {
       console.error('[Data Deletion] Background deletion failed:', err)
     })
 
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       url: statusUrl,
-      confirmation_code: confirmationCode,
+      confirmation_code: confirmationCode
     })
   } catch (error: any) {
     console.error('[Data Deletion] Error:', error)
@@ -173,7 +173,7 @@ async function deleteUserData(
         for (let i = 0; i < messagesSnap.docs.length; i += BATCH_SIZE) {
           const chunk = messagesSnap.docs.slice(i, i + BATCH_SIZE)
           const batch = adminDb.batch()
-          chunk.forEach((msgDoc) => batch.delete(msgDoc.ref))
+          chunk.forEach(msgDoc => batch.delete(msgDoc.ref))
           await batch.commit()
         }
 
@@ -194,7 +194,7 @@ async function deleteUserData(
         status: 'completed',
         deletedAccounts: deletedCount,
         completedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
       })
 
     console.log(
@@ -208,7 +208,7 @@ async function deleteUserData(
       .update({
         status: 'failed',
         error: String(error),
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
       })
     throw error
   }

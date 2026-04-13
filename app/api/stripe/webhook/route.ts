@@ -5,7 +5,7 @@ import {
   handleSubscriptionDeleted,
   handleInvoiceCreated,
   handlePaymentSucceeded,
-  handlePaymentFailed,
+  handlePaymentFailed
 } from '@/lib/stripe-webhook-handlers'
 import type Stripe from 'stripe'
 
@@ -31,19 +31,14 @@ export async function POST(request: Request) {
     )
   } catch (err) {
     console.error('[stripe webhook] Signature verification failed:', err)
-    return NextResponse.json(
-      { error: 'Invalid signature' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
   try {
     switch (event.type) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-        await handleSubscriptionChange(
-          event.data.object as Stripe.Subscription
-        )
+        await handleSubscriptionChange(event.data.object as Stripe.Subscription)
         break
 
       case 'customer.subscription.deleted':

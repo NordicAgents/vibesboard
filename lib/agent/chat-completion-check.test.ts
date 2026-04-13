@@ -197,7 +197,8 @@ describe('checkCompletion — completion markers', () => {
         {
           id: '1',
           role: 'assistant',
-          content: 'Done <!--CHAT_COMPLETE:{"chatComplete":true,"reason":"collection_complete"}-->'
+          content:
+            'Done <!--CHAT_COMPLETE:{"chatComplete":true,"reason":"collection_complete"}-->'
         }
       ],
       isAgentDisabled: false,
@@ -214,7 +215,8 @@ describe('checkCompletion — completion markers', () => {
         {
           id: '1',
           role: 'assistant',
-          content: 'Handing off <!--CHAT_COMPLETE:{"chatComplete":false,"reason":"handoff_to_agent"}-->'
+          content:
+            'Handing off <!--CHAT_COMPLETE:{"chatComplete":false,"reason":"handoff_to_agent"}-->'
         }
       ],
       isAgentDisabled: false,

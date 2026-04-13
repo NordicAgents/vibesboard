@@ -33,7 +33,9 @@ const chunkText = (value: string): string[] => {
   return chunks
 }
 
-export const buildConversationChunks = (messages: Message[]): ConversationChunk[] => {
+export const buildConversationChunks = (
+  messages: Message[]
+): ConversationChunk[] => {
   const chunks: ConversationChunk[] = []
 
   messages.forEach((message, index) => {

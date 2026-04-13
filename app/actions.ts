@@ -5,7 +5,11 @@ import { redirect } from 'next/navigation'
 
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
-import { type Chat, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
+import {
+  type Chat,
+  type VibeAgent,
+  type VibeAgentConversation
+} from '@/lib/types'
 import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
 import { getActiveTenant } from '@/lib/tenant-context'
 
@@ -27,16 +31,10 @@ export async function getChats(userId?: string | null) {
 
 export async function getChat(id: string) {
   const doc = await adminDb.collection(Collections.chats).doc(id).get()
-  return doc.exists ? (doc.data()?.payload as Chat) ?? null : null
+  return doc.exists ? ((doc.data()?.payload as Chat) ?? null) : null
 }
 
-export async function removeChat({
-  id,
-  path
-}: {
-  id: string
-  path: string
-}) {
+export async function removeChat({ id, path }: { id: string; path: string }) {
   try {
     await adminDb.collection(Collections.chats).doc(id).delete()
     revalidatePath('/')
@@ -76,17 +74,12 @@ export async function shareChat(chat: Chat) {
     sharePath: `/share/${chat.id}`
   }
 
-  await adminDb
-    .collection(Collections.chats)
-    .doc(chat.id)
-    .update({ payload })
+  await adminDb.collection(Collections.chats).doc(chat.id).update({ payload })
 
   return payload
 }
 
-export async function getAgents(
-  userId?: string | null
-): Promise<VibeAgent[]> {
+export async function getAgents(userId?: string | null): Promise<VibeAgent[]> {
   if (!userId) return []
 
   try {
@@ -128,9 +121,7 @@ export async function getAgentConversations(
     const seenIds = new Set<string>()
     for (const agentDoc of agentsSnapshot.docs) {
       const convSnapshot = await adminDb
-        .collection(
-          Collections.conversations(activeTenantId, agentDoc.id)
-        )
+        .collection(Collections.conversations(activeTenantId, agentDoc.id))
         .where('externalId', '!=', null)
         .orderBy('updatedAt', 'desc')
         .limit(10)

@@ -10,7 +10,8 @@ export const OPENAI_VISION_MODEL =
   cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-5.4-nano'
 
 export const isResponsesModel = (model?: string | null) =>
-  !!model && (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
+  !!model &&
+  (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
 
 // --- Native tool calling types ---
 
@@ -51,7 +52,9 @@ export async function completeText({
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
-    throw new Error('completeText is only intended for responses-only models like gpt-5.4-nano.')
+    throw new Error(
+      'completeText is only intended for responses-only models like gpt-5.4-nano.'
+    )
   }
 
   const key = apiKey ?? process.env.OPENAI_API_KEY
@@ -88,13 +91,21 @@ export async function completeText({
 }
 
 /** Convert raw API usage to our typed format. */
-const parseUsage = (rawUsage?: any): { inputTokens: number; outputTokens: number } | undefined =>
+const parseUsage = (
+  rawUsage?: any
+): { inputTokens: number; outputTokens: number } | undefined =>
   rawUsage
-    ? { inputTokens: rawUsage.input_tokens ?? 0, outputTokens: rawUsage.output_tokens ?? 0 }
+    ? {
+        inputTokens: rawUsage.input_tokens ?? 0,
+        outputTokens: rawUsage.output_tokens ?? 0
+      }
     : undefined
 
 /** Parse complete SSE events out of a buffer, returning parsed payloads and the remaining buffer. */
-function processSseBuffer(buffer: string): { events: any[]; remaining: string } {
+function processSseBuffer(buffer: string): {
+  events: any[]
+  remaining: string
+} {
   const events: any[] = []
   let idx: number
   while ((idx = buffer.indexOf('\n\n')) !== -1) {
@@ -107,7 +118,11 @@ function processSseBuffer(buffer: string): { events: any[]; remaining: string } 
     }
     if (!dataLine) continue
 
-    try { events.push(JSON.parse(dataLine)) } catch { /* ignore malformed */ }
+    try {
+      events.push(JSON.parse(dataLine))
+    } catch {
+      /* ignore malformed */
+    }
   }
 
   // Avoid unbounded buffer growth in case of malformed streams.
@@ -131,12 +146,17 @@ export async function streamText({
   model?: string | null
   apiKey?: string | null
   onToken?: (delta: string) => void | Promise<void>
-  onDone?: (full: string, usage?: { inputTokens: number; outputTokens: number }) => void | Promise<void>
+  onDone?: (
+    full: string,
+    usage?: { inputTokens: number; outputTokens: number }
+  ) => void | Promise<void>
 }): Promise<ReadableStream<Uint8Array>> {
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
-    throw new Error('streamText is only intended for responses-only models like gpt-5.4-nano.')
+    throw new Error(
+      'streamText is only intended for responses-only models like gpt-5.4-nano.'
+    )
   }
 
   const key = apiKey ?? process.env.OPENAI_API_KEY
@@ -172,7 +192,6 @@ export async function streamText({
       let buffer = ''
       let full = ''
       let streamUsage: { inputTokens: number; outputTokens: number } | undefined
-
       ;(async () => {
         try {
           while (true) {
@@ -185,7 +204,10 @@ export async function streamText({
             buffer = result.remaining
 
             for (const payload of result.events) {
-              if (payload?.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
+              if (
+                payload?.type === 'response.output_text.delta' &&
+                typeof payload.delta === 'string'
+              ) {
                 full += payload.delta
                 if (onToken) await onToken(payload.delta)
                 controller.enqueue(encoder.encode(payload.delta))
@@ -232,9 +254,10 @@ const extractToolCall = (item: any): ToolCallResult | null => {
   if (item?.type !== 'function_call') return null
   let args: Record<string, any> = {}
   try {
-    args = typeof item.arguments === 'string'
-      ? JSON.parse(item.arguments)
-      : (item.arguments ?? {})
+    args =
+      typeof item.arguments === 'string'
+        ? JSON.parse(item.arguments)
+        : (item.arguments ?? {})
   } catch {
     args = {}
   }

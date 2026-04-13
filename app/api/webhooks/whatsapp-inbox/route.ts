@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import {
   processInboundMessages,
-  processStatusUpdates,
+  processStatusUpdates
 } from '@/lib/whatsapp-inbox/webhook-handlers'
 
 export const runtime = 'nodejs'
@@ -25,10 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   console.error('[WhatsApp Inbox] Webhook verification failed')
-  return NextResponse.json(
-    { error: 'Verification failed' },
-    { status: 403 }
-  )
+  return NextResponse.json({ error: 'Verification failed' }, { status: 403 })
 }
 
 /**
@@ -42,7 +39,11 @@ export async function POST(request: NextRequest) {
     // Verify Meta webhook signature
     const signature = request.headers.get('x-hub-signature-256')
     const appSecret = process.env.META_APP_SECRET
-    if (!appSecret || !signature || !verifyWebhookSignature(rawBody, signature, appSecret)) {
+    if (
+      !appSecret ||
+      !signature ||
+      !verifyWebhookSignature(rawBody, signature, appSecret)
+    ) {
       console.error('[WhatsApp Inbox] Invalid webhook signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
     }

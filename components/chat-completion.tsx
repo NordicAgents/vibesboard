@@ -46,11 +46,7 @@ export function ChatCompletion({
               Correct an answer
             </Button>
           )}
-          <Button
-            onClick={onComplete}
-            className="rounded-full px-6"
-            size="lg"
-          >
+          <Button onClick={onComplete} className="rounded-full px-6" size="lg">
             Submit
           </Button>
         </div>
@@ -105,7 +101,8 @@ export function ChatCompletionBanner({
         className="flex items-center justify-center gap-3 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-950/30"
       >
         <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-          This agent has reached its response limit and is no longer accepting conversations.
+          This agent has reached its response limit and is no longer accepting
+          conversations.
         </span>
       </motion.div>
     )

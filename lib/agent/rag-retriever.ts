@@ -45,19 +45,10 @@ export async function retrieveContext(
   query: string,
   config: RetrievalConfig = {}
 ): Promise<RAGContext> {
-  const {
-    topK = 5,
-    enableFallback = true,
-    maxContextChars = 6000
-  } = config
+  const { topK = 5, enableFallback = true, maxContextChars = 6000 } = config
 
   // 1. Try vector search first
-  const vectorResults = await vectorSearch(
-    tenantId,
-    agentId,
-    query,
-    topK
-  )
+  const vectorResults = await vectorSearch(tenantId, agentId, query, topK)
 
   if (vectorResults.length > 0) {
     return buildRAGContext(vectorResults, maxContextChars, true)
@@ -140,10 +131,7 @@ async function keywordSearch(
     // Firestore doesn't support ILIKE / full-text search natively.
     // Load a broader set and filter in-memory, capped at 200 to avoid full-collection scans.
     const scanLimit = Math.min(topK * 10, 200)
-    const snapshot = await adminDb
-      .collection(collPath)
-      .limit(scanLimit)
-      .get()
+    const snapshot = await adminDb.collection(collPath).limit(scanLimit).get()
 
     const queryLower = query.toLowerCase()
     return snapshot.docs
@@ -221,9 +209,7 @@ function buildRAGContext(
   }
 }
 
-async function generateQueryEmbedding(
-  query: string
-): Promise<number[] | null> {
+async function generateQueryEmbedding(query: string): Promise<number[] | null> {
   try {
     const json = await createEmbedding({
       model: EMBEDDING_MODEL,
@@ -260,9 +246,7 @@ export function formatSourceCitations(ragContext: RAGContext): string {
     return ''
   }
 
-  const citations = ragContext.sources.map(
-    (source, i) => `${i + 1}. ${source}`
-  )
+  const citations = ragContext.sources.map((source, i) => `${i + 1}. ${source}`)
 
   return `\n\n**Sources:**\n${citations.join('\n')}`
 }

@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
-import type { TenantSubscription, UsageRollupDocument } from '@/lib/firestore-types'
+import type {
+  TenantSubscription,
+  UsageRollupDocument
+} from '@/lib/firestore-types'
 
 export const runtime = 'nodejs'
 
@@ -31,7 +34,8 @@ export async function GET(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const subscription = (tenantDoc.data()?.subscription as TenantSubscription) ?? null
+  const subscription =
+    (tenantDoc.data()?.subscription as TenantSubscription) ?? null
 
   // 2. Read current cycle rollup
   const now = new Date()
@@ -69,7 +73,9 @@ export async function GET(req: Request, { params }: RouteParams) {
   if (rollup?.byUser) {
     const allUserKeys = Object.keys(rollup.byUser)
     // Separate authenticated users from external (anonymous) identifiers
-    const authUserIds = allUserKeys.filter(id => !id.startsWith('ext:') && id !== '_anonymous')
+    const authUserIds = allUserKeys.filter(
+      id => !id.startsWith('ext:') && id !== '_anonymous'
+    )
     const extUserIds = allUserKeys.filter(id => id.startsWith('ext:'))
 
     // Resolve authenticated user IDs from Firestore
@@ -82,7 +88,8 @@ export async function GET(req: Request, { params }: RouteParams) {
       for (const doc of userDocs) {
         if (doc.exists) {
           const data = doc.data()
-          userNames[doc.id] = (data?.name as string) || (data?.email as string) || doc.id
+          userNames[doc.id] =
+            (data?.name as string) || (data?.email as string) || doc.id
         }
       }
     }
@@ -113,7 +120,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const dailyUsage = Object.entries(dailyMap).map(([date, count]) => ({
     date,
-    count,
+    count
   }))
 
   return NextResponse.json({
@@ -122,6 +129,6 @@ export async function GET(req: Request, { params }: RouteParams) {
     agentNames,
     userNames,
     dailyUsage,
-    billingCycleId,
+    billingCycleId
   })
 }

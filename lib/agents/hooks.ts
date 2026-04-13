@@ -77,7 +77,9 @@ export async function getHook(
  * Look up a hook by its public ID across all agents (for the public endpoint
  * where we only have the hookId, not tenantId/agentId).
  */
-export async function getHookById(hookId: string): Promise<HookDocument | null> {
+export async function getHookById(
+  hookId: string
+): Promise<HookDocument | null> {
   const snap = await adminDb
     .collectionGroup('hooks')
     .where('id', '==', hookId)

@@ -3,7 +3,14 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 import { AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react'
 
 export default function AgentDetailError({
@@ -23,7 +30,9 @@ export default function AgentDetailError({
         <CardHeader>
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-5 text-destructive" />
-            <CardTitle className="text-base">Could not load this agent</CardTitle>
+            <CardTitle className="text-base">
+              Could not load this agent
+            </CardTitle>
           </div>
           <CardDescription>
             The agent may have been deleted or there was a connection issue.

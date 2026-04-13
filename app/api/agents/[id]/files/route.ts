@@ -52,7 +52,10 @@ export async function GET(
     .collection(collPath)
     .orderBy('createdAt', 'desc')
 
-  if (status && ['pending', 'processing', 'indexed', 'failed'].includes(status)) {
+  if (
+    status &&
+    ['pending', 'processing', 'indexed', 'failed'].includes(status)
+  ) {
     baseQuery = baseQuery.where('status', '==', status)
   }
 
@@ -117,10 +120,7 @@ export async function POST(
   }> = body.files || []
 
   if (!files.length) {
-    return NextResponse.json(
-      { error: 'No files provided' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'No files provided' }, { status: 400 })
   }
 
   const collPath = Collections.agentFiles(agent.tenantId, id)
@@ -166,7 +166,12 @@ export async function POST(
     await batch.commit()
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create file records' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create file records'
+      },
       { status: 500 }
     )
   }
@@ -174,7 +179,9 @@ export async function POST(
   // Update agent fileKeys array
   const currentFileKeys = agent.fileKeys ?? []
   const newFileKeys = files.map(f => f.fileKey)
-  const updatedFileKeys = Array.from(new Set([...currentFileKeys, ...newFileKeys]))
+  const updatedFileKeys = Array.from(
+    new Set([...currentFileKeys, ...newFileKeys])
+  )
 
   const agentDocRef = adminDb
     .collection(Collections.agents(agent.tenantId))
@@ -199,7 +206,9 @@ export async function POST(
       console.error('[File Upload] Background processing error:', error)
     })
 
-    console.log(`[File Upload] Triggered processing for ${createdFiles.length} files`)
+    console.log(
+      `[File Upload] Triggered processing for ${createdFiles.length} files`
+    )
   }
 
   return NextResponse.json({ files: createdFiles })

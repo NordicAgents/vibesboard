@@ -15,9 +15,16 @@ interface LogoUploadProps {
   disabled?: boolean
 }
 
-export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadProps) {
+export function LogoUpload({
+  value,
+  onChange,
+  tenantId,
+  disabled
+}: LogoUploadProps) {
   const [isUploading, setIsUploading] = React.useState(false)
-  const [mode, setMode] = React.useState<'upload' | 'url'>(value && !value.includes('storage.googleapis.com') ? 'url' : 'upload')
+  const [mode, setMode] = React.useState<'upload' | 'url'>(
+    value && !value.includes('storage.googleapis.com') ? 'url' : 'upload'
+  )
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,7 +32,13 @@ export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadPr
     if (!file) return
 
     // Client-side validation
-    const accepted = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']
+    const accepted = [
+      'image/png',
+      'image/jpeg',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml'
+    ]
     if (!accepted.includes(file.type)) {
       toast.error('Use PNG, JPEG, GIF, WebP, or SVG')
       return
@@ -115,7 +128,9 @@ export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadPr
                 src={value}
                 alt="Logo"
                 className="h-12 w-auto max-w-[120px] object-contain"
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                onError={e => {
+                  e.currentTarget.style.display = 'none'
+                }}
               />
               <div className="flex flex-1 items-center gap-2">
                 <Button
@@ -126,7 +141,10 @@ export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadPr
                   disabled={disabled || isUploading}
                 >
                   {isUploading ? (
-                    <><Loader2 className="mr-1 size-3 animate-spin" /> Uploading...</>
+                    <>
+                      <Loader2 className="mr-1 size-3 animate-spin" />{' '}
+                      Uploading...
+                    </>
                   ) : (
                     'Change'
                   )}
@@ -155,7 +173,9 @@ export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadPr
                 <Upload className="size-6 text-muted-foreground" />
               )}
               <span className="text-sm text-muted-foreground">
-                {isUploading ? 'Uploading...' : 'Click to upload logo (PNG, JPEG, SVG — max 2MB)'}
+                {isUploading
+                  ? 'Uploading...'
+                  : 'Click to upload logo (PNG, JPEG, SVG — max 2MB)'}
               </span>
             </button>
           )}
@@ -165,7 +185,7 @@ export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadPr
           <Input
             placeholder="https://example.com/logo.png"
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={e => onChange(e.target.value)}
             disabled={disabled}
           />
           {value && (
@@ -175,7 +195,9 @@ export function LogoUpload({ value, onChange, tenantId, disabled }: LogoUploadPr
                 src={value}
                 alt="Logo preview"
                 className="h-12 object-contain"
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                onError={e => {
+                  e.currentTarget.style.display = 'none'
+                }}
               />
             </div>
           )}

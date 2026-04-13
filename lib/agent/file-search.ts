@@ -111,9 +111,13 @@ const ensurePdfWorker = async (PDFParseClass: any) => {
 
     if (workerModule) {
       pdfWorkerGetPath =
-        typeof workerModule.getPath === 'function' ? workerModule.getPath : undefined
+        typeof workerModule.getPath === 'function'
+          ? workerModule.getPath
+          : undefined
       pdfWorkerGetData =
-        typeof workerModule.getData === 'function' ? workerModule.getData : undefined
+        typeof workerModule.getData === 'function'
+          ? workerModule.getData
+          : undefined
       pdfCanvasFactory = workerModule.CanvasFactory ?? undefined
     }
 
@@ -173,7 +177,8 @@ const extractFromPdf = async (buffer: Buffer) => {
 const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   const base64 = buffer.toString('base64')
   const dataUrl = `data:${mimeType};base64,${base64}`
-  const prompt = 'Extract all visible text from this image and provide a short description. Return plain text only.'
+  const prompt =
+    'Extract all visible text from this image and provide a short description. Return plain text only.'
 
   if (isResponsesModel(VISION_MODEL)) {
     // Use the Responses API for gpt-5.4-nano and similar models
@@ -202,7 +207,11 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => '')
-      console.error('[extractTextFromImage] Responses API error', res.status, errorText)
+      console.error(
+        '[extractTextFromImage] Responses API error',
+        res.status,
+        errorText
+      )
       return ''
     }
 
@@ -242,7 +251,9 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   const content =
     Array.isArray(rawContent) && rawContent.length
       ? rawContent
-          .map((entry: any) => (typeof entry?.text === 'string' ? entry.text : ''))
+          .map((entry: any) =>
+            typeof entry?.text === 'string' ? entry.text : ''
+          )
           .join('\n')
       : rawContent || ''
 
@@ -347,7 +358,9 @@ const deleteExistingChunks = async (
 
   for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
     const batch = adminDb.batch()
-    snapshot.docs.slice(i, i + BATCH_LIMIT).forEach(doc => batch.delete(doc.ref))
+    snapshot.docs
+      .slice(i, i + BATCH_LIMIT)
+      .forEach(doc => batch.delete(doc.ref))
     await batch.commit()
   }
 }

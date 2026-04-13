@@ -156,18 +156,15 @@ export async function createChatwootWebhook(
   accountId: number,
   webhookUrl: string
 ): Promise<ChatwootWebhook> {
-  const data = await chatwootFetch<ChatwootWebhook & { payload?: ChatwootWebhook }>(
-    chatwootUrl,
-    `/api/v1/accounts/${accountId}/webhooks`,
-    apiToken,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        url: webhookUrl,
-        subscriptions: ['message_created']
-      })
-    }
-  )
+  const data = await chatwootFetch<
+    ChatwootWebhook & { payload?: ChatwootWebhook }
+  >(chatwootUrl, `/api/v1/accounts/${accountId}/webhooks`, apiToken, {
+    method: 'POST',
+    body: JSON.stringify({
+      url: webhookUrl,
+      subscriptions: ['message_created']
+    })
+  })
 
   // Chatwoot returns the webhook directly, not wrapped in payload
   return data.payload ?? data

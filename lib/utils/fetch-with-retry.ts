@@ -8,16 +8,21 @@
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
 
 export interface FetchWithRetryOptions extends RequestInit {
-  timeoutMs?: number    // default 10_000
-  maxAttempts?: number  // default 3
-  baseDelayMs?: number  // default 500 — doubled each retry
+  timeoutMs?: number // default 10_000
+  maxAttempts?: number // default 3
+  baseDelayMs?: number // default 500 — doubled each retry
 }
 
 export async function fetchWithRetry(
   url: string,
   options: FetchWithRetryOptions = {}
 ): Promise<Response> {
-  const { timeoutMs = 10_000, maxAttempts = 3, baseDelayMs = 500, ...fetchOptions } = options
+  const {
+    timeoutMs = 10_000,
+    maxAttempts = 3,
+    baseDelayMs = 500,
+    ...fetchOptions
+  } = options
 
   let lastError: unknown
 
@@ -82,7 +87,9 @@ function anySignal(signals: AbortSignal[]): AbortSignal {
       controller.abort(signal.reason)
       return controller.signal
     }
-    signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true })
+    signal.addEventListener('abort', () => controller.abort(signal.reason), {
+      once: true
+    })
   }
   return controller.signal
 }
