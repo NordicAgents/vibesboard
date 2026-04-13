@@ -286,9 +286,7 @@ export default function AgentLinksPage() {
     // Generate QR client-side using the API
     const url = getLinkUrl(link)
     import('qrcode')
-      .then(QRCode =>
-        QRCode.toDataURL(url, { margin: 1, width: 512 })
-      )
+      .then(QRCode => QRCode.toDataURL(url, { margin: 1, width: 512 }))
       .then(dataUrl => setShareQr(dataUrl))
       .catch(() => setShareQr(null))
   }
@@ -341,10 +339,7 @@ export default function AgentLinksPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Create a link to get a stable URL you can print on QR codes
             </p>
-            <Button
-              className="mt-4"
-              onClick={() => setShowCreateDialog(true)}
-            >
+            <Button className="mt-4" onClick={() => setShowCreateDialog(true)}>
               <Plus className="mr-2 size-4" />
               Create Your First Link
             </Button>
@@ -362,9 +357,7 @@ export default function AgentLinksPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate font-medium">{link.name}</p>
-                    <Badge
-                      variant={link.isActive ? 'default' : 'secondary'}
-                    >
+                    <Badge variant={link.isActive ? 'default' : 'secondary'}>
                       {link.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
@@ -490,9 +483,7 @@ export default function AgentLinksPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="create-description">
-                Description (optional)
-              </Label>
+              <Label htmlFor="create-description">Description (optional)</Label>
               <Textarea
                 id="create-description"
                 placeholder="Notes about this link..."
@@ -515,7 +506,9 @@ export default function AgentLinksPage() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={!createName || !createSlug || !createAgentId || isCreating}
+              disabled={
+                !createName || !createSlug || !createAgentId || isCreating
+              }
             >
               {isCreating ? (
                 <>
@@ -531,7 +524,10 @@ export default function AgentLinksPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editLink} onOpenChange={open => !open && setEditLink(null)}>
+      <Dialog
+        open={!!editLink}
+        onOpenChange={open => !open && setEditLink(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Agent Link</DialogTitle>
@@ -576,9 +572,7 @@ export default function AgentLinksPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-description">
-                Description (optional)
-              </Label>
+              <Label htmlFor="edit-description">Description (optional)</Label>
               <Textarea
                 id="edit-description"
                 value={editDescription}

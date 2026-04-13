@@ -6,7 +6,7 @@ import { Collections } from '@/lib/firestore-types'
 import {
   validateTenantSlug,
   validateTenantName,
-  generateSlug,
+  generateSlug
 } from '@/lib/validations'
 
 export const runtime = 'nodejs'
@@ -31,7 +31,10 @@ export async function POST(request: Request) {
   // Validate name
   if (!name || !validateTenantName(name)) {
     return NextResponse.json(
-      { error: 'Invalid workspace name. Use 2-100 characters with letters, numbers, spaces, hyphens, or underscores.' },
+      {
+        error:
+          'Invalid workspace name. Use 2-100 characters with letters, numbers, spaces, hyphens, or underscores.'
+      },
       { status: 400 }
     )
   }
@@ -62,7 +65,9 @@ export async function POST(request: Request) {
 
       if (tenantDocs.size >= MAX_TEAM_WORKSPACES) {
         return NextResponse.json(
-          { error: `You can create a maximum of ${MAX_TEAM_WORKSPACES} team workspaces` },
+          {
+            error: `You can create a maximum of ${MAX_TEAM_WORKSPACES} team workspaces`
+          },
           { status: 429 }
         )
       }
@@ -77,7 +82,9 @@ export async function POST(request: Request) {
 
   if (slugDoc.exists) {
     return NextResponse.json(
-      { error: 'Workspace slug already exists. Please choose a different name.' },
+      {
+        error: 'Workspace slug already exists. Please choose a different name.'
+      },
       { status: 409 }
     )
   }
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
     createdBy: auth.user.id,
     isPersonal: false,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   // Atomic batch write: tenant + slug lock + branding + membership + user update
@@ -102,22 +109,19 @@ export async function POST(request: Request) {
 
   batch.set(tenantRef, tenantData)
 
-  batch.create(
-    adminDb.collection(Collections.tenantSlugs).doc(slug),
-    { tenantId, createdAt: now }
-  )
+  batch.create(adminDb.collection(Collections.tenantSlugs).doc(slug), {
+    tenantId,
+    createdAt: now
+  })
 
-  batch.set(
-    adminDb.collection(Collections.branding(tenantId)).doc(tenantId),
-    {
-      tenantId,
-      primaryColor: '#000000',
-      secondaryColor: '#ffffff',
-      overrides: [],
-      createdAt: now,
-      updatedAt: now,
-    }
-  )
+  batch.set(adminDb.collection(Collections.branding(tenantId)).doc(tenantId), {
+    tenantId,
+    primaryColor: '#000000',
+    secondaryColor: '#ffffff',
+    overrides: [],
+    createdAt: now,
+    updatedAt: now
+  })
 
   // Creator becomes TENANT_ADMIN
   batch.set(
@@ -126,15 +130,14 @@ export async function POST(request: Request) {
       userId: auth.user.id,
       tenantId,
       role: 'TENANT_ADMIN',
-      createdAt: now,
+      createdAt: now
     }
   )
 
   // Add to user's tenantIds array
-  batch.update(
-    adminDb.collection(Collections.users).doc(auth.user.id),
-    { tenantIds: FieldValue.arrayUnion(tenantId) }
-  )
+  batch.update(adminDb.collection(Collections.users).doc(auth.user.id), {
+    tenantIds: FieldValue.arrayUnion(tenantId)
+  })
 
   await batch.commit()
 

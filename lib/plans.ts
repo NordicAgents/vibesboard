@@ -6,13 +6,13 @@ export type PlanId = 'free' | 'pro' | 'team' | 'enterprise'
 export interface PlanDefinition {
   id: PlanId
   name: string
-  price: number                    // monthly price in cents (0, 1900, 1000, 0)
-  pricePerSeat?: number            // cents per seat (Team only: 1000)
-  minSeats?: number                // minimum seats (Team only: 3)
-  includedMessages: number         // per month (Free: 100, Pro: 5000)
+  price: number // monthly price in cents (0, 1900, 1000, 0)
+  pricePerSeat?: number // cents per seat (Team only: 1000)
+  minSeats?: number // minimum seats (Team only: 3)
+  includedMessages: number // per month (Free: 100, Pro: 5000)
   includedMessagesPerSeat?: number // Team only: 10000/seat
-  overageRate: number              // cents per message (0 = hard cap)
-  featureFlags: FeatureFlagName[]  // flags enabled for this plan
+  overageRate: number // cents per message (0 = hard cap)
+  featureFlags: FeatureFlagName[] // flags enabled for this plan
 }
 
 /** Default plan definitions — used as seed data and fallback */
@@ -23,7 +23,7 @@ export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
     price: 0,
     includedMessages: 100,
     overageRate: 0, // hard cap
-    featureFlags: ['AGENT_LINKS'],
+    featureFlags: ['AGENT_LINKS']
   },
   pro: {
     id: 'pro',
@@ -39,8 +39,8 @@ export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
       'AGENT_NOTIFICATIONS',
       'AGENT_NOTIFICATIONS_INAPP',
       'AGENT_NOTIFICATIONS_EMAIL',
-      'AGENT_NOTIFICATIONS_WEBHOOK',
-    ],
+      'AGENT_NOTIFICATIONS_WEBHOOK'
+    ]
   },
   team: {
     id: 'team',
@@ -64,8 +64,8 @@ export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
       'AGENT_NOTIFICATIONS_EMAIL',
       'AGENT_NOTIFICATIONS_WEBHOOK',
       'TEAM_COLLABORATION',
-      'CUSTOM_BRANDING',
-    ],
+      'CUSTOM_BRANDING'
+    ]
   },
   enterprise: {
     id: 'enterprise',
@@ -73,8 +73,8 @@ export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
     price: 0, // custom
     includedMessages: 0, // custom
     overageRate: 0, // custom
-    featureFlags: [], // all flags enabled by override
-  },
+    featureFlags: [] // all flags enabled by override
+  }
 }
 
 // ─── Firestore-backed plan access (with cache) ─────────────────────
@@ -92,7 +92,7 @@ export function toPlanDefinition(doc: PlanTemplateDocument): PlanDefinition {
     includedMessages: doc.includedMessages,
     includedMessagesPerSeat: doc.includedMessagesPerSeat ?? undefined,
     overageRate: doc.overageRate,
-    featureFlags: doc.featureFlags as FeatureFlagName[],
+    featureFlags: doc.featureFlags as FeatureFlagName[]
   }
 }
 
@@ -118,7 +118,10 @@ export async function getPlanTemplate(planId: PlanId): Promise<PlanDefinition> {
 
     if (snap.exists) {
       const plan = toPlanDefinition(snap.data() as PlanTemplateDocument)
-      planCache.set(planId, { data: plan, expiresAt: Date.now() + CACHE_TTL_MS })
+      planCache.set(planId, {
+        data: plan,
+        expiresAt: Date.now() + CACHE_TTL_MS
+      })
       return plan
     }
   } catch (err: unknown) {
@@ -137,7 +140,9 @@ export async function getAllPlanTemplates(): Promise<PlanDefinition[]> {
 
     const snap = await adminDb.collection(Collections.planTemplates).get()
     if (!snap.empty) {
-      return snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => toPlanDefinition(d.data() as PlanTemplateDocument))
+      return snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) =>
+        toPlanDefinition(d.data() as PlanTemplateDocument)
+      )
     }
   } catch (err: unknown) {
     console.error('[plans] Failed to read plan templates from Firestore:', err)
@@ -156,7 +161,10 @@ export function invalidatePlanCache(planId?: PlanId): void {
 }
 
 /** Compute the effective message limit for a plan + seat count */
-export function computeMessageLimit(plan: PlanDefinition, seatCount: number): number {
+export function computeMessageLimit(
+  plan: PlanDefinition,
+  seatCount: number
+): number {
   if (plan.includedMessagesPerSeat) {
     return seatCount * plan.includedMessagesPerSeat
   }

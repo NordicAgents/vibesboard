@@ -48,7 +48,9 @@ export default async function AgentSectionLayout({
       .orderBy('updatedAt', 'desc')
       .get()
 
-    conversations = convoSnapshot.docs.map(doc => mapConversationDoc(doc.data()))
+    conversations = convoSnapshot.docs.map((doc: any) =>
+      mapConversationDoc(doc.data())
+    )
   }
 
   const headersList = await headers()

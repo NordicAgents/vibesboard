@@ -15,7 +15,9 @@ const requestSchema = z.object({
   )
 })
 
-function buildReviewPrompt(messages: { role: string; content: string }[]): string {
+function buildReviewPrompt(
+  messages: { role: string; content: string }[]
+): string {
   const conversation = messages
     .filter(m => m.role === 'user' || m.role === 'assistant')
     .map(m => `${m.role === 'user' ? 'Customer' : 'Agent'}: ${m.content}`)

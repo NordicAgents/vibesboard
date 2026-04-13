@@ -38,9 +38,7 @@ export function AgentIntegrationsTab({
     let cancelled = false
     async function fetchStatuses() {
       try {
-        const res = await fetch(
-          `/api/agents/${agent.id}/integrations/status`
-        )
+        const res = await fetch(`/api/agents/${agent.id}/integrations/status`)
         if (!res.ok) return
         const data = await res.json()
         if (cancelled) return
@@ -66,7 +64,13 @@ export function AgentIntegrationsTab({
   const renderSettingsPanel = (definition: IntegrationDefinition) => {
     switch (definition.type) {
       case 'chatwoot':
-        return <AgentChatwootSettings agentId={agent.id} canEdit={canEdit} agentName={agent.name} />
+        return (
+          <AgentChatwootSettings
+            agentId={agent.id}
+            canEdit={canEdit}
+            agentName={agent.name}
+          />
+        )
       case 'embed_widget':
         return <AgentEmbedSettings agent={agent} canEdit={canEdit} />
       case 'hooks':

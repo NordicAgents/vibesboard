@@ -13,7 +13,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { FEATURE_FLAG_NAMES, FEATURE_FLAG_HIERARCHY, getChildFlags, getAllDescendants, getParentFlag } from '@/lib/feature-flags'
+import {
+  FEATURE_FLAG_NAMES,
+  FEATURE_FLAG_HIERARCHY,
+  getChildFlags,
+  getAllDescendants,
+  getParentFlag
+} from '@/lib/feature-flags'
 import type { FeatureFlagName } from '@/lib/feature-flags'
 import toast from 'react-hot-toast'
 
@@ -37,9 +43,19 @@ interface EditPlanDialogProps {
 }
 
 /** Group flags recursively: parents first, then children, then grandchildren */
-function getGroupedFlags(): { name: FeatureFlagName; depth: number; parent?: FeatureFlagName }[] {
-  const result: { name: FeatureFlagName; depth: number; parent?: FeatureFlagName }[] = []
-  const children = new Set(Object.keys(FEATURE_FLAG_HIERARCHY) as FeatureFlagName[])
+function getGroupedFlags(): {
+  name: FeatureFlagName
+  depth: number
+  parent?: FeatureFlagName
+}[] {
+  const result: {
+    name: FeatureFlagName
+    depth: number
+    parent?: FeatureFlagName
+  }[] = []
+  const children = new Set(
+    Object.keys(FEATURE_FLAG_HIERARCHY) as FeatureFlagName[]
+  )
 
   function addFlagAndChildren(flag: FeatureFlagName, depth: number) {
     const parent = FEATURE_FLAG_HIERARCHY[flag]
@@ -61,7 +77,12 @@ function getGroupedFlags(): { name: FeatureFlagName; depth: number; parent?: Fea
 
 const groupedFlags = getGroupedFlags()
 
-export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlanDialogProps) {
+export function EditPlanDialog({
+  open,
+  onOpenChange,
+  plan,
+  onSuccess
+}: EditPlanDialogProps) {
   const [isSaving, setIsSaving] = React.useState(false)
   const [migrationPrompt, setMigrationPrompt] = React.useState<{
     planId: string
@@ -76,7 +97,7 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
     includedMessages: 0,
     includedMessagesPerSeat: null as number | null,
     overageRate: 0,
-    featureFlags: [] as string[],
+    featureFlags: [] as string[]
   })
 
   // Reset form when plan changes
@@ -90,7 +111,7 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         includedMessages: plan.includedMessages,
         includedMessagesPerSeat: plan.includedMessagesPerSeat ?? null,
         overageRate: plan.overageRate,
-        featureFlags: [...plan.featureFlags],
+        featureFlags: [...plan.featureFlags]
       })
     }
   }, [plan])
@@ -101,7 +122,9 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
       if (enabled) {
         if (!flags.includes(flagName)) flags.push(flagName)
         // Enable all ancestors up the chain
-        let current: FeatureFlagName | null = getParentFlag(flagName as FeatureFlagName)
+        let current: FeatureFlagName | null = getParentFlag(
+          flagName as FeatureFlagName
+        )
         while (current) {
           if (!flags.includes(current)) flags.push(current)
           current = getParentFlag(current)
@@ -123,7 +146,7 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
       const res = await fetch(`/api/admin/plans/${plan.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(form)
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -135,9 +158,13 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         const parts: string[] = []
         if (p.featureFlagsSynced) parts.push('feature flags synced')
         if (p.messageLimitsUpdated) parts.push('message limits updated')
-        toast.success(`${form.name} plan updated. ${p.tenantsAffected} tenant${p.tenantsAffected === 1 ? '' : 's'}: ${parts.join(', ')}.`)
+        toast.success(
+          `${form.name} plan updated. ${p.tenantsAffected} tenant${p.tenantsAffected === 1 ? '' : 's'}: ${parts.join(', ')}.`
+        )
         if (p.errors.length > 0) {
-          toast.error(`${p.errors.length} tenant${p.errors.length === 1 ? '' : 's'} failed to sync`)
+          toast.error(
+            `${p.errors.length} tenant${p.errors.length === 1 ? '' : 's'} failed to sync`
+          )
         }
       } else {
         toast.success(`${form.name} plan updated`)
@@ -147,7 +174,7 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
       if (p?.priceRotated && p.pendingMigration) {
         setMigrationPrompt({
           planId: plan.id,
-          subscribersToMigrate: p.pendingMigration.subscribersToMigrate,
+          subscribersToMigrate: p.pendingMigration.subscribersToMigrate
         })
         return // Don't close dialog yet
       }
@@ -209,7 +236,8 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         <DialogHeader>
           <DialogTitle>Edit {plan.name} Plan</DialogTitle>
           <DialogDescription>
-            Update plan configuration. Changes propagate to all existing tenants on this plan.
+            Update plan configuration. Changes propagate to all existing tenants
+            on this plan.
           </DialogDescription>
         </DialogHeader>
 
@@ -221,7 +249,9 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
               <Input
                 id="plan-name"
                 value={form.name}
-                onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, name: e.target.value }))
+                }
                 disabled={isSaving}
               />
             </div>
@@ -240,11 +270,18 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                   type="number"
                   min={0}
                   value={form.price}
-                  onChange={e => setForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                  onChange={e =>
+                    setForm(prev => ({
+                      ...prev,
+                      price: Number(e.target.value)
+                    }))
+                  }
                   disabled={isSaving}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {form.price === 0 ? 'Free' : `$${(form.price / 100).toFixed(2)}/mo`}
+                  {form.price === 0
+                    ? 'Free'
+                    : `$${(form.price / 100).toFixed(2)}/mo`}
                 </p>
               </div>
               <div className="space-y-2">
@@ -255,14 +292,19 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                   min={0}
                   value={form.pricePerSeat ?? ''}
                   placeholder="Not set"
-                  onChange={e => setForm(prev => ({
-                    ...prev,
-                    pricePerSeat: e.target.value === '' ? null : Number(e.target.value)
-                  }))}
+                  onChange={e =>
+                    setForm(prev => ({
+                      ...prev,
+                      pricePerSeat:
+                        e.target.value === '' ? null : Number(e.target.value)
+                    }))
+                  }
                   disabled={isSaving}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {form.pricePerSeat ? `$${(form.pricePerSeat / 100).toFixed(2)}/seat` : 'N/A'}
+                  {form.pricePerSeat
+                    ? `$${(form.pricePerSeat / 100).toFixed(2)}/seat`
+                    : 'N/A'}
                 </p>
               </div>
             </div>
@@ -274,10 +316,13 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                 min={1}
                 value={form.minSeats ?? ''}
                 placeholder="Not set"
-                onChange={e => setForm(prev => ({
-                  ...prev,
-                  minSeats: e.target.value === '' ? null : Number(e.target.value)
-                }))}
+                onChange={e =>
+                  setForm(prev => ({
+                    ...prev,
+                    minSeats:
+                      e.target.value === '' ? null : Number(e.target.value)
+                  }))
+                }
                 disabled={isSaving}
               />
             </div>
@@ -296,22 +341,32 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                   type="number"
                   min={0}
                   value={form.includedMessages}
-                  onChange={e => setForm(prev => ({ ...prev, includedMessages: Number(e.target.value) }))}
+                  onChange={e =>
+                    setForm(prev => ({
+                      ...prev,
+                      includedMessages: Number(e.target.value)
+                    }))
+                  }
                   disabled={isSaving}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="includedMessagesPerSeat">Messages Per Seat</Label>
+                <Label htmlFor="includedMessagesPerSeat">
+                  Messages Per Seat
+                </Label>
                 <Input
                   id="includedMessagesPerSeat"
                   type="number"
                   min={0}
                   value={form.includedMessagesPerSeat ?? ''}
                   placeholder="Not set"
-                  onChange={e => setForm(prev => ({
-                    ...prev,
-                    includedMessagesPerSeat: e.target.value === '' ? null : Number(e.target.value)
-                  }))}
+                  onChange={e =>
+                    setForm(prev => ({
+                      ...prev,
+                      includedMessagesPerSeat:
+                        e.target.value === '' ? null : Number(e.target.value)
+                    }))
+                  }
                   disabled={isSaving}
                 />
               </div>
@@ -324,7 +379,12 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                 min={0}
                 step={0.01}
                 value={form.overageRate}
-                onChange={e => setForm(prev => ({ ...prev, overageRate: Number(e.target.value) }))}
+                onChange={e =>
+                  setForm(prev => ({
+                    ...prev,
+                    overageRate: Number(e.target.value)
+                  }))
+                }
                 disabled={isSaving}
               />
               <p className="text-xs text-muted-foreground">
@@ -349,12 +409,17 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
               {groupedFlags.map(({ name, depth }) => {
                 const isEnabled = form.featureFlags.includes(name)
                 const parent = FEATURE_FLAG_HIERARCHY[name]
-                const parentDisabled = depth > 0 && parent && !form.featureFlags.includes(parent)
+                const parentDisabled =
+                  depth > 0 && parent && !form.featureFlags.includes(parent)
                 return (
                   <div
                     key={name}
                     className="flex items-center justify-between rounded-md px-2 py-1.5"
-                    style={depth > 0 ? { marginLeft: `${depth * 1.5}rem` } : undefined}
+                    style={
+                      depth > 0
+                        ? { marginLeft: `${depth * 1.5}rem` }
+                        : undefined
+                    }
                   >
                     <label
                       htmlFor={`flag-${name}`}
@@ -362,13 +427,15 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
                         parentDisabled ? 'text-muted-foreground' : ''
                       }`}
                     >
-                      {depth > 0 && <span className="mr-1 text-muted-foreground">└</span>}
+                      {depth > 0 && (
+                        <span className="mr-1 text-muted-foreground">└</span>
+                      )}
                       {name}
                     </label>
                     <Switch
                       id={`flag-${name}`}
                       checked={isEnabled}
-                      onCheckedChange={(checked) => toggleFlag(name, checked)}
+                      onCheckedChange={checked => toggleFlag(name, checked)}
                       disabled={isSaving || !!parentDisabled}
                     />
                   </div>
@@ -382,8 +449,10 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
         {migrationPrompt ? (
           <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
             <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-              Price updated in Stripe. Migrate {migrationPrompt.subscribersToMigrate} existing
-              subscriber{migrationPrompt.subscribersToMigrate === 1 ? '' : 's'} to the new price?
+              Price updated in Stripe. Migrate{' '}
+              {migrationPrompt.subscribersToMigrate} existing subscriber
+              {migrationPrompt.subscribersToMigrate === 1 ? '' : 's'} to the new
+              price?
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-300">
               This will prorate their current billing period.
@@ -397,11 +466,7 @@ export function EditPlanDialog({ open, onOpenChange, plan, onSuccess }: EditPlan
               >
                 Skip
               </Button>
-              <Button
-                size="sm"
-                onClick={handleMigrate}
-                disabled={isMigrating}
-              >
+              <Button size="sm" onClick={handleMigrate} disabled={isMigrating}>
                 {isMigrating ? 'Migrating...' : 'Migrate Now'}
               </Button>
             </div>

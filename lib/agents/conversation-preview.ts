@@ -26,9 +26,7 @@ export function getConversationPreview(
   const userMessages = messages.filter(
     message => message.role === 'user' && cleanPreviewText(message.content)
   )
-  const substantiveUserMessage = userMessages.find(
-    m => !isLowSignal(m.content)
-  )
+  const substantiveUserMessage = userMessages.find(m => !isLowSignal(m.content))
   const firstUserMessage = substantiveUserMessage ?? userMessages[0]
 
   const latestMessageWithContent = [...messages]

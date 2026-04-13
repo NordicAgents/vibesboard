@@ -188,7 +188,9 @@ export function AgentCreatorChat({
       // Validate count
       const currentCount = attachedFiles.length
       if (currentCount + fileArray.length > MAX_FILES) {
-        toast.error(`Maximum ${MAX_FILES} files allowed. You can add ${MAX_FILES - currentCount} more.`)
+        toast.error(
+          `Maximum ${MAX_FILES} files allowed. You can add ${MAX_FILES - currentCount} more.`
+        )
         return
       }
 
@@ -315,7 +317,10 @@ export function AgentCreatorChat({
     try {
       // Auto-enable file_search when files are uploaded
       const effectiveTools = [...(formData.tools || [])]
-      if ((formData.fileKeys || []).length > 0 && !effectiveTools.includes('builtin:file_search')) {
+      if (
+        (formData.fileKeys || []).length > 0 &&
+        !effectiveTools.includes('builtin:file_search')
+      ) {
         effectiveTools.push('builtin:file_search')
       }
 
@@ -407,7 +412,10 @@ export function AgentCreatorChat({
             Chat
           </button>
           <button
-            onClick={() => { setMobileView('form'); setIsPreviewOpen(true) }}
+            onClick={() => {
+              setMobileView('form')
+              setIsPreviewOpen(true)
+            }}
             className={cn(
               'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
               mobileView === 'form'
@@ -421,10 +429,12 @@ export function AgentCreatorChat({
       </div>
 
       {/* Left Side: Chat Interface (70%) */}
-      <div className={cn(
-        'flex flex-1 flex-col overflow-hidden',
-        mobileView === 'form' ? 'hidden lg:flex' : 'flex'
-      )}>
+      <div
+        className={cn(
+          'flex flex-1 flex-col overflow-hidden',
+          mobileView === 'form' ? 'hidden lg:flex' : 'flex'
+        )}
+      >
         <div className="relative flex min-h-0 flex-1 flex-col">
           {messages.length > 0 ? (
             <>
@@ -517,7 +527,7 @@ export function AgentCreatorChat({
                 <div className="mx-auto w-full max-w-xl">
                   <QuickSuggestions
                     suggestions={STARTER_PROMPTS}
-                    onSelect={async (value) => {
+                    onSelect={async value => {
                       await append({
                         id: nanoid(),
                         content: value,
@@ -538,7 +548,12 @@ export function AgentCreatorChat({
                       if (detectedUrls?.length) {
                         setFormData(prev => ({
                           ...prev,
-                          sourceUrls: [...new Set([...(prev.sourceUrls ?? []), ...detectedUrls])].slice(0, 5)
+                          sourceUrls: [
+                            ...new Set([
+                              ...(prev.sourceUrls ?? []),
+                              ...detectedUrls
+                            ])
+                          ].slice(0, 5)
                         }))
                       }
                       await append({
@@ -579,8 +594,8 @@ export function AgentCreatorChat({
                 {!createdAgentId && isReadyToCreate && (
                   <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e3e3] bg-[#e6ede6] px-3 py-2 text-xs text-[#222f30] dark:border-[#344348] dark:bg-[#344348] dark:text-[#f5f8f7]">
                     <p className="font-switzer">
-                      Your agent draft is ready. Say &quot;create it&quot; or click Create
-                      Agent.
+                      Your agent draft is ready. Say &quot;create it&quot; or
+                      click Create Agent.
                     </p>
                     <Button
                       size="sm"
@@ -599,7 +614,12 @@ export function AgentCreatorChat({
                     if (detectedUrls?.length) {
                       setFormData(prev => ({
                         ...prev,
-                        sourceUrls: [...new Set([...(prev.sourceUrls ?? []), ...detectedUrls])].slice(0, 5)
+                        sourceUrls: [
+                          ...new Set([
+                            ...(prev.sourceUrls ?? []),
+                            ...detectedUrls
+                          ])
+                        ].slice(0, 5)
                       }))
                     }
                     await append({
@@ -621,10 +641,14 @@ export function AgentCreatorChat({
 
       {/* Right Side: Form Preview (30%) */}
       {isPreviewOpen ? (
-        <div className={cn(
-          'transition-all duration-300 ease-in-out',
-          mobileView === 'chat' ? 'hidden lg:block' : 'flex flex-1 lg:flex-none'
-        )}>
+        <div
+          className={cn(
+            'transition-all duration-300 ease-in-out',
+            mobileView === 'chat'
+              ? 'hidden lg:block'
+              : 'flex flex-1 lg:flex-none'
+          )}
+        >
           <AgentBuilderFormPreview
             formData={formData}
             onFormChange={setFormData}

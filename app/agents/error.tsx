@@ -3,7 +3,14 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 import { AlertTriangle, RefreshCw, Plus } from 'lucide-react'
 
 export default function AgentsError({
@@ -26,7 +33,8 @@ export default function AgentsError({
             <CardTitle className="text-base">Could not load agents</CardTitle>
           </div>
           <CardDescription>
-            Something went wrong loading your agents. Check your connection and try again.
+            Something went wrong loading your agents. Check your connection and
+            try again.
           </CardDescription>
         </CardHeader>
         {error?.digest && (

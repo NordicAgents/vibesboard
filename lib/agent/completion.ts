@@ -101,7 +101,9 @@ export function createCompletionTransformStream(
 
       // Check max responses threshold
       const maxResponsesReached =
-        maxResponses && currentResponseCount && currentResponseCount >= maxResponses
+        maxResponses &&
+        currentResponseCount &&
+        currentResponseCount >= maxResponses
 
       // Emit handoff metadata if an agent-to-agent handoff is detected
       if (completionReason === 'handoff_to_agent') {
@@ -118,7 +120,8 @@ export function createCompletionTransformStream(
 
       // Emit completion metadata — at most ONE CHAT_COMPLETE block.
       // LLM completion reason takes priority over max_responses.
-      const effectiveReason = completionReason || (maxResponsesReached ? 'max_responses' : null)
+      const effectiveReason =
+        completionReason || (maxResponsesReached ? 'max_responses' : null)
       if (effectiveReason) {
         const metadata = {
           chatComplete: effectiveReason !== 'handoff_to_agent',

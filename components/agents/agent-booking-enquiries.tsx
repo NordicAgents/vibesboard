@@ -14,7 +14,9 @@ function fmtDatetime(iso: string, _timezone: string) {
     const [datePart, timePart = '00:00'] = iso.split('T')
     const [year, month, day] = datePart.split('-').map(Number)
     const [hour, minute] = timePart.split(':').map(Number)
-    return new Date(Date.UTC(year, month - 1, day, hour, minute || 0)).toLocaleString('en-US', {
+    return new Date(
+      Date.UTC(year, month - 1, day, hour, minute || 0)
+    ).toLocaleString('en-US', {
       timeZone: 'UTC',
       dateStyle: 'medium',
       timeStyle: 'short'
@@ -26,7 +28,10 @@ function fmtDatetime(iso: string, _timezone: string) {
 
 function fmtReceived(iso: string) {
   try {
-    return new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    return new Date(iso).toLocaleString('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    })
   } catch {
     return iso
   }
@@ -48,9 +53,20 @@ export function AgentBookingEnquiries({ agentId }: Props) {
       .finally(() => setLoading(false))
   }, [agentId])
 
-  if (loading) return <p className="py-8 text-center text-sm text-muted-foreground">Loading enquiries...</p>
-  if (error) return <p className="py-8 text-center text-sm text-destructive">{error}</p>
-  if (enquiries.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">No booking enquiries yet.</p>
+  if (loading)
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        Loading enquiries...
+      </p>
+    )
+  if (error)
+    return <p className="py-8 text-center text-sm text-destructive">{error}</p>
+  if (enquiries.length === 0)
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        No booking enquiries yet.
+      </p>
+    )
 
   return (
     <div className="overflow-x-auto">
@@ -76,11 +92,15 @@ export function AgentBookingEnquiries({ agentId }: Props) {
               <td className="py-3 pr-4">{e.resourceName}</td>
               <td className="py-3 pr-4 whitespace-nowrap">
                 <p>{fmtDatetime(e.startDatetime, e.timezone)}</p>
-                <p className="text-muted-foreground">→ {fmtDatetime(e.endDatetime, e.timezone)}</p>
+                <p className="text-muted-foreground">
+                  → {fmtDatetime(e.endDatetime, e.timezone)}
+                </p>
               </td>
               <td className="py-3 pr-4">{e.guestCount ?? '—'}</td>
               <td className="py-3 pr-4 max-w-[160px]">
-                <p className="truncate text-muted-foreground">{e.notes || '—'}</p>
+                <p className="truncate text-muted-foreground">
+                  {e.notes || '—'}
+                </p>
               </td>
               <td className="py-3 whitespace-nowrap text-muted-foreground">
                 {fmtReceived(e.createdAt)}

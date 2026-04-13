@@ -50,7 +50,9 @@ function buildResponseJson({
 // ---------------------------------------------------------------------------
 // Helper: build a mock SSE stream from events
 // ---------------------------------------------------------------------------
-function buildSseStream(events: Array<{ type: string; data: any }>): ReadableStream<Uint8Array> {
+function buildSseStream(
+  events: Array<{ type: string; data: any }>
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   const chunks = events.map(e => `data: ${JSON.stringify(e.data)}\n\n`)
 
@@ -102,7 +104,9 @@ describe('completeText token extraction', () => {
   test('extracts usage alongside tool calls', async () => {
     const responseBody = buildResponseJson({
       text: '',
-      toolCalls: [{ name: 'search', arguments: { query: 'test' }, callId: 'call_abc' }],
+      toolCalls: [
+        { name: 'search', arguments: { query: 'test' }, callId: 'call_abc' }
+      ],
       inputTokens: 200,
       outputTokens: 30
     })
@@ -273,7 +277,11 @@ describe('streamText token extraction from SSE', () => {
         if (done) break
       }
 
-      assert.equal(capturedUsage, undefined, 'usage should be undefined when no response.completed event')
+      assert.equal(
+        capturedUsage,
+        undefined,
+        'usage should be undefined when no response.completed event'
+      )
     } finally {
       globalThis.fetch = originalFetch
     }

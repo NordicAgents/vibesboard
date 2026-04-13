@@ -60,9 +60,7 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
         }
 
         const type: BuiltinToolType | null =
-          rawType in BUILTIN_AGENT_TOOLS
-            ? (rawType as BuiltinToolType)
-            : null
+          rawType in BUILTIN_AGENT_TOOLS ? (rawType as BuiltinToolType) : null
 
         if (!type) {
           return null
@@ -115,7 +113,9 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
   notificationConfig: data.notificationConfig ?? undefined,
   handoffTargets: sanitizeStringArray(data.handoffTargets),
-  collectionFields: Array.isArray(data.collectionFields) ? data.collectionFields : undefined,
+  collectionFields: Array.isArray(data.collectionFields)
+    ? data.collectionFields
+    : undefined,
   schedulingConfig: data.schedulingConfig ?? undefined,
   dataConfig: data.dataConfig ?? undefined,
   calendarAvailabilityConfig: data.calendarAvailabilityConfig ?? undefined,
@@ -138,9 +138,13 @@ export const mapConversationDoc = (
   messages: sanitizeMessages(data.messages),
   closedAt: data.closedAt ?? null,
   handedOff: data.handedOff ?? false,
-  handoffChain: Array.isArray(data.handoffChain) ? data.handoffChain : undefined,
-  responseCounts: typeof data.responseCounts === 'object' && data.responseCounts !== null
-    ? data.responseCounts : undefined,
+  handoffChain: Array.isArray(data.handoffChain)
+    ? data.handoffChain
+    : undefined,
+  responseCounts:
+    typeof data.responseCounts === 'object' && data.responseCounts !== null
+      ? data.responseCounts
+      : undefined,
   summaryGeneratedAt: data.summaryGeneratedAt ?? null,
   summaryResponseCount: data.summaryResponseCount ?? undefined,
   createdAt: data.createdAt,
@@ -157,10 +161,7 @@ export const createAgentSlug = (name: string) => {
 /**
  * Ensure slug uniqueness within a tenant's agents collection.
  */
-export const ensureUniqueSlug = async (
-  slug: string,
-  tenantId: string
-) => {
+export const ensureUniqueSlug = async (slug: string, tenantId: string) => {
   const collPath = Collections.agents(tenantId)
   let candidate = slug
   let attempt = 0

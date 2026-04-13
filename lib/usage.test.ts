@@ -27,7 +27,7 @@ describe('buildRollupUpdateFields', () => {
       userId: 'user-42',
       inputTokens: 100,
       outputTokens: 50,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     // Top-level counters
@@ -46,9 +46,15 @@ describe('buildRollupUpdateFields', () => {
     assert.deepEqual(fields['byUser.user-42.outputTokens'], { __increment: 50 })
 
     // Per-user per-agent counters
-    assert.deepEqual(fields['byUser.user-42.byAgent.agent-1.messages'], { __increment: 1 })
-    assert.deepEqual(fields['byUser.user-42.byAgent.agent-1.inputTokens'], { __increment: 100 })
-    assert.deepEqual(fields['byUser.user-42.byAgent.agent-1.outputTokens'], { __increment: 50 })
+    assert.deepEqual(fields['byUser.user-42.byAgent.agent-1.messages'], {
+      __increment: 1
+    })
+    assert.deepEqual(fields['byUser.user-42.byAgent.agent-1.inputTokens'], {
+      __increment: 100
+    })
+    assert.deepEqual(fields['byUser.user-42.byAgent.agent-1.outputTokens'], {
+      __increment: 50
+    })
   })
 
   test('uses _anonymous key when userId is null', () => {
@@ -59,15 +65,25 @@ describe('buildRollupUpdateFields', () => {
       userId: null,
       inputTokens: 200,
       outputTokens: 80,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     assert.deepEqual(fields['byUser._anonymous.messages'], { __increment: 1 })
-    assert.deepEqual(fields['byUser._anonymous.inputTokens'], { __increment: 200 })
-    assert.deepEqual(fields['byUser._anonymous.outputTokens'], { __increment: 80 })
-    assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.messages'], { __increment: 1 })
-    assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.inputTokens'], { __increment: 200 })
-    assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.outputTokens'], { __increment: 80 })
+    assert.deepEqual(fields['byUser._anonymous.inputTokens'], {
+      __increment: 200
+    })
+    assert.deepEqual(fields['byUser._anonymous.outputTokens'], {
+      __increment: 80
+    })
+    assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.messages'], {
+      __increment: 1
+    })
+    assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.inputTokens'], {
+      __increment: 200
+    })
+    assert.deepEqual(fields['byUser._anonymous.byAgent.agent-2.outputTokens'], {
+      __increment: 80
+    })
   })
 
   test('ext: prefixed userId keeps individual tracking for external users', () => {
@@ -78,17 +94,27 @@ describe('buildRollupUpdateFields', () => {
       userId: 'ext:session-abc123',
       inputTokens: 300,
       outputTokens: 100,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     // External user should NOT be merged into _anonymous
     assert.equal(fields['byUser._anonymous.messages'], undefined)
 
     // Should track under ext: prefixed key
-    assert.deepEqual(fields['byUser.ext:session-abc123.messages'], { __increment: 1 })
-    assert.deepEqual(fields['byUser.ext:session-abc123.inputTokens'], { __increment: 300 })
-    assert.deepEqual(fields['byUser.ext:session-abc123.byAgent.agent-3.messages'], { __increment: 1 })
-    assert.deepEqual(fields['byUser.ext:session-abc123.byAgent.agent-3.inputTokens'], { __increment: 300 })
+    assert.deepEqual(fields['byUser.ext:session-abc123.messages'], {
+      __increment: 1
+    })
+    assert.deepEqual(fields['byUser.ext:session-abc123.inputTokens'], {
+      __increment: 300
+    })
+    assert.deepEqual(
+      fields['byUser.ext:session-abc123.byAgent.agent-3.messages'],
+      { __increment: 1 }
+    )
+    assert.deepEqual(
+      fields['byUser.ext:session-abc123.byAgent.agent-3.inputTokens'],
+      { __increment: 300 }
+    )
   })
 
   test('handles zero tokens correctly', () => {
@@ -99,14 +125,16 @@ describe('buildRollupUpdateFields', () => {
       userId: 'user-1',
       inputTokens: 0,
       outputTokens: 0,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     assert.deepEqual(fields.totalInputTokens, { __increment: 0 })
     assert.deepEqual(fields.totalOutputTokens, { __increment: 0 })
     assert.deepEqual(fields['byUser.user-1.inputTokens'], { __increment: 0 })
     assert.deepEqual(fields['byUser.user-1.outputTokens'], { __increment: 0 })
-    assert.deepEqual(fields['byUser.user-1.byAgent.agent-3.inputTokens'], { __increment: 0 })
+    assert.deepEqual(fields['byUser.user-1.byAgent.agent-3.inputTokens'], {
+      __increment: 0
+    })
   })
 
   test('produces exactly 13 fields', () => {
@@ -117,12 +145,16 @@ describe('buildRollupUpdateFields', () => {
       userId: 'u',
       inputTokens: 1,
       outputTokens: 1,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     const keys = Object.keys(fields)
     // 3 totals + 3 by-dimensions + 3 user-level + 3 user-agent = 12
-    assert.equal(keys.length, 12, `Expected 12 fields, got ${keys.length}: ${keys.join(', ')}`)
+    assert.equal(
+      keys.length,
+      12,
+      `Expected 12 fields, got ${keys.length}: ${keys.join(', ')}`
+    )
   })
 })
 
@@ -140,7 +172,7 @@ describe('buildRollupSetFields', () => {
       userId: 'user-42',
       inputTokens: 150,
       outputTokens: 60,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     assert.equal(fields.tenantId, 'tenant-1')
@@ -179,12 +211,14 @@ describe('buildRollupSetFields', () => {
       userId: null,
       inputTokens: 10,
       outputTokens: 5,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     assert.ok(fields.byUser['_anonymous'], 'should use _anonymous key')
     assert.deepEqual(fields.byUser['_anonymous'].messages, { __increment: 1 })
-    assert.deepEqual(fields.byUser['_anonymous'].byAgent['a'].inputTokens, { __increment: 10 })
+    assert.deepEqual(fields.byUser['_anonymous'].byAgent['a'].inputTokens, {
+      __increment: 10
+    })
   })
 
   test('ext: prefixed userId tracked individually in set fields', () => {
@@ -197,13 +231,20 @@ describe('buildRollupSetFields', () => {
       userId: 'ext:hook-abc',
       inputTokens: 500,
       outputTokens: 200,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
-    assert.equal(fields.byUser['_anonymous'], undefined, 'should not have _anonymous')
+    assert.equal(
+      fields.byUser['_anonymous'],
+      undefined,
+      'should not have _anonymous'
+    )
     assert.ok(fields.byUser['ext:hook-abc'], 'should have ext: prefixed key')
     assert.deepEqual(fields.byUser['ext:hook-abc'].messages, { __increment: 1 })
-    assert.deepEqual(fields.byUser['ext:hook-abc'].byAgent['agent-x'].inputTokens, { __increment: 500 })
+    assert.deepEqual(
+      fields.byUser['ext:hook-abc'].byAgent['agent-x'].inputTokens,
+      { __increment: 500 }
+    )
   })
 
   test('user -> agent hierarchy is correct for multiple calls', () => {
@@ -217,7 +258,7 @@ describe('buildRollupSetFields', () => {
       userId: 'user-1',
       inputTokens: 100,
       outputTokens: 50,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     const fields2 = buildRollupSetFields({
@@ -229,7 +270,7 @@ describe('buildRollupSetFields', () => {
       userId: 'user-1',
       inputTokens: 200,
       outputTokens: 75,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     // Each call tracks a different agent under the same user
@@ -252,18 +293,36 @@ describe('rollup field key structure', () => {
       userId: 'user-abc',
       inputTokens: 500,
       outputTokens: 250,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     const keys = Object.keys(fields)
 
     // Verify dot-notation keys exist (required for Firestore update to work)
-    assert.ok(keys.includes('byUser.user-abc.messages'), 'should have user messages key')
-    assert.ok(keys.includes('byUser.user-abc.inputTokens'), 'should have user inputTokens key')
-    assert.ok(keys.includes('byUser.user-abc.outputTokens'), 'should have user outputTokens key')
-    assert.ok(keys.includes('byUser.user-abc.byAgent.wa-agent.messages'), 'should have user-agent messages key')
-    assert.ok(keys.includes('byUser.user-abc.byAgent.wa-agent.inputTokens'), 'should have user-agent inputTokens key')
-    assert.ok(keys.includes('byUser.user-abc.byAgent.wa-agent.outputTokens'), 'should have user-agent outputTokens key')
+    assert.ok(
+      keys.includes('byUser.user-abc.messages'),
+      'should have user messages key'
+    )
+    assert.ok(
+      keys.includes('byUser.user-abc.inputTokens'),
+      'should have user inputTokens key'
+    )
+    assert.ok(
+      keys.includes('byUser.user-abc.outputTokens'),
+      'should have user outputTokens key'
+    )
+    assert.ok(
+      keys.includes('byUser.user-abc.byAgent.wa-agent.messages'),
+      'should have user-agent messages key'
+    )
+    assert.ok(
+      keys.includes('byUser.user-abc.byAgent.wa-agent.inputTokens'),
+      'should have user-agent inputTokens key'
+    )
+    assert.ok(
+      keys.includes('byUser.user-abc.byAgent.wa-agent.outputTokens'),
+      'should have user-agent outputTokens key'
+    )
 
     // Ensure no accidental nesting — all keys should be flat strings with dots
     for (const key of keys) {
@@ -281,7 +340,7 @@ describe('rollup field key structure', () => {
       userId: 'u',
       inputTokens: 1,
       outputTokens: 1,
-      incrementFn: inc,
+      incrementFn: inc
     })
 
     // byUser should be a nested object, not dot-notation keys

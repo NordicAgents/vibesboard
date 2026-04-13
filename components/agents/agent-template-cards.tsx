@@ -42,9 +42,7 @@ export function AgentTemplateCards({ onApply }: AgentTemplateCardsProps) {
                 <p className="text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
                   {template.name}
                 </p>
-                <p className="text-xs text-[#6f7f80]">
-                  {template.description}
-                </p>
+                <p className="text-xs text-[#6f7f80]">{template.description}</p>
               </div>
             </button>
           )

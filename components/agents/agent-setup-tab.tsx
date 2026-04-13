@@ -1,15 +1,14 @@
 'use client'
 
-import type { AgentMode, CollectionField, QuickSuggestionsMode } from '@/lib/types'
+import type {
+  AgentMode,
+  CollectionField,
+  QuickSuggestionsMode
+} from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { CollectionFieldsEditor } from './collection-fields-editor'
@@ -231,7 +230,8 @@ export function AgentSetupTab({
               placeholder="Unlimited"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Max AI responses in a single conversation. Leave empty for unlimited.
+              Max AI responses in a single conversation. Leave empty for
+              unlimited.
             </p>
           </div>
           <div>
@@ -252,7 +252,8 @@ export function AgentSetupTab({
               placeholder="Unlimited"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Total AI responses across all sessions. Agent is disabled when reached.
+              Total AI responses across all sessions. Agent is disabled when
+              reached.
             </p>
             {maxAgentResponses != null && totalResponseCount != null && (
               <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -271,9 +272,7 @@ export function AgentSetupTab({
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Badge
-              variant={
-                quickSuggestionsMode === 'off' ? 'default' : 'secondary'
-              }
+              variant={quickSuggestionsMode === 'off' ? 'default' : 'secondary'}
               className={cn(
                 'flex-1 cursor-pointer justify-center py-2 transition-all',
                 quickSuggestionsMode === 'off' &&

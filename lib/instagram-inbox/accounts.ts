@@ -1,7 +1,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import {
   Collections,
-  type InstagramInboxAccountDocument,
+  type InstagramInboxAccountDocument
 } from '@/lib/firestore-types'
 import CryptoJS from 'crypto-js'
 import type {
@@ -9,7 +9,7 @@ import type {
   ConnectApiKeyParams,
   ConnectByoaParams,
   InstagramAccountInfo,
-  MetaTokenResponse,
+  MetaTokenResponse
 } from './types'
 
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0'
@@ -49,7 +49,9 @@ export async function exchangeCodeForToken(
   const appSecret = process.env.META_APP_SECRET
 
   if (!appId || !appSecret) {
-    throw new Error('META_APP_ID or META_APP_SECRET environment variables not set')
+    throw new Error(
+      'META_APP_ID or META_APP_SECRET environment variables not set'
+    )
   }
 
   const url = new URL(`${META_GRAPH_API}/oauth/access_token`)
@@ -109,8 +111,8 @@ export async function getPageAccessToken(
     `${META_GRAPH_API}/${pageId}?fields=access_token`,
     {
       headers: {
-        Authorization: `Bearer ${longLivedUserToken}`,
-      },
+        Authorization: `Bearer ${longLivedUserToken}`
+      }
     }
   )
 
@@ -136,8 +138,8 @@ export async function getInstagramAccountForPage(
     `${META_GRAPH_API}/${pageId}?fields=instagram_business_account{username,name,profile_picture_url},name`,
     {
       headers: {
-        Authorization: `Bearer ${pageToken}`,
-      },
+        Authorization: `Bearer ${pageToken}`
+      }
     }
   )
 
@@ -162,7 +164,7 @@ export async function getInstagramAccountForPage(
     id: ig.id,
     username: ig.username || '',
     name: ig.name || data.name || '',
-    profile_picture_url: ig.profile_picture_url,
+    profile_picture_url: ig.profile_picture_url
   }
 }
 
@@ -178,8 +180,8 @@ export async function subscribeToWebhooks(
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${pageToken}`,
-      },
+        Authorization: `Bearer ${pageToken}`
+      }
     }
   )
 
@@ -219,8 +221,8 @@ export async function connectOAuthAccount(
     `${META_GRAPH_API}/me/accounts?fields=id,name,access_token`,
     {
       headers: {
-        Authorization: `Bearer ${longLivedToken}`,
-      },
+        Authorization: `Bearer ${longLivedToken}`
+      }
     }
   )
 
@@ -268,7 +270,7 @@ export async function connectOAuthAccount(
   let metaUserId: string | undefined
   try {
     const meResponse = await fetch(`${META_GRAPH_API}/me?fields=id`, {
-      headers: { Authorization: `Bearer ${longLivedToken}` },
+      headers: { Authorization: `Bearer ${longLivedToken}` }
     })
     if (meResponse.ok) {
       const meData = await meResponse.json()
@@ -308,7 +310,12 @@ export async function connectOAuthAccount(
     pageName: selectedPage.name,
     instagramUsername: igAccount.username,
     accessToken: encryptToken(pageToken),
-    scopes: ['instagram_basic', 'instagram_manage_messages', 'pages_manage_metadata', 'pages_messaging'],
+    scopes: [
+      'instagram_basic',
+      'instagram_manage_messages',
+      'pages_manage_metadata',
+      'pages_messaging'
+    ],
     status: 'active',
     connectedBy: params.userId,
     connectedAt: now,
@@ -316,7 +323,7 @@ export async function connectOAuthAccount(
     metaUserId,
     webhookSubscribed: true,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(account)
@@ -354,14 +361,11 @@ export async function connectApiKeyAccount(
   }
 
   // 3. Get page name
-  const pageResponse = await fetch(
-    `${META_GRAPH_API}/${pageId}?fields=name`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+  const pageResponse = await fetch(`${META_GRAPH_API}/${pageId}?fields=name`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
     }
-  )
+  })
   const pageData = pageResponse.ok ? await pageResponse.json() : { name: '' }
 
   // 4. Subscribe to webhooks (best-effort — may fail if pages_messaging
@@ -372,14 +376,20 @@ export async function connectApiKeyAccount(
     await subscribeToWebhooks(pageId, accessToken)
     webhookSubscribed = true
   } catch (err: any) {
-    if (err.message?.includes('#210') || err.message?.includes('page access token')) {
+    if (
+      err.message?.includes('#210') ||
+      err.message?.includes('page access token')
+    ) {
       // Token is a user token — try exchanging for a page access token
       try {
         const pageToken = await getPageAccessToken(pageId, accessToken)
         await subscribeToWebhooks(pageId, pageToken)
         webhookSubscribed = true
       } catch (retryErr: any) {
-        console.warn('Webhook subscription failed after token exchange:', retryErr.message)
+        console.warn(
+          'Webhook subscription failed after token exchange:',
+          retryErr.message
+        )
       }
     } else {
       console.warn('Webhook subscription failed:', err.message)
@@ -397,14 +407,18 @@ export async function connectApiKeyAccount(
     pageName: pageData.name || '',
     instagramUsername: igAccount.username,
     accessToken: encryptToken(accessToken),
-    scopes: ['instagram_basic', 'instagram_manage_messages', 'pages_manage_metadata'],
+    scopes: [
+      'instagram_basic',
+      'instagram_manage_messages',
+      'pages_manage_metadata'
+    ],
     status: 'active',
     connectedBy: userId,
     connectedAt: now,
     connectionMethod: 'api_key',
     webhookSubscribed,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(account)
@@ -419,7 +433,15 @@ export async function connectApiKeyAccount(
 export async function connectByoaAccount(
   params: ConnectByoaParams
 ): Promise<InstagramInboxAccountDocument> {
-  const { tenantId, metaAppId, metaAppSecret, accessToken, webhookVerifyToken, pageId, userId } = params
+  const {
+    tenantId,
+    metaAppId,
+    metaAppSecret,
+    accessToken,
+    webhookVerifyToken,
+    pageId,
+    userId
+  } = params
 
   // 1. Validate token by fetching Instagram account info
   const igAccount = await getInstagramAccountForPage(pageId, accessToken)
@@ -441,14 +463,11 @@ export async function connectByoaAccount(
   }
 
   // 3. Get page name
-  const pageResponse = await fetch(
-    `${META_GRAPH_API}/${pageId}?fields=name`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+  const pageResponse = await fetch(`${META_GRAPH_API}/${pageId}?fields=name`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
     }
-  )
+  })
   const pageData = pageResponse.ok ? await pageResponse.json() : { name: '' }
 
   // 4. Subscribe page to webhooks (required for Meta to send events).
@@ -459,13 +478,19 @@ export async function connectByoaAccount(
     await subscribeToWebhooks(pageId, accessToken)
     webhookSubscribed = true
   } catch (err: any) {
-    if (err.message?.includes('#210') || err.message?.includes('page access token')) {
+    if (
+      err.message?.includes('#210') ||
+      err.message?.includes('page access token')
+    ) {
       try {
         const pageToken = await getPageAccessToken(pageId, accessToken)
         await subscribeToWebhooks(pageId, pageToken)
         webhookSubscribed = true
       } catch (retryErr: any) {
-        console.warn('[Instagram BYOA] Webhook subscription failed after token exchange:', retryErr.message)
+        console.warn(
+          '[Instagram BYOA] Webhook subscription failed after token exchange:',
+          retryErr.message
+        )
       }
     } else {
       console.warn('[Instagram BYOA] Webhook subscription failed:', err.message)
@@ -474,8 +499,14 @@ export async function connectByoaAccount(
 
   // 5. Generate document and webhook URL
   const docRef = collRef.doc()
-  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/^http:/, 'https:')
-  if (appUrl.includes('vibesboard.com') && !appUrl.includes('www.vibesboard.com')) {
+  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(
+    /^http:/,
+    'https:'
+  )
+  if (
+    appUrl.includes('vibesboard.com') &&
+    !appUrl.includes('www.vibesboard.com')
+  ) {
     appUrl = appUrl.replace('://vibesboard.com', '://www.vibesboard.com')
   }
   const byoaWebhookUrl = `${appUrl}/api/webhooks/instagram-inbox/byoa/${docRef.id}`
@@ -490,7 +521,11 @@ export async function connectByoaAccount(
     pageName: pageData.name || '',
     instagramUsername: igAccount.username,
     accessToken: encryptToken(accessToken),
-    scopes: ['instagram_basic', 'instagram_manage_messages', 'pages_manage_metadata'],
+    scopes: [
+      'instagram_basic',
+      'instagram_manage_messages',
+      'pages_manage_metadata'
+    ],
     status: 'active',
     connectedBy: userId,
     connectedAt: now,
@@ -501,7 +536,7 @@ export async function connectByoaAccount(
     byoaWebhookUrl,
     webhookSubscribed,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   }
 
   await docRef.set(account)
@@ -514,7 +549,10 @@ export async function connectByoaAccount(
  */
 export async function findByoaAccountById(
   accountId: string
-): Promise<{ account: InstagramInboxAccountDocument; tenantId: string } | null> {
+): Promise<{
+  account: InstagramInboxAccountDocument
+  tenantId: string
+} | null> {
   const snap = await adminDb
     .collectionGroup('instagram_inbox_accounts')
     .where('id', '==', accountId)
@@ -558,9 +596,7 @@ export async function getInboxAccount(
     .doc(accountId)
     .get()
 
-  return snap.exists
-    ? (snap.data() as InstagramInboxAccountDocument)
-    : null
+  return snap.exists ? (snap.data() as InstagramInboxAccountDocument) : null
 }
 
 /**
@@ -575,7 +611,7 @@ export async function disconnectInboxAccount(
     .doc(accountId)
     .update({
       status: 'disconnected',
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     })
 }
 
@@ -606,7 +642,7 @@ export async function deleteInboxAccount(
     for (let i = 0; i < messagesSnap.docs.length; i += BATCH_SIZE) {
       const chunk = messagesSnap.docs.slice(i, i + BATCH_SIZE)
       const batch = adminDb.batch()
-      chunk.forEach((msgDoc) => batch.delete(msgDoc.ref))
+      chunk.forEach((msgDoc: any) => batch.delete(msgDoc.ref))
       await batch.commit()
     }
 
@@ -626,7 +662,10 @@ export async function deleteInboxAccount(
  */
 export async function findAccountByPageId(
   pageId: string
-): Promise<{ account: InstagramInboxAccountDocument; tenantId: string } | null> {
+): Promise<{
+  account: InstagramInboxAccountDocument
+  tenantId: string
+} | null> {
   const snap = await adminDb
     .collectionGroup('instagram_inbox_accounts')
     .where('pageId', '==', pageId)

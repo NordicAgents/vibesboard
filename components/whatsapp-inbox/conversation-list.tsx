@@ -23,20 +23,21 @@ function formatRelativeTime(dateStr: string): string {
   if (days < 7) return `${days}d`
   return new Date(dateStr).toLocaleDateString(undefined, {
     month: 'short',
-    day: 'numeric',
+    day: 'numeric'
   })
 }
 
 export function ConversationList({
   conversations,
   selectedPhone,
-  onSelect,
+  onSelect
 }: ConversationListProps) {
   if (conversations.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-center">
         <p className="text-sm text-muted-foreground">
-          No conversations yet. Messages will appear here when customers contact you.
+          No conversations yet. Messages will appear here when customers contact
+          you.
         </p>
       </div>
     )
@@ -44,7 +45,7 @@ export function ConversationList({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {conversations.map((convo) => {
+      {conversations.map(convo => {
         const isSelected = selectedPhone === convo.contactPhone
         return (
           <button
@@ -59,7 +60,8 @@ export function ConversationList({
           >
             {/* Avatar placeholder */}
             <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-medium text-muted-foreground">
-              {(convo.contactProfileName || convo.contactPhone)?.[0]?.toUpperCase() || '?'}
+              {(convo.contactProfileName ||
+                convo.contactPhone)?.[0]?.toUpperCase() || '?'}
             </div>
 
             <div className="min-w-0 flex-1">
@@ -74,9 +76,11 @@ export function ConversationList({
 
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-1">
-                  {convo.assignedAgentId && !convo.agentPaused && !convo.agentHandedOff && (
-                    <Bot className="size-3 shrink-0 text-accent-orange" />
-                  )}
+                  {convo.assignedAgentId &&
+                    !convo.agentPaused &&
+                    !convo.agentHandedOff && (
+                      <Bot className="size-3 shrink-0 text-accent-orange" />
+                    )}
                   <p className="truncate text-xs text-muted-foreground">
                     {convo.lastMessagePreview || 'No messages'}
                   </p>

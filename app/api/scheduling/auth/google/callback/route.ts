@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { headers, cookies } from 'next/headers'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { exchangeCode, getUserEmail, listCalendars } from '@/lib/scheduling/google-auth'
+import {
+  exchangeCode,
+  getUserEmail,
+  listCalendars
+} from '@/lib/scheduling/google-auth'
 import { createCalendarConnection } from '@/lib/scheduling/connections'
 import { OAUTH_NONCE_COOKIE } from '../route'
 
@@ -10,7 +14,9 @@ export const runtime = 'nodejs'
 
 async function getAppOrigin(fallback: string): Promise<string> {
   const h = await headers()
-  const host = (h.get('x-forwarded-host') || h.get('host'))?.split(',')[0]?.trim()
+  const host = (h.get('x-forwarded-host') || h.get('host'))
+    ?.split(',')[0]
+    ?.trim()
   const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
   if (host) return `${proto}://${host}`
   return fallback
@@ -31,7 +37,10 @@ export async function GET(req: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL(`/agents?scheduling_error=${encodeURIComponent(error)}`, appOrigin)
+      new URL(
+        `/agents?scheduling_error=${encodeURIComponent(error)}`,
+        appOrigin
+      )
     )
   }
 

@@ -8,9 +8,9 @@ import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
 export const runtime = 'nodejs'
 
 type RouteParams = {
-    params: Promise<{
-        id: string
-    }>
+  params: Promise<{
+    id: string
+  }>
 }
 
 /**
@@ -18,14 +18,14 @@ type RouteParams = {
  * List features for a tenant
  */
 export async function GET(req: Request, { params }: RouteParams) {
-    const { id: tenantId } = await params
+  const { id: tenantId } = await params
 
-    const auth = await requireTenantAdmin(tenantId)
-    if (!auth.ok) return auth.response
+  const auth = await requireTenantAdmin(tenantId)
+  if (!auth.ok) return auth.response
 
-    const features = await getTenantFeatures(tenantId)
+  const features = await getTenantFeatures(tenantId)
 
-    return NextResponse.json({ features })
+  return NextResponse.json({ features })
 }
 
 /**
@@ -33,62 +33,62 @@ export async function GET(req: Request, { params }: RouteParams) {
  * Toggle features for a tenant (tenant admin or super admin)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-    const { id: tenantId } = await params
+  const { id: tenantId } = await params
 
-    const authResult = await requireAuth()
-    if (!authResult.ok) {
-        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
+  const authResult = await requireAuth()
+  if (!authResult.ok) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
 
-    // Allow super admins (any tenant, even if not a member) or tenant admins (own tenant)
-    const userId = authResult.user.id
-    const isSuperAdminUser = await isSuperAdmin(userId)
-    const hasAccess = isSuperAdminUser || await isTenantAdmin(userId, tenantId)
+  // Allow super admins (any tenant, even if not a member) or tenant admins (own tenant)
+  const userId = authResult.user.id
+  const isSuperAdminUser = await isSuperAdmin(userId)
+  const hasAccess = isSuperAdminUser || (await isTenantAdmin(userId, tenantId))
 
-    if (!hasAccess) {
-        return NextResponse.json(
-            { error: 'Admin access required to toggle features' },
-            { status: 403 }
-        )
-    }
+  if (!hasAccess) {
+    return NextResponse.json(
+      { error: 'Admin access required to toggle features' },
+      { status: 403 }
+    )
+  }
 
-    // Fetch tenant and block feature changes for personal workspaces
-    // (super admins can still override)
-    const tenantDoc = await adminDb
-        .collection(Collections.tenants)
-        .doc(tenantId)
-        .get()
+  // Fetch tenant and block feature changes for personal workspaces
+  // (super admins can still override)
+  const tenantDoc = await adminDb
+    .collection(Collections.tenants)
+    .doc(tenantId)
+    .get()
 
-    if (!tenantDoc.exists) {
-        return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
-    }
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    const tenantData = tenantDoc.data()!
-    if (tenantData.isPersonal && !isSuperAdminUser) {
-        return NextResponse.json(
-            { error: 'Features cannot be changed for personal workspaces' },
-            { status: 403 }
-        )
-    }
+  const tenantData = tenantDoc.data()!
+  if (tenantData.isPersonal && !isSuperAdminUser) {
+    return NextResponse.json(
+      { error: 'Features cannot be changed for personal workspaces' },
+      { status: 403 }
+    )
+  }
 
-    const body = await req.json()
-    const { feature_flag_id, is_enabled } = body
+  const body = await req.json()
+  const { feature_flag_id, is_enabled } = body
 
-    if (!feature_flag_id || typeof is_enabled !== 'boolean') {
-        return NextResponse.json(
-            { error: 'Invalid request. Provide feature_flag_id and is_enabled' },
-            { status: 400 }
-        )
-    }
+  if (!feature_flag_id || typeof is_enabled !== 'boolean') {
+    return NextResponse.json(
+      { error: 'Invalid request. Provide feature_flag_id and is_enabled' },
+      { status: 400 }
+    )
+  }
 
-    const result = await toggleFeature(tenantId, feature_flag_id, is_enabled)
+  const result = await toggleFeature(tenantId, feature_flag_id, is_enabled)
 
-    if (!result.success) {
-        return NextResponse.json(
-            { error: result.error || 'Failed to toggle feature' },
-            { status: 500 }
-        )
-    }
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error || 'Failed to toggle feature' },
+      { status: 500 }
+    )
+  }
 
-    return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true })
 }

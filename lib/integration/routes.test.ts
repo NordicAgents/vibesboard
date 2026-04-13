@@ -34,7 +34,10 @@ function loadEnv() {
       if (eqIndex === -1) continue
       const key = trimmed.slice(0, eqIndex).trim()
       let value = trimmed.slice(eqIndex + 1).trim()
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1)
       }
       if (!process.env[key]) {
@@ -53,7 +56,10 @@ const AUTH_COOKIE = process.env.TEST_AUTH_COOKIE ?? ''
 
 async function isServerRunning(): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE_URL}/api/smoke`, { method: 'GET', signal: AbortSignal.timeout(3000) })
+    const res = await fetch(`${BASE_URL}/api/smoke`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(3000)
+    })
     return res.status !== 0
   } catch {
     return false
@@ -98,7 +104,9 @@ describe('POST /api/chat', () => {
   test('streams a response with valid auth', async () => {
     const running = await isServerRunning()
     if (!running || !AUTH_COOKIE) {
-      console.log('  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set')
+      console.log(
+        '  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set'
+      )
       return
     }
 
@@ -113,7 +121,10 @@ describe('POST /api/chat', () => {
       })
     })
 
-    assert.ok([200, 201].includes(res.status), `Expected 200, got ${res.status}`)
+    assert.ok(
+      [200, 201].includes(res.status),
+      `Expected 200, got ${res.status}`
+    )
 
     const text = await consumeStream(res)
     assert.ok(text.length > 0, 'Should stream some text')
@@ -145,7 +156,9 @@ describe('POST /api/agent-helper', () => {
   test('streams a response with valid auth', async () => {
     const running = await isServerRunning()
     if (!running || !AUTH_COOKIE) {
-      console.log('  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set')
+      console.log(
+        '  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set'
+      )
       return
     }
 
@@ -156,11 +169,19 @@ describe('POST /api/agent-helper', () => {
         Cookie: AUTH_COOKIE
       },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Create instructions for a fitness coach agent' }]
+        messages: [
+          {
+            role: 'user',
+            content: 'Create instructions for a fitness coach agent'
+          }
+        ]
       })
     })
 
-    assert.ok([200, 201].includes(res.status), `Expected 200, got ${res.status}`)
+    assert.ok(
+      [200, 201].includes(res.status),
+      `Expected 200, got ${res.status}`
+    )
 
     const text = await consumeStream(res)
     assert.ok(text.length > 0, 'Should stream some text')
@@ -192,7 +213,9 @@ describe('POST /api/agent-creator', () => {
   test('streams a response with valid auth', async () => {
     const running = await isServerRunning()
     if (!running || !AUTH_COOKIE) {
-      console.log('  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set')
+      console.log(
+        '  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set'
+      )
       return
     }
 
@@ -203,11 +226,20 @@ describe('POST /api/agent-creator', () => {
         Cookie: AUTH_COOKIE
       },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'I want to create a FAQ bot for my coffee shop called Bean There.' }]
+        messages: [
+          {
+            role: 'user',
+            content:
+              'I want to create a FAQ bot for my coffee shop called Bean There.'
+          }
+        ]
       })
     })
 
-    assert.ok([200, 201].includes(res.status), `Expected 200, got ${res.status}`)
+    assert.ok(
+      [200, 201].includes(res.status),
+      `Expected 200, got ${res.status}`
+    )
 
     const text = await consumeStream(res)
     assert.ok(text.length > 0, 'Should stream some text')
@@ -221,7 +253,9 @@ describe('Response headers', () => {
   test('/api/chat returns text/plain content type', async () => {
     const running = await isServerRunning()
     if (!running || !AUTH_COOKIE) {
-      console.log('  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set')
+      console.log(
+        '  ⏭ Skipping: dev server not running or TEST_AUTH_COOKIE not set'
+      )
       return
     }
 
@@ -239,7 +273,8 @@ describe('Response headers', () => {
     if (res.ok) {
       const contentType = res.headers.get('content-type') ?? ''
       assert.ok(
-        contentType.includes('text/plain') || contentType.includes('text/event-stream'),
+        contentType.includes('text/plain') ||
+          contentType.includes('text/event-stream'),
         `Expected text content type, got: ${contentType}`
       )
     }

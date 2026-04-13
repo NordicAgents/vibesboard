@@ -23,7 +23,9 @@ export async function rotatePlanPrices(
 ): Promise<RotateResult> {
   // Retrieve old prices to get product ID and recurring config
   const oldBasePrice = await stripe.prices.retrieve(currentPrices.basePriceId)
-  const oldOveragePrice = await stripe.prices.retrieve(currentPrices.overagePriceId)
+  const oldOveragePrice = await stripe.prices.retrieve(
+    currentPrices.overagePriceId
+  )
 
   const productId =
     typeof oldBasePrice.product === 'string'
@@ -36,9 +38,9 @@ export async function rotatePlanPrices(
     unit_amount: newBaseAmount,
     currency: oldBasePrice.currency,
     recurring: {
-      interval: oldBasePrice.recurring!.interval,
+      interval: oldBasePrice.recurring!.interval
     },
-    metadata: { planId, type: 'base' },
+    metadata: { planId, type: 'base' }
   })
 
   // Create new overage price on same product with same meter
@@ -49,21 +51,21 @@ export async function rotatePlanPrices(
 
   const newOveragePrice = await stripe.prices.create({
     product: overageProductId,
-    unit_amount_decimal: newOverageAmountDecimal,
+    unit_amount_decimal: newOverageAmountDecimal as any,
     currency: oldOveragePrice.currency,
     recurring: {
       interval: oldOveragePrice.recurring!.interval,
       usage_type: 'metered',
-      meter: oldOveragePrice.recurring!.meter ?? undefined,
+      meter: oldOveragePrice.recurring!.meter ?? undefined
     },
     billing_scheme: 'per_unit',
-    metadata: { planId, type: 'overage' },
+    metadata: { planId, type: 'overage' }
   })
 
   // Archive old prices
   await Promise.all([
     stripe.prices.update(currentPrices.basePriceId, { active: false }),
-    stripe.prices.update(currentPrices.overagePriceId, { active: false }),
+    stripe.prices.update(currentPrices.overagePriceId, { active: false })
   ])
 
   // Update plan template with new price IDs and pending migration
@@ -76,16 +78,16 @@ export async function rotatePlanPrices(
       oldOveragePriceId: currentPrices.overagePriceId,
       newBasePriceId: newBasePrice.id,
       newOveragePriceId: newOveragePrice.id,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     },
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 
   return {
     newBasePriceId: newBasePrice.id,
     newOveragePriceId: newOveragePrice.id,
     oldBasePriceId: currentPrices.basePriceId,
-    oldOveragePriceId: currentPrices.overagePriceId,
+    oldOveragePriceId: currentPrices.overagePriceId
   }
 }
 
@@ -136,10 +138,10 @@ export async function migrateSubscriptionPrices(
         const stripeSub = await stripe.subscriptions.retrieve(subId)
 
         const baseItem = stripeSub.items.data.find(
-          (item) => item.price.recurring?.usage_type !== 'metered'
+          item => item.price.recurring?.usage_type !== 'metered'
         )
         const overageItem = stripeSub.items.data.find(
-          (item) => item.price.recurring?.usage_type === 'metered'
+          item => item.price.recurring?.usage_type === 'metered'
         )
 
         if (!baseItem) {
@@ -151,20 +153,20 @@ export async function migrateSubscriptionPrices(
           {
             id: baseItem.id,
             price: migration.newBasePriceId,
-            quantity: baseItem.quantity ?? 1,
-          },
+            quantity: baseItem.quantity ?? 1
+          }
         ]
 
         if (overageItem) {
           items.push({
             id: overageItem.id,
-            price: migration.newOveragePriceId,
+            price: migration.newOveragePriceId
           })
         }
 
         await stripe.subscriptions.update(subId, {
           items,
-          proration_behavior: 'create_prorations',
+          proration_behavior: 'create_prorations'
         })
       })
     )
@@ -181,7 +183,7 @@ export async function migrateSubscriptionPrices(
   // Clear pendingPriceMigration
   await planRef.update({
     pendingPriceMigration: null,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 
   console.log(

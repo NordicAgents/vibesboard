@@ -1,12 +1,14 @@
 import { searchAgentFileChunks } from '@/lib/agent/file-search'
 import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
-import { type ToolFactory, registerBuiltinTool, resolveToolDescription, resolveToolName } from './base'
+import {
+  type ToolFactory,
+  registerBuiltinTool,
+  resolveToolDescription,
+  resolveToolName
+} from './base'
 
 const sanitizeText = (input: string, max = 2000) =>
-  input
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max)
+  input.replace(/\s+/g, ' ').trim().slice(0, max)
 
 const truncate = (input: string, max: number) => {
   const text = sanitizeText(input, max + 1)
@@ -104,10 +106,7 @@ const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
       }
 
       const formatted = matches
-        .map(
-          entry =>
-            `File: ${entry.fileName}\nSnippet:\n${entry.snippet}`
-        )
+        .map(entry => `File: ${entry.fileName}\nSnippet:\n${entry.snippet}`)
         .join('\n---\n')
 
       return `Matches for "${query}":\n${formatted}`

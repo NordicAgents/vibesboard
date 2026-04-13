@@ -20,10 +20,7 @@ export async function GET(
 
   const fileKey = req.nextUrl.searchParams.get('fileKey')
   if (!fileKey) {
-    return NextResponse.json(
-      { error: 'fileKey is required' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'fileKey is required' }, { status: 400 })
   }
 
   try {

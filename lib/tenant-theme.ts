@@ -37,10 +37,7 @@ export async function getActiveTenantTheme(userId: string): Promise<{
   if (!customBrandingEnabled) return null
 
   const [brandingDoc, baseBranding] = await Promise.all([
-    adminDb
-      .collection(Collections.branding(tenantId))
-      .doc(tenantId)
-      .get(),
+    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
     getBaseBranding()
   ])
 

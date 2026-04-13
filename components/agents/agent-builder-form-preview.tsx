@@ -22,7 +22,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX, IconPlus } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
-import { type AgentToolType, type AgentMode, type RetrievalStrategy } from '@/lib/types'
+import {
+  type AgentToolType,
+  type AgentMode,
+  type RetrievalStrategy
+} from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface AgentFormData {
@@ -41,7 +45,11 @@ export interface AgentFormData {
   retrievalStrategy?: RetrievalStrategy
 }
 
-const RETRIEVAL_OPTIONS: { value: RetrievalStrategy; label: string; hint: string }[] = [
+const RETRIEVAL_OPTIONS: {
+  value: RetrievalStrategy
+  label: string
+  hint: string
+}[] = [
   { value: 'direct', label: 'Direct', hint: 'Load full files into context.' },
   { value: 'rag', label: 'RAG', hint: 'Vector search on demand.' },
   { value: 'bash', label: 'Bash', hint: 'Shell commands in a sandbox.' }
@@ -128,9 +136,7 @@ export function AgentBuilderFormPreview({
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm font-medium">
               Name
-              {formData.name && (
-                <IconCheck className="size-4 text-green-600" />
-              )}
+              {formData.name && <IconCheck className="size-4 text-green-600" />}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -264,7 +270,9 @@ export function AgentBuilderFormPreview({
                 {(formData.sourceUrls?.length ?? 0) > 0 && (
                   <IconCheck className="size-3.5 text-green-600" />
                 )}
-                <span className="font-normal text-muted-foreground">(pre-fetched into context, max 5)</span>
+                <span className="font-normal text-muted-foreground">
+                  (pre-fetched into context, max 5)
+                </span>
               </p>
               <div className="space-y-1.5">
                 {(formData.sourceUrls ?? []).map((url, idx) => (
@@ -343,7 +351,8 @@ export function AgentBuilderFormPreview({
           </CardHeader>
           <CardContent className="space-y-1.5">
             {RETRIEVAL_OPTIONS.map(opt => {
-              const selected = (formData.retrievalStrategy ?? 'direct') === opt.value
+              const selected =
+                (formData.retrievalStrategy ?? 'direct') === opt.value
               return (
                 <button
                   key={opt.value}
@@ -534,7 +543,7 @@ export function AgentBuilderFormPreview({
                   })
                 }
               >
-                Smart  
+                Smart
               </Badge>
               <Badge
                 variant={

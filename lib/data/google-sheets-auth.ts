@@ -11,8 +11,7 @@ const SCOPES = [
 function getClientId(): string {
   // Falls back to calendar client ID if sheets-specific isn't set
   const id =
-    process.env.GOOGLE_SHEETS_CLIENT_ID ??
-    process.env.GOOGLE_CALENDAR_CLIENT_ID
+    process.env.GOOGLE_SHEETS_CLIENT_ID ?? process.env.GOOGLE_CALENDAR_CLIENT_ID
   if (!id)
     throw new Error(
       'GOOGLE_SHEETS_CLIENT_ID (or GOOGLE_CALENDAR_CLIENT_ID) is not set'
@@ -34,7 +33,10 @@ function getClientSecret(): string {
 /**
  * Build the Google OAuth consent URL for Sheets access.
  */
-export function getGoogleSheetsAuthUrl(state: string, redirectUri: string): string {
+export function getGoogleSheetsAuthUrl(
+  state: string,
+  redirectUri: string
+): string {
   const params = new URLSearchParams({
     client_id: getClientId(),
     redirect_uri: redirectUri,
@@ -56,7 +58,10 @@ interface TokenResponse {
 /**
  * Exchange an authorization code for access + refresh tokens.
  */
-export async function exchangeCode(code: string, redirectUri: string): Promise<TokenResponse> {
+export async function exchangeCode(
+  code: string,
+  redirectUri: string
+): Promise<TokenResponse> {
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -75,9 +80,7 @@ export async function exchangeCode(code: string, redirectUri: string): Promise<T
   }
 
   const data = await res.json()
-  const expiresAt = new Date(
-    Date.now() + data.expires_in * 1000
-  ).toISOString()
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString()
 
   return {
     accessToken: data.access_token,
@@ -105,13 +108,13 @@ export async function refreshAccessToken(
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`Google Sheets token refresh failed (${res.status}): ${text}`)
+    throw new Error(
+      `Google Sheets token refresh failed (${res.status}): ${text}`
+    )
   }
 
   const data = await res.json()
-  const expiresAt = new Date(
-    Date.now() + data.expires_in * 1000
-  ).toISOString()
+  const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString()
 
   return {
     accessToken: data.access_token,

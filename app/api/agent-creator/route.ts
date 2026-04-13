@@ -30,7 +30,12 @@ export async function POST(req: Request) {
   }
 
   const json = await req.json()
-  const { messages = [], previewToken, fileKeys = [], fileNames = [] } = json ?? {}
+  const {
+    messages = [],
+    previewToken,
+    fileKeys = [],
+    fileNames = []
+  } = json ?? {}
 
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY
   if (!apiKey) {
@@ -138,31 +143,42 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 - Be brief but helpful
 - ALWAYS ask "Does this look good?" and wait for explicit creation request`
 
-  const fileInfoBlock = (fileKeys as string[]).length > 0
-    ? `\n\n**Uploaded Files:**\nThe user has uploaded ${(fileKeys as string[]).length} file(s):\n${
-        (fileNames as Array<{ fileKey: string; name: string }>).map(f => `- ${f.name}`).join('\n')
-      }\n\nIMPORTANT: When suggesting the agent configuration, ALWAYS include "builtin:file_search" in the tools array.\nWhen calling create_agent, ALWAYS include the fileKeys parameter with these values: ${JSON.stringify(fileKeys)}`
-    : ''
+  const fileInfoBlock =
+    (fileKeys as string[]).length > 0
+      ? `\n\n**Uploaded Files:**\nThe user has uploaded ${(fileKeys as string[]).length} file(s):\n${(
+          fileNames as Array<{ fileKey: string; name: string }>
+        )
+          .map(f => `- ${f.name}`)
+          .join(
+            '\n'
+          )}\n\nIMPORTANT: When suggesting the agent configuration, ALWAYS include "builtin:file_search" in the tools array.\nWhen calling create_agent, ALWAYS include the fileKeys parameter with these values: ${JSON.stringify(fileKeys)}`
+      : ''
 
   // Detect URLs in user messages and fetch content for the latest one
   const messageList = Array.isArray(messages) ? messages : []
   const urlRegex = /https?:\/\/[^\s)>\]]+/g
 
   // Collect all URLs from all user messages (for sourceUrls storage)
-  const allDetectedUrls = [...new Set(
-    messageList
-      .filter((m: any) => m.role === 'user')
-      .flatMap((m: any) => m.content?.match(urlRegex) ?? [])
-  )].slice(0, 5)
+  const allDetectedUrls = [
+    ...new Set(
+      messageList
+        .filter((m: any) => m.role === 'user')
+        .flatMap((m: any) => m.content?.match(urlRegex) ?? [])
+    )
+  ].slice(0, 5)
 
   // Fetch content for URLs in the last user message
-  const lastUserMsg = [...messageList].reverse().find((m: any) => m.role === 'user')
+  const lastUserMsg = [...messageList]
+    .reverse()
+    .find((m: any) => m.role === 'user')
 
   if (lastUserMsg?.content) {
     const urls = (lastUserMsg.content.match(urlRegex) ?? []).slice(0, 3)
 
     if (urls.length > 0) {
-      const results = await Promise.all(urls.map((u: string) => fetchUrlContent(u)))
+      const results = await Promise.all(
+        urls.map((u: string) => fetchUrlContent(u))
+      )
 
       const contentBlocks = results.map(r => {
         if (r.error) {
@@ -173,7 +189,9 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           r.title ? `Title: ${r.title}` : null,
           r.description ? `Description: ${r.description}` : null,
           `Content:\n${r.textContent}`
-        ].filter(Boolean).join('\n')
+        ]
+          .filter(Boolean)
+          .join('\n')
       })
 
       lastUserMsg.content += '\n\n' + contentBlocks.join('\n\n')
@@ -198,7 +216,13 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     allowAnonymous: z.boolean().optional(),
     mode: z.enum(['provider', 'collector']).optional(),
     maxResponses: z.number().int().min(1).max(500).nullable().optional(),
-    maxAgentResponses: z.number().int().min(1).max(100000).nullable().optional(),
+    maxAgentResponses: z
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .nullable()
+      .optional(),
     quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
     quickSuggestionsCount: z.number().int().min(1).max(5).optional(),
     tools: z.array(z.string()).optional(),
@@ -214,16 +238,27 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     temperature: 0.2,
     tools: {
       create_agent: tool({
-        description: 'Creates the agent with all collected fields when user confirms.',
+        description:
+          'Creates the agent with all collected fields when user confirms.',
         parameters: createAgentArgsSchema,
         async execute(args) {
-          const effectiveFileKeys = (args.fileKeys?.length ? args.fileKeys : fileKeys) as string[]
+          const effectiveFileKeys = (
+            args.fileKeys?.length ? args.fileKeys : fileKeys
+          ) as string[]
           const sanitizedToolIds = (args.tools ?? []).filter(
-            (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS => toolId in BUILTIN_AGENT_TOOLS
+            (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS =>
+              toolId in BUILTIN_AGENT_TOOLS
           )
 
-          if (effectiveFileKeys.length > 0 && !sanitizedToolIds.includes('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)) {
-            sanitizedToolIds.push('builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS)
+          if (
+            effectiveFileKeys.length > 0 &&
+            !sanitizedToolIds.includes(
+              'builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS
+            )
+          ) {
+            sanitizedToolIds.push(
+              'builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS
+            )
           }
 
           const toolsPayload = sanitizedToolIds.map(toolId => ({
@@ -260,34 +295,40 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
           const tenant = await getTenantById(tenantId)
           const tenantSlug = tenant?.slug ?? 'unknown'
-          const slug = await ensureUniqueSlug(createAgentSlug(agentPayload.name), tenantId)
+          const slug = await ensureUniqueSlug(
+            createAgentSlug(agentPayload.name),
+            tenantId
+          )
           const agentId = nanoid()
           const now = new Date().toISOString()
 
           try {
-            await adminDb.collection(Collections.agents(tenantId)).doc(agentId).set({
-              id: agentId,
-              userId: session.user.id,
-              tenantId,
-              tenantSlug,
-              name: agentPayload.name,
-              instructions: agentPayload.instructions,
-              fileKeys: agentPayload.fileKeys,
-              tools: agentPayload.tools,
-              allowAnonymous: agentPayload.allowAnonymous,
-              agentUrl: slug,
-              greetingText: agentPayload.greetingText ?? null,
-              mode: agentPayload.mode,
-              maxResponses,
-              maxAgentResponses,
-              totalResponseCount: 0,
-              quickSuggestionsMode: agentPayload.quickSuggestionsMode,
-              quickSuggestionsCount: agentPayload.quickSuggestionsCount,
-              sourceUrls: agentPayload.sourceUrls,
-              retrievalStrategy: agentPayload.retrievalStrategy,
-              createdAt: now,
-              updatedAt: now
-            })
+            await adminDb
+              .collection(Collections.agents(tenantId))
+              .doc(agentId)
+              .set({
+                id: agentId,
+                userId: session.user.id,
+                tenantId,
+                tenantSlug,
+                name: agentPayload.name,
+                instructions: agentPayload.instructions,
+                fileKeys: agentPayload.fileKeys,
+                tools: agentPayload.tools,
+                allowAnonymous: agentPayload.allowAnonymous,
+                agentUrl: slug,
+                greetingText: agentPayload.greetingText ?? null,
+                mode: agentPayload.mode,
+                maxResponses,
+                maxAgentResponses,
+                totalResponseCount: 0,
+                quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+                quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+                sourceUrls: agentPayload.sourceUrls,
+                retrievalStrategy: agentPayload.retrievalStrategy,
+                createdAt: now,
+                updatedAt: now
+              })
           } catch (error: any) {
             console.error('Failed to create agent:', error)
             return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`

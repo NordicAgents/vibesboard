@@ -6,7 +6,6 @@ import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
 
 export const runtime = 'nodejs'
 
-
 export async function POST(req: Request) {
   const session = await auth()
 
@@ -80,7 +79,9 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
     }`
 
     const stream = await streamText({ prompt, model, apiKey })
-    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
   }
 
   const openaiClient = createOpenAI({ apiKey })

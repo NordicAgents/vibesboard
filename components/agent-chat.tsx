@@ -1,12 +1,22 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react'
 import { useChat } from 'ai/react'
 import { type Message } from '@/lib/types/message'
 import { ChevronRight } from 'lucide-react'
 
 import { type AgentMode, type VibeAgent } from '@/lib/types'
-import { checkCompletion, isNewCollectorConversation } from '@/lib/agent/chat-completion-check'
+import {
+  checkCompletion,
+  isNewCollectorConversation
+} from '@/lib/agent/chat-completion-check'
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
@@ -68,10 +78,15 @@ export function AgentChat({
   const [maxResponses, setMaxResponses] = useState<number | null>(
     agent.maxResponses ?? null
   )
-  const [remainingResponses, setRemainingResponses] = useState<number | null>(null)
+  const [remainingResponses, setRemainingResponses] = useState<number | null>(
+    null
+  )
   const remainingResponsesRef = useRef<number | null>(null)
   const [isAgentDisabled, setIsAgentDisabled] = useState(
-    !!(agent.maxAgentResponses && (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses)
+    !!(
+      agent.maxAgentResponses &&
+      (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses
+    )
   )
   const [isChatComplete, setIsChatComplete] = useState(isAgentDisabled)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -92,9 +107,10 @@ export function AgentChat({
     () => initialConversationId ?? nanoid(),
     [initialConversationId]
   )
-  const defaultGreeting = agent.mode === 'collector'
-    ? 'Hi! I have a few questions for you.'
-    : 'Hi! How can I help you today?'
+  const defaultGreeting =
+    agent.mode === 'collector'
+      ? 'Hi! I have a few questions for you.'
+      : 'Hi! How can I help you today?'
 
   // For collector mode new conversations, start empty so typing indicator shows
   // while the LLM generates the combined greeting + first question
@@ -165,12 +181,16 @@ export function AgentChat({
     onResponse(response: Response) {
       if (!response.ok) {
         if (response.status === 403) {
-          response.clone().json().then(data => {
-            if (data?.code === 'AGENT_LIMIT_REACHED') {
-              setIsAgentDisabled(true)
-              setIsChatComplete(true)
-            }
-          }).catch(() => {})
+          response
+            .clone()
+            .json()
+            .then(data => {
+              if (data?.code === 'AGENT_LIMIT_REACHED') {
+                setIsAgentDisabled(true)
+                setIsChatComplete(true)
+              }
+            })
+            .catch(() => {})
         }
         return
       }
@@ -382,7 +402,12 @@ export function AgentChat({
       return suggestions
     }
 
-    const userMessageCount = rawMessages.filter(m => m.role === 'user' && !m.id?.startsWith(AUTO_START_PREFIX) && !m.id?.startsWith(HANDOFF_CONTINUE_PREFIX)).length
+    const userMessageCount = rawMessages.filter(
+      m =>
+        m.role === 'user' &&
+        !m.id?.startsWith(AUTO_START_PREFIX) &&
+        !m.id?.startsWith(HANDOFF_CONTINUE_PREFIX)
+    ).length
     const isStart = userMessageCount <= 1
 
     const cleanedAssistantContent = content

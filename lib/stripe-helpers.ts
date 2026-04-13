@@ -16,12 +16,12 @@ function getPriceMap(): Record<string, StripePrices> {
   return {
     pro: {
       basePriceId: process.env.STRIPE_PRICE_PRO_BASE ?? '',
-      overagePriceId: process.env.STRIPE_PRICE_PRO_OVERAGE ?? '',
+      overagePriceId: process.env.STRIPE_PRICE_PRO_OVERAGE ?? ''
     },
     team: {
       basePriceId: process.env.STRIPE_PRICE_TEAM_BASE ?? '',
-      overagePriceId: process.env.STRIPE_PRICE_TEAM_OVERAGE ?? '',
-    },
+      overagePriceId: process.env.STRIPE_PRICE_TEAM_OVERAGE ?? ''
+    }
   }
 }
 
@@ -43,7 +43,7 @@ export async function mapPlanToStripePrices(
       if (data?.stripeBasePriceId && data?.stripeOveragePriceId) {
         return {
           basePriceId: data.stripeBasePriceId,
-          overagePriceId: data.stripeOveragePriceId,
+          overagePriceId: data.stripeOveragePriceId
         }
       }
     }
@@ -58,7 +58,9 @@ export async function mapPlanToStripePrices(
  * Reverse-lookup: find the PlanId from a Stripe base price ID.
  * Checks Firestore plan templates first, falls back to env vars.
  */
-export async function mapStripePriceToPlan(priceId: string): Promise<PlanId | null> {
+export async function mapStripePriceToPlan(
+  priceId: string
+): Promise<PlanId | null> {
   try {
     const snap = await adminDb
       .collection(Collections.planTemplates)
@@ -105,13 +107,13 @@ export async function getOrCreateStripeCustomer(
   const customer = await stripe.customers.create({
     email,
     name: tenantName,
-    metadata: { tenantId },
+    metadata: { tenantId }
   })
 
   // Write back to Firestore
   await tenantRef.update({
     'subscription.stripeCustomerId': customer.id,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   })
 
   return customer.id

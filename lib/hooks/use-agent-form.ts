@@ -9,7 +9,13 @@ import type {
   CollectionField,
   QuickSuggestionsMode
 } from '@/lib/types'
-import type { AgentNotificationConfig, AgentSchedulingConfig, AgentDataConfig, AgentCalendarAvailabilityConfig, AgentBookingConfig } from '@/lib/firestore-types'
+import type {
+  AgentNotificationConfig,
+  AgentSchedulingConfig,
+  AgentDataConfig,
+  AgentCalendarAvailabilityConfig,
+  AgentBookingConfig
+} from '@/lib/firestore-types'
 
 export interface AgentFormFields {
   name: string
@@ -51,7 +57,9 @@ export interface AgentFormSetters {
   setCollectionFields: (v: CollectionField[]) => void
   setSchedulingConfig: (v: AgentSchedulingConfig | undefined) => void
   setDataConfig: (v: AgentDataConfig | undefined) => void
-  setCalendarAvailabilityConfig: (v: AgentCalendarAvailabilityConfig | undefined) => void
+  setCalendarAvailabilityConfig: (
+    v: AgentCalendarAvailabilityConfig | undefined
+  ) => void
   setBookingConfig: (v: AgentBookingConfig | undefined) => void
 }
 
@@ -91,12 +99,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [googleReviewEnabled, setGoogleReviewEnabled] = useState(
     agent.googleReviewEnabled ?? false
   )
-  const [googlePlaceId, setGooglePlaceId] = useState(
-    agent.googlePlaceId ?? ''
-  )
-  const [sourceUrls, setSourceUrls] = useState<string[]>(
-    agent.sourceUrls ?? []
-  )
+  const [googlePlaceId, setGooglePlaceId] = useState(agent.googlePlaceId ?? '')
+  const [sourceUrls, setSourceUrls] = useState<string[]>(agent.sourceUrls ?? [])
   const [notificationConfig, setNotificationConfig] = useState<
     AgentNotificationConfig | undefined
   >(agent.notificationConfig as AgentNotificationConfig | undefined)
@@ -109,15 +113,19 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [schedulingConfig, setSchedulingConfig] = useState<
     AgentSchedulingConfig | undefined
   >(agent.schedulingConfig as AgentSchedulingConfig | undefined)
-  const [dataConfig, setDataConfig] = useState<
-    AgentDataConfig | undefined
-  >(agent.dataConfig as AgentDataConfig | undefined)
+  const [dataConfig, setDataConfig] = useState<AgentDataConfig | undefined>(
+    agent.dataConfig as AgentDataConfig | undefined
+  )
   const [calendarAvailabilityConfig, setCalendarAvailabilityConfig] = useState<
     AgentCalendarAvailabilityConfig | undefined
-  >(agent.calendarAvailabilityConfig as AgentCalendarAvailabilityConfig | undefined)
-  const [bookingConfig, setBookingConfig] = useState<AgentBookingConfig | undefined>(
-    agent.bookingConfig as AgentBookingConfig | undefined
+  >(
+    agent.calendarAvailabilityConfig as
+      | AgentCalendarAvailabilityConfig
+      | undefined
   )
+  const [bookingConfig, setBookingConfig] = useState<
+    AgentBookingConfig | undefined
+  >(agent.bookingConfig as AgentBookingConfig | undefined)
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -189,9 +197,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       toast.success('Changes saved')
       router.refresh()
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to save changes'
-      )
+      toast.error(err instanceof Error ? err.message : 'Failed to save changes')
     } finally {
       setSaving(false)
     }
@@ -217,24 +223,39 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   // ── Apply template (bulk set) ──
   const applyTemplate = (partial: Partial<AgentFormFields>) => {
     if (partial.name !== undefined) setName(partial.name)
-    if (partial.instructions !== undefined) setInstructions(partial.instructions)
-    if (partial.greetingText !== undefined) setGreetingText(partial.greetingText)
-    if (partial.allowAnonymous !== undefined) setAllowAnonymous(partial.allowAnonymous)
+    if (partial.instructions !== undefined)
+      setInstructions(partial.instructions)
+    if (partial.greetingText !== undefined)
+      setGreetingText(partial.greetingText)
+    if (partial.allowAnonymous !== undefined)
+      setAllowAnonymous(partial.allowAnonymous)
     if (partial.mode !== undefined) setMode(partial.mode)
-    if (partial.maxResponses !== undefined) setMaxResponses(partial.maxResponses)
-    if (partial.maxAgentResponses !== undefined) setMaxAgentResponses(partial.maxAgentResponses)
-    if (partial.quickSuggestionsMode !== undefined) setQuickSuggestionsMode(partial.quickSuggestionsMode)
-    if (partial.quickSuggestionsCount !== undefined) setQuickSuggestionsCount(partial.quickSuggestionsCount)
-    if (partial.googleReviewEnabled !== undefined) setGoogleReviewEnabled(partial.googleReviewEnabled)
-    if (partial.googlePlaceId !== undefined) setGooglePlaceId(partial.googlePlaceId)
+    if (partial.maxResponses !== undefined)
+      setMaxResponses(partial.maxResponses)
+    if (partial.maxAgentResponses !== undefined)
+      setMaxAgentResponses(partial.maxAgentResponses)
+    if (partial.quickSuggestionsMode !== undefined)
+      setQuickSuggestionsMode(partial.quickSuggestionsMode)
+    if (partial.quickSuggestionsCount !== undefined)
+      setQuickSuggestionsCount(partial.quickSuggestionsCount)
+    if (partial.googleReviewEnabled !== undefined)
+      setGoogleReviewEnabled(partial.googleReviewEnabled)
+    if (partial.googlePlaceId !== undefined)
+      setGooglePlaceId(partial.googlePlaceId)
     if (partial.sourceUrls !== undefined) setSourceUrls(partial.sourceUrls)
-    if (partial.notificationConfig !== undefined) setNotificationConfig(partial.notificationConfig)
-    if (partial.handoffTargets !== undefined) setHandoffTargets(partial.handoffTargets)
-    if (partial.collectionFields !== undefined) setCollectionFields(partial.collectionFields)
-    if (partial.schedulingConfig !== undefined) setSchedulingConfig(partial.schedulingConfig)
+    if (partial.notificationConfig !== undefined)
+      setNotificationConfig(partial.notificationConfig)
+    if (partial.handoffTargets !== undefined)
+      setHandoffTargets(partial.handoffTargets)
+    if (partial.collectionFields !== undefined)
+      setCollectionFields(partial.collectionFields)
+    if (partial.schedulingConfig !== undefined)
+      setSchedulingConfig(partial.schedulingConfig)
     if (partial.dataConfig !== undefined) setDataConfig(partial.dataConfig)
-    if (partial.calendarAvailabilityConfig !== undefined) setCalendarAvailabilityConfig(partial.calendarAvailabilityConfig)
-    if (partial.bookingConfig !== undefined) setBookingConfig(partial.bookingConfig)
+    if (partial.calendarAvailabilityConfig !== undefined)
+      setCalendarAvailabilityConfig(partial.calendarAvailabilityConfig)
+    if (partial.bookingConfig !== undefined)
+      setBookingConfig(partial.bookingConfig)
   }
 
   return {

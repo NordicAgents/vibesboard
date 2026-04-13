@@ -86,19 +86,24 @@ export async function POST(
     )
     const chain = existingConv?.handoffChain ?? []
     const lastEntry = chain[chain.length - 1]
-    const isContinuation =
-      lastEntry?.toAgentId === payload.handoffAgentId
+    const isContinuation = lastEntry?.toAgentId === payload.handoffAgentId
 
     if (isContinuation) {
       // This is a continuation — the handoff was already recorded.
       // Just load the target agent and route to it.
       const targetAgent = await getAgentById(payload.handoffAgentId)
       if (!targetAgent) {
-        return NextResponse.json({ error: 'Target agent not found' }, { status: 404 })
+        return NextResponse.json(
+          { error: 'Target agent not found' },
+          { status: 404 }
+        )
       }
       // Prevent cross-tenant handoff continuations — target must be in the same workspace
       if (targetAgent.tenantId !== agent.tenantId) {
-        return NextResponse.json({ error: 'Target agent is in a different workspace' }, { status: 403 })
+        return NextResponse.json(
+          { error: 'Target agent is in a different workspace' },
+          { status: 403 }
+        )
       }
       activeAgent = targetAgent
       handoffContext = buildHandoffContext({
@@ -164,7 +169,10 @@ export async function POST(
   // Handoff targets are always in the same tenant, so use the batched tenant-scoped
   // lookup (single Firestore getAll RPC) instead of N collectionGroup queries.
   if (activeAgent.handoffTargets?.length) {
-    handoffTargetNames = await getAgentNamesByTenant(activeAgent.tenantId!, activeAgent.handoffTargets)
+    handoffTargetNames = await getAgentNamesByTenant(
+      activeAgent.tenantId!,
+      activeAgent.handoffTargets
+    )
   }
 
   // Build messages for the agent — inject handoff context if this is a continuation
@@ -270,7 +278,7 @@ export async function POST(
         source: 'chat',
         model: OPENAI_CHAT_MODEL,
         inputTokens: usage?.promptTokens,
-        outputTokens: usage?.completionTokens,
+        outputTokens: usage?.completionTokens
       })
 
       // Update conversation ref if this is a handoff target agent
@@ -318,7 +326,9 @@ export async function POST(
       'x-agent-mode': activeAgent.mode,
       'x-max-responses': String(activeAgent.maxResponses ?? ''),
       'x-max-agent-responses': String(activeAgent.maxAgentResponses ?? ''),
-      'x-total-response-count': String((activeAgent.totalResponseCount ?? 0) + 1),
+      'x-total-response-count': String(
+        (activeAgent.totalResponseCount ?? 0) + 1
+      ),
       'x-agent-id': activeAgent.id,
       'x-agent-name': activeAgent.name,
       'x-remaining-responses': String(currentRemainingResponses ?? '')

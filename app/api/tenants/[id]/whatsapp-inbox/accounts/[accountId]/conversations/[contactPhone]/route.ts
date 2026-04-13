@@ -7,7 +7,7 @@ import {
   getConversation,
   updateConversationStatus,
   assignConversation,
-  markAsRead,
+  markAsRead
 } from '@/lib/whatsapp-inbox/conversations'
 import type { InboxConversationStatus } from '@/lib/firestore-types'
 
@@ -20,10 +20,7 @@ type RouteParams = {
   params: Promise<{ id: string; accountId: string; contactPhone: string }>
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId, contactPhone } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -37,7 +34,11 @@ export async function GET(
       )
     }
 
-    const conversation = await getConversation(tenantId, accountId, contactPhone)
+    const conversation = await getConversation(
+      tenantId,
+      accountId,
+      contactPhone
+    )
     if (!conversation) {
       return NextResponse.json(
         { error: 'Conversation not found' },
@@ -59,10 +60,7 @@ export async function GET(
  * PATCH — Update conversation (status, assignee, mark as read).
  * Body: { status?, assignedTo?, markAsRead? }
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId, contactPhone } = await params
     const authResult = await requireTenantMember(tenantId)
@@ -82,7 +80,7 @@ export async function PATCH(
       const validStatuses: InboxConversationStatus[] = [
         'open',
         'resolved',
-        'snoozed',
+        'snoozed'
       ]
       if (!validStatuses.includes(body.status)) {
         return NextResponse.json(
@@ -90,7 +88,12 @@ export async function PATCH(
           { status: 400 }
         )
       }
-      await updateConversationStatus(tenantId, accountId, contactPhone, body.status)
+      await updateConversationStatus(
+        tenantId,
+        accountId,
+        contactPhone,
+        body.status
+      )
     }
 
     if (body.assignedTo !== undefined) {
@@ -128,11 +131,18 @@ export async function PATCH(
           // We need the agentId — resolve from account or conversation
           const effectiveAgentId = convo.assignedAgentId || null
           if (effectiveAgentId) {
-            const agentConvoPath = Collections.conversations(tenantId, effectiveAgentId)
-            await adminDb.collection(agentConvoPath).doc(convo.agentConversationId).update({
-              handedOff: false,
-              updatedAt: new Date().toISOString(),
-            }).catch(() => {}) // Non-critical
+            const agentConvoPath = Collections.conversations(
+              tenantId,
+              effectiveAgentId
+            )
+            await adminDb
+              .collection(agentConvoPath)
+              .doc(convo.agentConversationId)
+              .update({
+                handedOff: false,
+                updatedAt: new Date().toISOString()
+              })
+              .catch(() => {}) // Non-critical
           }
         }
       }
@@ -140,11 +150,17 @@ export async function PATCH(
 
     if (Object.keys(agentUpdates).length > 0) {
       const phoneNormalized = contactPhone.replace(/\D/g, '')
-      const convoPath = Collections.whatsappInboxConversations(tenantId, accountId)
-      await adminDb.collection(convoPath).doc(phoneNormalized).update({
-        ...agentUpdates,
-        updatedAt: new Date().toISOString(),
-      })
+      const convoPath = Collections.whatsappInboxConversations(
+        tenantId,
+        accountId
+      )
+      await adminDb
+        .collection(convoPath)
+        .doc(phoneNormalized)
+        .update({
+          ...agentUpdates,
+          updatedAt: new Date().toISOString()
+        })
     }
 
     return NextResponse.json({ success: true })

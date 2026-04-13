@@ -90,9 +90,7 @@ async function _dispatchAsync(payload: NotificationPayload): Promise<void> {
       'AGENT_NOTIFICATIONS_EMAIL'
     )
     if (flagEnabled) {
-      promises.push(
-        sendEmailNotification(payload, config.email.address)
-      )
+      promises.push(sendEmailNotification(payload, config.email.address))
     }
   }
 
@@ -160,7 +158,9 @@ async function sendEmailNotification(
 
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
-    console.warn('[notifications] RESEND_API_KEY not configured, skipping email')
+    console.warn(
+      '[notifications] RESEND_API_KEY not configured, skipping email'
+    )
     return
   }
 

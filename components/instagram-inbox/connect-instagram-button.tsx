@@ -13,7 +13,7 @@ interface ConnectInstagramButtonProps {
 
 export function ConnectInstagramButton({
   tenantId,
-  onSuccess,
+  onSuccess
 }: ConnectInstagramButtonProps) {
   const { isLoaded, isLoading: sdkLoading, error: sdkError } = useFacebookSDK()
   const [connecting, setConnecting] = useState(false)
@@ -33,16 +33,16 @@ export function ConnectInstagramButton({
     setConnecting(true)
 
     window.FB.login(
-      (response) => {
+      response => {
         if (response.authResponse?.code) {
           fetch('/api/instagram-inbox/auth/callback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: response.authResponse.code }),
+            body: JSON.stringify({ code: response.authResponse.code })
           })
-            .then((res) => {
+            .then(res => {
               if (!res.ok) {
-                return res.json().then((data) => {
+                return res.json().then(data => {
                   throw new Error(data.error || 'Failed to connect account')
                 })
               }
@@ -68,8 +68,8 @@ export function ConnectInstagramButton({
         extras: {
           setup: {},
           featureType: '',
-          sessionInfoVersion: 2,
-        },
+          sessionInfoVersion: 2
+        }
       }
     )
   }

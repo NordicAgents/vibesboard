@@ -12,14 +12,14 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from '@/components/ui/select'
 import { ConversationList } from '@/components/instagram-inbox/conversation-list'
 import { MessageThread } from '@/components/instagram-inbox/message-thread'
 import { Inbox, Search, Instagram, Bot } from 'lucide-react'
 import type {
   InstagramInboxConversationDocument,
-  InstagramInboxMessageDocument,
+  InstagramInboxMessageDocument
 } from '@/lib/firestore-types'
 
 interface InboxAccount {
@@ -46,7 +46,9 @@ export default function InstagramInboxConversationsPage() {
   const [conversations, setConversations] = useState<
     InstagramInboxConversationDocument[]
   >([])
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null)
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(
+    null
+  )
   const [messages, setMessages] = useState<InstagramInboxMessageDocument[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
@@ -60,8 +62,8 @@ export default function InstagramInboxConversationsPage() {
   // Fetch tenant
   useEffect(() => {
     fetch('/api/tenants/current')
-      .then((r) => r.json())
-      .then((data) => setTenantId(data.tenantId))
+      .then(r => r.json())
+      .then(data => setTenantId(data.tenantId))
       .catch(() => {})
   }, [])
 
@@ -69,11 +71,9 @@ export default function InstagramInboxConversationsPage() {
   useEffect(() => {
     if (!tenantId) return
     fetch(`/api/tenants/${tenantId}/instagram-inbox/accounts`)
-      .then((r) => r.json())
-      .then((data) => {
-        const active = data.filter(
-          (a: InboxAccount) => a.status === 'active'
-        )
+      .then(r => r.json())
+      .then(data => {
+        const active = data.filter((a: InboxAccount) => a.status === 'active')
         setAccounts(active)
         if (active.length > 0 && !selectedAccountId) {
           setSelectedAccountId(active[0].id)
@@ -87,8 +87,8 @@ export default function InstagramInboxConversationsPage() {
   useEffect(() => {
     if (!tenantId) return
     fetch(`/api/agents?tenant_id=${tenantId}&limit=50`)
-      .then((r) => r.json())
-      .then((data) => {
+      .then(r => r.json())
+      .then(data => {
         setAgents(
           (data.agents || []).map((a: any) => ({ id: a.id, name: a.name }))
         )
@@ -98,7 +98,7 @@ export default function InstagramInboxConversationsPage() {
 
   // Track assigned agent for selected account
   useEffect(() => {
-    const account = accounts.find((a) => a.id === selectedAccountId)
+    const account = accounts.find(a => a.id === selectedAccountId)
     setAssignedAgentId(account?.assignedAgentId || null)
   }, [selectedAccountId, accounts])
 
@@ -111,7 +111,7 @@ export default function InstagramInboxConversationsPage() {
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedAgentId: newAgentId }),
+        body: JSON.stringify({ assignedAgentId: newAgentId })
       }
     )
   }
@@ -171,7 +171,7 @@ export default function InstagramInboxConversationsPage() {
       {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAsRead: true }),
+        body: JSON.stringify({ markAsRead: true })
       }
     ).catch(() => {})
   }, [tenantId, selectedAccountId, selectedContactId])
@@ -197,19 +197,15 @@ export default function InstagramInboxConversationsPage() {
 
   const filteredConversations = search
     ? conversations.filter(
-        (c) =>
-          c.contactUsername
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
-          c.contactName
-            ?.toLowerCase()
-            .includes(search.toLowerCase()) ||
+        c =>
+          c.contactUsername?.toLowerCase().includes(search.toLowerCase()) ||
+          c.contactName?.toLowerCase().includes(search.toLowerCase()) ||
           c.contactIgsid.includes(search)
       )
     : conversations
 
   const selectedConversation = conversations.find(
-    (c) => c.contactIgsid === selectedContactId
+    c => c.contactIgsid === selectedContactId
   )
 
   // No accounts connected
@@ -248,7 +244,7 @@ export default function InstagramInboxConversationsPage() {
                 <SelectValue placeholder="Select account" />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((acc) => (
+                {accounts.map(acc => (
                   <SelectItem key={acc.id} value={acc.id}>
                     @{acc.instagramUsername}
                   </SelectItem>
@@ -268,7 +264,7 @@ export default function InstagramInboxConversationsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">No Agent</SelectItem>
-              {agents.map((agent) => (
+              {agents.map(agent => (
                 <SelectItem key={agent.id} value={agent.id}>
                   {agent.name}
                 </SelectItem>
@@ -289,14 +285,11 @@ export default function InstagramInboxConversationsPage() {
               <Input
                 placeholder="Search conversations..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Tabs
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-            >
+            <Tabs value={statusFilter} onValueChange={setStatusFilter}>
               <TabsList className="w-full">
                 <TabsTrigger value="all" className="flex-1">
                   All

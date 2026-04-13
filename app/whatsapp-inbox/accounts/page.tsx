@@ -14,7 +14,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import { FacebookSDKProvider } from '@/components/whatsapp-inbox/facebook-sdk-provider'
 import { ConnectWhatsAppButton } from '@/components/whatsapp-inbox/connect-whatsapp-button'
@@ -65,8 +65,8 @@ export default function WhatsAppInboxAccountsPage() {
 
   useEffect(() => {
     fetch('/api/tenants/current')
-      .then((r) => r.json())
-      .then((data) => setTenantId(data.tenantId))
+      .then(r => r.json())
+      .then(data => setTenantId(data.tenantId))
       .catch(() => {})
   }, [])
 
@@ -108,27 +108,29 @@ export default function WhatsAppInboxAccountsPage() {
             {account.displayPhoneNumber}
           </p>
         </div>
-      ),
+      )
     },
     {
       key: 'connectionMethod',
       label: 'Method',
       render: (account: InboxAccount) => {
         const method = account.connectionMethod || 'oauth'
-        const labels: Record<string, string> = { oauth: 'OAuth', api_key: 'API Key', byoa: 'BYOA' }
+        const labels: Record<string, string> = {
+          oauth: 'OAuth',
+          api_key: 'API Key',
+          byoa: 'BYOA'
+        }
         return <Badge variant="secondary">{labels[method] || method}</Badge>
-      },
+      }
     },
     {
       key: 'status',
       label: 'Status',
       render: (account: InboxAccount) => (
-        <Badge
-          variant={account.status === 'active' ? 'default' : 'secondary'}
-        >
+        <Badge variant={account.status === 'active' ? 'default' : 'secondary'}>
           {account.status}
         </Badge>
-      ),
+      )
     },
     {
       key: 'connectedAt',
@@ -138,7 +140,7 @@ export default function WhatsAppInboxAccountsPage() {
         <span className="text-sm text-muted-foreground">
           {new Date(account.connectedAt).toLocaleDateString()}
         </span>
-      ),
+      )
     },
     {
       key: 'actions',
@@ -147,7 +149,7 @@ export default function WhatsAppInboxAccountsPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation()
             setDisconnectId(account.id)
           }}
@@ -155,8 +157,8 @@ export default function WhatsAppInboxAccountsPage() {
         >
           <Trash2 className="size-4" />
         </Button>
-      ),
-    },
+      )
+    }
   ]
 
   return (

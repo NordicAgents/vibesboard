@@ -95,10 +95,7 @@ export class AirtableProvider implements DataProvider {
     }
   }
 
-  private async fetch(
-    url: string,
-    init: RequestInit
-  ): Promise<Response> {
+  private async fetch(url: string, init: RequestInit): Promise<Response> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10_000)
 

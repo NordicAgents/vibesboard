@@ -7,9 +7,9 @@ import { FieldValue } from 'firebase-admin/firestore'
 export const runtime = 'nodejs'
 
 type RouteParams = {
-    params: Promise<{
-        id: string
-    }>
+  params: Promise<{
+    id: string
+  }>
 }
 
 /**
@@ -17,44 +17,38 @@ type RouteParams = {
  * Get single tenant details (SUPER_ADMIN only)
  */
 export async function GET(req: Request, { params }: RouteParams) {
-    const auth = await requireSuperAdmin()
-    if (!auth.ok) return auth.response
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    const { id } = await params
+  const { id } = await params
 
-    const tenantDoc = await adminDb
-        .collection(Collections.tenants)
-        .doc(id)
-        .get()
+  const tenantDoc = await adminDb.collection(Collections.tenants).doc(id).get()
 
-    if (!tenantDoc.exists) {
-        return NextResponse.json(
-            { error: 'Tenant not found' },
-            { status: 404 }
-        )
-    }
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
+  const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
 
-    // Get branding
-    const brandingDoc = await adminDb
-        .collection(Collections.branding(id))
-        .doc(id)
-        .get()
+  // Get branding
+  const brandingDoc = await adminDb
+    .collection(Collections.branding(id))
+    .doc(id)
+    .get()
 
-    const branding = brandingDoc.exists ? brandingDoc.data() : null
+  const branding = brandingDoc.exists ? brandingDoc.data() : null
 
-    // Get member count
-    const membersCount = await adminDb
-        .collection(Collections.members(id))
-        .count()
-        .get()
+  // Get member count
+  const membersCount = await adminDb
+    .collection(Collections.members(id))
+    .count()
+    .get()
 
-    return NextResponse.json({
-        tenant,
-        branding,
-        user_count: membersCount.data().count
-    })
+  return NextResponse.json({
+    tenant,
+    branding,
+    user_count: membersCount.data().count
+  })
 }
 
 /**
@@ -62,47 +56,47 @@ export async function GET(req: Request, { params }: RouteParams) {
  * Update tenant (SUPER_ADMIN only)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-    const auth = await requireSuperAdmin()
-    if (!auth.ok) return auth.response
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    const { id } = await params
-    const body = await req.json()
-    const { name, slug, status } = body
+  const { id } = await params
+  const body = await req.json()
+  const { name, slug, status } = body
 
-    // Build update object
-    const updates: Record<string, any> = {
-        updatedAt: new Date().toISOString()
-    }
-    if (name !== undefined) updates.name = name
-    if (slug !== undefined) updates.slug = slug
-    if (status !== undefined && ['active', 'trial', 'suspended'].includes(status)) {
-        updates.status = status
-    }
+  // Build update object
+  const updates: Record<string, any> = {
+    updatedAt: new Date().toISOString()
+  }
+  if (name !== undefined) updates.name = name
+  if (slug !== undefined) updates.slug = slug
+  if (
+    status !== undefined &&
+    ['active', 'trial', 'suspended'].includes(status)
+  ) {
+    updates.status = status
+  }
 
-    if (Object.keys(updates).length === 1) {
-        // Only updatedAt, no real fields
-        return NextResponse.json(
-            { error: 'No valid fields to update' },
-            { status: 400 }
-        )
-    }
+  if (Object.keys(updates).length === 1) {
+    // Only updatedAt, no real fields
+    return NextResponse.json(
+      { error: 'No valid fields to update' },
+      { status: 400 }
+    )
+  }
 
-    const tenantRef = adminDb.collection(Collections.tenants).doc(id)
-    const tenantDoc = await tenantRef.get()
+  const tenantRef = adminDb.collection(Collections.tenants).doc(id)
+  const tenantDoc = await tenantRef.get()
 
-    if (!tenantDoc.exists) {
-        return NextResponse.json(
-            { error: 'Tenant not found' },
-            { status: 404 }
-        )
-    }
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    await tenantRef.update(updates)
+  await tenantRef.update(updates)
 
-    const updatedDoc = await tenantRef.get()
-    const tenant = { id: updatedDoc.id, ...updatedDoc.data() }
+  const updatedDoc = await tenantRef.get()
+  const tenant = { id: updatedDoc.id, ...updatedDoc.data() }
 
-    return NextResponse.json({ tenant })
+  return NextResponse.json({ tenant })
 }
 
 /**
@@ -117,65 +111,58 @@ export async function PUT(req: Request, { params }: RouteParams) {
  *     (members, agents, conversations, files, chunks, hooks, branding, etc.)
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
-    const auth = await requireSuperAdmin()
-    if (!auth.ok) return auth.response
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    const { id: tenantId } = await params
+  const { id: tenantId } = await params
 
-    const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
-    const tenantDoc = await tenantRef.get()
+  const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
+  const tenantDoc = await tenantRef.get()
 
-    if (!tenantDoc.exists) {
-        return NextResponse.json(
-            { error: 'Tenant not found' },
-            { status: 404 }
-        )
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
+
+  const tenantData = tenantDoc.data()!
+  const slug = tenantData.slug as string | undefined
+
+  // 1. Remove tenantId from each member's user doc
+  const membersSnap = await adminDb
+    .collection(Collections.members(tenantId))
+    .get()
+
+  const userUpdateBatch = adminDb.batch()
+  for (const memberDoc of membersSnap.docs) {
+    const userId = memberDoc.id
+    userUpdateBatch.update(adminDb.collection(Collections.users).doc(userId), {
+      tenantIds: FieldValue.arrayRemove(tenantId)
+    })
+  }
+  await userUpdateBatch.commit()
+
+  // 2. Delete all invitations referencing this tenant
+  const invitationsSnap = await adminDb
+    .collection(Collections.invitations)
+    .where('tenantId', '==', tenantId)
+    .get()
+
+  if (!invitationsSnap.empty) {
+    const invBatch = adminDb.batch()
+    for (const invDoc of invitationsSnap.docs) {
+      invBatch.delete(invDoc.ref)
     }
+    await invBatch.commit()
+  }
 
-    const tenantData = tenantDoc.data()!
-    const slug = tenantData.slug as string | undefined
+  // 3. Delete slug reservation
+  if (slug) {
+    await adminDb.collection(Collections.tenantSlugs).doc(slug).delete()
+  }
 
-    // 1. Remove tenantId from each member's user doc
-    const membersSnap = await adminDb
-        .collection(Collections.members(tenantId))
-        .get()
+  // 4. Recursively delete tenant doc + all subcollections
+  //    (members, branding, feature_toggles, agents/*/conversations,
+  //     agents/*/files, agents/*/file_chunks, agents/*/hooks/*/jobs, etc.)
+  await adminDb.recursiveDelete(tenantRef)
 
-    const userUpdateBatch = adminDb.batch()
-    for (const memberDoc of membersSnap.docs) {
-        const userId = memberDoc.id
-        userUpdateBatch.update(
-            adminDb.collection(Collections.users).doc(userId),
-            { tenantIds: FieldValue.arrayRemove(tenantId) }
-        )
-    }
-    await userUpdateBatch.commit()
-
-    // 2. Delete all invitations referencing this tenant
-    const invitationsSnap = await adminDb
-        .collection(Collections.invitations)
-        .where('tenantId', '==', tenantId)
-        .get()
-
-    if (!invitationsSnap.empty) {
-        const invBatch = adminDb.batch()
-        for (const invDoc of invitationsSnap.docs) {
-            invBatch.delete(invDoc.ref)
-        }
-        await invBatch.commit()
-    }
-
-    // 3. Delete slug reservation
-    if (slug) {
-        await adminDb
-            .collection(Collections.tenantSlugs)
-            .doc(slug)
-            .delete()
-    }
-
-    // 4. Recursively delete tenant doc + all subcollections
-    //    (members, branding, feature_toggles, agents/*/conversations,
-    //     agents/*/files, agents/*/file_chunks, agents/*/hooks/*/jobs, etc.)
-    await adminDb.recursiveDelete(tenantRef)
-
-    return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true })
 }

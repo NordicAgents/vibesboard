@@ -53,7 +53,12 @@ export async function PUT(req: Request) {
   }
 
   const isRelativeLogoPath = logoUrl && logoUrl.startsWith('/api/tenants/')
-  if (logoUrl && logoUrl !== '' && !isRelativeLogoPath && !validateUrl(logoUrl)) {
+  if (
+    logoUrl &&
+    logoUrl !== '' &&
+    !isRelativeLogoPath &&
+    !validateUrl(logoUrl)
+  ) {
     return NextResponse.json(
       { error: 'Invalid logo URL format' },
       { status: 400 }
