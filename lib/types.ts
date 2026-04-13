@@ -121,6 +121,10 @@ export interface VibeAgent {
       calendarName: string
       timezone: string
     }>
+    mode?: 'enquiry' | 'direct'
+    eventTitleTemplate?: string
+    eventTimeMode?: 'all-day' | 'timed'
+    overlapProtection?: boolean
   }
   createdAt: string
   updatedAt: string
