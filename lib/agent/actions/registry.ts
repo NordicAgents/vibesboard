@@ -111,12 +111,12 @@ export async function injectActionTools(
   for (const action of actions) {
     if (!action.enabled) continue
 
-    const module = ACTION_REGISTRY[action.type]
-    if (!module) continue
+    const actionModule = ACTION_REGISTRY[action.type]
+    if (!actionModule) continue
 
     try {
       const ctx: ActionContext = { agent, action }
-      const tools: RegisteredTool[] = await module.buildTools(ctx)
+      const tools: RegisteredTool[] = await actionModule.buildTools(ctx)
 
       for (const tool of tools) {
         toolkit.functions.push(tool.function)
