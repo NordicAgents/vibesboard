@@ -2,7 +2,9 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 
-// ─── Replicated pure logic (path aliases don't resolve in node test runner) ──
+// Pure functions replicated from calendar.ts because Node's test runner
+// cannot resolve the @/ path alias used by that module's other imports.
+// These functions have no dependencies — keep them in sync with calendar.ts.
 
 interface BusySlot { start: number; end: number }
 

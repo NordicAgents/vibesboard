@@ -50,6 +50,27 @@ function buildLegacyActions(agent: VibeAgent): AgentAction[] {
         overlapProtection: agent.bookingConfig.overlapProtection !== false
       }
     })
+  } else if (agent.calendarAvailabilityConfig?.enabled && agent.calendarAvailabilityConfig.calendarConnectionId) {
+    const ca = agent.calendarAvailabilityConfig
+    actions.push({
+      id: 'legacy-calendar-availability',
+      type: 'booking',
+      enabled: true,
+      config: {
+        mode: 'enquiry',
+        resources: [{
+          id: 'legacy-resource',
+          name: ca.resourceName ?? 'Resource',
+          calendarConnectionId: ca.calendarConnectionId,
+          calendarId: ca.calendarId ?? '',
+          calendarName: ca.resourceName ?? 'Calendar',
+          timezone: 'UTC'
+        }],
+        eventTitleTemplate: '{guest_name} ({guest_count} guests)',
+        eventTimeMode: 'all-day',
+        overlapProtection: true
+      }
+    })
   }
 
   if (agent.dataConfig?.enabled && agent.dataConfig.dataConnectionId) {
@@ -80,6 +101,8 @@ export async function injectActionTools(
   toolkit: { functions: any[]; executors: Record<string, any> }
 ): Promise<void> {
   const actions: AgentAction[] = agent.actions ?? buildLegacyActions(agent)
+
+  if (!agent.tenantId) return
 
   for (const action of actions) {
     if (!action.enabled) continue

@@ -18,11 +18,19 @@ export type BuiltinToolType =
 
 export type ActionToolType =
   | 'action:check_availability'
-  | 'action:book_meeting'
-  | 'action:reschedule_meeting'
-  | 'action:cancel_meeting'
+  | 'action:book_appointment'
+  | 'action:reschedule_appointment'
+  | 'action:cancel_appointment'
+  | 'action:list_appointments'
+  | 'action:check_booking_availability'
+  | 'action:create_booking'
+  | 'action:list_bookings'
+  | 'action:update_booking'
+  | 'action:cancel_booking'
   | 'action:submit_data'
   | 'action:update_record'
+  | 'action:query_records'
+  | 'action:delete_record'
 
 export type AgentToolType = BuiltinToolType | ActionToolType
 

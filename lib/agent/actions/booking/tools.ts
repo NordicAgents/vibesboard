@@ -7,7 +7,7 @@ import {
   updateCalendarEvent as updateCalEvent,
   deleteCalendarEvent as deleteCalEvent
 } from '@/lib/scheduling/providers/google-calendar'
-import { checkFreeBusy, parseWallClock, formatDateRange } from '../shared/calendar'
+import { checkFreeBusy, parseWallClock, formatDateRange, type BusySlot } from '../shared/calendar'
 import type { CalendarConnectionDocument, BookableResource } from '@/lib/firestore-types'
 import type { VibeAgent } from '@/lib/types'
 import type { RegisteredTool } from '@/lib/agent/tools/base'
@@ -29,11 +29,6 @@ interface ResolvedResource {
   calendarId: string
   calendarName: string
   timezone: string
-}
-
-interface BusySlot {
-  start: number
-  end: number
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────

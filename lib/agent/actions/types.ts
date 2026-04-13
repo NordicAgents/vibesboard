@@ -1,19 +1,11 @@
-import type { VibeAgent } from '@/lib/types'
+import type { VibeAgent, AgentAction } from '@/lib/types'
 import type { RegisteredTool } from '@/lib/agent/tools/base'
+
+export type { AgentAction }
 
 // ─── Action type registry ──────────────────────────────────────────
 
 export type ActionType = 'appointments' | 'booking' | 'data'
-
-// ─── Agent action config (stored in Firestore agent.actions[]) ─────
-
-export interface AgentAction {
-  id: string
-  type: ActionType
-  enabled: boolean
-  connectionId?: string | null
-  config: Record<string, any> // narrowed per module via type guards
-}
 
 // ─── Module interface ──────────────────────────────────────────────
 

@@ -51,7 +51,10 @@ export async function checkFreeBusy(
     maxAttempts: 3,
     baseDelayMs: 500
   })
-  if (!res.ok) return []
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Calendar freeBusy API error ${res.status}: ${body}`)
+  }
   const data = await res.json()
   const raw: Array<{ start: string; end: string }> = data?.calendars?.[calendarId]?.busy ?? []
   return raw
