@@ -24,9 +24,7 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get('limit') || '9')
   const from = (page - 1) * limit
 
-  const isSuperAdminUser = tenantId
-    ? await isSuperAdmin(user.id)
-    : false
+  const isSuperAdminUser = tenantId ? await isSuperAdmin(user.id) : false
 
   if (tenantId && !isSuperAdminUser) {
     const isMember = await isMemberOfTenant(user.id, tenantId)
@@ -135,7 +133,9 @@ export async function POST(req: Request) {
     await docRef.set(agentData)
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to create agent' },
+      {
+        error: error instanceof Error ? error.message : 'Unable to create agent'
+      },
       { status: 500 }
     )
   }
@@ -154,4 +154,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ agent })
 }
-

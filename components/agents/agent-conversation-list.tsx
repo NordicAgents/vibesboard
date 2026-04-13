@@ -37,7 +37,9 @@ export function AgentConversationList({
         No conversations yet.
         <div className="mt-3">
           <Button asChild>
-            <Link href={`/agents/${agentId}/conversations/new`}>Start chat</Link>
+            <Link href={`/agents/${agentId}/conversations/new`}>
+              Start chat
+            </Link>
           </Button>
         </div>
       </div>
@@ -64,7 +66,9 @@ export function AgentConversationList({
             >
               <Card
                 className={`p-4 transition ${
-                  isSelected ? 'border-primary bg-primary/5' : 'hover:border-primary'
+                  isSelected
+                    ? 'border-primary bg-primary/5'
+                    : 'hover:border-primary'
                 }`}
               >
                 <div className="flex items-center justify-between gap-4">
@@ -90,7 +94,11 @@ export function AgentConversationList({
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">
-                    {getConversationPreview(selectedConversation.messages, selectedConversation.summary, 'Conversation preview')}
+                    {getConversationPreview(
+                      selectedConversation.messages,
+                      selectedConversation.summary,
+                      'Conversation preview'
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Updated {formatDate(selectedConversation.updatedAt)}

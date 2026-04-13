@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type PlanTemplateDocument } from '@/lib/firestore-types'
-import { invalidatePlanCache, computeMessageLimit, toPlanDefinition, type PlanId } from '@/lib/plans'
+import {
+  invalidatePlanCache,
+  computeMessageLimit,
+  toPlanDefinition,
+  type PlanId
+} from '@/lib/plans'
 import { syncTenantFeatureFlags } from '@/lib/plan-sync'
 import { mapPlanToStripePrices } from '@/lib/stripe-helpers'
 import { rotatePlanPrices } from '@/lib/stripe-price-migration'
@@ -23,7 +28,10 @@ export async function GET(req: Request, { params }: RouteParams) {
   const snap = await adminDb.collection(Collections.planTemplates).doc(id).get()
 
   if (!snap.exists) {
-    return NextResponse.json({ error: 'Plan template not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Plan template not found' },
+      { status: 404 }
+    )
   }
 
   return NextResponse.json({ plan: { id: snap.id, ...snap.data() } })
@@ -44,23 +52,38 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const snap = await ref.get()
 
   if (!snap.exists) {
-    return NextResponse.json({ error: 'Plan template not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Plan template not found' },
+      { status: 404 }
+    )
   }
 
   const previousData = snap.data() as PlanTemplateDocument
 
   const updates: Record<string, unknown> = {
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 
   if (body.name !== undefined) updates.name = body.name
   if (body.price !== undefined) updates.price = Number(body.price)
-  if (body.pricePerSeat !== undefined) updates.pricePerSeat = body.pricePerSeat === null ? null : Number(body.pricePerSeat)
-  if (body.minSeats !== undefined) updates.minSeats = body.minSeats === null ? null : Number(body.minSeats)
-  if (body.includedMessages !== undefined) updates.includedMessages = Number(body.includedMessages)
-  if (body.includedMessagesPerSeat !== undefined) updates.includedMessagesPerSeat = body.includedMessagesPerSeat === null ? null : Number(body.includedMessagesPerSeat)
-  if (body.overageRate !== undefined) updates.overageRate = Number(body.overageRate)
-  if (body.featureFlags !== undefined) updates.featureFlags = Array.isArray(body.featureFlags) ? body.featureFlags : []
+  if (body.pricePerSeat !== undefined)
+    updates.pricePerSeat =
+      body.pricePerSeat === null ? null : Number(body.pricePerSeat)
+  if (body.minSeats !== undefined)
+    updates.minSeats = body.minSeats === null ? null : Number(body.minSeats)
+  if (body.includedMessages !== undefined)
+    updates.includedMessages = Number(body.includedMessages)
+  if (body.includedMessagesPerSeat !== undefined)
+    updates.includedMessagesPerSeat =
+      body.includedMessagesPerSeat === null
+        ? null
+        : Number(body.includedMessagesPerSeat)
+  if (body.overageRate !== undefined)
+    updates.overageRate = Number(body.overageRate)
+  if (body.featureFlags !== undefined)
+    updates.featureFlags = Array.isArray(body.featureFlags)
+      ? body.featureFlags
+      : []
 
   await ref.update(updates)
 
@@ -85,20 +108,25 @@ export async function PUT(req: Request, { params }: RouteParams) {
     tenantsAffected: 0,
     errors: [],
     priceRotated: false,
-    pendingMigration: null,
+    pendingMigration: null
   }
 
   // Detect what changed
   const oldFlags = new Set(previousData.featureFlags ?? [])
-  const newFlags = updates.featureFlags !== undefined
-    ? new Set(updates.featureFlags as string[])
-    : null
-  const flagsChanged = newFlags !== null &&
-    (oldFlags.size !== newFlags.size || [...oldFlags].some(f => !newFlags.has(f)))
+  const newFlags =
+    updates.featureFlags !== undefined
+      ? new Set(updates.featureFlags as string[])
+      : null
+  const flagsChanged =
+    newFlags !== null &&
+    (oldFlags.size !== newFlags.size ||
+      [...oldFlags].some(f => !newFlags.has(f)))
 
   const limitChanged =
-    (updates.includedMessages !== undefined && updates.includedMessages !== previousData.includedMessages) ||
-    (updates.includedMessagesPerSeat !== undefined && updates.includedMessagesPerSeat !== previousData.includedMessagesPerSeat)
+    (updates.includedMessages !== undefined &&
+      updates.includedMessages !== previousData.includedMessages) ||
+    (updates.includedMessagesPerSeat !== undefined &&
+      updates.includedMessagesPerSeat !== previousData.includedMessagesPerSeat)
 
   // Only query tenants if something needs propagating
   if (flagsChanged || limitChanged) {
@@ -114,7 +142,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
         for (let i = 0; i < tenantsSnap.docs.length; i += 25) {
           const chunk = tenantsSnap.docs.slice(i, i + 25)
           const results = await Promise.allSettled(
-            chunk.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => syncTenantFeatureFlags(doc.id, flagArray))
+            chunk.map((doc: FirebaseFirestore.QueryDocumentSnapshot) =>
+              syncTenantFeatureFlags(doc.id, flagArray)
+            )
           )
           for (const r of results) {
             if (r.status === 'fulfilled') {
@@ -130,7 +160,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
       // Propagate message limit snapshot
       if (limitChanged) {
         const updatedSnap = await ref.get()
-        const newPlan = toPlanDefinition(updatedSnap.data() as PlanTemplateDocument)
+        const newPlan = toPlanDefinition(
+          updatedSnap.data() as PlanTemplateDocument
+        )
         const docs = tenantsSnap.docs
         let limitsUpdated = 0
 
@@ -145,7 +177,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
             const newLimit = computeMessageLimit(newPlan, seatCount)
             batch.update(doc.ref, {
               'subscription.messageLimit': newLimit,
-              updatedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
             })
             limitsUpdated++
           }
@@ -163,7 +195,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
   // ─── Stripe price rotation ──────────────────────────────────────────
   const priceChanged =
     (updates.price !== undefined && updates.price !== previousData.price) ||
-    (updates.pricePerSeat !== undefined && updates.pricePerSeat !== previousData.pricePerSeat)
+    (updates.pricePerSeat !== undefined &&
+      updates.pricePerSeat !== previousData.pricePerSeat)
 
   if (priceChanged) {
     try {
@@ -171,9 +204,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
       if (currentPrices?.basePriceId) {
         // Use pricePerSeat for per-seat plans (e.g. Team), otherwise use price
         const prevPerSeat = previousData.pricePerSeat as number | undefined
-        const newBaseAmount = prevPerSeat != null
-          ? (updates.pricePerSeat ?? prevPerSeat) as number
-          : (updates.price ?? previousData.price) as number
+        const newBaseAmount =
+          prevPerSeat != null
+            ? ((updates.pricePerSeat ?? prevPerSeat) as number)
+            : ((updates.price ?? previousData.price) as number)
 
         // overageRate is in fractional cents (e.g. 0.5 = $0.005) — pass as string for unit_amount_decimal
         const newOverageAmountDecimal = String(
@@ -198,7 +232,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         propagation.pendingMigration = {
           oldBasePriceId: rotateResult.oldBasePriceId,
           newBasePriceId: rotateResult.newBasePriceId,
-          subscribersToMigrate: subSnap.size,
+          subscribersToMigrate: subSnap.size
         }
       }
     } catch (err) {
@@ -212,6 +246,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const updated = await ref.get()
   return NextResponse.json({
     plan: { id: updated.id, ...updated.data() },
-    propagation,
+    propagation
   })
 }

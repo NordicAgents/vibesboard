@@ -28,7 +28,7 @@ function getTimeRemaining(expiresAt: string): {
 }
 
 export function MessageWindowIndicator({
-  windowExpiresAt,
+  windowExpiresAt
 }: MessageWindowIndicatorProps) {
   const [state, setState] = useState(() =>
     windowExpiresAt

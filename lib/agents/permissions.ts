@@ -23,4 +23,3 @@ export async function canEditAgent(args: {
 
   return isTenantAdmin(sessionUserId, tenantId)
 }
-

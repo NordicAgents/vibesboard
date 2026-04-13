@@ -13,7 +13,9 @@ interface CalendarAvailabilityContext {
   resourceName: string
 }
 
-function buildCheckCalendarAvailabilityTool(ctx: CalendarAvailabilityContext): RegisteredTool {
+function buildCheckCalendarAvailabilityTool(
+  ctx: CalendarAvailabilityContext
+): RegisteredTool {
   return {
     function: {
       name: 'check_calendar_availability',
@@ -33,11 +35,14 @@ function buildCheckCalendarAvailabilityTool(ctx: CalendarAvailabilityContext): R
         required: ['check_in', 'check_out']
       }
     },
-    execute: async (args) => {
+    execute: async args => {
       const checkIn = String(args.check_in ?? '').trim()
       const checkOut = String(args.check_out ?? '').trim()
 
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(checkIn) || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut)) {
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(checkIn) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(checkOut)
+      ) {
         return 'Please provide valid dates in YYYY-MM-DD format (e.g. 2026-05-10).'
       }
 
@@ -131,13 +136,17 @@ export function buildCalendarAvailabilityTools(
   // Context-builder already scopes the lookup to agent.tenantId, but guard
   // here too so this function is safe regardless of how it's called.
   if (connection.tenantId !== agent.tenantId) {
-    console.error('[calendar-availability] Connection tenant mismatch — tool not injected')
+    console.error(
+      '[calendar-availability] Connection tenant mismatch — tool not injected'
+    )
     return []
   }
 
   const calendarId = config.calendarId ?? connection.calendarId
   if (!calendarId) {
-    console.error('[calendar-availability] No calendarId configured — tool not injected')
+    console.error(
+      '[calendar-availability] No calendarId configured — tool not injected'
+    )
     return []
   }
 

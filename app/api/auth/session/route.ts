@@ -16,10 +16,7 @@ export async function POST(request: Request) {
     const { idToken } = await request.json()
 
     if (!idToken || typeof idToken !== 'string') {
-      return NextResponse.json(
-        { error: 'Missing idToken' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Missing idToken' }, { status: 400 })
     }
 
     const sessionCookie = await createSessionCookie(idToken)

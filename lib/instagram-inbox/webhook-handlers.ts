@@ -1,7 +1,13 @@
 import { findAccountByPageId } from '@/lib/instagram-inbox/accounts'
-import { storeInboundMessage, updateMessageStatus } from '@/lib/instagram-inbox/messages'
+import {
+  storeInboundMessage,
+  updateMessageStatus
+} from '@/lib/instagram-inbox/messages'
 import { triggerInboxAgent } from '@/lib/inbox-agent'
-import type { InstagramWebhookMessage, InstagramSenderInfo } from '@/lib/instagram-inbox/types'
+import type {
+  InstagramWebhookMessage,
+  InstagramSenderInfo
+} from '@/lib/instagram-inbox/types'
 import type { InstagramInboxAccountDocument } from '@/lib/firestore-types'
 
 /**
@@ -10,13 +16,16 @@ import type { InstagramInboxAccountDocument } from '@/lib/firestore-types'
 export async function processInboundMessage(pageId: string, event: any) {
   const result = await findAccountByPageId(pageId)
   if (!result) {
-    console.warn(
-      `[Instagram Inbox] No active account found for Page ${pageId}`
-    )
+    console.warn(`[Instagram Inbox] No active account found for Page ${pageId}`)
     return
   }
 
-  await processInboundMessageForAccount(result.account, result.tenantId, pageId, event)
+  await processInboundMessageForAccount(
+    result.account,
+    result.tenantId,
+    pageId,
+    event
+  )
 }
 
 /**
@@ -38,11 +47,11 @@ export async function processInboundMessageForAccount(
       text: event.message.text,
       attachments: event.message.attachments,
       is_echo: event.message.is_echo,
-      is_deleted: event.message.is_deleted,
+      is_deleted: event.message.is_deleted
     }
 
     const sender: InstagramSenderInfo = {
-      id: senderIgsid,
+      id: senderIgsid
     }
 
     await storeInboundMessage({
@@ -50,7 +59,7 @@ export async function processInboundMessageForAccount(
       accountId: account.id,
       pageId,
       message,
-      sender,
+      sender
     })
 
     // Fire-and-forget: trigger agent if assigned
@@ -62,8 +71,10 @@ export async function processInboundMessageForAccount(
         accountId: account.id,
         contactId: senderIgsid,
         messageText,
-        windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      }).catch((err) => {
+        windowExpiresAt: new Date(
+          Date.now() + 24 * 60 * 60 * 1000
+        ).toISOString()
+      }).catch(err => {
         console.error('[Instagram Inbox] Agent handler error:', err)
       })
     }

@@ -1,6 +1,10 @@
 import { readFullFileContent } from '@/lib/agent/file-search'
 import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
-import { type Retriever, type RetrieverConfig, type RetrieverResult } from '../types'
+import {
+  type Retriever,
+  type RetrieverConfig,
+  type RetrieverResult
+} from '../types'
 
 const MAX_CONTEXT_CHARS = 30_000
 const FILE_BUDGET_RATIO = 0.6
@@ -26,7 +30,9 @@ export class DirectRetriever implements Retriever {
 
       const files = fileResults
         .map(r => (r.status === 'fulfilled' ? r.value : null))
-        .filter((f): f is NonNullable<typeof f> => f !== null && f.charCount > 0)
+        .filter(
+          (f): f is NonNullable<typeof f> => f !== null && f.charCount > 0
+        )
         .sort((a, b) => a.charCount - b.charCount)
 
       for (const file of files) {

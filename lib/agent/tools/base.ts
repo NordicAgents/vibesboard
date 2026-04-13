@@ -1,4 +1,9 @@
-import { type AgentToolType, type BuiltinToolType, type VibeAgent, type VibeAgentTool } from '@/lib/types'
+import {
+  type AgentToolType,
+  type BuiltinToolType,
+  type VibeAgent,
+  type VibeAgentTool
+} from '@/lib/types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
 
 export interface ToolExecutionContext {
@@ -32,17 +37,12 @@ export interface ToolFactoryArgs {
   context: ToolExecutionContext
 }
 
-export type ToolFactory = (
-  args: ToolFactoryArgs
-) => RegisteredTool | null
+export type ToolFactory = (args: ToolFactoryArgs) => RegisteredTool | null
 
-export const BUILTIN_TOOL_FACTORIES: Record<
-  BuiltinToolType,
-  ToolFactory
-> = {
+export const BUILTIN_TOOL_FACTORIES: Record<BuiltinToolType, ToolFactory> = {
   'builtin:web_fetch': () => null,
   'builtin:file_search': () => null,
-  'builtin:bash': () => null  // injected by BashRetriever, not via agent tools array
+  'builtin:bash': () => null // injected by BashRetriever, not via agent tools array
 }
 
 export const registerBuiltinTool = (
@@ -80,11 +80,11 @@ export const createToolKit = (
 // For OpenAI tool/function names, prefer a safe, stable identifier.
 // We intentionally ignore the human-readable `tool.name` (which may contain spaces)
 // and use the factory-provided fallback such as `web_search`, `file_search`, etc.
-export const resolveToolName = (_tool: VibeAgentTool, fallback: string) => fallback
+export const resolveToolName = (_tool: VibeAgentTool, fallback: string) =>
+  fallback
 
 export const resolveToolDescription = (tool: VibeAgentTool) =>
   tool.description ||
-  BUILTIN_AGENT_TOOLS[
-    tool.type as keyof typeof BUILTIN_AGENT_TOOLS
-  ]?.description ||
+  BUILTIN_AGENT_TOOLS[tool.type as keyof typeof BUILTIN_AGENT_TOOLS]
+    ?.description ||
   'Custom tool'

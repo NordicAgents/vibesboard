@@ -10,7 +10,7 @@ import {
   ArcElement,
   Title,
   Tooltip,
-  Legend,
+  Legend
 } from 'chart.js'
 import { Bar, Line, Pie, Doughnut } from 'react-chartjs-2'
 import type { ChartConfig } from './chart-config'
@@ -30,8 +30,14 @@ ChartJS.register(
 export type { ChartConfig }
 
 const COLORS = [
-  '#a7e26e', '#6dbfd4', '#f4a261', '#e76f51',
-  '#2a9d8f', '#e9c46a', '#264653', '#a8dadc',
+  '#a7e26e',
+  '#6dbfd4',
+  '#f4a261',
+  '#e76f51',
+  '#2a9d8f',
+  '#e9c46a',
+  '#264653',
+  '#a8dadc'
 ]
 
 function buildChartData(config: ChartConfig) {
@@ -44,8 +50,8 @@ function buildChartData(config: ChartConfig) {
       borderColor: ds.color ?? COLORS[i % COLORS.length],
       borderWidth: 2,
       fill: false,
-      tension: 0.3,
-    })),
+      tension: 0.3
+    }))
   }
 }
 
@@ -53,8 +59,8 @@ const baseOptions = (title: string) => ({
   responsive: true,
   plugins: {
     legend: { position: 'top' as const },
-    title: { display: !!title, text: title },
-  },
+    title: { display: !!title, text: title }
+  }
 })
 
 export function ChartWidget({ config }: { config: ChartConfig }) {

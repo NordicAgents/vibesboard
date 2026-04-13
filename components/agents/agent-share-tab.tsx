@@ -69,11 +69,7 @@ export function AgentShareTab({
               {copied ? 'Copied' : 'Copy'}
             </Button>
             <Button size="sm" variant="ghost" asChild>
-              <Link
-                href={share.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <Link href={share.url} target="_blank" rel="noopener noreferrer">
                 <IconExternalLink className="size-4" />
               </Link>
             </Button>
@@ -112,8 +108,8 @@ export function AgentShareTab({
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This action cannot be undone. This will permanently delete
-                    your agent &quot;{agent.name}&quot; and remove all associated
-                    data including files and conversations.
+                    your agent &quot;{agent.name}&quot; and remove all
+                    associated data including files and conversations.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

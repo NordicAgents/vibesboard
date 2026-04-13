@@ -30,7 +30,8 @@ export function assertSafeCallbackUrl(raw: string): void {
   }
 
   // Block private IPv4 ranges: 10.x, 172.16-31.x, 192.168.x
-  const privateIpv4 = /^(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)$/
+  const privateIpv4 =
+    /^(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)$/
   if (privateIpv4.test(host)) {
     throw new Error('callbackUrl must not point to a private IP address')
   }

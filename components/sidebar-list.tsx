@@ -5,7 +5,11 @@ import { SidebarAgentGroup } from '@/components/sidebar-agent-group'
 import { TenantSwitcher } from '@/components/tenants'
 import { Button } from '@/components/ui/button'
 import { IconPlus } from '@/components/ui/icons'
-import { getActiveTenant, getUserTenants, enrichTenantsWithMembers } from '@/lib/tenant-context'
+import {
+  getActiveTenant,
+  getUserTenants,
+  enrichTenantsWithMembers
+} from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
 import { Inbox, Instagram, Link as LinkIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -17,9 +21,8 @@ export interface SidebarListProps {
 export async function SidebarList({ userId }: SidebarListProps) {
   const currentTenantId = userId ? await getActiveTenant(userId) : null
   const rawTenants = userId ? await getUserTenants(userId) : []
-  const tenants = rawTenants.length > 0
-    ? await enrichTenantsWithMembers(rawTenants)
-    : []
+  const tenants =
+    rawTenants.length > 0 ? await enrichTenantsWithMembers(rawTenants) : []
 
   const [agents, conversations] = await Promise.all([
     getAgents(userId),
@@ -84,16 +87,10 @@ export async function SidebarList({ userId }: SidebarListProps) {
             </span>
           </div>
           <div className="space-y-0.5 px-2">
-            <InboxNavLink
-              href="/whatsapp-inbox/conversations"
-              icon={Inbox}
-            >
+            <InboxNavLink href="/whatsapp-inbox/conversations" icon={Inbox}>
               Inbox
             </InboxNavLink>
-            <InboxNavLink
-              href="/whatsapp-inbox/accounts"
-              icon={LinkIcon}
-            >
+            <InboxNavLink href="/whatsapp-inbox/accounts" icon={LinkIcon}>
               Accounts
             </InboxNavLink>
           </div>
@@ -108,16 +105,10 @@ export async function SidebarList({ userId }: SidebarListProps) {
             </span>
           </div>
           <div className="space-y-0.5 px-2">
-            <InboxNavLink
-              href="/instagram-inbox/conversations"
-              icon={Inbox}
-            >
+            <InboxNavLink href="/instagram-inbox/conversations" icon={Inbox}>
               Inbox
             </InboxNavLink>
-            <InboxNavLink
-              href="/instagram-inbox/accounts"
-              icon={LinkIcon}
-            >
+            <InboxNavLink href="/instagram-inbox/accounts" icon={LinkIcon}>
               Accounts
             </InboxNavLink>
           </div>

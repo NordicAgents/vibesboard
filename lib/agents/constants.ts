@@ -14,7 +14,8 @@ export const BUILTIN_AGENT_TOOLS = {
   'builtin:bash': {
     id: 'builtin:bash' as BuiltinToolType,
     name: 'Bash',
-    description: 'Run shell commands against uploaded files in a sandboxed virtual filesystem.'
+    description:
+      'Run shell commands against uploaded files in a sandboxed virtual filesystem.'
   }
 } satisfies Record<
   BuiltinToolType,

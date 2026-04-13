@@ -18,8 +18,8 @@ import CryptoJS from 'crypto-js'
 if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
   console.error(
     '[scheduling/connections] FATAL: ENCRYPTION_KEY environment variable is not set. ' +
-    'Calendar OAuth tokens cannot be encrypted or decrypted. ' +
-    'Set ENCRYPTION_KEY before deploying.'
+      'Calendar OAuth tokens cannot be encrypted or decrypted. ' +
+      'Set ENCRYPTION_KEY before deploying.'
   )
 }
 
@@ -30,7 +30,7 @@ function getEncryptionKey(): string {
   if (!key) {
     throw new Error(
       'ENCRYPTION_KEY environment variable is not set. ' +
-      'Calendar OAuth tokens cannot be encrypted or decrypted.'
+        'Calendar OAuth tokens cannot be encrypted or decrypted.'
     )
   }
   return key
@@ -94,7 +94,10 @@ export async function getCalendarConnections(
 ): Promise<CalendarConnectionDocument[]> {
   const collPath = Collections.calendarConnections(tenantId)
   const snapshot = await adminDb.collection(collPath).get()
-  return snapshot.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as CalendarConnectionDocument))
+  return snapshot.docs.map(
+    (d: FirebaseFirestore.QueryDocumentSnapshot) =>
+      ({ id: d.id, ...d.data() }) as CalendarConnectionDocument
+  )
 }
 
 export async function getCalendarConnection(
@@ -152,11 +155,14 @@ export async function getValidAccessToken(
 
     // Update Firestore with new tokens
     const collPath = Collections.calendarConnections(connection.tenantId)
-    await adminDb.collection(collPath).doc(connection.id).update({
-      accessToken: encryptToken(refreshed.accessToken),
-      tokenExpiresAt: refreshed.expiresAt,
-      updatedAt: new Date().toISOString()
-    })
+    await adminDb
+      .collection(collPath)
+      .doc(connection.id)
+      .update({
+        accessToken: encryptToken(refreshed.accessToken),
+        tokenExpiresAt: refreshed.expiresAt,
+        updatedAt: new Date().toISOString()
+      })
 
     return refreshed.accessToken
   } catch (error) {

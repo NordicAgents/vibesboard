@@ -18,10 +18,7 @@ export async function POST(request: NextRequest) {
 
     const tenantId = await getActiveTenant(authResult.user.id)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'No active tenant' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
     }
 
     const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX_BYOA')
@@ -33,7 +30,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { metaAppId, metaAppSecret, accessToken, webhookVerifyToken, pageId } = body
+    const {
+      metaAppId,
+      metaAppSecret,
+      accessToken,
+      webhookVerifyToken,
+      pageId
+    } = body
 
     // Validate required fields
     if (!metaAppId || typeof metaAppId !== 'string') {
@@ -92,16 +95,23 @@ export async function POST(request: NextRequest) {
       accessToken: accessToken.trim(),
       webhookVerifyToken: webhookVerifyToken.trim(),
       pageId: pageId.trim(),
-      userId: authResult.user.id,
+      userId: authResult.user.id
     })
 
     // Return account without encrypted secrets
-    const { accessToken: _token, metaAppSecret: _secret, webhookVerifyToken: _vt, ...safeAccount } = account
+    const {
+      accessToken: _token,
+      metaAppSecret: _secret,
+      webhookVerifyToken: _vt,
+      ...safeAccount
+    } = account
     return NextResponse.json(safeAccount, { status: 201 })
   } catch (error: any) {
     console.error('BYOA connection error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to connect Instagram account via BYOA' },
+      {
+        error: error.message || 'Failed to connect Instagram account via BYOA'
+      },
       { status: 500 }
     )
   }

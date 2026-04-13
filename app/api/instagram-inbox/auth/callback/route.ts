@@ -19,16 +19,15 @@ export async function POST(request: NextRequest) {
 
     const tenantId = await getActiveTenant(authResult.user.id)
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'No active tenant' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
     }
 
     const hasAccess = await isFeatureEnabled(tenantId, 'INSTAGRAM_INBOX_OAUTH')
     if (!hasAccess) {
       return NextResponse.json(
-        { error: 'Instagram OAuth connection is not enabled for your workspace' },
+        {
+          error: 'Instagram OAuth connection is not enabled for your workspace'
+        },
         { status: 403 }
       )
     }
@@ -46,7 +45,7 @@ export async function POST(request: NextRequest) {
     const account = await connectOAuthAccount({
       tenantId,
       code,
-      userId: authResult.user.id,
+      userId: authResult.user.id
     })
 
     const { accessToken, ...safeAccount } = account

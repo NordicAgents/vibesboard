@@ -27,7 +27,10 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const { id: tenantId } = await params
 
-  const tenantDoc = await adminDb.collection(Collections.tenants).doc(tenantId).get()
+  const tenantDoc = await adminDb
+    .collection(Collections.tenants)
+    .doc(tenantId)
+    .get()
   if (!tenantDoc.exists) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
@@ -53,7 +56,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     subscription,
     planTemplate,
     rollup,
-    billingCycleId: cycleId,
+    billingCycleId: cycleId
   })
 }
 
@@ -78,7 +81,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const currentSub = tenant.subscription ?? {}
 
   const updates: Record<string, unknown> = {
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
 
   // Resolve the target plan
@@ -88,7 +91,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   // Compute effective message limit
   let messageLimit: number
-  if (body.customMessageLimit !== undefined && body.customMessageLimit !== null) {
+  if (
+    body.customMessageLimit !== undefined &&
+    body.customMessageLimit !== null
+  ) {
     // Admin is setting a custom override
     messageLimit = Number(body.customMessageLimit)
     updates['subscription.customMessageLimit'] = messageLimit
@@ -106,9 +112,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   // Handle custom overage rate
   if (body.customOverageRate !== undefined) {
-    updates['subscription.customOverageRate'] = body.customOverageRate === null
-      ? null
-      : Number(body.customOverageRate)
+    updates['subscription.customOverageRate'] =
+      body.customOverageRate === null ? null : Number(body.customOverageRate)
   }
 
   // Core subscription fields
@@ -117,16 +122,24 @@ export async function PUT(req: Request, { params }: RouteParams) {
   updates['subscription.messageLimit'] = messageLimit
 
   // Billing cycle dates
-  if (body.billingCycleStart) updates['subscription.billingCycleStart'] = body.billingCycleStart
-  if (body.billingCycleEnd) updates['subscription.billingCycleEnd'] = body.billingCycleEnd
+  if (body.billingCycleStart)
+    updates['subscription.billingCycleStart'] = body.billingCycleStart
+  if (body.billingCycleEnd)
+    updates['subscription.billingCycleEnd'] = body.billingCycleEnd
 
   // Initialize missing fields
-  if (currentSub.messageCount === undefined) updates['subscription.messageCount'] = 0
-  if (currentSub.overageCount === undefined) updates['subscription.overageCount'] = 0
-  if (currentSub.stripeCustomerId === undefined) updates['subscription.stripeCustomerId'] = null
-  if (currentSub.stripeSubscriptionId === undefined) updates['subscription.stripeSubscriptionId'] = null
-  if (currentSub.stripePriceId === undefined) updates['subscription.stripePriceId'] = null
-  if (currentSub.stripeOverageItemId === undefined) updates['subscription.stripeOverageItemId'] = null
+  if (currentSub.messageCount === undefined)
+    updates['subscription.messageCount'] = 0
+  if (currentSub.overageCount === undefined)
+    updates['subscription.overageCount'] = 0
+  if (currentSub.stripeCustomerId === undefined)
+    updates['subscription.stripeCustomerId'] = null
+  if (currentSub.stripeSubscriptionId === undefined)
+    updates['subscription.stripeSubscriptionId'] = null
+  if (currentSub.stripePriceId === undefined)
+    updates['subscription.stripePriceId'] = null
+  if (currentSub.stripeOverageItemId === undefined)
+    updates['subscription.stripeOverageItemId'] = null
 
   // Reset usage if requested
   if (body.resetUsage) {
@@ -153,6 +166,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   return NextResponse.json({
     subscription: updatedSub,
-    featureFlagsSynced: planChanged,
+    featureFlagsSynced: planChanged
   })
 }

@@ -9,7 +9,7 @@ const ACCEPTED_TYPES = new Set([
   'image/png',
   'image/jpeg',
   'image/gif',
-  'image/webp',
+  'image/webp'
 ])
 
 type RouteParams = {

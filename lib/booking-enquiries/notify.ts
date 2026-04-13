@@ -9,7 +9,9 @@ export async function notifyAdminOfEnquiry(
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
-    console.warn('[booking-enquiry] RESEND_API_KEY not set — skipping admin email')
+    console.warn(
+      '[booking-enquiry] RESEND_API_KEY not set — skipping admin email'
+    )
     return
   }
 
@@ -20,11 +22,16 @@ export async function notifyAdminOfEnquiry(
     toAddress = notifConfig.email.address
   }
   if (!toAddress && agent.userId) {
-    const userDoc = await adminDb.collection(Collections.users).doc(agent.userId).get()
+    const userDoc = await adminDb
+      .collection(Collections.users)
+      .doc(agent.userId)
+      .get()
     toAddress = userDoc.data()?.email ?? null
   }
   if (!toAddress) {
-    console.warn('[booking-enquiry] No admin email address found — skipping notification')
+    console.warn(
+      '[booking-enquiry] No admin email address found — skipping notification'
+    )
     return
   }
 
@@ -34,7 +41,9 @@ export async function notifyAdminOfEnquiry(
     const [datePart, timePart = '00:00'] = iso.split('T')
     const [year, month, day] = datePart.split('-').map(Number)
     const [hour, minute] = timePart.split(':').map(Number)
-    return new Date(Date.UTC(year, month - 1, day, hour, minute || 0)).toLocaleString('en-US', {
+    return new Date(
+      Date.UTC(year, month - 1, day, hour, minute || 0)
+    ).toLocaleString('en-US', {
       timeZone: 'UTC',
       dateStyle: 'medium',
       timeStyle: 'short'
@@ -58,7 +67,9 @@ export async function notifyAdminOfEnquiry(
     `Add to calendar: ${enquiry.calendarName}`,
     '',
     `View all enquiries: ${appUrl}/agents/${agent.id}?tab=booking-enquiries`
-  ].filter(s => s !== null).join('\n')
+  ]
+    .filter(s => s !== null)
+    .join('\n')
 
   const icsContent = generateIcs({
     uid: enquiry.id,
@@ -72,7 +83,9 @@ export async function notifyAdminOfEnquiry(
       '',
       `Add to calendar: ${enquiry.calendarName}`,
       `Calendar ID: ${enquiry.calendarId}`
-    ].filter(s => s !== null).join('\n'),
+    ]
+      .filter(s => s !== null)
+      .join('\n'),
     startDatetime: enquiry.startDatetime,
     endDatetime: enquiry.endDatetime,
     timezone: enquiry.timezone,
@@ -81,7 +94,9 @@ export async function notifyAdminOfEnquiry(
 
   const { Resend } = await import('resend')
   await new Resend(apiKey).emails.send({
-    from: process.env.NOTIFICATION_EMAIL_FROM || 'VibeAgent <notifications@vibeagent.com>',
+    from:
+      process.env.NOTIFICATION_EMAIL_FROM ||
+      'VibeAgent <notifications@vibeagent.com>',
     to: toAddress,
     subject: `New booking enquiry — ${enquiry.resourceName}`,
     text: body,

@@ -15,14 +15,20 @@ export async function GET(req: NextRequest) {
   if (!authResult.ok) return authResult.response
 
   const tenantId = await getActiveTenant(authResult.user.id)
-  if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 403 })
+  if (!tenantId)
+    return NextResponse.json({ error: 'No active tenant' }, { status: 403 })
 
   const agentId = new URL(req.url).searchParams.get('agentId')
-  if (!agentId) return NextResponse.json({ error: 'agentId is required' }, { status: 400 })
+  if (!agentId)
+    return NextResponse.json({ error: 'agentId is required' }, { status: 400 })
 
   // Verify the agent belongs to this tenant to prevent cross-tenant data access
-  const agentDoc = await adminDb.collection(Collections.agents(tenantId)).doc(agentId).get()
-  if (!agentDoc.exists) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+  const agentDoc = await adminDb
+    .collection(Collections.agents(tenantId))
+    .doc(agentId)
+    .get()
+  if (!agentDoc.exists)
+    return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
 
   const snap = await adminDb
     .collection(Collections.bookingEnquiries(tenantId, agentId))
@@ -30,7 +36,7 @@ export async function GET(req: NextRequest) {
     .limit(100)
     .get()
 
-  const enquiries = snap.docs.map(d => d.data() as BookingEnquiryDocument)
+  const enquiries = snap.docs.map((d: any) => d.data() as BookingEnquiryDocument)
 
   return NextResponse.json({ enquiries })
 }

@@ -124,7 +124,7 @@ export async function getPendingFiles(
     .limit(limit)
     .get()
 
-  return snapshot.docs.map(doc => {
+  return snapshot.docs.map((doc: any) => {
     const data = doc.data()
     return {
       fileId: doc.id,
@@ -223,11 +223,14 @@ async function markFileFailed(
   error: string
 ): Promise<void> {
   const collPath = Collections.agentFiles(tenantId, agentId)
-  await adminDb.collection(collPath).doc(fileId).update({
-    status: 'failed',
-    processingError: error.slice(0, 500),
-    processingCompletedAt: new Date().toISOString()
-  })
+  await adminDb
+    .collection(collPath)
+    .doc(fileId)
+    .update({
+      status: 'failed',
+      processingError: error.slice(0, 500),
+      processingCompletedAt: new Date().toISOString()
+    })
 }
 
 async function linkChunksToFile(
@@ -248,7 +251,7 @@ async function linkChunksToFile(
   const BATCH_LIMIT = 400
   for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
     const batch = adminDb.batch()
-    snapshot.docs.slice(i, i + BATCH_LIMIT).forEach(doc => {
+    snapshot.docs.slice(i, i + BATCH_LIMIT).forEach((doc: any) => {
       batch.update(doc.ref, { fileId })
     })
     await batch.commit()

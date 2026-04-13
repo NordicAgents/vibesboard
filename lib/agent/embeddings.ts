@@ -33,7 +33,9 @@ const chunkText = (value: string): string[] => {
   return chunks
 }
 
-export const buildConversationChunks = (messages: Message[]): ConversationChunk[] => {
+export const buildConversationChunks = (
+  messages: Message[]
+): ConversationChunk[] => {
   const chunks: ConversationChunk[] = []
 
   messages.forEach((message, index) => {
@@ -103,7 +105,7 @@ export async function upsertConversationEmbeddings({
 
   if (!existingSnapshot.empty) {
     const deleteBatch = adminDb.batch()
-    existingSnapshot.docs.forEach(doc => deleteBatch.delete(doc.ref))
+    existingSnapshot.docs.forEach((doc: any) => deleteBatch.delete(doc.ref))
     await deleteBatch.commit()
   }
 

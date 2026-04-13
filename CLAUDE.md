@@ -48,3 +48,21 @@ To update superpowers: `git submodule update --remote .claude/plugins/superpower
 - Use systematic debugging for non-obvious bugs — find root causes, don't patch symptoms
 - Security is a priority — this is a multi-tenant SaaS, tenant isolation matters
 - Keep Firebase costs in mind — avoid unnecessary reads/writes
+
+## Branching & Release Strategy
+
+- `dev` — staging environment (Cloud Run + Firebase)
+- `main` — production environment
+- Feature branches merge to `dev` via PR
+- `dev` merges to `main` for production releases
+- Releases are auto-tagged on merge to `main` using conventional commits
+- Commit format: `feat(scope): message`, `fix(scope): message`, `chore(scope): message`
+
+## CI Requirements
+
+All PRs must pass these checks before merge:
+- **Lint** — ESLint + Prettier (`pnpm lint` + `pnpm format:check`)
+- **Type-check** — TypeScript strict mode (`pnpm type-check`)
+- **Tests** — Node test runner (`pnpm test`)
+- **Build** — Next.js production build (`pnpm build`)
+- **Security** — Semgrep SAST + Trivy vulnerability scan + Lizard complexity

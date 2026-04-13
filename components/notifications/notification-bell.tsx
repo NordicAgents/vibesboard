@@ -1,7 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bell, CheckCircle2, ArrowRightCircle, ArrowRightLeft } from 'lucide-react'
+import {
+  Bell,
+  CheckCircle2,
+  ArrowRightCircle,
+  ArrowRightLeft
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { NotificationDocument } from '@/lib/firestore-types'
 import { Button } from '@/components/ui/button'

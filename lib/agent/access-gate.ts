@@ -3,10 +3,23 @@ import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type InviteCodeDocument } from '@/lib/firestore-types'
 import { FieldValue } from 'firebase-admin/firestore'
 
-export { hashPassword, verifyPassword, generateCode } from './access-gate-crypto'
-import { signToken, verifyToken, generateCode, MAX_STORED_REDEMPTIONS } from './access-gate-crypto'
+export {
+  hashPassword,
+  verifyPassword,
+  generateCode
+} from './access-gate-crypto'
+import {
+  signToken,
+  verifyToken,
+  generateCode,
+  MAX_STORED_REDEMPTIONS
+} from './access-gate-crypto'
 
-export type InviteCodeError = 'invalid' | 'revoked' | 'expired' | 'max_uses_reached'
+export type InviteCodeError =
+  | 'invalid'
+  | 'revoked'
+  | 'expired'
+  | 'max_uses_reached'
 
 // ─── Session cookie (HMAC-signed, session-scoped) ────────────────────────────
 
@@ -14,7 +27,10 @@ function cookieName(agentId: string) {
   return `va_access_${agentId}`
 }
 
-export async function setAccessCookie(agentId: string, opts?: { crossOrigin?: boolean }) {
+export async function setAccessCookie(
+  agentId: string,
+  opts?: { crossOrigin?: boolean }
+) {
   const cookieStore = await cookies()
   cookieStore.set({
     name: cookieName(agentId),
@@ -68,7 +84,11 @@ export async function listInviteCodes(
   const snap = await codesCollection(tenantId, agentId)
     .orderBy('createdAt', 'desc')
     .get()
-  return snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) => d.data() as InviteCodeDocument)
+  return snap.docs.map(
+    (
+      d: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>
+    ) => d.data() as InviteCodeDocument
+  )
 }
 
 export async function revokeInviteCode(
@@ -105,7 +125,10 @@ export async function redeemInviteCode(
       if (freshData.expiresAt && new Date(freshData.expiresAt) < new Date()) {
         throw new Error('expired')
       }
-      if (freshData.maxUses !== null && freshData.usedCount >= freshData.maxUses) {
+      if (
+        freshData.maxUses !== null &&
+        freshData.usedCount >= freshData.maxUses
+      ) {
         throw new Error('max_uses_reached')
       }
 
@@ -123,7 +146,9 @@ export async function redeemInviteCode(
     })
   } catch (err: any) {
     const reason = err?.message as InviteCodeError
-    if (['invalid', 'revoked', 'expired', 'max_uses_reached'].includes(reason)) {
+    if (
+      ['invalid', 'revoked', 'expired', 'max_uses_reached'].includes(reason)
+    ) {
       return { ok: false, reason }
     }
     throw err // Re-throw unexpected errors

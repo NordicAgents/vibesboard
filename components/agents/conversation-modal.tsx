@@ -93,7 +93,8 @@ export function ConversationView({
   const handedOff = conversation.handedOff === true
 
   const summary = React.useMemo(
-    () => getConversationPreview(conversation.messages || [], conversation.summary),
+    () =>
+      getConversationPreview(conversation.messages || [], conversation.summary),
     [conversation.messages, conversation.summary]
   )
   const messages = React.useMemo(
@@ -112,7 +113,9 @@ export function ConversationView({
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/agents/${agentId}/conversations/${conversation.id}`)
+        const res = await fetch(
+          `/api/agents/${agentId}/conversations/${conversation.id}`
+        )
         if (res.ok) {
           const data = await res.json()
           if (data.conversation) {
@@ -150,11 +153,14 @@ export function ConversationView({
     setInput('')
 
     try {
-      const res = await fetch(`/api/agents/${agentId}/conversations/${conversation.id}/reply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      })
+      const res = await fetch(
+        `/api/agents/${agentId}/conversations/${conversation.id}/reply`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        }
+      )
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         console.error('[handoff] Failed to send reply:', err)
@@ -186,11 +192,14 @@ export function ConversationView({
     const action = handedOff ? 'resume' : 'stop'
 
     try {
-      const res = await fetch(`/api/agents/${agentId}/conversations/${conversation.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
-      })
+      const res = await fetch(
+        `/api/agents/${agentId}/conversations/${conversation.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        }
+      )
       if (res.ok) {
         const data = await res.json()
         setConversation(prev => ({

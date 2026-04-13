@@ -100,7 +100,8 @@ describe('signToken / verifyToken', () => {
 
   test('verifyToken rejects a tampered token', () => {
     const token = signToken('agent-123')
-    const tampered = token.slice(0, -1) + (token[token.length - 1] === '0' ? '1' : '0')
+    const tampered =
+      token.slice(0, -1) + (token[token.length - 1] === '0' ? '1' : '0')
     assert.equal(verifyToken(tampered, 'agent-123'), false)
   })
 

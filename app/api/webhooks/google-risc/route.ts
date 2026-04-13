@@ -15,10 +15,7 @@ export async function POST(request: Request) {
     const body = await request.text()
 
     if (!body) {
-      return NextResponse.json(
-        { error: 'Empty request body' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Empty request body' }, { status: 400 })
     }
 
     // The body is the raw JWT (Security Event Token)

@@ -7,12 +7,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
+  DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Key, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
+import {
+  Loader2,
+  Key,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ConnectApiKeyDialogProps {
@@ -24,38 +30,39 @@ interface ConnectApiKeyDialogProps {
 const SETUP_STEPS = [
   {
     title: 'Open Meta Business Suite',
-    description: 'Go to your Meta Business Settings and select your business account.',
+    description:
+      'Go to your Meta Business Settings and select your business account.',
     link: 'https://business.facebook.com/settings',
-    linkLabel: 'Open Business Settings',
+    linkLabel: 'Open Business Settings'
   },
   {
     title: 'Find your WABA ID',
     description:
-      'In Business Settings, go to Accounts > WhatsApp Accounts. Select your account — the WABA ID is the numeric ID shown at the top of the page.',
+      'In Business Settings, go to Accounts > WhatsApp Accounts. Select your account — the WABA ID is the numeric ID shown at the top of the page.'
   },
   {
     title: 'Create a System User',
     description:
       'Go to Users > System Users. Click "Add" to create a new System User (choose "Admin" role). If you already have one, you can reuse it.',
     link: 'https://business.facebook.com/settings/system-users',
-    linkLabel: 'Open System Users',
+    linkLabel: 'Open System Users'
   },
   {
     title: 'Assign WhatsApp permissions',
     description:
-      'Click "Add Assets" on your System User. Select "Apps", find your Meta app, and enable "Manage app". Then select "WhatsApp Accounts", pick your WABA, and enable "Manage WhatsApp business account".',
+      'Click "Add Assets" on your System User. Select "Apps", find your Meta app, and enable "Manage app". Then select "WhatsApp Accounts", pick your WABA, and enable "Manage WhatsApp business account".'
   },
   {
     title: 'Generate access token',
     description:
-      'Click "Generate New Token" on the System User. Select your app and check these permissions: whatsapp_business_management, whatsapp_business_messaging. Set token expiry to "Never" for uninterrupted service. Copy the token.',
-  },
+      'Click "Generate New Token" on the System User. Select your app and check these permissions: whatsapp_business_management, whatsapp_business_messaging. Set token expiry to "Never" for uninterrupted service. Copy the token.'
+  }
 ]
 
 export function ConnectApiKeyDialog({
   open,
   onOpenChange,
-  onSuccess,
+  onSuccess
 }: ConnectApiKeyDialogProps) {
   const [accessToken, setAccessToken] = useState('')
   const [wabaId, setWabaId] = useState('')
@@ -84,8 +91,8 @@ export function ConnectApiKeyDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accessToken: accessToken.trim(),
-          wabaId: wabaId.trim(),
-        }),
+          wabaId: wabaId.trim()
+        })
       })
 
       if (!res.ok) {
@@ -111,7 +118,8 @@ export function ConnectApiKeyDialog({
         <DialogHeader>
           <DialogTitle>Connect via API Key</DialogTitle>
           <DialogDescription>
-            Connect your WhatsApp Business Account using a System User token from Meta Business Suite.
+            Connect your WhatsApp Business Account using a System User token
+            from Meta Business Suite.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,7 +189,7 @@ export function ConnectApiKeyDialog({
               id="waba-id"
               placeholder="123456789012345"
               value={wabaId}
-              onChange={(e) => setWabaId(e.target.value)}
+              onChange={e => setWabaId(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
@@ -196,17 +204,16 @@ export function ConnectApiKeyDialog({
               type="password"
               placeholder="EAABsbCS..."
               value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
+              onChange={e => setAccessToken(e.target.value)}
               disabled={connecting}
             />
             <p className="text-xs text-text-tertiary">
-              Generated from System Users page with whatsapp_business_management and whatsapp_business_messaging permissions
+              Generated from System Users page with whatsapp_business_management
+              and whatsapp_business_messaging permissions
             </p>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
             <Button

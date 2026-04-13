@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -12,7 +18,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import { RefreshCw, PlayCircle, AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react'
+import {
+  RefreshCw,
+  PlayCircle,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Loader2
+} from 'lucide-react'
 
 interface FileRecord {
   id: string
@@ -87,7 +100,9 @@ export function AdminFileMonitor() {
     fetchFiles()
   }, [statusFilter])
 
-  const handleProcessFiles = async (type: 'pending' | 'failed' | 'selected') => {
+  const handleProcessFiles = async (
+    type: 'pending' | 'failed' | 'selected'
+  ) => {
     setIsProcessing(true)
     try {
       const body: any = { concurrency: 5 }
@@ -152,13 +167,33 @@ export function AdminFileMonitor() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'indexed':
-        return <Badge variant="default" className="bg-green-500"><CheckCircle className="mr-1 size-3" />Indexed</Badge>
+        return (
+          <Badge variant="default" className="bg-green-500">
+            <CheckCircle className="mr-1 size-3" />
+            Indexed
+          </Badge>
+        )
       case 'processing':
-        return <Badge variant="secondary"><Loader2 className="mr-1 size-3 animate-spin" />Processing</Badge>
+        return (
+          <Badge variant="secondary">
+            <Loader2 className="mr-1 size-3 animate-spin" />
+            Processing
+          </Badge>
+        )
       case 'pending':
-        return <Badge variant="outline"><Clock className="mr-1 size-3" />Pending</Badge>
+        return (
+          <Badge variant="outline">
+            <Clock className="mr-1 size-3" />
+            Pending
+          </Badge>
+        )
       case 'failed':
-        return <Badge variant="destructive"><AlertCircle className="mr-1 size-3" />Failed</Badge>
+        return (
+          <Badge variant="destructive">
+            <AlertCircle className="mr-1 size-3" />
+            Failed
+          </Badge>
+        )
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -177,25 +212,33 @@ export function AdminFileMonitor() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Indexed</CardDescription>
-            <CardTitle className="text-3xl text-green-600">{stats.indexed}</CardTitle>
+            <CardTitle className="text-3xl text-green-600">
+              {stats.indexed}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Pending</CardDescription>
-            <CardTitle className="text-3xl text-yellow-600">{stats.pending}</CardTitle>
+            <CardTitle className="text-3xl text-yellow-600">
+              {stats.pending}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Processing</CardDescription>
-            <CardTitle className="text-3xl text-blue-600">{stats.processing}</CardTitle>
+            <CardTitle className="text-3xl text-blue-600">
+              {stats.processing}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Failed</CardDescription>
-            <CardTitle className="text-3xl text-red-600">{stats.failed}</CardTitle>
+            <CardTitle className="text-3xl text-red-600">
+              {stats.failed}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -231,7 +274,9 @@ export function AdminFileMonitor() {
             Process Selected ({selectedFiles.size})
           </Button>
           <Button onClick={fetchFiles} variant="ghost" disabled={isLoading}>
-            <RefreshCw className={`mr-2 size-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-2 size-4 ${isLoading ? 'animate-spin' : ''}`}
+            />
             Refresh
           </Button>
         </CardContent>
@@ -286,7 +331,8 @@ export function AdminFileMonitor() {
                       <div className="space-y-1">
                         <div className="font-medium">{file.fileName}</div>
                         <div className="text-sm text-muted-foreground">
-                          Agent: {file.agentName} • {formatFileSize(file.fileSize)} • {file.mimeType}
+                          Agent: {file.agentName} •{' '}
+                          {formatFileSize(file.fileSize)} • {file.mimeType}
                         </div>
                       </div>
                       {getStatusBadge(file.status)}
@@ -294,8 +340,9 @@ export function AdminFileMonitor() {
 
                     {file.status === 'indexed' && (
                       <div className="text-sm text-muted-foreground">
-                        {file.chunkCount} chunks • {file.totalTokens?.toLocaleString()} tokens •
-                        Completed {formatDate(file.processingCompletedAt)}
+                        {file.chunkCount} chunks •{' '}
+                        {file.totalTokens?.toLocaleString()} tokens • Completed{' '}
+                        {formatDate(file.processingCompletedAt)}
                       </div>
                     )}
 
@@ -305,15 +352,17 @@ export function AdminFileMonitor() {
                       </div>
                     )}
 
-                    {file.status === 'processing' && file.processingStartedAt && (
-                      <div className="text-sm text-muted-foreground">
-                        Started {formatDate(file.processingStartedAt)}
-                      </div>
-                    )}
+                    {file.status === 'processing' &&
+                      file.processingStartedAt && (
+                        <div className="text-sm text-muted-foreground">
+                          Started {formatDate(file.processingStartedAt)}
+                        </div>
+                      )}
 
                     {file.status === 'pending' && (
                       <div className="text-sm text-muted-foreground">
-                        Created {formatDate(file.createdAt)} • Waiting for processing
+                        Created {formatDate(file.createdAt)} • Waiting for
+                        processing
                       </div>
                     )}
                   </div>

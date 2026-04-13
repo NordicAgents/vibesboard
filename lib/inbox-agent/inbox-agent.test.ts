@@ -101,7 +101,10 @@ describe('Agent sentBy sentinel pattern', () => {
   test('sentinel is never a valid Firebase Auth user ID', () => {
     const sentinel = makeAgentSentBy('someAgentId')
     // Firebase Auth UIDs are alphanumeric, never contain ':'
-    assert.ok(sentinel.includes(':'), 'Sentinel must contain colon to distinguish from user IDs')
+    assert.ok(
+      sentinel.includes(':'),
+      'Sentinel must contain colon to distinguish from user IDs'
+    )
   })
 })
 
@@ -155,7 +158,7 @@ describe('Agent resolution logic', () => {
   test('returns null when agent is paused on conversation', () => {
     const convo: MockConversation = {
       assignedAgentId: 'agent1',
-      agentPaused: true,
+      agentPaused: true
     }
     const account: MockAccount = { assignedAgentId: 'agent1' }
     assert.equal(resolveEffectiveAgentId(convo, account), null)
@@ -164,7 +167,7 @@ describe('Agent resolution logic', () => {
   test('returns null when conversation is handed off', () => {
     const convo: MockConversation = {
       assignedAgentId: 'agent1',
-      agentHandedOff: true,
+      agentHandedOff: true
     }
     const account: MockAccount = { assignedAgentId: 'agent1' }
     assert.equal(resolveEffectiveAgentId(convo, account), null)
@@ -174,7 +177,7 @@ describe('Agent resolution logic', () => {
     const convo: MockConversation = {}
     const account: MockAccount = {
       assignedAgentId: 'agent1',
-      agentAutoReply: false,
+      agentAutoReply: false
     }
     assert.equal(resolveEffectiveAgentId(convo, account), null)
   })
@@ -182,7 +185,7 @@ describe('Agent resolution logic', () => {
   test('agentAutoReply defaults to true (undefined means auto-reply enabled)', () => {
     const convo: MockConversation = {}
     const account: MockAccount = {
-      assignedAgentId: 'agent1',
+      assignedAgentId: 'agent1'
       // agentAutoReply not set — should default to enabled
     }
     assert.equal(resolveEffectiveAgentId(convo, account), 'agent1')
@@ -192,7 +195,7 @@ describe('Agent resolution logic', () => {
     const convo: MockConversation = { assignedAgentId: 'convo-agent' }
     const account: MockAccount = {
       assignedAgentId: 'account-agent',
-      agentAutoReply: false,
+      agentAutoReply: false
     }
     // Per-conversation override is checked before account autoReply
     assert.equal(resolveEffectiveAgentId(convo, account), 'convo-agent')
@@ -249,7 +252,7 @@ describe('Handoff flow', () => {
     const convo: MockConversation = {
       assignedAgentId: 'agent1',
       agentHandedOff: true,
-      agentPaused: false,
+      agentPaused: false
     }
 
     // Before re-engage: agent should not be resolved
@@ -262,7 +265,7 @@ describe('Handoff flow', () => {
 
   test('pause + resume cycle', () => {
     const convo: MockConversation = {
-      assignedAgentId: 'agent1',
+      assignedAgentId: 'agent1'
     }
 
     // Active
@@ -287,7 +290,7 @@ describe('Message dual-store linking', () => {
     const msgDoc = {
       sentBy: makeAgentSentBy(agentId),
       sentByAgentName: agentName,
-      direction: 'outbound' as const,
+      direction: 'outbound' as const
     }
 
     assert.equal(msgDoc.sentBy, 'agent:abc123')
@@ -298,7 +301,7 @@ describe('Message dual-store linking', () => {
   test('human message has userId in sentBy, no agent name', () => {
     const msgDoc = {
       sentBy: 'firebase-uid-123',
-      direction: 'outbound' as const,
+      direction: 'outbound' as const
     }
 
     assert.equal(isAgentSentMessage(msgDoc.sentBy), false)
@@ -332,11 +335,15 @@ describe('Message deduplication', () => {
   test('new user message is appended when not in history', () => {
     const prior = [
       { id: 'msg1', role: 'user' as const, content: 'Hello' },
-      { id: 'msg2', role: 'assistant' as const, content: 'Hi there!' },
+      { id: 'msg2', role: 'assistant' as const, content: 'Hi there!' }
     ]
-    const userMessage = { id: 'msg3', role: 'user' as const, content: 'Help me' }
+    const userMessage = {
+      id: 'msg3',
+      role: 'user' as const,
+      content: 'Help me'
+    }
 
-    const hasDuplicate = prior.some((m) => m.id === userMessage.id)
+    const hasDuplicate = prior.some(m => m.id === userMessage.id)
     const allMessages = hasDuplicate ? prior : [...prior, userMessage]
 
     assert.equal(allMessages.length, 3)
@@ -347,7 +354,7 @@ describe('Message deduplication', () => {
     const userMessage = { id: 'msg1', role: 'user' as const, content: 'Hello' }
     const prior = [userMessage]
 
-    const hasDuplicate = prior.some((m) => m.id === userMessage.id)
+    const hasDuplicate = prior.some(m => m.id === userMessage.id)
     const allMessages = hasDuplicate ? prior : [...prior, userMessage]
 
     assert.equal(allMessages.length, 1)
@@ -461,7 +468,10 @@ describe('Edge cases', () => {
   test('media-only WhatsApp message (no text, no caption) should not trigger agent', () => {
     // In webhook handler, messageText is extracted as:
     // message.type === 'text' ? message.text?.body : caption
-    const message = { type: 'image', image: { id: 'img1', mime_type: 'image/jpeg' } }
+    const message = {
+      type: 'image',
+      image: { id: 'img1', mime_type: 'image/jpeg' }
+    }
     const messageText =
       message.type === 'text'
         ? undefined
@@ -473,7 +483,7 @@ describe('Edge cases', () => {
   test('WhatsApp message with caption triggers agent', () => {
     const message = {
       type: 'image',
-      image: { id: 'img1', mime_type: 'image/jpeg', caption: 'Check this out' },
+      image: { id: 'img1', mime_type: 'image/jpeg', caption: 'Check this out' }
     }
     const messageText =
       message.type === 'text'

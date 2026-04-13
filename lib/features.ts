@@ -1,6 +1,11 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections } from '@/lib/firestore-types'
-import { type FeatureFlagName, getParentFlag, getFlagDepth, getRootAncestor } from '@/lib/feature-flags'
+import {
+  type FeatureFlagName,
+  getParentFlag,
+  getFlagDepth,
+  getRootAncestor
+} from '@/lib/feature-flags'
 
 export interface TenantFeatureStatus {
   id: string
@@ -58,13 +63,9 @@ export async function isFeatureEnabled(
  * Get all enabled features for a tenant.
  * Respects parent-child hierarchy.
  */
-export async function getEnabledFeatures(
-  tenantId: string
-): Promise<string[]> {
+export async function getEnabledFeatures(tenantId: string): Promise<string[]> {
   // Get all feature flags
-  const flagsSnapshot = await adminDb
-    .collection(Collections.featureFlags)
-    .get()
+  const flagsSnapshot = await adminDb.collection(Collections.featureFlags).get()
 
   if (flagsSnapshot.empty) return []
 
@@ -83,7 +84,10 @@ export async function getEnabledFeatures(
   for (const doc of flagsSnapshot.docs) {
     const flag = doc.data()
     const override = toggleMap.get(doc.id)
-    enabledMap.set(flag.name, override !== undefined ? override : flag.defaultValue)
+    enabledMap.set(
+      flag.name,
+      override !== undefined ? override : flag.defaultValue
+    )
   }
 
   // Filter: include only if enabled AND parent (if any) is also enabled
@@ -105,9 +109,7 @@ export async function getEnabledFeatures(
 export async function getTenantFeatures(
   tenantId: string
 ): Promise<TenantFeatureStatus[]> {
-  const flagsSnapshot = await adminDb
-    .collection(Collections.featureFlags)
-    .get()
+  const flagsSnapshot = await adminDb.collection(Collections.featureFlags).get()
 
   if (flagsSnapshot.empty) return []
 
@@ -134,7 +136,7 @@ export async function getTenantFeatures(
       isOverridden: override !== undefined,
       parentFlagName: parentFlagName,
       isDisabledByParent: false, // computed in second pass
-      depth: getFlagDepth(flag.name as FeatureFlagName),
+      depth: getFlagDepth(flag.name as FeatureFlagName)
     }
   })
 

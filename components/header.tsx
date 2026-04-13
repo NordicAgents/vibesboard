@@ -55,10 +55,7 @@ export async function Header() {
       </div>
       <div className="flex items-center justify-end space-x-2">
         {session?.user && activeTenantId && (
-          <FeatureGate
-            feature="AGENT_NOTIFICATIONS"
-            tenantId={activeTenantId}
-          >
+          <FeatureGate feature="AGENT_NOTIFICATIONS" tenantId={activeTenantId}>
             <NotificationBell tenantId={activeTenantId} />
           </FeatureGate>
         )}

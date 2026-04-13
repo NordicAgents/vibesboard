@@ -2,7 +2,7 @@ import toast from 'react-hot-toast'
 
 export function toastWithRetry(message: string, retryFn: () => void) {
   toast.error(
-    (t) => (
+    t => (
       <div className="flex items-center gap-3">
         <span className="text-sm">{message}</span>
         <button

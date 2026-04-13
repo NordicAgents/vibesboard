@@ -38,8 +38,7 @@ function computeHealthChecks(
     },
     {
       label: 'Knowledge files added',
-      passed:
-        agent.fileKeys.length > 0 || (agent.sourceUrls?.length ?? 0) > 0,
+      passed: agent.fileKeys.length > 0 || (agent.sourceUrls?.length ?? 0) > 0,
       hint: 'Upload files or add URLs in Advanced Settings'
     },
     {

@@ -48,7 +48,10 @@ interface AgentHooksSettingsProps {
   canEdit: boolean
 }
 
-export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps) {
+export function AgentHooksSettings({
+  agentId,
+  canEdit
+}: AgentHooksSettingsProps) {
   const [hooks, setHooks] = useState<Hook[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -59,7 +62,11 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
 
   // Secret reveal dialog (shown once after creation)
   const [secretDialogOpen, setSecretDialogOpen] = useState(false)
-  const [revealedSecret, setRevealedSecret] = useState<{ hookId: string; name: string; secretKey: string } | null>(null)
+  const [revealedSecret, setRevealedSecret] = useState<{
+    hookId: string
+    name: string
+    secretKey: string
+  } | null>(null)
   const [secretCopied, setSecretCopied] = useState(false)
 
   const loadHooks = async () => {
@@ -164,7 +171,8 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
             <div>
               <CardTitle className="text-base">Hooks</CardTitle>
               <CardDescription className="mt-0.5 text-xs">
-                Secret-authenticated endpoints for external and agent-to-agent access.
+                Secret-authenticated endpoints for external and agent-to-agent
+                access.
               </CardDescription>
             </div>
             {canEdit && (
@@ -205,7 +213,9 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
                         {hook.name}
                       </span>
                       <Badge
-                        variant={hook.status === 'active' ? 'default' : 'secondary'}
+                        variant={
+                          hook.status === 'active' ? 'default' : 'secondary'
+                        }
                         className="shrink-0 text-[10px]"
                       >
                         {hook.status}
@@ -215,7 +225,8 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
                       {hook.id}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {hook.requestCount} request{hook.requestCount !== 1 ? 's' : ''}
+                      {hook.requestCount} request
+                      {hook.requestCount !== 1 ? 's' : ''}
                       {hook.lastUsedAt
                         ? ` · last used ${formatDate(hook.lastUsedAt)}`
                         : ' · never used'}
@@ -229,7 +240,9 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
                         variant="ghost"
                         className="h-7 w-7 p-0"
                         title={
-                          hook.status === 'active' ? 'Disable hook' : 'Enable hook'
+                          hook.status === 'active'
+                            ? 'Disable hook'
+                            : 'Enable hook'
                         }
                         onClick={() => handleToggleStatus(hook)}
                       >
@@ -254,8 +267,9 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete hook?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Any external service using &ldquo;{hook.name}&rdquo; will
-                              immediately lose access. This cannot be undone.
+                              Any external service using &ldquo;{hook.name}
+                              &rdquo; will immediately lose access. This cannot
+                              be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -287,7 +301,8 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
           <DialogHeader>
             <DialogTitle>Create Hook</DialogTitle>
             <DialogDescription>
-              Give this hook a label so you know which integration it belongs to.
+              Give this hook a label so you know which integration it belongs
+              to.
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -361,8 +376,9 @@ export function AgentHooksSettings({ agentId, canEdit }: AgentHooksSettingsProps
             </div>
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
               <p className="text-xs text-amber-800 dark:text-amber-400">
-                Pass this as the <code className="font-mono">X-Hook-Secret</code>{' '}
-                header when calling{' '}
+                Pass this as the{' '}
+                <code className="font-mono">X-Hook-Secret</code> header when
+                calling{' '}
                 <code className="font-mono">
                   POST /api/hooks/{revealedSecret?.hookId}/chat
                 </code>

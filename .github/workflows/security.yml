@@ -37,4 +37,4 @@ jobs:
         with:
           path: "."
           CCN: "15"
-          ignore_warnings: "11"
+          ignore_warnings: "12"

@@ -10,7 +10,10 @@ interface GatedWidgetPageProps {
   hasExistingAccess: boolean
 }
 
-export function GatedWidgetPage({ agent, hasExistingAccess }: GatedWidgetPageProps) {
+export function GatedWidgetPage({
+  agent,
+  hasExistingAccess
+}: GatedWidgetPageProps) {
   const [verified, setVerified] = useState(hasExistingAccess)
 
   if (verified) {

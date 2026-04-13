@@ -23,7 +23,7 @@ export interface RecordUsageParams {
   agentId: string
   conversationId: string | null
   userId: string | null
-  externalId?: string | null        // session/hook/external user ID for anonymous tracking
+  externalId?: string | null // session/hook/external user ID for anonymous tracking
   source: UsageSource
   model: string
   inputTokens?: number
@@ -63,9 +63,11 @@ export function recordUsage(params: RecordUsageParams): void {
       toolCalled: params.toolCalled ?? null,
       latencyMs: params.latencyMs ?? 0,
       timestamp: new Date().toISOString(),
-      billingCycleId,
+      billingCycleId
     })
-    .catch((err: unknown) => console.error('[usage] Failed to write usage log:', err))
+    .catch((err: unknown) =>
+      console.error('[usage] Failed to write usage log:', err)
+    )
 
   // 2. Atomic increment on tenant message counter (only if subscription exists)
   adminDb
@@ -78,7 +80,7 @@ export function recordUsage(params: RecordUsageParams): void {
           .collection(Collections.tenants)
           .doc(params.tenantId)
           .update({
-            'subscription.messageCount': FieldValue.increment(1),
+            'subscription.messageCount': FieldValue.increment(1)
           })
       }
     })
@@ -95,7 +97,8 @@ export function recordUsage(params: RecordUsageParams): void {
   const incrementFn = (n: number) => FieldValue.increment(n)
   // Use externalId (prefixed) as the user key when userId is null to avoid
   // merging all anonymous usage into a single bucket.
-  const effectiveUserId = params.userId ?? (params.externalId ? `ext:${params.externalId}` : null)
+  const effectiveUserId =
+    params.userId ?? (params.externalId ? `ext:${params.externalId}` : null)
   const updateFields = buildRollupUpdateFields({
     source: params.source,
     agentId: params.agentId,
@@ -103,13 +106,13 @@ export function recordUsage(params: RecordUsageParams): void {
     userId: effectiveUserId,
     inputTokens,
     outputTokens,
-    incrementFn,
+    incrementFn
   })
 
   rollupRef
     .update({
       ...updateFields,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     })
     .catch((err: unknown) => {
       // NOT_FOUND (code 5) — document doesn't exist yet, create it
@@ -123,14 +126,16 @@ export function recordUsage(params: RecordUsageParams): void {
           userId: effectiveUserId,
           inputTokens,
           outputTokens,
-          incrementFn,
+          incrementFn
         })
         rollupRef
           .set(
             { ...setFields, updatedAt: new Date().toISOString() },
             { merge: true }
           )
-          .catch((e: unknown) => console.error('[usage] Failed to create rollup:', e))
+          .catch((e: unknown) =>
+            console.error('[usage] Failed to create rollup:', e)
+          )
       } else {
         console.error('[usage] Failed to update rollup:', err)
       }
@@ -184,20 +189,23 @@ export async function checkUsageLimit(
   }
 
   const rawPlanId = subscription.planId as string | undefined
-  const planId: PlanId = rawPlanId && ['free', 'pro', 'team', 'enterprise'].includes(rawPlanId)
-    ? (rawPlanId as PlanId)
-    : 'free'
+  const planId: PlanId =
+    rawPlanId && ['free', 'pro', 'team', 'enterprise'].includes(rawPlanId)
+      ? (rawPlanId as PlanId)
+      : 'free'
   const plan = await getPlanTemplate(planId)
 
   // Live computation: use custom override if set, else compute from live plan template
-  const limit = subscription.customMessageLimit != null
-    ? subscription.customMessageLimit as number
-    : computeMessageLimit(plan, (subscription.seatCount as number) ?? 1)
+  const limit =
+    subscription.customMessageLimit != null
+      ? (subscription.customMessageLimit as number)
+      : computeMessageLimit(plan, (subscription.seatCount as number) ?? 1)
   const used = (subscription.messageCount as number) ?? 0
   const remaining = Math.max(0, limit - used)
 
   // Resolve effective overage rate (tenant override > plan default)
-  const effectiveOverageRate = subscription.customOverageRate ?? plan.overageRate
+  const effectiveOverageRate =
+    subscription.customOverageRate ?? plan.overageRate
 
   // Hard cap: overageRate === 0 means no overage billing
   if (effectiveOverageRate === 0 && used >= limit) {
@@ -220,7 +228,7 @@ export function usageLimitResponse(result: UsageLimitResult) {
       message: `You've used all ${result.limit} messages this month. Upgrade to Pro for 5,000 messages/month.`,
       used: result.used,
       limit: result.limit,
-      upgradeUrl: '/settings/tenant/billing',
+      upgradeUrl: '/settings/tenant/billing'
     },
     { status: 429 }
   )
