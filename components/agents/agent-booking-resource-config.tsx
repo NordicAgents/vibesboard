@@ -29,7 +29,14 @@ interface Props {
   tenantId: string
 }
 
-const DEFAULT_CONFIG: AgentBookingConfig = { enabled: false, resources: [] }
+const DEFAULT_CONFIG: AgentBookingConfig = {
+  enabled: false,
+  resources: [],
+  mode: 'enquiry',
+  eventTitleTemplate: '{guest_name} ({guest_count} guests)',
+  eventTimeMode: 'all-day',
+  overlapProtection: true
+}
 
 interface DraftResource {
   name: string
@@ -136,8 +143,9 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Simple Booking</CardTitle>
           <CardDescription>
-            Let guests check availability and submit booking enquiries via the agent.
-            You&apos;ll receive an email with an .ics attachment for each enquiry.
+            {current.mode === 'direct'
+              ? 'Manage room bookings directly through the agent via Google Calendar.'
+              : 'Let guests check availability and submit booking enquiries via the agent. You\'ll receive an email with an .ics attachment for each enquiry.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -156,6 +164,74 @@ export function AgentBookingResourceConfig({ config, onChange, disabled, tenantI
           </div>
         </CardContent>
       </Card>
+
+      {/* Booking mode & settings */}
+      {current.enabled && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Booking Mode</CardTitle>
+            <CardDescription>
+              Choose how the agent handles bookings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Mode</label>
+              <select
+                value={current.mode ?? 'enquiry'}
+                onChange={e => update({ mode: e.target.value as 'enquiry' | 'direct' })}
+                disabled={disabled}
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="enquiry">Enquiry — guests submit booking requests</option>
+                <option value="direct">Direct — owner manages bookings via chat</option>
+              </select>
+            </div>
+
+            {current.mode === 'direct' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Event title template</label>
+                  <Input
+                    placeholder="{guest_name} ({guest_count} guests)"
+                    value={current.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)'}
+                    onChange={e => update({ eventTitleTemplate: e.target.value })}
+                    disabled={disabled}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Use {'{guest_name}'} and {'{guest_count}'} as placeholders.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Event time mode</label>
+                  <select
+                    value={current.eventTimeMode ?? 'all-day'}
+                    onChange={e => update({ eventTimeMode: e.target.value as 'all-day' | 'timed' })}
+                    disabled={disabled}
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="all-day">All-day events (date only)</option>
+                    <option value="timed">Timed events (2pm check-in, 11am check-out)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <p className="text-sm font-medium">Overlap protection</p>
+                    <p className="text-xs text-muted-foreground">Block bookings that overlap with existing events</p>
+                  </div>
+                  <Switch
+                    checked={current.overlapProtection !== false}
+                    disabled={disabled}
+                    onCheckedChange={overlapProtection => update({ overlapProtection })}
+                  />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Resources list */}
       <Card>
