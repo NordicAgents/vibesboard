@@ -50,3 +50,6 @@ env.yaml
 
 # Cloud Functions build output
 functions/lib
+
+# test artifacts
+.playwright-mcp/

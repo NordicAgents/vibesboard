@@ -9,6 +9,16 @@ export interface UpdateRowResult {
   matched: boolean // whether a matching row was found
 }
 
+export interface QueryRowsResult {
+  rows: Record<string, any>[]
+  totalMatched: number
+}
+
+export interface DeleteRowResult {
+  success: boolean
+  matched: boolean
+}
+
 export interface DataProvider {
   appendRow(data: Record<string, any>): Promise<AppendRowResult>
   updateRow(
@@ -16,5 +26,14 @@ export interface DataProvider {
     keyValue: string,
     data: Record<string, any>
   ): Promise<UpdateRowResult>
+  queryRows?(
+    keyField: string,
+    keyValue: string,
+    limit?: number
+  ): Promise<QueryRowsResult>
+  deleteRow?(
+    keyField: string,
+    keyValue: string
+  ): Promise<DeleteRowResult>
   testConnection(): Promise<{ ok: boolean; error?: string }>
 }

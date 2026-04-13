@@ -1,24 +1,25 @@
 import { adminDb } from '@/lib/firebase/admin'
 import {
   Collections,
-  type AgentDataConfig,
   type DataActionLogDocument,
   type DataConnectionDocument
 } from '@/lib/firestore-types'
 import { createDataProvider } from '@/lib/data/providers'
-import { getValidDataAccessToken } from '@/lib/data/connections'
-import type { RegisteredTool } from './base'
+import { getDataConnection, getValidDataAccessToken } from '@/lib/data/connections'
+import type { RegisteredTool } from '@/lib/agent/tools/base'
 import type { VibeAgent } from '@/lib/types'
+import type { ActionContext } from '../types'
+import type { DataConfig } from './types'
 
 interface DataToolContext {
   agent: VibeAgent
   connection: DataConnectionDocument
-  config: AgentDataConfig
+  config: DataConfig
 }
 
 function mapDataToColumns(
   data: Record<string, any>,
-  config: AgentDataConfig
+  config: DataConfig
 ): Record<string, any> {
   if (config.fieldMappings.length === 0) {
     // No explicit mappings — pass data through as-is (keys = column names)
@@ -256,22 +257,158 @@ function buildUpdateRecordTool(ctx: DataToolContext): RegisteredTool {
   }
 }
 
-/**
- * Build all data action tools for an agent with an active data connection.
- */
-export function buildDataTools(
-  agent: VibeAgent,
-  connection: DataConnectionDocument
-): RegisteredTool[] {
-  const config = agent.dataConfig
-  if (!config?.enabled) return []
+function buildQueryRecordsTool(ctx: DataToolContext): RegisteredTool {
+  const keyField = ctx.config.updateKeyField ?? 'id'
 
-  const ctx: DataToolContext = { agent, connection, config }
-  const tools: RegisteredTool[] = [buildSubmitDataTool(ctx)]
+  return {
+    function: {
+      name: 'query_records',
+      description: `Query records from the data store by searching for a matching value. Searches where "${keyField}" matches the provided key_value.`,
+      parameters: {
+        type: 'object',
+        properties: {
+          key_value: {
+            type: 'string',
+            description: `The value to search for in the "${keyField}" field.`
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of records to return (default: 10).'
+          }
+        },
+        required: ['key_value']
+      }
+    },
+    execute: async (args) => {
+      const keyValue = String(args.key_value ?? '').trim()
+      const limit = typeof args.limit === 'number' ? args.limit : 10
 
-  // Only add update_record if a key field is configured
+      if (!keyValue) {
+        return `Please provide the value to search for in the "${keyField}" field.`
+      }
+
+      try {
+        const accessToken = await getValidDataAccessToken(ctx.connection)
+        const provider = createDataProvider(ctx.connection, accessToken)
+
+        if (!provider.queryRows) {
+          return 'Query is not supported by this data provider.'
+        }
+
+        const result = await provider.queryRows(keyField, keyValue, limit)
+
+        if (result.rows.length === 0) {
+          return `No records found where "${keyField}" = "${keyValue}".`
+        }
+
+        const lines = [
+          `Found ${result.totalMatched} record(s) (showing ${result.rows.length}):`,
+          ...result.rows.map((row, i) => {
+            const fields = Object.entries(row)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ')
+            return `${i + 1}. ${fields}`
+          })
+        ]
+        return lines.join('\n')
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        return `Error querying records: ${errorMsg}`
+      }
+    }
+  }
+}
+
+function buildDeleteRecordTool(ctx: DataToolContext): RegisteredTool {
+  const keyField = ctx.config.updateKeyField ?? 'id'
+
+  return {
+    function: {
+      name: 'delete_record',
+      description: `Delete a record from the data store. Always confirm with the user before deleting. Finds and removes the record where "${keyField}" matches the provided key_value.`,
+      parameters: {
+        type: 'object',
+        properties: {
+          key_value: {
+            type: 'string',
+            description: `The value to search for in the "${keyField}" field to find the record to delete.`
+          }
+        },
+        required: ['key_value']
+      }
+    },
+    execute: async (args) => {
+      const keyValue = String(args.key_value ?? '').trim()
+
+      if (!keyValue) {
+        return `Please provide the value to search for in the "${keyField}" field.`
+      }
+
+      try {
+        const accessToken = await getValidDataAccessToken(ctx.connection)
+        const provider = createDataProvider(ctx.connection, accessToken)
+
+        if (!provider.deleteRow) {
+          return 'Delete is not supported by this data provider.'
+        }
+
+        const result = await provider.deleteRow(keyField, keyValue)
+
+        if (!result.matched) {
+          await logDataAction(
+            ctx,
+            'delete_row' as DataActionLogDocument['action'],
+            'failed',
+            { [keyField]: keyValue },
+            undefined,
+            `No record found with ${keyField}="${keyValue}"`
+          )
+          return `No record found where "${keyField}" = "${keyValue}". Nothing was deleted.`
+        }
+
+        await logDataAction(
+          ctx,
+          'delete_row' as DataActionLogDocument['action'],
+          'success',
+          { [keyField]: keyValue }
+        )
+
+        return `Record deleted successfully where "${keyField}" = "${keyValue}".`
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+        await logDataAction(
+          ctx,
+          'delete_row' as DataActionLogDocument['action'],
+          'failed',
+          { [keyField]: keyValue },
+          undefined,
+          errorMsg
+        )
+        return `Error deleting record: ${errorMsg}`
+      }
+    }
+  }
+}
+
+export async function buildDataTools(ctx: ActionContext): Promise<RegisteredTool[]> {
+  const config = ctx.action.config as DataConfig
+  const connectionId = ctx.action.connectionId
+  if (!connectionId || !ctx.agent.tenantId) return []
+
+  const connection = await getDataConnection(ctx.agent.tenantId, connectionId)
+  if (!connection || connection.status !== 'active') return []
+
+  const toolCtx: DataToolContext = { agent: ctx.agent, connection, config }
+  const tools: RegisteredTool[] = [buildSubmitDataTool(toolCtx)]
+
   if (config.updateKeyField) {
-    tools.push(buildUpdateRecordTool(ctx))
+    tools.push(buildUpdateRecordTool(toolCtx))
+  }
+  if (config.allowQuery) {
+    tools.push(buildQueryRecordsTool(toolCtx))
+  }
+  if (config.allowDelete) {
+    tools.push(buildDeleteRecordTool(toolCtx))
   }
 
   return tools

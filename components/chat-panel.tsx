@@ -13,7 +13,6 @@ export interface ChatPanelProps extends Pick<
   UseChatHelpers,
   'append' | 'isLoading' | 'reload' | 'messages' | 'stop' | 'input' | 'setInput'
 > {
-  id?: string
   isChatComplete?: boolean
   isAgentDisabled?: boolean
   agentMode?: AgentMode
@@ -25,7 +24,6 @@ export interface ChatPanelProps extends Pick<
 }
 
 export function ChatPanel({
-  id,
   isLoading,
   stop,
   append,
@@ -102,7 +100,6 @@ export function ChatPanel({
                         if (!trimmed) return
                         setInput('')
                         await append({
-                          id,
                           content: trimmed,
                           role: 'user'
                         })
@@ -116,7 +113,6 @@ export function ChatPanel({
               <PromptForm
                 onSubmit={async value => {
                   await append({
-                    id,
                     content: value,
                     role: 'user'
                   })
