@@ -17,15 +17,16 @@
  *   2. Copy the full Cookie header value from a request in DevTools
  *   3. Set TEST_AUTH_COOKIE="__session=<value>"
  */
-import { test, describe, before } from 'node:test'
+import { test, describe } from 'node:test'
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // Load .env.local
 function loadEnv() {
   try {
-    const envPath = resolve(import.meta.dirname, '../../.env.local')
+    const envPath = fileURLToPath(new URL('../../.env.local', import.meta.url))
     const content = readFileSync(envPath, 'utf-8')
     for (const line of content.split('\n')) {
       const trimmed = line.trim()

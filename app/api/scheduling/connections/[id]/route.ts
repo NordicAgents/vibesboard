@@ -29,7 +29,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
   }
 
-  const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS_SCHEDULE')
+  const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS')
   if (!enabled) {
     return NextResponse.json(
       { error: 'Scheduling feature is not enabled' },
