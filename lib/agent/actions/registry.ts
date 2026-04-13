@@ -12,85 +12,94 @@ const ACTION_REGISTRY: Record<string, ActionModule> = {
   data: DataModule,
 }
 
+function buildLegacyAppointmentsAction(agent: VibeAgent): AgentAction | null {
+  const cfg = agent.schedulingConfig
+  if (!cfg?.enabled || !cfg.calendarConnectionId) return null
+  return {
+    id: 'legacy-appointments',
+    type: 'appointments',
+    enabled: true,
+    connectionId: cfg.calendarConnectionId,
+    config: {
+      timezone: cfg.timezone,
+      availableHours: cfg.availableHours,
+      availableDays: cfg.availableDays,
+      defaultDurationMinutes: cfg.defaultDurationMinutes,
+      bufferMinutes: cfg.bufferMinutes,
+      meetingTitleTemplate: cfg.meetingTitleTemplate,
+      meetingDescription: cfg.meetingDescription,
+      createMeetLink: cfg.createMeetLink
+    }
+  }
+}
+
+function buildLegacyBookingAction(agent: VibeAgent): AgentAction | null {
+  const bc = agent.bookingConfig
+  if (bc?.enabled && bc.resources.length > 0) {
+    return {
+      id: 'legacy-booking',
+      type: 'booking',
+      enabled: true,
+      config: {
+        mode: bc.mode ?? 'enquiry',
+        resources: bc.resources,
+        eventTitleTemplate: bc.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)',
+        eventTimeMode: bc.eventTimeMode ?? 'all-day',
+        overlapProtection: bc.overlapProtection !== false
+      }
+    }
+  }
+  const ca = agent.calendarAvailabilityConfig
+  if (!ca?.enabled || !ca.calendarConnectionId) return null
+  return {
+    id: 'legacy-calendar-availability',
+    type: 'booking',
+    enabled: true,
+    config: {
+      mode: 'enquiry',
+      resources: [{
+        id: 'legacy-resource',
+        name: ca.resourceName ?? 'Resource',
+        calendarConnectionId: ca.calendarConnectionId,
+        calendarId: ca.calendarId ?? '',
+        calendarName: ca.resourceName ?? 'Calendar',
+        timezone: 'UTC'
+      }],
+      eventTitleTemplate: '{guest_name} ({guest_count} guests)',
+      eventTimeMode: 'all-day',
+      overlapProtection: true
+    }
+  }
+}
+
+function buildLegacyDataAction(agent: VibeAgent): AgentAction | null {
+  const cfg = agent.dataConfig
+  if (!cfg?.enabled || !cfg.dataConnectionId) return null
+  return {
+    id: 'legacy-data',
+    type: 'data',
+    enabled: true,
+    connectionId: cfg.dataConnectionId,
+    config: {
+      fieldMappings: cfg.fieldMappings,
+      updateKeyField: cfg.updateKeyField,
+      allowQuery: false,
+      allowDelete: false,
+      autoSubmitOnComplete: cfg.autoSubmitOnComplete
+    }
+  }
+}
+
 /**
  * Build an AgentAction[] from the legacy config fields for backward compatibility.
  * Only used during the migration transition period.
  */
 function buildLegacyActions(agent: VibeAgent): AgentAction[] {
-  const actions: AgentAction[] = []
-
-  if (agent.schedulingConfig?.enabled && agent.schedulingConfig.calendarConnectionId) {
-    actions.push({
-      id: 'legacy-appointments',
-      type: 'appointments',
-      enabled: true,
-      connectionId: agent.schedulingConfig.calendarConnectionId,
-      config: {
-        timezone: agent.schedulingConfig.timezone,
-        availableHours: agent.schedulingConfig.availableHours,
-        availableDays: agent.schedulingConfig.availableDays,
-        defaultDurationMinutes: agent.schedulingConfig.defaultDurationMinutes,
-        bufferMinutes: agent.schedulingConfig.bufferMinutes,
-        meetingTitleTemplate: agent.schedulingConfig.meetingTitleTemplate,
-        meetingDescription: agent.schedulingConfig.meetingDescription,
-        createMeetLink: agent.schedulingConfig.createMeetLink
-      }
-    })
-  }
-
-  if (agent.bookingConfig?.enabled && agent.bookingConfig.resources.length > 0) {
-    actions.push({
-      id: 'legacy-booking',
-      type: 'booking',
-      enabled: true,
-      config: {
-        mode: agent.bookingConfig.mode ?? 'enquiry',
-        resources: agent.bookingConfig.resources,
-        eventTitleTemplate: agent.bookingConfig.eventTitleTemplate ?? '{guest_name} ({guest_count} guests)',
-        eventTimeMode: agent.bookingConfig.eventTimeMode ?? 'all-day',
-        overlapProtection: agent.bookingConfig.overlapProtection !== false
-      }
-    })
-  } else if (agent.calendarAvailabilityConfig?.enabled && agent.calendarAvailabilityConfig.calendarConnectionId) {
-    const ca = agent.calendarAvailabilityConfig
-    actions.push({
-      id: 'legacy-calendar-availability',
-      type: 'booking',
-      enabled: true,
-      config: {
-        mode: 'enquiry',
-        resources: [{
-          id: 'legacy-resource',
-          name: ca.resourceName ?? 'Resource',
-          calendarConnectionId: ca.calendarConnectionId,
-          calendarId: ca.calendarId ?? '',
-          calendarName: ca.resourceName ?? 'Calendar',
-          timezone: 'UTC'
-        }],
-        eventTitleTemplate: '{guest_name} ({guest_count} guests)',
-        eventTimeMode: 'all-day',
-        overlapProtection: true
-      }
-    })
-  }
-
-  if (agent.dataConfig?.enabled && agent.dataConfig.dataConnectionId) {
-    actions.push({
-      id: 'legacy-data',
-      type: 'data',
-      enabled: true,
-      connectionId: agent.dataConfig.dataConnectionId,
-      config: {
-        fieldMappings: agent.dataConfig.fieldMappings,
-        updateKeyField: agent.dataConfig.updateKeyField,
-        allowQuery: false,
-        allowDelete: false,
-        autoSubmitOnComplete: agent.dataConfig.autoSubmitOnComplete
-      }
-    })
-  }
-
-  return actions
+  return [
+    buildLegacyAppointmentsAction(agent),
+    buildLegacyBookingAction(agent),
+    buildLegacyDataAction(agent),
+  ].filter((a): a is AgentAction => a !== null)
 }
 
 /**

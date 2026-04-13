@@ -20,6 +20,17 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const SEARCH_WINDOW_DAYS = 60
 const MAX_SUGGESTIONS = 3
 
+function validateDatetimeRange(startDatetime: string, endDatetime: string): string | null {
+  const startDate = parseWallClock(startDatetime)
+  const endDate = parseWallClock(endDatetime)
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    return 'Invalid datetime format. Use YYYY-MM-DDTHH:MM (e.g. 2026-05-10T14:00).'
+  }
+  if (startDate.getTime() < Date.now()) return 'Start date cannot be in the past.'
+  if (endDate <= startDate) return 'End datetime must be after start datetime.'
+  return null
+}
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 interface ResolvedResource {
@@ -203,14 +214,11 @@ function buildCheckAvailabilityTool(agent: VibeAgent, config: BookingConfig): Re
       const startDatetime = String(args.start_datetime ?? '').trim()
       const endDatetime = String(args.end_datetime ?? '').trim()
 
+      const validationError = validateDatetimeRange(startDatetime, endDatetime)
+      if (validationError) return validationError
+
       const startDate = parseWallClock(startDatetime)
       const endDate = parseWallClock(endDatetime)
-
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return 'Invalid datetime format. Use YYYY-MM-DDTHH:MM (e.g. 2026-05-10T14:00).'
-      }
-      if (startDate.getTime() < Date.now()) return 'Start date cannot be in the past.'
-      if (endDate <= startDate) return 'End datetime must be after start datetime.'
 
       const resolved = await resolveResource(agent, config, resourceName)
       if (!resolved) return `Unknown resource "${resourceName}". Available: ${resourceNames}.`
