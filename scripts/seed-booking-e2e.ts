@@ -22,10 +22,10 @@ function loadEnvKey(key: string): string | undefined {
   try {
     const envPath = resolve(__dirname, '..', '.env.local')
     const content = readFileSync(envPath, 'utf8')
-    const regex = new RegExp(`^${key}=(.+)`, 'm')
-    const match = content.match(regex)
-    if (match) {
-      let val = match[1].trim()
+    const prefix = `${key}=`
+    const line = content.split('\n').find(l => l.startsWith(prefix))
+    if (line) {
+      let val = line.slice(prefix.length).trim()
       if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
         val = val.slice(1, -1)
       }
