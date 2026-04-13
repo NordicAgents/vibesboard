@@ -241,6 +241,34 @@ RULES:
 - If unavailable, suggest they try different dates`
 }
 
+function getDirectBookingInstructions(agent: VibeAgent): string {
+  const config = agent.bookingConfig
+  if (!config?.enabled || config.mode !== 'direct') return ''
+
+  const resourceNames = config.resources.map(r => `${r.name} (${r.timezone})`).join(', ')
+
+  return `
+## Booking Management
+You are a booking management assistant. The owner uses you to manage room bookings.
+
+Available rooms: ${resourceNames}
+
+RULES:
+- Before creating, editing, or deleting any booking, summarize the action and ask "Shall I proceed?"
+- When listing bookings, format them clearly: room name, dates, guest name, guest count
+- When searching for a booking, match by guest name, room, date, or any combination the owner provides
+- If a booking request overlaps with an existing one, refuse and show the conflicting booking details
+- Display all dates in the room's configured timezone
+- If the owner's request is ambiguous (e.g. "move the Smith booking" but multiple matches exist), list the matches and ask which one
+- When the owner asks about availability or bookings without specifying a room, query all rooms
+
+TOOL USAGE:
+- list_calendar_events: Query bookings across rooms. Use when the owner asks about bookings, availability, or schedule.
+- create_calendar_event: Create a new booking. Collect room, check-in, check-out, guest name, and guest count first. Confirm before creating.
+- update_calendar_event: Edit a booking. Find it first with list_calendar_events, then confirm changes before updating.
+- delete_calendar_event: Cancel a booking. Find it first with list_calendar_events, confirm before deleting.`
+}
+
 interface PromptOptions {
   hasFileOverflow?: boolean
   handoffTargetNames?: Record<string, string>
@@ -315,6 +343,7 @@ export function buildAgentSystemPrompt(
   const schedulingInstructions = getSchedulingInstructions(agent)
   const dataActionInstructions = getDataActionInstructions(agent)
   const calendarAvailabilityInstructions = getCalendarAvailabilityInstructions(agent)
+  const directBookingInstructions = getDirectBookingInstructions(agent)
 
   const agentName = sanitizeForPrompt(agent.name)
   const domainScope = sanitizeForPrompt(agent.domain?.trim() || agent.name)
@@ -340,6 +369,7 @@ ${handoffInstructions}
 ${schedulingInstructions}
 ${dataActionInstructions}
 ${calendarAvailabilityInstructions}
+${directBookingInstructions}
 ${wrapUpInstructions}
 
 Tooling:

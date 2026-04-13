@@ -95,7 +95,11 @@ export const bookableResourceSchema = z.object({
 
 export const bookingConfigSchema = z.object({
   enabled: z.boolean().default(false),
-  resources: z.array(bookableResourceSchema).default([])
+  resources: z.array(bookableResourceSchema).default([]),
+  mode: z.enum(['enquiry', 'direct']).default('enquiry'),
+  eventTitleTemplate: z.string().max(200).default('{guest_name} ({guest_count} guests)'),
+  eventTimeMode: z.enum(['all-day', 'timed']).default('all-day'),
+  overlapProtection: z.boolean().default(true)
 })
 
 export const upsertAgentSchema = z.object({

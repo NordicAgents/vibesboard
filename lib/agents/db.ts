@@ -119,6 +119,7 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   schedulingConfig: data.schedulingConfig ?? undefined,
   dataConfig: data.dataConfig ?? undefined,
   calendarAvailabilityConfig: data.calendarAvailabilityConfig ?? undefined,
+  bookingConfig: data.bookingConfig ?? undefined,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })
