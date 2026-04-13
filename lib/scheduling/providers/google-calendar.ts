@@ -354,6 +354,35 @@ export async function updateCalendarEvent(
 }
 
 /**
+ * Get a single event from a Google Calendar by ID.
+ */
+export async function getCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<CalendarEvent> {
+  const url = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Google Calendar API error (${res.status}): ${text}`)
+  }
+
+  const item = await res.json()
+  return {
+    id: item.id,
+    summary: item.summary ?? '',
+    description: item.description ?? '',
+    start: item.start?.dateTime ?? item.start?.date ?? '',
+    end: item.end?.dateTime ?? item.end?.date ?? '',
+    htmlLink: item.htmlLink
+  }
+}
+
+/**
  * Delete an event from a Google Calendar.
  */
 export async function deleteCalendarEvent(

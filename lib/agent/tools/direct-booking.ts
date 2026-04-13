@@ -1,6 +1,7 @@
 import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/connections'
 import {
   listCalendarEvents,
+  getCalendarEvent,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent
@@ -68,6 +69,16 @@ function buildDescription(guestName: string, guestCount: number): string {
   return `Guest: ${guestName}\nGuests: ${guestCount}`
 }
 
+function parseGuestInfo(description: string): { name: string; count: number } | null {
+  const nameMatch = description.match(/^Guest:\s*(.+)$/m)
+  const countMatch = description.match(/^Guests:\s*(\d+)$/m)
+  if (!nameMatch) return null
+  return {
+    name: nameMatch[1].trim(),
+    count: countMatch ? parseInt(countMatch[1], 10) : 1
+  }
+}
+
 function formatEventDate(dateStr: string, timezone: string): string {
   if (!dateStr) return 'unknown'
   try {
@@ -131,7 +142,7 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
       }
 
       try {
-        const allEvents: Array<{ room: string; id: string; title: string; start: string; end: string; description: string }> = []
+        const allEvents: Array<{ room: string; id: string; title: string; rawStart: string; start: string; end: string; description: string }> = []
 
         for (const { resource, accessToken } of resources) {
           const events = await listCalendarEvents(
@@ -145,6 +156,7 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
               room: resource.name,
               id: ev.id,
               title: ev.summary,
+              rawStart: ev.start,
               start: formatEventDate(ev.start, resource.timezone),
               end: formatEventDate(ev.end, resource.timezone),
               description: ev.description ?? ''
@@ -157,7 +169,7 @@ function buildListEventsTool(agent: VibeAgent): RegisteredTool {
           return `No bookings found for ${scope} between ${startDate} and ${endDate}.`
         }
 
-        allEvents.sort((a, b) => a.start.localeCompare(b.start))
+        allEvents.sort((a, b) => a.rawStart.localeCompare(b.rawStart))
 
         const lines = allEvents.map(ev =>
           `- [${ev.room}] ${ev.title} | ${ev.start} → ${ev.end} | Event ID: ${ev.id}${ev.description ? ` | ${ev.description}` : ''}`
@@ -342,13 +354,21 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
       const { resource, accessToken } = resolved
 
       try {
-        if (overlapProtection && checkIn && checkOut) {
-          if (checkOut <= checkIn) return 'check_out_date must be after check_in_date.'
+        // Fetch the current event when we need it for overlap checks or guest info
+        let currentEvent: Awaited<ReturnType<typeof getCalendarEvent>> | null = null
+        if ((overlapProtection && (checkIn || checkOut)) || guestName || guestCount !== undefined) {
+          currentEvent = await getCalendarEvent(accessToken, resource.calendarId, eventId)
+        }
+
+        if (overlapProtection && (checkIn || checkOut)) {
+          const effectiveCheckIn = checkIn ?? (currentEvent!.start.split('T')[0] ?? '')
+          const effectiveCheckOut = checkOut ?? (currentEvent!.end.split('T')[0] ?? '')
+          if (effectiveCheckOut <= effectiveCheckIn) return 'check_out_date must be after check_in_date.'
           const existing = await listCalendarEvents(
             accessToken,
             resource.calendarId,
-            `${checkIn}T00:00:00`,
-            `${checkOut}T23:59:59`
+            `${effectiveCheckIn}T00:00:00`,
+            `${effectiveCheckOut}T23:59:59`
           )
           const conflicts = existing.filter(ev => ev.id !== eventId)
           if (conflicts.length > 0) {
@@ -362,15 +382,9 @@ function buildUpdateEventTool(agent: VibeAgent): RegisteredTool {
         const updates: Record<string, any> = {}
 
         if (guestName || guestCount !== undefined) {
-          const currentEvents = await listCalendarEvents(
-            accessToken,
-            resource.calendarId,
-            '2000-01-01T00:00:00',
-            '2100-01-01T00:00:00'
-          )
-          const currentEvent = currentEvents.find(ev => ev.id === eventId)
-          const currentName = guestName ?? (currentEvent?.summary ?? 'Guest')
-          const currentCount = guestCount ?? 1
+          const existingInfo = currentEvent?.description ? parseGuestInfo(currentEvent.description) : null
+          const currentName = guestName ?? (existingInfo?.name ?? 'Guest')
+          const currentCount = guestCount ?? (existingInfo?.count ?? 1)
           updates.summary = buildTitle(titleTemplate, currentName, currentCount)
           updates.description = buildDescription(currentName, currentCount)
         }
