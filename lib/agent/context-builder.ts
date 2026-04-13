@@ -1,14 +1,7 @@
 import { type VibeAgent } from '@/lib/types'
 import { createRetriever } from '@/lib/retrieval'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
-import { isFeatureEnabled } from '@/lib/features'
-import { getCalendarConnection, getValidAccessToken } from '@/lib/scheduling/connections'
-import { buildSchedulingTools } from './tools/scheduling'
-import { getDataConnection } from '@/lib/data/connections'
-import { buildDataTools } from './tools/data-actions'
-import { buildCalendarAvailabilityTools } from './tools/calendar-availability'
-import { buildSimpleBookingTools } from './tools/simple-booking'
-import { buildDirectBookingTools } from './tools/direct-booking'
+import { injectActionTools } from './actions/registry'
 
 export interface ContextBuildResult {
   contextText: string
@@ -68,111 +61,8 @@ export async function buildAgentContext(
     }
   }
 
-  // Inject scheduling tools if the agent has scheduling enabled
-  if (
-    agent.schedulingConfig?.enabled &&
-    agent.schedulingConfig.calendarConnectionId &&
-    agent.tenantId
-  ) {
-    try {
-      const scheduleEnabled = await isFeatureEnabled(
-        agent.tenantId,
-        'AGENT_ACTIONS_SCHEDULE'
-      )
-      if (scheduleEnabled) {
-        const connection = await getCalendarConnection(
-          agent.tenantId,
-          agent.schedulingConfig.calendarConnectionId
-        )
-        if (connection && connection.status === 'active') {
-          const schedulingTools = buildSchedulingTools(agent, connection)
-          for (const tool of schedulingTools) {
-            toolkit.functions.push(tool.function)
-            toolkit.executors[tool.function.name] = tool.execute
-          }
-        }
-      }
-    } catch (err) {
-      // Scheduling injection failure should not block the chat
-      console.error('Failed to inject scheduling tools:', err)
-    }
-  }
-
-  // Inject data action tools if the agent has data actions enabled
-  if (
-    agent.dataConfig?.enabled &&
-    agent.dataConfig.dataConnectionId &&
-    agent.tenantId
-  ) {
-    try {
-      const dataEnabled = await isFeatureEnabled(
-        agent.tenantId,
-        'AGENT_ACTIONS_DATA'
-      )
-      if (dataEnabled) {
-        const dataConnection = await getDataConnection(
-          agent.tenantId,
-          agent.dataConfig.dataConnectionId
-        )
-        if (dataConnection && dataConnection.status === 'active') {
-          const dataTools = buildDataTools(agent, dataConnection)
-          for (const tool of dataTools) {
-            toolkit.functions.push(tool.function)
-            toolkit.executors[tool.function.name] = tool.execute
-          }
-        }
-      }
-    } catch (err) {
-      // Data action injection failure should not block the chat
-      console.error('Failed to inject data action tools:', err)
-    }
-  }
-
-  // Inject booking/availability tools — simple-booking takes precedence, falls back to
-  // legacy calendar-availability. Never register both (same tool name conflict).
-  if (agent.bookingConfig?.enabled && agent.tenantId) {
-    try {
-      const bookingEnabled = await isFeatureEnabled(agent.tenantId, 'AGENT_ACTIONS_BOOKING')
-      if (bookingEnabled) {
-        // Direct mode: owner CRUD tools. Enquiry mode: guest-facing tools.
-        const bookingTools = agent.bookingConfig.mode === 'direct'
-          ? buildDirectBookingTools(agent)
-          : buildSimpleBookingTools(agent)
-        for (const tool of bookingTools) {
-          toolkit.functions.push(tool.function)
-          toolkit.executors[tool.function.name] = tool.execute
-        }
-      }
-    } catch (err) {
-      console.error('Failed to inject booking tools:', err)
-    }
-  } else if (
-    agent.calendarAvailabilityConfig?.enabled &&
-    agent.calendarAvailabilityConfig.calendarConnectionId &&
-    agent.tenantId
-  ) {
-    try {
-      const scheduleEnabled = await isFeatureEnabled(
-        agent.tenantId,
-        'AGENT_ACTIONS_SCHEDULE'
-      )
-      if (scheduleEnabled) {
-        const connection = await getCalendarConnection(
-          agent.tenantId,
-          agent.calendarAvailabilityConfig.calendarConnectionId
-        )
-        if (connection && connection.status === 'active') {
-          const availabilityTools = buildCalendarAvailabilityTools(agent, connection)
-          for (const tool of availabilityTools) {
-            toolkit.functions.push(tool.function)
-            toolkit.executors[tool.function.name] = tool.execute
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to inject calendar availability tools:', err)
-    }
-  }
+  // Inject action module tools (appointments, booking, data, etc.)
+  await injectActionTools(agent, toolkit)
 
   return {
     contextText: result.contextText,
