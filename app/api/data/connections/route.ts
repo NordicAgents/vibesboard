@@ -25,7 +25,7 @@ export async function GET() {
     return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
   }
 
-  const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS_DATA')
+  const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS')
   if (!enabled) {
     return NextResponse.json(
       { error: 'Data actions feature is not enabled' },
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
   }
 
-  const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS_DATA')
+  const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS')
   if (!enabled) {
     return NextResponse.json(
       { error: 'Data actions feature is not enabled' },

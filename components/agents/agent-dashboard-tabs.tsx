@@ -259,7 +259,7 @@ export function AgentDashboardTabs({
 
               {openSections.has('scheduling') && (
                 <FeatureGate
-                  feature="AGENT_ACTIONS_SCHEDULE"
+                  feature="AGENT_ACTIONS"
                   tenantId={agent.tenantId}
                 >
                   <AgentSchedulingSettings
@@ -273,7 +273,7 @@ export function AgentDashboardTabs({
 
               {openSections.has('data') && (
                 <FeatureGate
-                  feature="AGENT_ACTIONS_DATA"
+                  feature="AGENT_ACTIONS"
                   tenantId={agent.tenantId}
                 >
                   <AgentDataSettings
@@ -288,7 +288,7 @@ export function AgentDashboardTabs({
 
               {openSections.has('availability') && (
                 <FeatureGate
-                  feature="AGENT_ACTIONS_SCHEDULE"
+                  feature="AGENT_ACTIONS"
                   tenantId={agent.tenantId}
                 >
                   <AgentCalendarAvailabilitySettings
@@ -302,7 +302,7 @@ export function AgentDashboardTabs({
 
               {openSections.has('booking') && (
                 <FeatureGate
-                  feature="AGENT_ACTIONS_BOOKING"
+                  feature="AGENT_ACTIONS"
                   tenantId={agent.tenantId}
                 >
                   <AgentBookingResourceConfig
