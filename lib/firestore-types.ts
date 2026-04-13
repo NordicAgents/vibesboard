@@ -32,7 +32,12 @@ export interface AgentSchedulingConfig {
 // ─── Data & Database Actions ────────────────────────────────────────
 export type DataProvider = 'google_sheets' | 'airtable' | 'custom_webhook'
 export type DataConnectionStatus = 'active' | 'disconnected' | 'expired'
-export type DataActionType = 'append_row' | 'update_row' | 'webhook_submit' | 'query_row' | 'delete_row'
+export type DataActionType =
+  | 'append_row'
+  | 'update_row'
+  | 'webhook_submit'
+  | 'query_row'
+  | 'delete_row'
 
 export interface DataFieldMapping {
   collectionFieldId: string // references CollectionField.id
