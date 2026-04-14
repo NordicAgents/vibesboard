@@ -1,33 +1,34 @@
 import Link from 'next/link'
 
 export function LandingCTA() {
-    return (
-        <section className="bg-black-primary py-24 md:py-32 lg:py-40">
-            <div className="container mx-auto px-6 lg:px-12 max-w-5xl">
-                <div className="text-center">
-                    <h2 className="font-switzer font-bold text-4xl md:text-5xl lg:text-6xl text-purewhite-bg mb-6 leading-tight">
-                        Ready to feel the vibe?
-                    </h2>
-                    <p className="font-switzer text-lg md:text-xl text-purewhite-bg/80 mb-12 max-w-2xl mx-auto leading-relaxed">
-                        Join thousands of users who are building AI agents to understand what people really think and feel.
-                    </p>
+  return (
+    <section className="bg-black-primary py-24 md:py-32 lg:py-40">
+      <div className="container mx-auto max-w-5xl px-6 lg:px-12">
+        <div className="text-center">
+          <h2 className="mb-6 font-switzer text-4xl font-bold leading-tight text-purewhite-bg md:text-5xl lg:text-6xl">
+            Ready to feel the vibe?
+          </h2>
+          <p className="mx-auto mb-12 max-w-2xl font-switzer text-lg leading-relaxed text-[#f5f8f7]/80 md:text-xl">
+            Join thousands of users who are building AI agents to understand
+            what people really think and feel.
+          </p>
 
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                        <Link
-                            href="/sign-up"
-                            className="px-10 py-5 bg-purewhite-bg text-black-primary font-switzer text-lg font-medium rounded-full hover:bg-beige-bg transition-all duration-300 shadow-sm hover:shadow-md"
-                        >
-                            Get Started Free
-                        </Link>
-                        <Link
-                            href="#features"
-                            className="px-10 py-5 bg-transparent border-2 border-purewhite-bg text-purewhite-bg font-switzer text-lg font-medium rounded-full hover:bg-purewhite-bg hover:text-black-primary transition-all duration-300"
-                        >
-                            See How It Works
-                        </Link>
-                    </div>
-                </div>
-            </div>
-        </section>
-    )
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href="/sign-up"
+              className="rounded-full bg-purewhite-bg px-10 py-5 font-switzer text-lg font-medium text-black-primary shadow-sm transition-all duration-300 hover:bg-beige-bg hover:shadow-md"
+            >
+              Get Started Free
+            </Link>
+            <Link
+              href="#features"
+              className="rounded-full border-2 border-purewhite-bg bg-transparent px-10 py-5 font-switzer text-lg font-medium text-purewhite-bg transition-all duration-300 hover:bg-purewhite-bg hover:text-black-primary"
+            >
+              See How It Works
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }

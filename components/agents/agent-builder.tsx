@@ -4,9 +4,13 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/db'
-import { type AgentToolType, type VibeAgentTool } from '@/lib/types'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
+import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
+import {
+  type AgentToolType,
+  type QuickSuggestionsMode,
+  type RetrievalStrategy,
+  type VibeAgentTool
+} from '@/lib/types'
 import { AgentBuilderHelper } from './agent-builder-helper'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +24,29 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+
+const RETRIEVAL_OPTIONS: {
+  value: RetrievalStrategy
+  label: string
+  hint: string
+}[] = [
+  {
+    value: 'direct',
+    label: 'Direct',
+    hint: 'Load full file content into every conversation.'
+  },
+  {
+    value: 'rag',
+    label: 'RAG',
+    hint: 'Search relevant sections on demand using vector search.'
+  },
+  {
+    value: 'bash',
+    label: 'Bash',
+    hint: 'Give the agent shell commands to analyze files in a sandbox.'
+  }
+]
 
 interface AgentBuilderProps {
   userId: string
@@ -31,17 +58,20 @@ const helperText =
 export function AgentBuilder({ userId }: AgentBuilderProps) {
   const router = useRouter()
   const [name, setName] = useState('')
+  const [domain, setDomain] = useState('')
   const [instructions, setInstructions] = useState('')
   const [allowAnonymous, setAllowAnonymous] = useState(true)
   const [selectedTools, setSelectedTools] = useState<AgentToolType[]>([])
+  const [quickSuggestionsMode, setQuickSuggestionsMode] =
+    useState<QuickSuggestionsMode>('smart')
+  const [quickSuggestionsCount, setQuickSuggestionsCount] = useState<number>(4)
+  const [retrievalStrategy, setRetrievalStrategy] =
+    useState<RetrievalStrategy>('direct')
   const [fileKeys, setFileKeys] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
 
-  const toolOptions = useMemo(
-    () => Object.values(BUILTIN_AGENT_TOOLS),
-    []
-  )
+  const toolOptions = useMemo(() => Object.values(BUILTIN_AGENT_TOOLS), [])
 
   const toolsPayload: VibeAgentTool[] = selectedTools.map(tool => ({
     ...(BUILTIN_AGENT_TOOLS[tool as keyof typeof BUILTIN_AGENT_TOOLS] ?? {
@@ -60,24 +90,42 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return
     setIsUploading(true)
-    const supabase = getBrowserSupabaseClient()
 
     try {
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
-          const path = `${userId}/${Date.now()}-${safeFileName(file.name)}`
-          const { data, error } = await supabase.storage
-            .from('agent-files')
-            .upload(path, file, {
-              upsert: true,
+          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+
+          // Get a signed upload URL from the API
+          const res = await fetch('/api/files/upload-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName,
               contentType: file.type || 'application/octet-stream'
             })
+          })
 
-          if (error || !data) {
-            throw error ?? new Error('Upload failed')
+          if (!res.ok) {
+            throw new Error('Failed to get upload URL')
           }
 
-          return data.path
+          const { uploadUrl, fileKey } = await res.json()
+
+          // Upload the file directly to GCS
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream'
+            },
+            body: file
+          })
+
+          if (!uploadRes.ok) {
+            throw new Error('Upload failed')
+          }
+
+          return fileKey
         })
       )
       setFileKeys(prev => Array.from(new Set([...prev, ...uploads])))
@@ -92,8 +140,7 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   }
 
   const handleRemoveFile = async (path: string) => {
-    const supabase = getBrowserSupabaseClient()
-    await supabase.storage.from('agent-files').remove([path])
+    // Remove from local state; server-side cleanup happens when the agent is saved
     setFileKeys(prev => prev.filter(item => item !== path))
   }
 
@@ -113,10 +160,14 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
         },
         body: JSON.stringify({
           name,
+          domain: domain.trim() || null,
           instructions,
           allowAnonymous,
           fileKeys,
-          tools: toolsPayload
+          tools: toolsPayload,
+          quickSuggestionsMode,
+          quickSuggestionsCount,
+          retrievalStrategy
         })
       })
 
@@ -142,14 +193,20 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
   return (
     <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:bg-card dark:border-border">
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
           <CardHeader>
-            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">Agent basics</CardTitle>
-            <CardDescription className="font-switzer text-gray-secondary">{helperText}</CardDescription>
+            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">
+              Agent basics
+            </CardTitle>
+            <CardDescription className="font-switzer text-gray-secondary">
+              {helperText}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Name</label>
+              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
+                Name
+              </label>
               <Input
                 value={name}
                 onChange={event => setName(event.target.value)}
@@ -157,7 +214,23 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
               />
             </div>
             <div className="space-y-2">
-              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Instructions</label>
+              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
+                Domain
+              </label>
+              <Input
+                value={domain}
+                onChange={event => setDomain(event.target.value)}
+                placeholder="e.g. Arcadia Hotel, job openings in TCS"
+              />
+              <p className="text-xs text-muted-foreground">
+                You are only allowed to discuss about this. e.g. &quot;Arcadia
+                Hotel&quot;, &quot;job openings in TCS&quot;
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
+                Instructions
+              </label>
               <Textarea
                 value={instructions}
                 onChange={event => setInstructions(event.target.value)}
@@ -165,9 +238,11 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 rows={8}
               />
             </div>
-            <div className="flex flex-col gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-background/30 dark:border-border">
+            <div className="bg-beige-bg/30 flex flex-col gap-2 rounded-2xl border border-black-10 p-4 dark:border-border dark:bg-background/30 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">Allow anonymous chat</p>
+                <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
+                  Allow anonymous chat
+                </p>
                 <p className="font-switzer text-xs text-gray-secondary">
                   Visitors can message this agent without signing in.
                 </p>
@@ -183,17 +258,23 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
         {SHOW_TOOLS_AND_CONTEXT && (
           <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg">
             <CardHeader>
-              <CardTitle className="font-switzer text-2xl font-bold text-black-primary">Tools & context</CardTitle>
+              <CardTitle className="font-switzer text-2xl font-bold text-black-primary">
+                Tools & context
+              </CardTitle>
               <CardDescription className="font-switzer text-gray-secondary">
                 Enable optional tools and upload files for RAG.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="font-switzer text-sm font-medium text-black-primary">Tools</p>
+                <p className="font-switzer text-sm font-medium text-black-primary">
+                  Tools
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {toolOptions.map(tool => {
-                    const checked = selectedTools.includes(tool.id as AgentToolType)
+                    const checked = selectedTools.includes(
+                      tool.id as AgentToolType
+                    )
                     return (
                       <Badge
                         key={tool.id}
@@ -214,7 +295,9 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="font-switzer text-sm font-medium text-black-primary">Reference files</label>
+                <label className="font-switzer text-sm font-medium text-black-primary">
+                  Reference files
+                </label>
                 <input
                   type="file"
                   multiple
@@ -252,7 +335,125 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
           </Card>
         )}
 
-        <Button type="submit" disabled={isSubmitting || isUploading} className="w-full rounded-full font-switzer sm:w-auto">
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
+          <CardHeader>
+            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">
+              File Retrieval Strategy
+            </CardTitle>
+            <CardDescription className="font-switzer text-gray-secondary">
+              Controls how this agent reads its uploaded files during
+              conversations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {RETRIEVAL_OPTIONS.map(opt => {
+              const selected = retrievalStrategy === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setRetrievalStrategy(opt.value)}
+                  className={cn(
+                    'flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors',
+                    selected
+                      ? 'border-primary bg-primary/5'
+                      : 'hover:border-muted-foreground/30 hover:bg-muted/40'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border',
+                      selected ? 'border-primary' : 'border-muted-foreground/40'
+                    )}
+                  >
+                    {selected && (
+                      <div className="size-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-medium">{opt.label}</span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {opt.hint}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-3xl border-black-10 bg-purewhite-bg shadow-lg dark:border-border dark:bg-card">
+          <CardHeader>
+            <CardTitle className="font-switzer text-2xl font-bold text-black-primary dark:text-foreground">
+              Quick suggestions
+            </CardTitle>
+            <CardDescription className="font-switzer text-gray-secondary">
+              Show 3–4 clickable suggestions to help users reply faster.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'off' ? 'default' : 'secondary'
+                }
+                className="cursor-pointer"
+                onClick={() => setQuickSuggestionsMode('off')}
+              >
+                Off
+              </Badge>
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'smart' ? 'default' : 'secondary'
+                }
+                className="cursor-pointer"
+                onClick={() => setQuickSuggestionsMode('smart')}
+              >
+                Smart
+              </Badge>
+              <Badge
+                variant={
+                  quickSuggestionsMode === 'always' ? 'default' : 'secondary'
+                }
+                className="cursor-pointer"
+                onClick={() => setQuickSuggestionsMode('always')}
+              >
+                Always
+              </Badge>
+            </div>
+
+            {quickSuggestionsMode !== 'off' && (
+              <div className="bg-beige-bg/30 flex items-center justify-between rounded-2xl border border-black-10 p-4 dark:border-border dark:bg-background/30 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-switzer text-sm font-medium text-black-primary dark:text-foreground">
+                    Suggestions count
+                  </p>
+                  <p className="font-switzer text-xs text-gray-secondary">
+                    Choose how many chips to show.
+                  </p>
+                </div>
+                <Input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={quickSuggestionsCount}
+                  onChange={e =>
+                    setQuickSuggestionsCount(
+                      Math.max(1, Math.min(5, parseInt(e.target.value) || 4))
+                    )
+                  }
+                  className="h-9 w-20 text-center"
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Button
+          type="submit"
+          disabled={isSubmitting || isUploading}
+          className="w-full rounded-full font-switzer sm:w-auto"
+        >
           {isSubmitting ? 'Creating...' : 'Create agent'}
         </Button>
       </form>

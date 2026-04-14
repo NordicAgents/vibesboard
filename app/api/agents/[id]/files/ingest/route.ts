@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { getAgentById } from '@/lib/agents/server'
 import { ingestFileForAgent } from '@/lib/agent/file-search'
-import { type Database } from '@/lib/db_types'
+import { canEditAgent } from '@/lib/agents/permissions'
 
 export const runtime = 'nodejs'
 
@@ -13,17 +12,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
-
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
   const body = await req.json().catch(() => ({}))
   const fileKey = String(body?.fileKey ?? '').trim()
-  const fileName = typeof body?.fileName === 'string' ? body.fileName : undefined
-  const mimeType = typeof body?.mimeType === 'string' ? body.mimeType : undefined
+  const fileName =
+    typeof body?.fileName === 'string' ? body.fileName : undefined
+  const mimeType =
+    typeof body?.mimeType === 'string' ? body.mimeType : undefined
 
   if (!fileKey) {
     return NextResponse.json(
@@ -32,22 +29,24 @@ export async function POST(
     )
   }
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
-  const { data: agent } = await supabase
-    .from('vibe_agents')
-    .select('id,user_id,file_keys')
-    .eq('id', id)
-    .eq('user_id', session.user.id)
-    .maybeSingle()
+  // Find agent via collectionGroup query
+  const agent = await getAgentById(id)
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const fileKeys = Array.isArray(agent.file_keys) ? agent.file_keys : []
+  const canEdit = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  const fileKeys = agent.fileKeys ?? []
   if (!fileKeys.includes(fileKey)) {
     return NextResponse.json(
       { error: 'fileKey is not attached to this agent' },
@@ -57,6 +56,7 @@ export async function POST(
 
   try {
     const result = await ingestFileForAgent({
+      tenantId: agent.tenantId,
       agentId: id,
       fileKey,
       fileName,

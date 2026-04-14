@@ -1,54 +1,49 @@
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { OpenAIStream, StreamingTextResponse } from 'ai'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createOpenAI } from '@ai-sdk/openai'
+import { streamText as aiStreamText, tool } from 'ai'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
 import {
   BUILTIN_AGENT_TOOLS,
   createAgentSlug,
   ensureUniqueSlug
 } from '@/lib/agents/db'
 import { upsertAgentSchema } from '@/lib/agents/schema'
-import { getUserActiveTenant } from '@/lib/permissions'
-import { ensurePersonalTenant } from '@/lib/tenant-context'
+import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
+import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
+import { nanoid } from '@/lib/utils'
+import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
 
 export const runtime = 'nodejs'
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
-
-const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-4o-mini'
+const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-5.4-nano'
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const session = await auth()
 
   if (!session?.user) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
   const json = await req.json()
-  const { messages = [], previewToken } = json ?? {}
+  const {
+    messages = [],
+    previewToken,
+    fileKeys = [],
+    fileNames = []
+  } = json ?? {}
 
-  configuration.apiKey = previewToken ?? process.env.OPENAI_API_KEY
-  if (!configuration.apiKey) {
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY
+  if (!apiKey) {
     return NextResponse.json(
       { error: 'OPENAI_API_KEY is not configured.' },
       { status: 500 }
     )
   }
-
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
 
   const availableTools = Object.values(BUILTIN_AGENT_TOOLS).map(t => ({
     id: t.id,
@@ -58,38 +53,63 @@ export async function POST(req: Request) {
 
   const systemPrompt = `You are an assistant that helps users create a "VibeAgent" through a conversational, step-by-step process.
 
-Your goal: Make agent creation easy and delightful. Guide users progressively through:
-1. Understanding their needs (website URL or files + description)
-2. Suggesting a friendly agent name
-3. Formulating clear instructions
-4. Creating a welcoming greeting message
+**CRITICAL RULE - READ THIS FIRST:**
+NEVER call the create_agent function unless the user EXPLICITLY requests creation with phrases like:
+- "create it", "create the agent", "yes create", "go ahead and create"
+- "make it", "make the agent", "build it"
+- "looks good, create", "yes, let's do it", "go ahead"
+
+Phrases that do NOT mean create (DO NOT call create_agent for these):
+- "sounds good", "looks good" (without explicitly saying create)
+- "maybe", "I think so", "what about..."
+- Any question or request for changes
+- Simply providing information
+
+Your job is to GATHER information, SUGGEST values, and UPDATE the form preview. Only CREATE when explicitly asked.
+
+**Your Goal:**
+Make agent creation easy and delightful. Guide users through understanding their needs before suggesting anything.
 
 **Available Tools:**
-${availableTools
-      .map(t => `- ${t.id}: ${t.name} – ${t.description}`)
-      .join('\n')}
+${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n')}
 
-**Core Process:**
+**Conversational Flow:**
 
-If user provides a **website URL**:
-- Acknowledge you'll analyze it
-- Based on the content (imagine fetching it), suggest a name, instructions, and greeting
-- Ask if they want to adjust anything before creating
+1. **Gather Information First** - Ask 1-2 clarifying questions based on input type:
 
-If user provides **files** (they'll be uploaded separately):
-- Reference the uploaded files in your suggestions
-- Suggest name, instructions, and greeting based on the file context
+   If user provides a **website URL**:
+   - The website content has been automatically fetched and included in the message
+   - Use the fetched content to understand the business/website and suggest a tailored agent
+   - Ask: "What should this agent focus on? Customer support, product info, general questions, or something else?"
 
-If user provides just a **description**:
-- Ask clarifying questions to understand the agent's purpose
-- Suggest name, instructions, and greeting accordingly
+   If user provides **files**:
+   - Acknowledge the uploaded files by name
+   - ALWAYS include "builtin:file_search" in the tools when files are uploaded
+   - When calling create_agent with files, ALWAYS include the fileKeys parameter
+   - Ask: "What kind of questions should this agent help answer based on these files?"
+
+   If user provides a **description**:
+   - Ask one follow-up: "What tone should the agent have? Professional, friendly, casual, or something specific?"
+
+2. **Suggest a Complete Draft** - After gathering enough context:
+   - Suggest name, instructions, and greeting
+   - Include the ~~~agentupdate~~~ block to update the form preview
+   - Ask: "Does this look good? Let me know if you'd like any changes, or say 'create it' when you're ready!"
+
+3. **Wait for Explicit Confirmation** - Only call create_agent when user explicitly confirms
 
 **Required fields to collect:**
 - name (2-120 chars, friendly and clear)
 - instructions (detailed guidance on behavior, tone, and purpose)
 - greetingText (warm, welcoming first message users will see)
 - allowAnonymous (default: true, ask only if relevant)
- - tools (suggest relevant tools based on needs, use tool IDs from the list above)
+- tools (suggest relevant tools based on needs, use tool IDs from the list above)
+- quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
+- quickSuggestionsCount (default: 4; options: 1–5)
+- mode (default: "provider"; options: "provider" | "collector")
+- maxResponses (max AI responses per session; optional, null = unlimited)
+- maxAgentResponses (max total AI responses across all sessions; optional, null = unlimited)
+- retrievalStrategy (default: "direct"; options: "direct" | "rag" | "bash" — use "rag" for large/many files, "bash" for CSV/JSON/YAML structured data, "direct" for small files)
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -99,7 +119,13 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "name": "suggested name",
   "instructions": "suggested instructions",
   "greetingText": "suggested greeting",
-  "tools": ["builtin:search"]
+  "tools": ["builtin:web_fetch"],
+  "quickSuggestionsMode": "smart",
+  "quickSuggestionsCount": 4,
+  "mode": "provider",
+  "maxResponses": null,
+  "maxAgentResponses": null,
+  "retrievalStrategy": "direct"
 }
 ~~~
 
@@ -107,53 +133,74 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
 **Functions to call:**
 
-1. **create_agent** - When user confirms, create the agent with all fields
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[] }
+1. **create_agent** - ONLY when user explicitly says "create it" or similar
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxResponses?: number | null, maxAgentResponses?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5, retrievalStrategy?: "direct" | "rag" | "bash" }
 
 **Interaction style:**
-- Be conversational and encouraging  
+- Be conversational and encouraging
+- Ask clarifying questions to understand the agent's purpose
 - Suggest values and include the agentupdate block so the form updates
 - Be brief but helpful
-- Confirm before calling create_agent`
+- ALWAYS ask "Does this look good?" and wait for explicit creation request`
 
-  const initialMessages = [
-    { role: 'system', content: systemPrompt },
-    ...(Array.isArray(messages) ? messages : [])
-  ]
+  const fileInfoBlock =
+    (fileKeys as string[]).length > 0
+      ? `\n\n**Uploaded Files:**\nThe user has uploaded ${(fileKeys as string[]).length} file(s):\n${(
+          fileNames as Array<{ fileKey: string; name: string }>
+        )
+          .map(f => `- ${f.name}`)
+          .join(
+            '\n'
+          )}\n\nIMPORTANT: When suggesting the agent configuration, ALWAYS include "builtin:file_search" in the tools array.\nWhen calling create_agent, ALWAYS include the fileKeys parameter with these values: ${JSON.stringify(fileKeys)}`
+      : ''
 
-  const createAgentTool = {
-    name: 'create_agent',
-    description: 'Creates the agent with all collected fields when user confirms.',
-    parameters: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', minLength: 2, maxLength: 120 },
-        instructions: { type: 'string', minLength: 10 },
-        greetingText: { type: 'string' },
-        allowAnonymous: { type: 'boolean' },
-        tools: {
-          type: 'array',
-          items: {
-            type: 'string',
-            enum: Object.keys(BUILTIN_AGENT_TOOLS)
-          },
-          description: 'List of builtin tool ids to enable.'
-        },
-        fileKeys: {
-          type: 'array',
-          items: { type: 'string' },
-          description: "Optional uploaded file keys to ground the agent's knowledge."
+  // Detect URLs in user messages and fetch content for the latest one
+  const messageList = Array.isArray(messages) ? messages : []
+  const urlRegex = /https?:\/\/[^\s)>\]]+/g
+
+  // Collect all URLs from all user messages (for sourceUrls storage)
+  const allDetectedUrls = [
+    ...new Set(
+      messageList
+        .filter((m: any) => m.role === 'user')
+        .flatMap((m: any) => m.content?.match(urlRegex) ?? [])
+    )
+  ].slice(0, 5)
+
+  // Fetch content for URLs in the last user message
+  const lastUserMsg = [...messageList]
+    .reverse()
+    .find((m: any) => m.role === 'user')
+
+  if (lastUserMsg?.content) {
+    const urls = (lastUserMsg.content.match(urlRegex) ?? []).slice(0, 3)
+
+    if (urls.length > 0) {
+      const results = await Promise.all(
+        urls.map((u: string) => fetchUrlContent(u))
+      )
+
+      const contentBlocks = results.map(r => {
+        if (r.error) {
+          return `[Website Content from ${r.url}]\nError: Could not fetch content — ${r.error}`
         }
-      },
-      required: ['name', 'instructions', 'greetingText']
+        return [
+          `[Website Content from ${r.url}]`,
+          r.title ? `Title: ${r.title}` : null,
+          r.description ? `Description: ${r.description}` : null,
+          `Content:\n${r.textContent}`
+        ]
+          .filter(Boolean)
+          .join('\n')
+      })
+
+      lastUserMsg.content += '\n\n' + contentBlocks.join('\n\n')
     }
   }
 
-  const tools = [
-    {
-      type: 'function',
-      function: createAgentTool
-    }
+  const initialMessages = [
+    { role: 'system', content: systemPrompt + fileInfoBlock },
+    ...messageList
   ]
 
   const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
@@ -167,118 +214,159 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     instructions: z.string().min(10),
     greetingText: z.string().min(1),
     allowAnonymous: z.boolean().optional(),
+    mode: z.enum(['provider', 'collector']).optional(),
+    maxResponses: z.number().int().min(1).max(500).nullable().optional(),
+    maxAgentResponses: z
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .nullable()
+      .optional(),
+    quickSuggestionsMode: z.enum(['off', 'smart', 'always']).optional(),
+    quickSuggestionsCount: z.number().int().min(1).max(5).optional(),
     tools: z.array(z.string()).optional(),
-    fileKeys: z.array(z.string()).optional()
+    fileKeys: z.array(z.string()).optional(),
+    retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional()
   })
 
-  const response = await openai.createChatCompletion({
-    model,
-    stream: true,
-    temperature: 0.2,
+  const openaiClient = createOpenAI({ apiKey })
+
+  const result = await aiStreamText({
+    model: openaiClient(model),
     messages: initialMessages as any,
-    tools: tools as any,
-    tool_choice: 'auto'
-  } as any)
+    temperature: 0.2,
+    tools: {
+      create_agent: tool({
+        description:
+          'Creates the agent with all collected fields when user confirms.',
+        parameters: createAgentArgsSchema,
+        async execute(args) {
+          const effectiveFileKeys = (
+            args.fileKeys?.length ? args.fileKeys : fileKeys
+          ) as string[]
+          const sanitizedToolIds = (args.tools ?? []).filter(
+            (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS =>
+              toolId in BUILTIN_AGENT_TOOLS
+          )
 
-  const stream = OpenAIStream(response as any, {
-    async experimental_onToolCall(toolCallPayload) {
-      const createAgentCall = toolCallPayload.tools.find(
-        tool => tool.type === 'function' && tool.func?.name === 'create_agent'
-      )
+          if (
+            effectiveFileKeys.length > 0 &&
+            !sanitizedToolIds.includes(
+              'builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS
+            )
+          ) {
+            sanitizedToolIds.push(
+              'builtin:file_search' as keyof typeof BUILTIN_AGENT_TOOLS
+            )
+          }
 
-      if (!createAgentCall) {
-        return
-      }
+          const toolsPayload = sanitizedToolIds.map(toolId => ({
+            id: toolId,
+            type: toolId,
+            name: BUILTIN_AGENT_TOOLS[toolId].name,
+            description: BUILTIN_AGENT_TOOLS[toolId].description
+          }))
 
-      let args: unknown = createAgentCall.func.arguments
-      if (typeof args === 'string') {
-        try {
-          args = JSON.parse(args)
-        } catch {
-          // Leave as-is; validation will fail below.
+          const agentMode = args.mode ?? 'provider'
+          const maxResponses = args.maxResponses ?? null
+          const maxAgentResponses = args.maxAgentResponses ?? null
+
+          const agentPayload = upsertAgentSchema.parse({
+            name: args.name,
+            instructions: args.instructions,
+            greetingText: args.greetingText,
+            allowAnonymous: args.allowAnonymous ?? true,
+            fileKeys: effectiveFileKeys,
+            tools: toolsPayload,
+            sourceUrls: allDetectedUrls,
+            mode: agentMode,
+            maxResponses,
+            maxAgentResponses,
+            quickSuggestionsMode: args.quickSuggestionsMode ?? 'smart',
+            quickSuggestionsCount: args.quickSuggestionsCount ?? 4,
+            retrievalStrategy: args.retrievalStrategy ?? 'direct'
+          })
+
+          const tenantId = await getActiveTenant(session.user.id)
+          if (!tenantId) {
+            return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
+          }
+
+          const tenant = await getTenantById(tenantId)
+          const tenantSlug = tenant?.slug ?? 'unknown'
+          const slug = await ensureUniqueSlug(
+            createAgentSlug(agentPayload.name),
+            tenantId
+          )
+          const agentId = nanoid()
+          const now = new Date().toISOString()
+
+          try {
+            await adminDb
+              .collection(Collections.agents(tenantId))
+              .doc(agentId)
+              .set({
+                id: agentId,
+                userId: session.user.id,
+                tenantId,
+                tenantSlug,
+                name: agentPayload.name,
+                instructions: agentPayload.instructions,
+                fileKeys: agentPayload.fileKeys,
+                tools: agentPayload.tools,
+                allowAnonymous: agentPayload.allowAnonymous,
+                agentUrl: slug,
+                greetingText: agentPayload.greetingText ?? null,
+                mode: agentPayload.mode,
+                maxResponses,
+                maxAgentResponses,
+                totalResponseCount: 0,
+                quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+                quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+                sourceUrls: agentPayload.sourceUrls,
+                retrievalStrategy: agentPayload.retrievalStrategy,
+                createdAt: now,
+                updatedAt: now
+              })
+          } catch (error: any) {
+            console.error('Failed to create agent:', error)
+            return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`
+          }
+
+          if (effectiveFileKeys.length > 0) {
+            createAgentFilesAndTriggerProcessing({
+              agentId,
+              tenantId,
+              userId: session.user.id,
+              fileKeys: effectiveFileKeys
+            }).catch(error => {
+              console.error('[Agent Creator] File processing failed:', error)
+            })
+          }
+
+          return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
+            {
+              name: agentPayload.name,
+              instructions: agentPayload.instructions,
+              greetingText: agentPayload.greetingText ?? '',
+              tools: sanitizedToolIds,
+              allowAnonymous: agentPayload.allowAnonymous,
+              fileKeys: agentPayload.fileKeys,
+              mode: agentPayload.mode,
+              maxResponses,
+              maxAgentResponses,
+              quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+              quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+              retrievalStrategy: agentPayload.retrievalStrategy
+            },
+            null,
+            2
+          )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: agentId })}\n~~~`
         }
-      }
-
-      const parsed = createAgentArgsSchema.safeParse(args)
-      if (!parsed.success) {
-        const errorText = parsed.error.issues.map(i => i.message).join('; ')
-        return `I couldn't create the agent automatically (${errorText}). Please review the form and click “Create Agent”.`
-      }
-
-      const sanitizedToolIds = (parsed.data.tools ?? []).filter(
-        (toolId): toolId is keyof typeof BUILTIN_AGENT_TOOLS =>
-          toolId in BUILTIN_AGENT_TOOLS
-      )
-
-      const toolsPayload = sanitizedToolIds.map(toolId => ({
-        id: toolId,
-        type: toolId,
-        name: BUILTIN_AGENT_TOOLS[toolId].name,
-        description: BUILTIN_AGENT_TOOLS[toolId].description
-      }))
-
-      const payload = upsertAgentSchema.parse({
-        name: parsed.data.name,
-        instructions: parsed.data.instructions,
-        greetingText: parsed.data.greetingText,
-        allowAnonymous: parsed.data.allowAnonymous ?? true,
-        fileKeys: parsed.data.fileKeys ?? [],
-        tools: toolsPayload
       })
-
-      // Resolve the tenant the new agent should belong to.
-      let tenantId = await getUserActiveTenant(session.user.id)
-      if (!tenantId) {
-        try {
-          tenantId = await ensurePersonalTenant(session.user.id)
-        } catch (error) {
-          console.error('Failed to ensure personal tenant:', error)
-        }
-      }
-
-      if (!tenantId) {
-        return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
-      }
-
-      const slug = await ensureUniqueSlug(createAgentSlug(payload.name), supabase)
-
-      const { data, error } = await supabase
-        .from('vibe_agents')
-        .insert({
-          user_id: session.user.id,
-          tenant_id: tenantId,
-          name: payload.name,
-          instructions: payload.instructions,
-          file_keys: payload.fileKeys,
-          tools: payload.tools,
-          allow_anonymous: payload.allowAnonymous,
-          agent_url: slug,
-          ...(payload.greetingText !== undefined
-            ? { greeting_text: payload.greetingText }
-            : {})
-        })
-        .select('id')
-        .single()
-
-      if (error || !data) {
-        console.error('Failed to create agent:', error)
-        return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click “Create Agent” in the preview panel.`
-      }
-
-      return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
-        {
-          name: payload.name,
-          instructions: payload.instructions,
-          greetingText: payload.greetingText ?? '',
-          tools: sanitizedToolIds,
-          allowAnonymous: payload.allowAnonymous,
-          fileKeys: payload.fileKeys
-        },
-        null,
-        2
-      )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: data.id })}\n~~~`
     }
   })
 
-  return new StreamingTextResponse(stream)
+  return result.toTextStreamResponse()
 }

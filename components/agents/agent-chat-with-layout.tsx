@@ -1,545 +1,611 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import { type AgentSharePayload, type VibeAgent, type VibeAgentConversation } from '@/lib/types'
-import { getDisplayTools } from '@/lib/agents/tooling'
-import { formatDate } from '@/lib/utils'
+import {
+  type AgentSharePayload,
+  type VibeAgent,
+  type VibeAgentConversation
+} from '@/lib/types'
+import { formatDate, cn } from '@/lib/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
+import { useSecondarySidebarSetter } from '@/components/layouts/secondary-sidebar-context'
 import {
   DashboardSidebar,
   DashboardSidebarSection,
   DashboardSidebarItem
 } from '@/components/layouts/dashboard-sidebar'
-import { DashboardPanel, DashboardPanelSection } from '@/components/layouts/dashboard-panel'
 import { useAgentPageShell } from '@/components/agents/agent-page-shell-context'
+import { useSidebar } from '@/components/sidebar-context'
+import { AgentDashboardTabs } from '@/components/agents/agent-dashboard-tabs'
+import { AgentFocusView } from '@/components/agents/agent-focus-view'
 import { AgentAskChat } from '@/components/agents/agent-ask-chat'
-import { ConversationModal } from '@/components/agents/conversation-modal'
-import { Badge } from '@/components/ui/badge'
+import { ConversationView } from '@/components/agents/conversation-modal'
+import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
-import { IconExternalLink, IconFile, IconRefresh } from '@/components/ui/icons'
-import { QrCode } from '@/components/qr-code'
+import { IconRefresh, IconMessage } from '@/components/ui/icons'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
+import { LayoutDashboard, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
 
 interface AgentChatWithLayoutProps {
-    agent: VibeAgent
-    ownerId: string
-    ownerSessions: VibeAgentConversation[]
-    visitorSessions: VibeAgentConversation[]
-    hasUnsyncedConversations: boolean
-    share: AgentSharePayload
+  agent: VibeAgent
+  ownerId: string
+  ownerSessions: VibeAgentConversation[]
+  visitorSessions: VibeAgentConversation[]
+  handoffConversations?: VibeAgentConversation[]
+  hasUnsyncedConversations: boolean
+  share: AgentSharePayload
+  activeTab?: string | null
+  canEdit: boolean
 }
 
 export function AgentChatWithLayout({
-    agent,
-    ownerId,
-    ownerSessions,
-    visitorSessions,
-    hasUnsyncedConversations,
-    share
+  agent,
+  ownerId,
+  ownerSessions,
+  visitorSessions,
+  handoffConversations = [],
+  hasUnsyncedConversations,
+  share,
+  activeTab,
+  canEdit
 }: AgentChatWithLayoutProps) {
-    const router = useRouter()
-    const searchParams = useSearchParams()
-    const agentPageShell = useAgentPageShell()
-    const isPageShellSidebarOpen = agentPageShell?.isSidebarOpen ?? false
-    const [activeSessionId, setActiveSessionId] = React.useState<string | null>(() => {
-        const sessionParam = searchParams.get('session')
-        if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
-            return sessionParam
-        }
-        return ownerSessions[0]?.id ?? null
-    })
-    const [selectedConversation, setSelectedConversation] = React.useState<VibeAgentConversation | null>(null)
-    const [isModalOpen, setIsModalOpen] = React.useState(false)
-    const [visitorPage, setVisitorPage] = React.useState(1)
-    const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
-    const [syncingEmbeddings, setSyncingEmbeddings] = React.useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const agentPageShell = useAgentPageShell()
+  const { isSidebarOpen, setIsSidebarOpen: setMainSidebarOpen } = useSidebar()
+  const setSecondarySidebar = useSecondarySidebarSetter()
+  const [viewMode, setViewMode] = useLocalStorage<'focus' | 'advanced'>(
+    'agent-view-mode',
+    'focus'
+  )
 
-    // Sync activeSessionId with URL
-    React.useEffect(() => {
-        const sessionParam = searchParams.get('session')
-        if (sessionParam && sessionParam !== activeSessionId) {
-            const found = ownerSessions.find(session => session.id === sessionParam)
-            if (found) {
-                setActiveSessionId(sessionParam)
-            }
-        } else if (!sessionParam && activeSessionId) {
-            setActiveSessionId(null)
-        }
-    }, [searchParams, ownerSessions, activeSessionId])
+  // If URL has a ?tab= param, force advanced mode
+  const effectiveViewMode = activeTab ? 'advanced' : viewMode
 
-    const handleSelectSession = (sessionId: string | null) => {
-        setActiveSessionId(sessionId)
+  const setAgentSidebarOpen = agentPageShell?.setIsSidebarOpen
+  const wasConfiguringRef = React.useRef(false)
+
+  // Sync sidebar (Dashboard vs Ask AI) with the URL
+  // Only auto-close when activeTab changes to null AND we're not in focus mode
+  React.useEffect(() => {
+    if (!setAgentSidebarOpen) return
+    if (activeTab) {
+      setAgentSidebarOpen(canEdit)
+    }
+    // When no tab param: don't force-close — let focus mode keep the sidebar open
+    // if it was explicitly opened via the Dashboard button
+  }, [activeTab, setAgentSidebarOpen, canEdit])
+
+  // Collapse main sidebar only on the transition into configure mode
+  React.useEffect(() => {
+    const isConfiguring = Boolean(agentPageShell?.isSidebarOpen)
+    if (isConfiguring && !wasConfiguringRef.current) {
+      setMainSidebarOpen(false)
+    }
+    wasConfiguringRef.current = isConfiguring
+  }, [agentPageShell?.isSidebarOpen, setMainSidebarOpen])
+
+  const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
+    () => {
+      const sessionParam = searchParams.get('session')
+      if (sessionParam && ownerSessions.find(s => s.id === sessionParam)) {
+        return sessionParam
+      }
+      return ownerSessions[0]?.id ?? null
+    }
+  )
+  const [selectedConversation, setSelectedConversation] =
+    React.useState<VibeAgentConversation | null>(null)
+  const [visitorPage, setVisitorPage] = React.useState(1)
+  const [refreshingSummaries, setRefreshingSummaries] = React.useState(false)
+  const [deletingConversationId, setDeletingConversationId] = React.useState<
+    string | null
+  >(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const handleDeleteConversation = React.useCallback(async () => {
+    if (!deletingConversationId) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(
+        `/api/agents/${agent.id}/conversations/${deletingConversationId}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error('Failed to delete')
+      toast.success('Conversation deleted')
+      if (selectedConversation?.id === deletingConversationId) {
+        setSelectedConversation(null)
+      }
+      router.refresh()
+    } catch {
+      toast.error('Failed to delete conversation')
+    } finally {
+      setIsDeleting(false)
+      setDeletingConversationId(null)
+    }
+  }, [deletingConversationId, agent.id, selectedConversation?.id, router])
+
+  // Sync activeSessionId with URL
+  React.useEffect(() => {
+    const sessionParam = searchParams.get('session')
+    if (sessionParam && sessionParam !== activeSessionId) {
+      const found = ownerSessions.find(session => session.id === sessionParam)
+      if (found) {
+        setActiveSessionId(sessionParam)
+      }
+    } else if (!sessionParam && activeSessionId) {
+      setActiveSessionId(null)
+    }
+  }, [searchParams, ownerSessions, activeSessionId])
+
+  const handleSelectSession = React.useCallback(
+    (sessionId: string | null) => {
+      setActiveSessionId(sessionId)
+      if (!canEdit) {
         if (sessionId) {
-            router.push(`/agents/${agent.id}?session=${sessionId}`)
-        } else {
-            router.push(`/agents/${agent.id}`)
+          router.push(`/agents/${agent.id}/conversations/${sessionId}`)
+          return
         }
+        router.push(`/agents/${agent.id}/conversations/new`)
+        return
+      }
+      if (sessionId) {
+        router.push(`/agents/${agent.id}?session=${sessionId}`)
+        return
+      }
+      router.push(`/agents/${agent.id}`)
+    },
+    [agent.id, router, canEdit]
+  )
+
+  const handleOpenConversation = React.useCallback(
+    (conversation: VibeAgentConversation) => {
+      setSelectedConversation(conversation)
+    },
+    []
+  )
+
+  const handleNewChat = React.useCallback(() => {
+    setActiveSessionId(null)
+    if (!canEdit) {
+      router.push(`/agents/${agent.id}/conversations/new`)
+      return
     }
+    router.push(`/agents/${agent.id}`)
+  }, [agent.id, router, canEdit])
 
-    const handleOpenConversation = (conversation: VibeAgentConversation) => {
-        setSelectedConversation(conversation)
-        setIsModalOpen(true)
+  const handleRefreshSummaries = React.useCallback(async () => {
+    setRefreshingSummaries(true)
+    try {
+      await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
+        method: 'POST'
+      })
+      router.refresh()
+    } finally {
+      setRefreshingSummaries(false)
     }
+  }, [agent.id, router])
 
-    const handleNewChat = () => {
-        setActiveSessionId(null)
-        router.push(`/agents/${agent.id}`)
+  // Pagination for visitor conversations
+  const itemsPerPage = 5
+  const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
+  const startIndex = (visitorPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedVisitorSessions = React.useMemo(
+    () => visitorSessions.slice(startIndex, endIndex),
+    [visitorSessions, startIndex, endIndex]
+  )
+
+  // Reset to page 1 if current page is out of bounds
+  React.useEffect(() => {
+    if (visitorPage > totalVisitorPages && totalVisitorPages > 0) {
+      setVisitorPage(1)
     }
+  }, [visitorPage, totalVisitorPages])
 
-    const handleRefreshSummaries = async () => {
-        setRefreshingSummaries(true)
-        try {
-            await fetch(`/api/agents/${agent.id}/conversations/refresh-summaries`, {
-                method: 'POST'
-            })
-            router.refresh()
-        } finally {
-            setRefreshingSummaries(false)
-        }
-    }
+  const sidebar = React.useMemo(
+    () => (
+      <DashboardSidebar>
+        {/* Agent Info */}
+        <div className="mb-4 rounded-xl border border-[#e4e3e3] bg-[#e6ede6]/40 p-4 dark:border-[#344348] dark:bg-[#344348]/40">
+          <h3 className="truncate font-sans text-base font-medium tracking-tight text-[#222f30] dark:text-[#f5f8f7]">
+            {agent.name}
+          </h3>
+        </div>
 
-    const handleSyncEmbeddings = async () => {
-        if (syncingEmbeddings || !hasUnsyncedConversations) {
-            return
-        }
-        setSyncingEmbeddings(true)
-        try {
-            await fetch(`/api/agents/${agent.id}/conversations/sync-embeddings`, {
-                method: 'POST'
-            })
-            router.refresh()
-        } finally {
-            setSyncingEmbeddings(false)
-        }
-    }
+        {!canEdit && (
+          <div className="mb-4 rounded-lg border border-dashed border-[#e4e3e3] bg-[#e6ede6]/30 px-4 py-3 text-sm text-[#445e5f] dark:border-[#344348] dark:bg-[#344348]/20 dark:text-[#6f7f80]">
+            Read-only (ask a tenant admin to edit)
+          </div>
+        )}
 
-    const lastConversationAt = ownerSessions[0]?.updatedAt
-    const displayTools = getDisplayTools(agent.tools)
-    const [copiedShare, setCopiedShare] = React.useState(false)
-
-    // Pagination for visitor conversations
-    const itemsPerPage = 5
-    const totalVisitorPages = Math.ceil(visitorSessions.length / itemsPerPage)
-    const startIndex = (visitorPage - 1) * itemsPerPage
-    const endIndex = startIndex + itemsPerPage
-    const paginatedVisitorSessions = visitorSessions.slice(startIndex, endIndex)
-
-    // Reset to page 1 if current page is out of bounds
-    React.useEffect(() => {
-        if (visitorPage > totalVisitorPages && totalVisitorPages > 0) {
-            setVisitorPage(1)
-        }
-    }, [visitorPage, totalVisitorPages])
-
-    const handleCopyShare = async () => {
-        try {
-            await navigator.clipboard?.writeText(share.url)
-            setCopiedShare(true)
-            setTimeout(() => setCopiedShare(false), 1200)
-        } catch {
-            // noop
-        }
-    }
-
-    const sidebar = (
-        <DashboardSidebar>
-            {/* Agent Info */}
-            <div className="mb-4 rounded-2xl border border-black-10 bg-beige-bg/30 p-4 dark:bg-background/30 dark:border-border">
-                <h3 className="font-switzer text-lg font-bold text-black-primary dark:text-foreground">
-                    {agent.name}
-                </h3>
-            </div>
-
-            {/* Visitor conversations */}
-            <DashboardSidebarSection
-                title="Visitor conversations"
-                action={
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-7 w-7 rounded-full p-0"
-                        onClick={handleRefreshSummaries}
-                        disabled={refreshingSummaries}
-                        title="Refresh summaries"
-                        aria-label="Refresh summaries"
-                    >
-                        <IconRefresh className={refreshingSummaries ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-                    </Button>
+        {/* Navigation */}
+        <div
+          className={`mb-4 grid gap-2 ${canEdit ? 'grid-cols-2' : 'grid-cols-1'}`}
+        >
+          {canEdit && (
+            <Button
+              variant={agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+              size="sm"
+              className="justify-start gap-2 px-2"
+              data-mobile-menu-close="true"
+              onClick={() => {
+                setSelectedConversation(null)
+                setAgentSidebarOpen?.(true)
+                if (viewMode === 'focus') {
+                  router.push(`/agents/${agent.id}`)
+                } else {
+                  const params = new URLSearchParams(searchParams.toString())
+                  params.set('tab', 'setup')
+                  params.delete('configure')
+                  router.push(`/agents/${agent.id}?${params.toString()}`)
                 }
+              }}
             >
-                {visitorSessions.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-black-10 px-3 py-2 text-sm text-gray-secondary dark:border-border">
-                        No visitor chats yet.
-                    </div>
-                )}
-                {paginatedVisitorSessions.map((session) => (
-                    <DashboardSidebarItem
-                        key={session.id}
-                        className="bg-purewhite-bg dark:bg-background"
-                        onClick={() => handleOpenConversation(session)}
-                    >
-                        <div className="truncate font-medium">
-                            {session.summary || session.messages.at(-1)?.content || 'Visitor conversation'}
-                        </div>
-                        <div className="text-[11px] text-gray-secondary">
-                            Updated {formatDate(session.updatedAt)}
-                        </div>
-                    </DashboardSidebarItem>
-                ))}
-                {visitorSessions.length > itemsPerPage && (
-                    <div className="flex items-center justify-between gap-2 pt-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
-                            disabled={visitorPage === 1}
-                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
-                        >
-                            Previous
-                        </Button>
-                        <span className="text-[11px] text-gray-secondary font-switzer">
-                            Page {visitorPage} of {totalVisitorPages}
-                        </span>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setVisitorPage(prev => Math.min(totalVisitorPages, prev + 1))}
-                            disabled={visitorPage === totalVisitorPages}
-                            className="h-7 rounded-full px-3 text-[11px] font-switzer"
-                        >
-                            Next
-                        </Button>
-                    </div>
-                )}
-            </DashboardSidebarSection>
+              <LayoutDashboard className="size-4" />
+              Dashboard
+            </Button>
+          )}
+          <Button
+            variant={!agentPageShell?.isSidebarOpen ? 'secondary' : 'ghost'}
+            size="sm"
+            className="justify-start gap-2 px-2"
+            data-mobile-menu-close="true"
+            onClick={() => {
+              setSelectedConversation(null)
+              if (!canEdit) {
+                router.push(`/agents/${agent.id}/conversations/new`)
+                return
+              }
+              setAgentSidebarOpen?.(false)
+              const params = new URLSearchParams(searchParams.toString())
+              params.delete('tab')
+              params.delete('configure')
+              const query = params.toString()
+              router.push(
+                query ? `/agents/${agent.id}?${query}` : `/agents/${agent.id}`
+              )
+            }}
+          >
+            <IconMessage className="size-4" />
+            {canEdit ? 'Ask AI' : 'Chat'}
+          </Button>
+        </div>
 
-            {/* Conversations */}
-            <DashboardSidebarSection 
-                title="My Chat History"
-                action={
-                    <button
-                        onClick={handleNewChat}
-                        className="flex h-5 w-5 items-center justify-center rounded text-xs text-gray-secondary transition-colors hover:text-black-primary dark:hover:text-foreground"
-                        aria-label="New conversation"
-                    >
-                        +
-                    </button>
-                }
-            >
-                {ownerSessions.slice(0, 10).map((session) => (
-                    <DashboardSidebarItem
-                        key={session.id}
-                        active={activeSessionId === session.id}
-                        onClick={() => handleSelectSession(session.id)}
-                    >
-                        <div className="truncate">
-                            {session.summary || 'Untitled conversation'}
-                        </div>
-                    </DashboardSidebarItem>
-                ))}
-            </DashboardSidebarSection>
-        </DashboardSidebar>
-    )
-
-    const [isEditing, setIsEditing] = React.useState(false)
-
-    const rightPanel = isEditing ? (
-        <DashboardPanel title="Configure Agent">
-            {/* Agent card */}
-            <DashboardPanelSection>
-                <div className="space-y-3 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 dark:border-border dark:bg-background/30">
-                    <div className="space-y-2">
-                        <label className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                            Name
-                        </label>
-                        <input
-                            type="text"
-                            value={agent.name}
-                            className="w-full rounded-xl border border-black-10 bg-background px-3 py-2 text-sm font-switzer text-black-primary focus:outline-none focus:ring-2 focus:ring-black-primary/20 dark:border-border dark:bg-muted dark:text-foreground"
-                            readOnly
-                        />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Allow anonymous chat
-                            </p>
-                            <p className="text-xs text-gray-secondary">
-                                Require sign-in when disabled.
-                            </p>
-                        </div>
-                        <button
-                            className={`relative h-6 w-11 rounded-full transition-colors ${agent.allowAnonymous ? 'bg-black-primary dark:bg-primary' : 'bg-gray-200 dark:bg-muted'}`}
-                            disabled
-                        >
-                            <span
-                                className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition-transform ${agent.allowAnonymous ? 'translate-x-5' : 'translate-x-0'}`}
-                            />
-                        </button>
-                    </div>
-                </div>
-            </DashboardPanelSection>
-
-            {/* Instructions */}
-            <DashboardPanelSection
-                title="Instructions"
-                description="What the assistant follows."
-            >
-                <pre className="whitespace-pre-wrap rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
-                    {agent.instructions}
-                </pre>
-            </DashboardPanelSection>
-
-            {/* Greeting */}
-            <DashboardPanelSection
-                title="Greeting"
-                description="Initial greeting message."
-            >
-                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
-                    {agent.greetingText ?? 'Hi! How can I help you today?'}
-                </div>
-            </DashboardPanelSection>
-
-            {/* Tools Section */}
-            <DashboardPanelSection
-                title="Tools"
-                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
-            >
-                {displayTools.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                        {displayTools.map((tool) => (
-                            <span
-                                key={tool.id}
-                                className="rounded-full bg-beige-bg px-2 py-1 font-switzer text-xs text-black-primary dark:bg-muted dark:text-foreground"
-                            >
-                                {tool.name}
-                            </span>
-                        ))}
-                    </div>
-                )}
-            </DashboardPanelSection>
-
-            {/* Files Section */}
-            <DashboardPanelSection
-                title="Reference Files"
-                description={agent.fileKeys.length > 0 ? `${agent.fileKeys.length} uploaded` : 'None uploaded'}
-            >
-                {agent.fileKeys.length > 0 && (
-                    <div className="space-y-2">
-                        {agent.fileKeys.slice(0, 5).map((key) => (
-                            <div
-                                key={key}
-                                className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-2 dark:border-border dark:bg-background/30"
-                            >
-                                <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
-                                <span className="truncate font-switzer text-xs text-black-primary dark:text-foreground">
-                                    {key.split('/').pop()?.replace(/^\d+-/, '') || key}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </DashboardPanelSection>
-
-            <div className="pt-2">
-                <button
-                    onClick={() => setIsEditing(false)}
-                    className="w-full rounded-full bg-black-primary py-2 font-switzer text-sm font-medium text-white transition-colors hover:bg-black-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
-                >
-                    Done
-                </button>
-            </div>
-        </DashboardPanel>
-    ) : (
-        <DashboardPanel title="Agent Details">
-            {/* Overview */}
-            <DashboardPanelSection
-                title="Overview"
-                description="Key info about how this agent is configured."
-            >
-                <div className="rounded-2xl border border-black-10 bg-beige-bg/30 p-3 font-switzer text-xs text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
-                    <div className="flex flex-wrap gap-x-6 gap-y-3">
-                        <div>
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Visibility
-                            </p>
-                            <p className="mt-0.5">
-                                {agent.allowAnonymous
-                                    ? 'Public – anonymous chat allowed'
-                                    : 'Public – sign in required'}
-                            </p>
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Created
-                            </p>
-                            <p className="mt-0.5">{formatDate(agent.createdAt)}</p>
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Last updated
-                            </p>
-                            <p className="mt-0.5">
-                                {formatDate(lastConversationAt ?? agent.updatedAt)}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-background px-3 py-2 text-xs dark:bg-muted">
-                        <div className="min-w-0">
-                            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-gray-secondary">
-                                Public link
-                            </p>
-                            <p className="truncate text-black-primary dark:text-foreground">
-                                /a/{agent.agentUrl}
-                            </p>
-                        </div>
-                        <Link
-                            href={`/a/${agent.agentUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-black-10 text-gray-secondary transition-colors hover:text-black-primary dark:border-border dark:hover:text-foreground"
-                        >
-                            <IconExternalLink className="h-4 w-4" />
-                        </Link>
-                    </div>
-                </div>
-            </DashboardPanelSection>
-
-            <div className="pt-2">
-                <button
-                    onClick={() => setIsEditing(true)}
-                    className="w-full rounded-full bg-black-primary py-2 font-switzer text-sm font-medium text-white transition-colors hover:bg-black-primary/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
-                >
-                    Configure Agent
-                </button>
-            </div>
-
-            {/* Share & QR */}
-            <DashboardPanelSection
-                title="Share"
-                description="Share this agent via link or QR code."
-            >
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-3 text-xs font-switzer text-black-primary dark:border-border dark:bg-background/30 dark:text-foreground">
-                        <span className="truncate">{share.url}</span>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            className="h-7 rounded-full px-3 text-[11px]"
-                            onClick={handleCopyShare}
-                        >
-                            {copiedShare ? 'Copied' : 'Copy'}
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 rounded-full p-0"
-                            asChild
-                        >
-                            <Link href={share.url} target="_blank" rel="noopener noreferrer">
-                                <IconExternalLink className="h-3.5 w-3.5" />
-                            </Link>
-                        </Button>
-                    </div>
-                    <div className="flex items-center justify-center">
-                        <QrCode dataUrl={share.qrDataUrl} size={140} />
-                    </div>
-                </div>
-            </DashboardPanelSection>
-
-            {/* Tools Section */}
-            <DashboardPanelSection
-                title="Tools"
-                description={displayTools.length > 0 ? `${displayTools.length} enabled` : 'None enabled'}
-            >
-                {displayTools.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                        {displayTools.map((tool) => (
-                            <Badge key={tool.id} variant="secondary" className="font-switzer text-xs">
-                                {tool.name}
-                            </Badge>
-                        ))}
-                    </div>
-                )}
-            </DashboardPanelSection>
-
-            {/* Files Section */}
-            <DashboardPanelSection
-                title="Reference Files"
-                description={agent.fileKeys.length > 0 ? `${agent.fileKeys.length} uploaded` : 'None uploaded'}
-            >
-                {agent.fileKeys.length > 0 && (
-                    <div className="space-y-2">
-                        {agent.fileKeys.slice(0, 5).map((key) => (
-                            <div
-                                key={key}
-                                className="flex items-center gap-2 rounded-2xl border border-black-10 bg-beige-bg/30 p-2 dark:bg-background/30 dark:border-border"
-                            >
-                                <IconFile className="h-4 w-4 flex-shrink-0 text-gray-secondary" />
-                                <span className="truncate font-switzer text-xs text-black-primary dark:text-foreground">
-                                    {key.split('/').pop()?.replace(/^\d+-/, '') || key}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </DashboardPanelSection>
-
-            <DashboardPanelSection
-                title="Data sync"
-                description="Rebuild embeddings for Ask AI when you want deeper history search."
-            >
-                <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs text-gray-secondary">
-                        <div>
-                            Last sync:{' '}
-                            {agent.lastEmbeddingsSyncAt
-                                ? formatDate(agent.lastEmbeddingsSyncAt)
-                                : 'Never'}
-                        </div>
-                        {!hasUnsyncedConversations && (
-                            <div>No new responses since last sync.</div>
-                        )}
-                    </div>
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        className="rounded-full px-3 text-[11px]"
-                        disabled={!hasUnsyncedConversations || syncingEmbeddings}
-                        onClick={handleSyncEmbeddings}
-                    >
-                        {syncingEmbeddings
-                            ? 'Syncing...'
-                            : hasUnsyncedConversations
-                                ? 'Sync conversations'
-                                : 'Up to date'}
-                    </Button>
-                </div>
-            </DashboardPanelSection>
-
-        </DashboardPanel>
-    )
-
-    return (
-        <>
-            <DashboardLayout
-              sidebar={sidebar}
-              rightPanel={rightPanel}
-              hideRightPanel={isPageShellSidebarOpen}
-            >
-                <AgentAskChat
-                    agent={agent}
-                    ownerId={ownerId}
-                    ownerSessions={ownerSessions}
+        {/* Visitor Chat History */}
+        {canEdit && (
+          <DashboardSidebarSection
+            title="Visitor Chat History"
+            action={
+              <Button
+                size="sm"
+                variant="secondary"
+                className="size-7 rounded-full p-0"
+                onClick={handleRefreshSummaries}
+                disabled={refreshingSummaries}
+                title="Refresh summaries"
+                aria-label="Refresh summaries"
+              >
+                <IconRefresh
+                  className={
+                    refreshingSummaries ? 'size-3.5 animate-spin' : 'size-3.5'
+                  }
                 />
-            </DashboardLayout>
-            <ConversationModal
-                conversation={selectedConversation}
-                open={isModalOpen}
-                onOpenChange={setIsModalOpen}
+              </Button>
+            }
+          >
+            {visitorSessions.length === 0 && (
+              <div className="rounded-lg border border-dashed border-[#e4e3e3] px-3 py-2 text-sm text-[#6f7f80] dark:border-[#344348]">
+                No visitor chats yet.
+              </div>
+            )}
+            {paginatedVisitorSessions.map(session => {
+              const label = getConversationPreview(
+                session.messages,
+                session.summary
+              )
+              const isSelected = selectedConversation?.id === session.id
+
+              return (
+                <DashboardSidebarItem
+                  key={session.id}
+                  active={isSelected}
+                  className={cn(
+                    'group',
+                    isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
+                  )}
+                  onClick={() => handleOpenConversation(session)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {session.handedOff && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Handoff
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] text-gray-secondary">
+                      Updated {formatDate(session.updatedAt)}
+                    </div>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        setDeletingConversationId(session.id)
+                      }}
+                      className="ml-1 shrink-0 rounded p-0.5 text-gray-secondary opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100 dark:hover:text-red-400"
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </DashboardSidebarItem>
+              )
+            })}
+            {visitorSessions.length > itemsPerPage && (
+              <div className="flex items-center justify-between gap-2 pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setVisitorPage(prev => Math.max(1, prev - 1))}
+                  disabled={visitorPage === 1}
+                  className="h-7 rounded-full px-3 font-switzer text-[11px]"
+                >
+                  Previous
+                </Button>
+                <span className="font-switzer text-[11px] text-gray-secondary">
+                  Page {visitorPage} of {totalVisitorPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setVisitorPage(prev =>
+                      Math.min(totalVisitorPages, prev + 1)
+                    )
+                  }
+                  disabled={visitorPage === totalVisitorPages}
+                  className="h-7 rounded-full px-3 font-switzer text-[11px]"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </DashboardSidebarSection>
+        )}
+
+        {/* Handoff Conversations */}
+        {canEdit && handoffConversations.length > 0 && (
+          <DashboardSidebarSection title="Handoff Conversations">
+            {handoffConversations.map(session => {
+              const label = getConversationPreview(
+                session.messages,
+                session.summary
+              )
+              const sourceAgent = session.handoffChain?.at(-1)
+              const isSelected = selectedConversation?.id === session.id
+
+              return (
+                <DashboardSidebarItem
+                  key={session.id}
+                  active={isSelected}
+                  className={
+                    isSelected ? undefined : 'bg-[#f5f8f7] dark:bg-[#192425]'
+                  }
+                  onClick={() => handleOpenConversation(session)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="truncate font-medium" title={label}>
+                      {label}
+                    </div>
+                    {sourceAgent && (
+                      <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                        From {sourceAgent.fromAgentName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-gray-secondary">
+                    Updated {formatDate(session.updatedAt)}
+                  </div>
+                </DashboardSidebarItem>
+              )
+            })}
+          </DashboardSidebarSection>
+        )}
+
+        {/* Conversations */}
+        <DashboardSidebarSection
+          title="My Chat History"
+          action={
+            <button
+              onClick={handleNewChat}
+              data-mobile-menu-close="true"
+              className="flex size-5 items-center justify-center rounded text-xs text-[#6f7f80] transition-colors hover:text-[#222f30] dark:hover:text-[#f5f8f7]"
+              aria-label="New conversation"
+            >
+              +
+            </button>
+          }
+        >
+          {ownerSessions.slice(0, 10).map(session => (
+            <DashboardSidebarItem
+              key={session.id}
+              active={activeSessionId === session.id}
+              onClick={() => handleSelectSession(session.id)}
+            >
+              <div className="truncate">
+                {getConversationPreview(
+                  session.messages,
+                  session.summary,
+                  'Untitled conversation'
+                )}
+              </div>
+            </DashboardSidebarItem>
+          ))}
+        </DashboardSidebarSection>
+      </DashboardSidebar>
+    ),
+    [
+      activeSessionId,
+      agent.id,
+      agent.name,
+      agentPageShell?.isSidebarOpen,
+      canEdit,
+      handleNewChat,
+      handleOpenConversation,
+      handleRefreshSummaries,
+      handleSelectSession,
+      handoffConversations,
+      ownerSessions,
+      paginatedVisitorSessions,
+      refreshingSummaries,
+      router,
+      searchParams,
+      selectedConversation?.id,
+      setAgentSidebarOpen,
+      totalVisitorPages,
+      visitorPage,
+      viewMode,
+      visitorSessions.length,
+      setDeletingConversationId
+    ]
+  )
+
+  React.useEffect(() => {
+    setSecondarySidebar(sidebar)
+    return () => {
+      setSecondarySidebar(null)
+    }
+  }, [setSecondarySidebar, sidebar])
+
+  return (
+    <>
+      <DashboardLayout sidebar={!isSidebarOpen ? sidebar : undefined}>
+        {selectedConversation ? (
+          <div className="h-full overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
+            <ConversationView
+              conversation={selectedConversation}
+              onClose={() => setSelectedConversation(null)}
+              agentId={agent.id}
+              agentName={agent.name}
+              canReply={
+                canEdit &&
+                !!selectedConversation.externalId?.startsWith('chatwoot:')
+              }
+              canDelete={canEdit}
+              onConversationUpdate={() => router.refresh()}
+              onDelete={() =>
+                setDeletingConversationId(selectedConversation.id)
+              }
             />
-        </>
-    )
+          </div>
+        ) : agentPageShell?.isSidebarOpen && canEdit ? (
+          effectiveViewMode === 'focus' ? (
+            <div className="h-full bg-[#f7f7f5] dark:bg-[#222f30]">
+              <AgentFocusView
+                agent={agent}
+                share={share}
+                canEdit={canEdit}
+                onSwitchToAdvanced={() => {
+                  setViewMode('advanced')
+                  router.push(`/agents/${agent.id}?tab=setup`)
+                }}
+              />
+            </div>
+          ) : (
+            <div className="h-full overflow-y-auto bg-[#f7f7f5] p-4 dark:bg-[#222f30]">
+              <AgentDashboardTabs
+                agent={agent}
+                share={share}
+                canEdit={canEdit}
+                defaultTab={activeTab || 'setup'}
+                onSwitchToFocus={() => {
+                  setViewMode('focus')
+                  router.push(`/agents/${agent.id}`)
+                }}
+              />
+            </div>
+          )
+        ) : canEdit ? (
+          <AgentAskChat
+            agent={agent}
+            ownerId={ownerId}
+            ownerSessions={ownerSessions}
+          />
+        ) : (
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
+            <div className="rounded-xl border border-[#e4e3e3] bg-[#f5f8f7] p-6 dark:border-[#344348] dark:bg-[#192425]">
+              <h1 className="font-sans text-xl font-medium tracking-tight text-[#222f30] dark:text-[#f5f8f7]">
+                Read-only access
+              </h1>
+              <p className="mt-2 text-sm text-[#445e5f] dark:text-[#6f7f80]">
+                Analytics and configuration are available to the agent owner and
+                tenant admins.
+              </p>
+              <div className="mt-4 flex gap-2">
+                <Button
+                  onClick={() => {
+                    if (activeSessionId) {
+                      router.push(
+                        `/agents/${agent.id}/conversations/${activeSessionId}`
+                      )
+                      return
+                    }
+                    router.push(`/agents/${agent.id}/conversations/new`)
+                  }}
+                >
+                  Open chat
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </DashboardLayout>
+
+      <AlertDialog
+        open={!!deletingConversationId}
+        onOpenChange={open => {
+          if (!open) setDeletingConversationId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this visitor conversation and its
+              associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+              onClick={e => {
+                e.preventDefault()
+                handleDeleteConversation()
+              }}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
 }

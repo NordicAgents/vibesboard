@@ -8,6 +8,8 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconArrowDown, IconArrowRight } from '@/components/ui/icons'
 import { SidebarAgentItem } from '@/components/sidebar-agent-item'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
+import { cn } from '@/lib/utils'
 
 interface SidebarAgentGroupProps {
   agent: VibeAgent
@@ -24,7 +26,7 @@ export function SidebarAgentGroup({
   const items = useMemo(() => conversations ?? [], [conversations])
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <div className="relative">
         <SidebarAgentItem agent={agent} />
         {items.length > 0 ? (
@@ -32,31 +34,41 @@ export function SidebarAgentGroup({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={expanded ? 'Collapse conversations' : 'Expand conversations'}
-            className="absolute right-2 top-1/2 -translate-y-1/2"
+            aria-label={
+              expanded ? 'Collapse conversations' : 'Expand conversations'
+            }
+            className="absolute right-1 top-1/2 size-6 -translate-y-1/2 text-[#6f7f80] hover:bg-[#e6ede6] hover:text-[#445e5f] dark:text-[#445e5f] dark:hover:bg-[#344348] dark:hover:text-[#6f7f80]"
             onClick={e => {
               e.preventDefault()
               e.stopPropagation()
               setExpanded(!expanded)
             }}
           >
-            {expanded ? <IconArrowDown /> : <IconArrowRight />}
+            {expanded ? (
+              <IconArrowDown className="size-3" />
+            ) : (
+              <IconArrowRight className="size-3" />
+            )}
           </Button>
         ) : null}
       </div>
 
       {expanded && items.length ? (
-        <div className="ml-6 space-y-1">
+        <div className="ml-5 space-y-0.5 overflow-hidden border-l border-[#e4e3e3] pl-2 dark:border-[#344348]">
           {items.map(session => {
-            const label =
-              session.summary ||
-              session.messages.at(-1)?.content?.slice(0, 80) ||
-              'Conversation'
+            const label = getConversationPreview(
+              session.messages,
+              session.summary
+            )
             return (
               <Link
                 key={session.id}
                 href={`/agents/${agent.id}?session=${session.id}`}
-                className="block truncate rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted/50"
+                className={cn(
+                  'block truncate rounded-md px-2 py-1.5 text-sm transition-colors duration-150',
+                  'text-[#6f7f80] hover:bg-[#e6ede6] hover:text-[#445e5f]',
+                  'dark:text-[#445e5f] dark:hover:bg-[#344348] dark:hover:text-[#6f7f80]'
+                )}
                 title={label}
               >
                 {label}
@@ -68,4 +80,3 @@ export function SidebarAgentGroup({
     </div>
   )
 }
-

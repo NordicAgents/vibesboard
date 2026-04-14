@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { StreamingTextResponse, type Message } from 'ai'
+import { type Message } from '@/lib/types/message'
 
 import { runAgentStream } from '@/lib/agent/runtime'
 import { type VibeAgent } from '@/lib/types'
@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const agent: VibeAgent = {
     id: 'smoke-agent',
     userId: 'smoke-user',
+    tenantId: 'smoke-tenant',
     name: 'SmokeTest Agent',
     instructions:
       'Follow directions. When the user explicitly asks to call a tool, do so. Keep the final answer concise.',
@@ -26,13 +27,14 @@ export async function GET(req: Request) {
         description: 'Search uploaded files for matching text.'
       },
       {
-        id: 'builtin:search',
-        type: 'builtin:search',
-        name: 'Search',
-        description: 'Web search via DuckDuckGo.'
+        id: 'builtin:web_fetch',
+        type: 'builtin:web_fetch',
+        name: 'Web Fetch',
+        description: 'Fetches web page content from a given URL.'
       }
     ],
     allowAnonymous: true,
+    mode: 'provider',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -51,14 +53,13 @@ export async function GET(req: Request) {
             id: 'm1',
             role: 'user',
             content:
-              'Call the web_search tool with query "OpenAI". After receiving the tool result, reply with ONLY the first 8 words of the tool output.'
+              'Call the web_fetch tool with url "https://example.com". After receiving the tool result, reply with ONLY the page title.'
           }
         ]
       : [
           {
             id: 'm1',
             role: 'user',
-            // Strongly nudge the model to call the tool
             content:
               'Please call the file_search tool with query "VibeTestToken" and then reply only with the matching line.'
           }
@@ -73,7 +74,9 @@ export async function GET(req: Request) {
       temperature: 0
     })
 
-    return new StreamingTextResponse(stream)
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message ?? 'Smoke test failed' },

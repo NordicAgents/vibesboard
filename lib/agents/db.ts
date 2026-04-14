@@ -1,46 +1,18 @@
-import { type Message } from 'ai'
-import { type SupabaseClient } from '@supabase/supabase-js'
+import { type Message } from '@/lib/types/message'
 
-import { type Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections, type AgentDocument } from '@/lib/firestore-types'
 import {
   type AgentToolType,
+  type BuiltinToolType,
   type VibeAgent,
   type VibeAgentConversation,
   type VibeAgentTool
 } from '@/lib/types'
 import { nanoid, slugify } from '@/lib/utils'
+import { BUILTIN_AGENT_TOOLS } from './constants'
 
-type AgentRow = Database['public']['Tables']['vibe_agents']['Row']
-type ConversationRow =
-  Database['public']['Tables']['vibe_agent_conversations']['Row']
-
-export const BUILTIN_AGENT_TOOLS = {
-  'builtin:web_fetch': {
-    id: 'builtin:web_fetch' as AgentToolType,
-    name: 'Web Fetch',
-    description:
-      'Fetches web page content from a given URL.'
-  },
-  'builtin:search': {
-    id: 'builtin:search' as AgentToolType,
-    name: 'Web Search',
-    description:
-      'Searches the public web for recent information.'
-  },
-  'builtin:file_search': {
-    id: 'builtin:file_search' as AgentToolType,
-    name: 'File Search',
-    description:
-      "Searches the agent's uploaded files for matching snippets."
-  }
-} satisfies Record<
-  AgentToolType,
-  {
-    id: AgentToolType
-    name: string
-    description: string
-  }
->
+export { BUILTIN_AGENT_TOOLS }
 
 const sanitizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -82,14 +54,13 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
       const rawType = (entry as { type?: string }).type
 
       if (rawType?.startsWith('builtin:')) {
-        let type: AgentToolType | null = null
-
-        // Backwards compatibility for legacy "builtin:web" tool ids.
-        if (rawType === 'builtin:web') {
-          type = 'builtin:search'
-        } else if (rawType in BUILTIN_AGENT_TOOLS) {
-          type = rawType as AgentToolType
+        // Silently drop removed tool types for backward compatibility
+        if (rawType === 'builtin:web' || rawType === 'builtin:search') {
+          return null
         }
+
+        const type: BuiltinToolType | null =
+          rawType in BUILTIN_AGENT_TOOLS ? (rawType as BuiltinToolType) : null
 
         if (!type) {
           return null
@@ -112,56 +83,97 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
     .filter((tool): tool is VibeAgentTool => Boolean(tool))
 }
 
-export const mapAgentRow = (row: AgentRow): VibeAgent => ({
-  id: row.id,
-  userId: row.user_id,
-  name: row.name,
-  instructions: row.instructions,
-  fileKeys: sanitizeStringArray(row.file_keys),
-  agentUrl: row.agent_url,
-  tools: sanitizeTools(row.tools),
-  allowAnonymous: row.allow_anonymous,
-  greetingText: (row as any).greeting_text ?? null,
-  lastEmbeddingsSyncAt: (row as any).last_embeddings_sync_at ?? null,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
+/**
+ * Map a Firestore agent document to the VibeAgent interface
+ */
+export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
+  id: data.id,
+  userId: data.userId,
+  tenantId: data.tenantId,
+  tenantSlug: data.tenantSlug,
+  name: data.name,
+  instructions: data.instructions,
+  fileKeys: sanitizeStringArray(data.fileKeys),
+  agentUrl: data.agentUrl,
+  tools: sanitizeTools(data.tools),
+  allowAnonymous: data.allowAnonymous ?? false,
+  accessPassword: data.accessPassword ?? null,
+  greetingText: data.greetingText ?? null,
+  mode: data.mode ?? 'provider',
+  maxResponses: data.maxResponses ?? data.maxMessages ?? null,
+  maxAgentResponses: data.maxAgentResponses ?? null,
+  totalResponseCount: data.totalResponseCount ?? 0,
+  quickSuggestionsMode: data.quickSuggestionsMode ?? 'off',
+  quickSuggestionsCount: data.quickSuggestionsCount ?? 4,
+  sourceUrls: sanitizeStringArray(data.sourceUrls),
+  lastEmbeddingsSyncAt: data.lastEmbeddingsSyncAt ?? null,
+  googleReviewEnabled: data.googleReviewEnabled ?? false,
+  googlePlaceId: data.googlePlaceId ?? null,
+  domain: data.domain ?? null,
+  retrievalStrategy: data.retrievalStrategy ?? 'direct',
+  notificationConfig: data.notificationConfig ?? undefined,
+  handoffTargets: sanitizeStringArray(data.handoffTargets),
+  collectionFields: Array.isArray(data.collectionFields)
+    ? data.collectionFields
+    : undefined,
+  schedulingConfig: data.schedulingConfig ?? undefined,
+  dataConfig: data.dataConfig ?? undefined,
+  calendarAvailabilityConfig: data.calendarAvailabilityConfig ?? undefined,
+  bookingConfig: data.bookingConfig ?? undefined,
+  createdAt: data.createdAt,
+  updatedAt: data.updatedAt
 })
 
-export const mapConversationRow = (
-  row: ConversationRow
+// Keep backward compat alias
+export const mapAgentRow = mapAgentDoc
+
+export const mapConversationDoc = (
+  data: Record<string, any>
 ): VibeAgentConversation => ({
-  id: row.id,
-  agentId: row.agent_id,
-  userId: row.user_id,
-  externalId: row.external_id,
-  summary: row.summary,
-  messages: sanitizeMessages(row.messages),
-  closedAt: (row as any).closed_at ?? null,
-  summaryGeneratedAt: (row as any).summary_generated_at ?? null,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at
+  id: data.id,
+  agentId: data.agentId,
+  userId: data.userId,
+  externalId: data.externalId,
+  summary: data.summary,
+  messages: sanitizeMessages(data.messages),
+  closedAt: data.closedAt ?? null,
+  handedOff: data.handedOff ?? false,
+  handoffChain: Array.isArray(data.handoffChain)
+    ? data.handoffChain
+    : undefined,
+  responseCounts:
+    typeof data.responseCounts === 'object' && data.responseCounts !== null
+      ? data.responseCounts
+      : undefined,
+  summaryGeneratedAt: data.summaryGeneratedAt ?? null,
+  summaryResponseCount: data.summaryResponseCount ?? undefined,
+  createdAt: data.createdAt,
+  updatedAt: data.updatedAt
 })
+
+export const mapConversationRow = mapConversationDoc
 
 export const createAgentSlug = (name: string) => {
   const base = slugify(name)
   return base.length ? base : nanoid().toLowerCase()
 }
 
-export const ensureUniqueSlug = async (
-  slug: string,
-  supabase: SupabaseClient<Database>
-) => {
+/**
+ * Ensure slug uniqueness within a tenant's agents collection.
+ */
+export const ensureUniqueSlug = async (slug: string, tenantId: string) => {
+  const collPath = Collections.agents(tenantId)
   let candidate = slug
   let attempt = 0
 
   while (attempt < 5) {
-    const { data } = await supabase
-      .from('vibe_agents')
-      .select('id')
-      .eq('agent_url', candidate)
-      .maybeSingle()
+    const snapshot = await adminDb
+      .collection(collPath)
+      .where('agentUrl', '==', candidate)
+      .limit(1)
+      .get()
 
-    if (!data) {
+    if (snapshot.empty) {
       return candidate
     }
 

@@ -1,40 +1,76 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useChat } from 'ai/react'
 import { useRouter } from 'next/navigation'
 import { ChatList } from '@/components/chat-list'
-import { ChatPanel } from '@/components/chat-panel'
-import { PromptForm } from '@/components/prompt-form'
+import { PromptForm, type AttachedFile } from '@/components/prompt-form'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { cn, nanoid } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
-import { IconPlus, IconLink, IconUpload, IconSidebar, IconX, IconStop, IconSpinner } from '@/components/ui/icons'
-import { Input } from '@/components/ui/input'
-import { AgentBuilderFormPreview, type AgentFormData } from './agent-builder-form-preview'
-import { getBrowserSupabaseClient } from '@/lib/supabase/browser-client'
+import {
+  IconPlus,
+  IconSidebar,
+  IconX,
+  IconStop,
+  IconSpinner
+} from '@/components/ui/icons'
+import {
+  AgentBuilderFormPreview,
+  type AgentFormData
+} from './agent-builder-form-preview'
+import { AgentCreationSuccess } from './agent-creation-success'
+import { QuickSuggestions } from '@/components/quick-suggestions'
+
+const STARTER_PROMPTS = [
+  'Customer support agent for my business',
+  'Lead collection bot that captures visitor info',
+  'FAQ assistant that answers from my documents',
+  'Feedback collection bot for visitor reviews'
+]
+
+const MAX_FILES = 5
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const ACCEPTED_FILE_TYPES =
+  '.pdf,.txt,.doc,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.xlsx,.xls'
 
 interface AgentCreatorChatProps {
   className?: string
   userId?: string
+  initialChatId?: string
 }
 
-export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
+export function AgentCreatorChat({
+  className,
+  userId,
+  initialChatId
+}: AgentCreatorChatProps) {
   const router = useRouter()
-  const [chatId, setChatId] = useState<string>('agent-creator')
+  const [chatId, setChatId] = useState<string>(initialChatId || 'agent-creator')
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
+  const [showSuccess, setShowSuccess] = useState(false)
   const [formData, setFormData] = useState<AgentFormData>({
-    allowAnonymous: true
+    allowAnonymous: true,
+    quickSuggestionsMode: 'smart',
+    quickSuggestionsCount: 4
   })
   const [isCreating, setIsCreating] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(true)
+  const [mobileView, setMobileView] = useState<'chat' | 'form'>('chat')
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
       id: chatId,
       api: '/api/agent-creator',
+      streamProtocol: 'text',
+      body: {
+        fileKeys: formData.fileKeys || [],
+        fileNames: attachedFiles
+          .filter(f => f.status === 'success')
+          .map(f => ({ fileKey: f.fileKey, name: f.name }))
+      },
       onResponse(res: Response) {
         if (res.status === 401) {
           toast.error('Please sign in to create an agent.')
@@ -57,11 +93,35 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
               setFormData(prev => ({
                 ...prev,
                 ...(updates.name !== undefined && { name: updates.name }),
-                ...(updates.instructions !== undefined && { instructions: updates.instructions }),
-                ...(updates.greetingText !== undefined && { greetingText: updates.greetingText }),
+                ...(updates.instructions !== undefined && {
+                  instructions: updates.instructions
+                }),
+                ...(updates.greetingText !== undefined && {
+                  greetingText: updates.greetingText
+                }),
                 ...(updates.tools !== undefined && { tools: updates.tools }),
-                ...(updates.allowAnonymous !== undefined && { allowAnonymous: updates.allowAnonymous }),
-                ...(updates.fileKeys !== undefined && { fileKeys: updates.fileKeys })
+                ...(updates.allowAnonymous !== undefined && {
+                  allowAnonymous: updates.allowAnonymous
+                }),
+                ...(updates.fileKeys !== undefined && {
+                  fileKeys: updates.fileKeys
+                }),
+                ...(updates.mode !== undefined && { mode: updates.mode }),
+                ...(updates.maxResponses !== undefined && {
+                  maxResponses: updates.maxResponses
+                }),
+                ...(updates.maxAgentResponses !== undefined && {
+                  maxAgentResponses: updates.maxAgentResponses
+                }),
+                ...(updates.quickSuggestionsMode !== undefined && {
+                  quickSuggestionsMode: updates.quickSuggestionsMode
+                }),
+                ...(updates.quickSuggestionsCount !== undefined && {
+                  quickSuggestionsCount: updates.quickSuggestionsCount
+                }),
+                ...(updates.sourceUrls !== undefined && {
+                  sourceUrls: updates.sourceUrls
+                })
               }))
             } catch (parseError) {
               console.log('Failed to parse agentupdate block:', parseError)
@@ -84,9 +144,7 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
 
               if (created?.id && !createdAgentId) {
                 setCreatedAgentId(created.id)
-                toast.success('Agent created successfully!')
-                router.push(`/agents/${created.id}`)
-                router.refresh()
+                setShowSuccess(true)
                 break
               }
             } catch (parseError) {
@@ -104,69 +162,141 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
     setInput('')
     setChatId(`agent-creator-${nanoid()}`)
     setCreatedAgentId(null)
-    setFormData({ allowAnonymous: true })
+    setAttachedFiles([])
+    setFormData({
+      allowAnonymous: true,
+      quickSuggestionsMode: 'smart',
+      quickSuggestionsCount: 4
+    })
   }
 
-  const handleAddWebsiteUrl = () => {
-    setInput('Analyze this website: ')
-  }
+  const safeFileName = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
 
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files?.length || !userId) {
-      toast.error('Please sign in to upload files')
-      return
-    }
+  const handleFileSelect = useCallback(
+    async (files: FileList) => {
+      if (!userId) {
+        toast.error('Please sign in to upload files')
+        return
+      }
 
-    setIsUploading(true)
-    const supabase = getBrowserSupabaseClient()
+      const fileArray = Array.from(files)
 
-    try {
-      const safeFileName = (name: string) =>
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9._-]+/g, '-')
-          .replace(/^-+|-+$/g, '')
+      // Validate count
+      const currentCount = attachedFiles.length
+      if (currentCount + fileArray.length > MAX_FILES) {
+        toast.error(
+          `Maximum ${MAX_FILES} files allowed. You can add ${MAX_FILES - currentCount} more.`
+        )
+        return
+      }
 
-      const uploads = await Promise.all(
-        Array.from(files).map(async file => {
-          const path = `${userId}/${Date.now()}-${safeFileName(file.name)}`
-          const { data, error } = await supabase.storage
-            .from('agent-files')
-            .upload(path, file, {
-              upsert: true,
-              contentType: file.type || 'application/octet-stream'
-            })
+      // Validate sizes
+      const oversized = fileArray.filter(f => f.size > MAX_FILE_SIZE)
+      if (oversized.length > 0) {
+        toast.error(
+          `Files exceed 5MB limit: ${oversized.map(f => f.name).join(', ')}`
+        )
+        return
+      }
 
-          if (error || !data) {
-            throw error ?? new Error('Upload failed')
-          }
-
-          return { path: data.path, name: file.name }
-        })
-      )
-
-      const fileKeys = uploads.map(u => u.path)
-      setFormData(prev => ({
-        ...prev,
-        fileKeys: [...(prev.fileKeys || []), ...fileKeys]
+      // Create placeholder entries
+      const newFiles: AttachedFile[] = fileArray.map(file => ({
+        id: nanoid(),
+        name: file.name,
+        fileKey: '',
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        status: 'uploading' as const
       }))
 
-      const fileNames = uploads.map(u => u.name).join(', ')
-      await append({
-        id: nanoid(),
-        content: `I've uploaded these files: ${fileNames}. Please help me create an agent based on these files.`,
-        role: 'user'
-      })
+      setAttachedFiles(prev => [...prev, ...newFiles])
 
-      toast.success('Files uploaded successfully')
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to upload files'
-      toast.error(message)
-    } finally {
-      setIsUploading(false)
-    }
-  }
+      // Upload each file in parallel
+      await Promise.all(
+        fileArray.map(async (file, index) => {
+          const fileEntry = newFiles[index]
+          const fileName = `${Date.now()}-${safeFileName(file.name)}`
+
+          try {
+            const res = await fetch('/api/files/upload-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fileName,
+                contentType: file.type || 'application/octet-stream'
+              })
+            })
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}))
+              throw new Error(err.error || 'Failed to get upload URL')
+            }
+
+            const { uploadUrl, fileKey } = await res.json()
+
+            const uploadRes = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': file.type || 'application/octet-stream'
+              },
+              body: file
+            })
+
+            if (!uploadRes.ok) {
+              throw new Error('Upload to storage failed')
+            }
+
+            // Update file entry to success
+            setAttachedFiles(prev =>
+              prev.map(f =>
+                f.id === fileEntry.id
+                  ? { ...f, fileKey, status: 'success' as const }
+                  : f
+              )
+            )
+
+            // Add to formData.fileKeys
+            setFormData(prev => ({
+              ...prev,
+              fileKeys: [...(prev.fileKeys || []), fileKey]
+            }))
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : 'Upload failed'
+            setAttachedFiles(prev =>
+              prev.map(f =>
+                f.id === fileEntry.id
+                  ? { ...f, status: 'error' as const, error: message }
+                  : f
+              )
+            )
+            toast.error(`Failed to upload ${file.name}`)
+          }
+        })
+      )
+    },
+    [userId, attachedFiles.length]
+  )
+
+  const handleFileRemove = useCallback((fileId: string) => {
+    setAttachedFiles(prev => {
+      const file = prev.find(f => f.id === fileId)
+      if (file?.fileKey) {
+        // Remove from formData.fileKeys
+        setFormData(fd => ({
+          ...fd,
+          fileKeys: (fd.fileKeys || []).filter(k => k !== file.fileKey)
+        }))
+      }
+      return prev.filter(f => f.id !== fileId)
+    })
+  }, [])
+
+  const isUploading = attachedFiles.some(f => f.status === 'uploading')
 
   const isReadyToCreate =
     !!formData.name &&
@@ -185,11 +315,25 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
     setIsCreating(true)
 
     try {
-      const toolsPayload = (formData.tools || []).map(toolId => ({
+      // Auto-enable file_search when files are uploaded
+      const effectiveTools = [...(formData.tools || [])]
+      if (
+        (formData.fileKeys || []).length > 0 &&
+        !effectiveTools.includes('builtin:file_search')
+      ) {
+        effectiveTools.push('builtin:file_search')
+      }
+
+      const toolsPayload = effectiveTools.map(toolId => ({
         id: toolId,
         type: toolId,
-        name: toolId.replace('builtin:', ''),
+        name: toolId.replace('builtin:', '')
       }))
+
+      // Explicitly set mode and response limits
+      const mode = formData.mode ?? 'provider'
+      const maxResponses = formData.maxResponses ?? null
+      const maxAgentResponses = formData.maxAgentResponses ?? null
 
       const res = await fetch('/api/agents', {
         method: 'POST',
@@ -202,7 +346,13 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
           greetingText: formData.greetingText,
           allowAnonymous: formData.allowAnonymous ?? true,
           fileKeys: formData.fileKeys || [],
-          tools: toolsPayload
+          sourceUrls: formData.sourceUrls || [],
+          tools: toolsPayload,
+          mode,
+          maxResponses,
+          maxAgentResponses,
+          quickSuggestionsMode: formData.quickSuggestionsMode ?? 'smart',
+          quickSuggestionsCount: formData.quickSuggestionsCount ?? 4
         })
       })
 
@@ -212,70 +362,134 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
       }
 
       const json = await res.json()
-      toast.success('Agent created successfully!')
-      router.push(`/agents/${json.agent.id}`)
-      router.refresh()
+      setCreatedAgentId(json.agent.id)
+      setShowSuccess(true)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create agent')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create agent'
+      )
     } finally {
       setIsCreating(false)
     }
   }
 
+  const promptFormProps = {
+    attachedFiles,
+    onFileSelect: handleFileSelect,
+    onFileRemove: handleFileRemove,
+    maxFiles: MAX_FILES,
+    acceptedFileTypes: ACCEPTED_FILE_TYPES
+  }
+
+  if (showSuccess && createdAgentId) {
+    return (
+      <AgentCreationSuccess
+        agentId={createdAgentId}
+        agentName={formData.name || 'Your Agent'}
+      />
+    )
+  }
+
   return (
-    <div className={cn('flex min-h-[calc(100vh-4rem)] flex-1 bg-beige-bg dark:bg-background', className)}>
+    <div
+      className={cn(
+        'flex h-full flex-1 flex-col lg:flex-row bg-[#f7f7f5] dark:bg-[#222f30]',
+        className
+      )}
+    >
+      {/* Mobile View Switcher */}
+      <div className="flex shrink-0 border-b border-[#e4e3e3] dark:border-[#344348] lg:hidden">
+        <div className="flex w-full rounded-lg bg-[#e6ede6] m-2 p-1 dark:bg-[#344348]">
+          <button
+            onClick={() => setMobileView('chat')}
+            className={cn(
+              'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
+              mobileView === 'chat'
+                ? 'bg-[#f5f8f7] text-[#222f30] shadow-sm dark:bg-[#192425] dark:text-[#f5f8f7]'
+                : 'text-[#6f7f80] hover:bg-[#f5f8f7]/50 dark:text-[#7e8e8f] dark:hover:bg-[#192425]/50'
+            )}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => {
+              setMobileView('form')
+              setIsPreviewOpen(true)
+            }}
+            className={cn(
+              'flex-1 rounded-md py-1.5 text-sm font-medium transition-colors',
+              mobileView === 'form'
+                ? 'bg-[#f5f8f7] text-[#222f30] shadow-sm dark:bg-[#192425] dark:text-[#f5f8f7]'
+                : 'text-[#6f7f80] hover:bg-[#f5f8f7]/50 dark:text-[#7e8e8f] dark:hover:bg-[#192425]/50'
+            )}
+          >
+            Form
+          </button>
+        </div>
+      </div>
+
       {/* Left Side: Chat Interface (70%) */}
-      <div className="flex flex-1 flex-col">
-        <div className="relative flex flex-1 flex-col">
+      <div
+        className={cn(
+          'flex flex-1 flex-col overflow-hidden',
+          mobileView === 'form' ? 'hidden lg:flex' : 'flex'
+        )}
+      >
+        <div className="relative flex min-h-0 flex-1 flex-col">
           {messages.length > 0 ? (
             <>
-              {/* Simple header when messages exist */}
-              <div className="border-b border-black-10 bg-purewhite-bg p-4 dark:bg-card dark:border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-switzer text-sm font-semibold uppercase tracking-[0.4em] text-black-primary dark:text-white">
-                      Conversation Agent Builder
-                    </p>
-                    <p className="mt-1 font-switzer text-sm text-gray-secondary">Build an agent via chat</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
-                      title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
-                    >
-                      {isPreviewOpen ? <IconX className="h-4 w-4" /> : <IconSidebar className="h-4 w-4" />}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleNewChat}
-                      aria-label="New chat"
-                      title="New chat"
-                    >
-                      <IconPlus className="h-4 w-4" />
-                    </Button>
-                  </div>
+              {/* Compact header */}
+              <div className="flex items-center justify-between px-5 pb-2 pt-4">
+                <p className="font-switzer text-xs font-medium uppercase tracking-[0.08em] text-[#6f7f80]">
+                  Agent Builder
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                    aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                    title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                    className="size-8 p-0"
+                  >
+                    {isPreviewOpen ? (
+                      <IconX className="size-3.5" />
+                    ) : (
+                      <IconSidebar className="size-3.5" />
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleNewChat}
+                    aria-label="New chat"
+                    title="New chat"
+                    className="size-8 p-0"
+                  >
+                    <IconPlus className="size-3.5" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto pt-4 pb-48">
-                <ChatList messages={messages.map(msg => ({
-                  ...msg,
-                  // Remove agentupdate/agentcreated blocks from display
-                  content: msg.content
-                    .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
-                    .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
-                    .trim()
-                }))} />
-                {isLoading && (
-                  <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-                    <IconSpinner className="h-4 w-4 animate-spin" />
-                    <span>Thinking...</span>
-                  </div>
-                )}
-                <ChatScrollAnchor trackVisibility={isLoading} />
+              <div className="flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-3xl">
+                  <ChatList
+                    messages={messages.map(msg => ({
+                      ...msg,
+                      // Remove agentupdate/agentcreated blocks from display
+                      content: msg.content
+                        .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
+                        .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
+                        .trim()
+                    }))}
+                  />
+                  {isLoading && (
+                    <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+                      <IconSpinner className="size-4 animate-spin" />
+                      <span>Thinking...</span>
+                    </div>
+                  )}
+                  <ChatScrollAnchor trackVisibility={isLoading} />
+                </div>
               </div>
             </>
           ) : (
@@ -284,100 +498,104 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
                   <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary md:text-5xl dark:text-white">
+                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#f5f8f7] md:text-5xl">
                       Build Your Agent
                     </h1>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
+                      aria-label={
+                        isPreviewOpen ? 'Hide preview' : 'Show preview'
+                      }
                       title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
                       className="ml-2"
                     >
-                      {isPreviewOpen ? <IconX className="h-4 w-4" /> : <IconSidebar className="h-4 w-4" />}
+                      {isPreviewOpen ? (
+                        <IconX className="size-4" />
+                      ) : (
+                        <IconSidebar className="size-4" />
+                      )}
                     </Button>
                   </div>
                   <p className="font-switzer text-lg text-gray-secondary">
-                    Tell me about your agent, share a website URL, or upload files
+                    Tell me about your agent or upload files to get started
                   </p>
+                </div>
+
+                {/* Starter prompts */}
+                <div className="mx-auto w-full max-w-xl">
+                  <QuickSuggestions
+                    suggestions={STARTER_PROMPTS}
+                    onSelect={async value => {
+                      await append({
+                        id: nanoid(),
+                        content: value,
+                        role: 'user'
+                      })
+                    }}
+                    disabled={isLoading}
+                    className="grid grid-cols-2 gap-2.5"
+                  />
                 </div>
 
                 {/* Input centered below header */}
                 <div className="w-full">
-                  <div className="rounded-3xl border border-black-10 bg-purewhite-bg px-4 py-3 shadow-lg dark:bg-card dark:border-border">
-                    <PromptForm
-                      onSubmit={async (value: string) => {
-                        await append({
-                          id: nanoid(),
-                          content: value,
-                          role: 'user'
-                        })
-                      }}
-                      input={input}
-                      setInput={setInput}
-                      isLoading={isLoading}
-                    />
-                  </div>
-
-                  {/* Action buttons below input */}
-                  <div className="mt-4 flex items-center justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddWebsiteUrl}
-                      className="gap-2"
-                    >
-                      <IconLink className="h-4 w-4" />
-                      Add Website
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById('file-upload')?.click()}
-                      disabled={isUploading || !userId}
-                      className="gap-2"
-                    >
-                      <IconUpload className="h-4 w-4" />
-                      {isUploading ? 'Uploading...' : 'Upload Files'}
-                    </Button>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={e => handleFileUpload(e.target.files)}
-                    />
-                  </div>
+                  <PromptForm
+                    onSubmit={async (value: string) => {
+                      // Track URLs from user messages for sourceUrls
+                      const detectedUrls = value.match(/https?:\/\/[^\s)>\]]+/g)
+                      if (detectedUrls?.length) {
+                        setFormData(prev => ({
+                          ...prev,
+                          sourceUrls: [
+                            ...new Set([
+                              ...(prev.sourceUrls ?? []),
+                              ...detectedUrls
+                            ])
+                          ].slice(0, 5)
+                        }))
+                      }
+                      await append({
+                        id: nanoid(),
+                        content: value,
+                        role: 'user'
+                      })
+                    }}
+                    input={input}
+                    setInput={setInput}
+                    isLoading={isLoading}
+                    {...promptFormProps}
+                  />
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Chat Input - Sticky at bottom when messages exist */}
+        {/* Chat Input - Fixed at bottom when messages exist */}
         {messages.length > 0 && (
-          <div className="sticky bottom-0 border-t border-black-10 bg-purewhite-bg dark:bg-card dark:border-border z-10">
-            <div className="mx-auto max-w-4xl">
-              <div className="flex h-10 items-center justify-center">
-                {isLoading ? (
+          <div className="shrink-0">
+            <div className="mx-auto max-w-3xl">
+              {isLoading && (
+                <div className="flex justify-center pb-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => stop()}
-                    className="rounded-full bg-purewhite-bg font-switzer text-black-primary border-black-primary hover:bg-black-primary hover:text-white dark:bg-purewhite-bg dark:text-black-primary dark:border-black-primary dark:hover:bg-black-primary dark:hover:text-white"
+                    className="rounded-full border-[#e4e3e3] font-switzer text-[#445e5f] hover:bg-[#e6ede6] hover:text-[#222f30] dark:border-[#344348] dark:text-[#6f7f80] dark:hover:bg-[#344348] dark:hover:text-[#f5f8f7]"
                   >
-                    <IconStop className="mr-2 h-4 w-4" />
+                    <IconStop className="mr-2 size-4" />
                     Stop generating
                   </Button>
-                ) : null}
-              </div>
-              <div className="space-y-2 px-4 py-2 md:py-4">
+                </div>
+              )}
+              <div className="space-y-2 px-4 py-3">
                 {!createdAgentId && isReadyToCreate && (
-                  <div className="flex items-center justify-between gap-3 rounded-xl border border-black-10 bg-beige-bg px-3 py-2 text-xs text-black-primary dark:border-border dark:bg-muted dark:text-foreground">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e4e3e3] bg-[#e6ede6] px-3 py-2 text-xs text-[#222f30] dark:border-[#344348] dark:bg-[#344348] dark:text-[#f5f8f7]">
                     <p className="font-switzer">
-                      Your agent draft is ready. Say “create it” or click
-                      Create Agent.
+                      Your agent draft is ready. Say &quot;create it&quot; or
+                      click Create Agent.
                     </p>
                     <Button
                       size="sm"
@@ -391,6 +609,19 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                 )}
                 <PromptForm
                   onSubmit={async (value: string) => {
+                    // Track URLs from user messages for sourceUrls
+                    const detectedUrls = value.match(/https?:\/\/[^\s)>\]]+/g)
+                    if (detectedUrls?.length) {
+                      setFormData(prev => ({
+                        ...prev,
+                        sourceUrls: [
+                          ...new Set([
+                            ...(prev.sourceUrls ?? []),
+                            ...detectedUrls
+                          ])
+                        ].slice(0, 5)
+                      }))
+                    }
                     await append({
                       id: nanoid(),
                       content: value,
@@ -400,36 +631,8 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
                   input={input}
                   setInput={setInput}
                   isLoading={isLoading}
+                  {...promptFormProps}
                 />
-                {/* Action buttons in chat panel */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleAddWebsiteUrl}
-                    className="gap-1 text-xs"
-                  >
-                    <IconLink className="h-3 w-3" />
-                    Website
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => document.getElementById('file-upload-chat')?.click()}
-                    disabled={isUploading || !userId}
-                    className="gap-1 text-xs"
-                  >
-                    <IconUpload className="h-3 w-3" />
-                    {isUploading ? 'Uploading...' : 'Files'}
-                  </Button>
-                  <input
-                    id="file-upload-chat"
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={e => handleFileUpload(e.target.files)}
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -438,30 +641,36 @@ export function AgentCreatorChat({ className, userId }: AgentCreatorChatProps) {
 
       {/* Right Side: Form Preview (30%) */}
       {isPreviewOpen ? (
-        <div className="transition-all duration-300 ease-in-out">
+        <div
+          className={cn(
+            'transition-all duration-300 ease-in-out',
+            mobileView === 'chat'
+              ? 'hidden lg:block'
+              : 'flex flex-1 lg:flex-none'
+          )}
+        >
           <AgentBuilderFormPreview
             formData={formData}
             onFormChange={setFormData}
             onCreateAgent={handleCreateAgent}
-            onFileUpload={handleFileUpload}
             isCreating={isCreating}
             isUploading={isUploading}
             userId={userId}
-            className="w-[400px] shrink-0"
+            className="w-full lg:w-[400px] shrink-0"
             onClose={() => setIsPreviewOpen(false)}
           />
         </div>
       ) : (
-        <div className="flex items-center justify-center border-l border-black-10 dark:border-border w-12 shrink-0 transition-all duration-300 ease-in-out">
+        <div className="hidden lg:flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setIsPreviewOpen(true)}
             aria-label="Show preview"
             title="Show preview"
-            className="h-full w-full rounded-none"
+            className="size-full rounded-none"
           >
-            <IconSidebar className="h-5 w-5" />
+            <IconSidebar className="size-5" />
           </Button>
         </div>
       )}

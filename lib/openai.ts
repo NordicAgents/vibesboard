@@ -1,41 +1,74 @@
-import { Configuration, OpenAIApi } from 'openai-edge'
-
 const cleanEnv = (value?: string) => value?.trim()
 
-const baseModel = cleanEnv(process.env.OPENAI_MODEL) ?? 'gpt-5-nano'
+const baseModel = cleanEnv(process.env.OPENAI_MODEL) ?? 'gpt-5.4-nano'
 
 export const OPENAI_MODEL = baseModel
 export const OPENAI_CHAT_MODEL = baseModel
 
 // Vision-capable model can be overridden separately; defaults to a safe vision model.
 export const OPENAI_VISION_MODEL =
-  cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-4o-mini'
+  cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-5.4-nano'
 
 export const isResponsesModel = (model?: string | null) =>
-  !!model && model.startsWith('gpt-5-nano')
+  !!model &&
+  (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
+
+// --- Native tool calling types ---
+
+export interface ResponsesApiTool {
+  type: 'function'
+  name: string
+  description: string
+  parameters: Record<string, any>
+}
+
+export interface ToolCallResult {
+  name: string
+  arguments: Record<string, any>
+  callId: string
+}
+
+export interface CompleteTextResult {
+  text: string
+  toolCalls: ToolCallResult[]
+  usage?: { inputTokens: number; outputTokens: number }
+}
 
 /**
- * Call the Responses API for text-only generations (used for GPT‑5‑nano).
- * Note: this intentionally does NOT send temperature, which is unsupported.
+ * Call the Responses API (GPT‑5.4‑nano) with optional native tool calling.
+ * When tools are provided, the model may return function_call outputs instead of text.
  */
 export async function completeText({
   prompt,
   model = OPENAI_MODEL,
-  apiKey
+  apiKey,
+  tools
 }: {
   prompt: string
   model?: string | null
   apiKey?: string | null
-}): Promise<string> {
+  tools?: ResponsesApiTool[]
+}): Promise<CompleteTextResult> {
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
-    throw new Error('completeText is only intended for responses-only models like gpt-5-nano.')
+    throw new Error(
+      'completeText is only intended for responses-only models like gpt-5.4-nano.'
+    )
   }
 
   const key = apiKey ?? process.env.OPENAI_API_KEY
   if (!key) {
     throw new Error('OPENAI_API_KEY is not configured.')
+  }
+
+  const body: Record<string, any> = {
+    model: m,
+    input: prompt
+  }
+
+  if (tools && tools.length > 0) {
+    body.tools = tools
   }
 
   const res = await fetch('https://api.openai.com/v1/responses', {
@@ -44,10 +77,7 @@ export async function completeText({
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: m,
-      input: prompt
-    })
+    body: JSON.stringify(body)
   })
 
   if (!res.ok) {
@@ -57,12 +87,53 @@ export async function completeText({
   }
 
   const json = await res.json()
-  return extractTextFromResponse(json)
+  return extractFromResponse(json, json?.usage)
+}
+
+/** Convert raw API usage to our typed format. */
+const parseUsage = (
+  rawUsage?: any
+): { inputTokens: number; outputTokens: number } | undefined =>
+  rawUsage
+    ? {
+        inputTokens: rawUsage.input_tokens ?? 0,
+        outputTokens: rawUsage.output_tokens ?? 0
+      }
+    : undefined
+
+/** Parse complete SSE events out of a buffer, returning parsed payloads and the remaining buffer. */
+function processSseBuffer(buffer: string): {
+  events: any[]
+  remaining: string
+} {
+  const events: any[] = []
+  let idx: number
+  while ((idx = buffer.indexOf('\n\n')) !== -1) {
+    const rawEvent = buffer.slice(0, idx)
+    buffer = buffer.slice(idx + 2)
+
+    let dataLine = ''
+    for (const line of rawEvent.split('\n')) {
+      if (line.startsWith('data: ')) dataLine += line.slice(6)
+    }
+    if (!dataLine) continue
+
+    try {
+      events.push(JSON.parse(dataLine))
+    } catch {
+      /* ignore malformed */
+    }
+  }
+
+  // Avoid unbounded buffer growth in case of malformed streams.
+  if (buffer.length > 16384) buffer = buffer.slice(-8192)
+  return { events, remaining: buffer }
 }
 
 /**
- * Stream text tokens from the Responses API (GPT‑5‑nano) as a web stream.
+ * Stream text tokens from the Responses API (GPT‑5.4‑nano) as a web stream.
  * This is used for real-time UX in chat endpoints.
+ * Does NOT support tools — use completeText() for the tool-decision call.
  */
 export async function streamText({
   prompt,
@@ -75,12 +146,17 @@ export async function streamText({
   model?: string | null
   apiKey?: string | null
   onToken?: (delta: string) => void | Promise<void>
-  onDone?: (full: string) => void | Promise<void>
+  onDone?: (
+    full: string,
+    usage?: { inputTokens: number; outputTokens: number }
+  ) => void | Promise<void>
 }): Promise<ReadableStream<Uint8Array>> {
   const m = model ?? OPENAI_MODEL
 
   if (!isResponsesModel(m)) {
-    throw new Error('streamText is only intended for responses-only models like gpt-5-nano.')
+    throw new Error(
+      'streamText is only intended for responses-only models like gpt-5.4-nano.'
+    )
   }
 
   const key = apiKey ?? process.env.OPENAI_API_KEY
@@ -115,7 +191,7 @@ export async function streamText({
     start(controller) {
       let buffer = ''
       let full = ''
-
+      let streamUsage: { inputTokens: number; outputTokens: number } | undefined
       ;(async () => {
         try {
           while (true) {
@@ -124,46 +200,26 @@ export async function streamText({
             const chunk = decoder.decode(value, { stream: true })
             buffer += chunk
 
-            let idx: number
-            while ((idx = buffer.indexOf('\n\n')) !== -1) {
-              const rawEvent = buffer.slice(0, idx)
-              buffer = buffer.slice(idx + 2)
+            const result = processSseBuffer(buffer)
+            buffer = result.remaining
 
-              const lines = rawEvent.split('\n')
-              let dataLine = ''
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  dataLine += line.slice(6)
-                }
+            for (const payload of result.events) {
+              if (
+                payload?.type === 'response.output_text.delta' &&
+                typeof payload.delta === 'string'
+              ) {
+                full += payload.delta
+                if (onToken) await onToken(payload.delta)
+                controller.enqueue(encoder.encode(payload.delta))
               }
-              if (!dataLine) continue
-
-              try {
-                const payload = JSON.parse(dataLine)
-                if (
-                  payload?.type === 'response.output_text.delta' &&
-                  typeof payload.delta === 'string'
-                ) {
-                  const delta: string = payload.delta
-                  full += delta
-                  if (onToken) {
-                    await onToken(delta)
-                  }
-                  controller.enqueue(encoder.encode(delta))
-                }
-              } catch {
-                // Ignore malformed SSE chunks
+              if (payload?.type === 'response.completed') {
+                streamUsage = parseUsage(payload?.response?.usage)
               }
-            }
-
-            // Avoid unbounded buffer growth in case of malformed streams.
-            if (buffer.length > 16384) {
-              buffer = buffer.slice(-8192)
             }
           }
 
           if (onDone) {
-            await onDone(full)
+            await onDone(full, streamUsage)
           }
           controller.close()
         } catch (error) {
@@ -180,28 +236,52 @@ export async function streamText({
   })
 }
 
-const extractTextFromResponse = (json: any): string => {
+/** Extract text from a Responses API message item. */
+const extractMessageText = (item: any): string => {
+  if (item?.type !== 'message' || !Array.isArray(item.content)) return ''
+  const parts: string[] = []
+  for (const part of item.content) {
+    if (!part || part.type !== 'output_text') continue
+    const t = (part as any).text
+    if (typeof t === 'string') parts.push(t)
+    else if (t && typeof t.value === 'string') parts.push(t.value)
+  }
+  return parts.join('')
+}
+
+/** Extract a tool call from a Responses API function_call item. */
+const extractToolCall = (item: any): ToolCallResult | null => {
+  if (item?.type !== 'function_call') return null
+  let args: Record<string, any> = {}
+  try {
+    args =
+      typeof item.arguments === 'string'
+        ? JSON.parse(item.arguments)
+        : (item.arguments ?? {})
+  } catch {
+    args = {}
+  }
+  return { name: item.name, arguments: args, callId: item.call_id ?? '' }
+}
+
+/**
+ * Parse the Responses API output, extracting both text and function calls.
+ */
+const extractFromResponse = (json: any, rawUsage?: any): CompleteTextResult => {
   const output = json?.output
-  if (!Array.isArray(output)) return ''
+  const usage = parseUsage(rawUsage)
+  if (!Array.isArray(output)) return { text: '', toolCalls: [], usage }
+
+  let text = ''
+  const toolCalls: ToolCallResult[] = []
 
   for (const item of output) {
-    if (item?.type !== 'message' || !Array.isArray(item.content)) continue
+    const msgText = extractMessageText(item)
+    if (msgText) text = msgText
 
-    const parts: string[] = []
-    for (const part of item.content) {
-      if (!part || part.type !== 'output_text') continue
-      const text = (part as any).text
-      if (typeof text === 'string') {
-        parts.push(text)
-      } else if (text && typeof text.value === 'string') {
-        parts.push(text.value)
-      }
-    }
-
-    if (parts.length) {
-      return parts.join('')
-    }
+    const tc = extractToolCall(item)
+    if (tc) toolCalls.push(tc)
   }
 
-  return ''
+  return { text, toolCalls, usage }
 }

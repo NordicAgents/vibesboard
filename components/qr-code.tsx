@@ -33,7 +33,7 @@ export function QrCode({ value, dataUrl, size = 200 }: QrCodeProps) {
   if (!qr) {
     return (
       <div
-        className="flex h-[200px] w-[200px] items-center justify-center rounded-xl border bg-muted"
+        className="flex size-[200px] items-center justify-center rounded-xl border bg-muted"
         aria-busy
       >
         Generating QR...
@@ -43,13 +43,7 @@ export function QrCode({ value, dataUrl, size = 200 }: QrCodeProps) {
 
   return (
     <div className="overflow-hidden rounded-xl border bg-white p-2">
-      <Image
-        src={qr}
-        alt="QR code"
-        width={size}
-        height={size}
-        unoptimized
-      />
+      <Image src={qr} alt="QR code" width={size} height={size} unoptimized />
     </div>
   )
 }
