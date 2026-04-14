@@ -29,7 +29,7 @@ const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
   INFO_COMPLETE: '[INFO_COMPLETE]',
   CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/,
-  SUGGESTIONS_REGEX: /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g,
+  SUGGESTIONS_REGEX: /<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/g,
   AGENT_HANDOFF_REGEX: /<!--AGENT_HANDOFF:(\{.*?\})-->/,
   HANDOFF_TO_AGENT_MARKER: /\[HANDOFF_TO_AGENT:[a-zA-Z0-9_-]+\]/
 }
@@ -369,7 +369,7 @@ export function AgentChat({
       .find(m => m.role === 'assistant' && typeof m.content === 'string')
 
     const content = lastAssistant?.content ?? ''
-    const match = content.match(/<!--SUGGESTIONS:(\{[\s\S]*?\})-->/)
+    const match = content.match(/<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/)
     if (!match) return []
 
     let parsed: unknown = null

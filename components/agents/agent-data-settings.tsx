@@ -249,7 +249,7 @@ export function AgentDataSettings({
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Data Connections</CardTitle>
           <CardDescription>
-            Connect a data store to push collected data
+            Connect an optional destination for collected or updated data
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -469,19 +469,19 @@ export function AgentDataSettings({
       {/* Enable Toggle */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Data Actions</CardTitle>
+          <CardTitle className="text-base">Data Sync</CardTitle>
           <CardDescription>
-            Let your agent submit and update data in external stores
+            Data sync is optional and independent from booking and scheduling.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between rounded-md border p-3">
             <div>
-              <p className="text-sm font-medium">Enable data actions</p>
+              <p className="text-sm font-medium">Enable data sync</p>
               <p className="text-xs text-muted-foreground">
                 {activeConnections.length === 0
-                  ? 'Add a data connection first'
-                  : 'Agent can submit and update records'}
+                  ? 'Data sync can be used independently. Add a connection when you need it.'
+                  : 'Agent can submit and update records in the selected destination.'}
               </p>
             </div>
             <Switch
