@@ -61,7 +61,7 @@ async function isServerRunning(): Promise<boolean> {
       method: 'GET',
       signal: AbortSignal.timeout(3000)
     })
-    return res.status !== 0
+    return res.ok
   } catch {
     return false
   }
