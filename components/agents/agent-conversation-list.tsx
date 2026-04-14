@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import type { Message } from 'ai'
 
 import { type VibeAgentConversation } from '@/lib/types'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
 import { formatDate } from '@/lib/utils'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,24 +37,23 @@ export function AgentConversationList({
         No conversations yet.
         <div className="mt-3">
           <Button asChild>
-            <Link href={`/agents/${agentId}/conversations/new`}>Start chat</Link>
+            <Link href={`/agents/${agentId}/conversations/new`}>
+              Start chat
+            </Link>
           </Button>
         </div>
       </div>
     )
   }
 
-  const getMessageText = (message?: Message) =>
-    message && typeof message.content === 'string' ? message.content : ''
-
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="space-y-2 lg:w-1/2">
         {conversations.map(conversation => {
-          const contentPreview =
-            conversation.summary ||
-            getMessageText(conversation.messages.at(-1)).slice(0, 60) ||
-            'Conversation'
+          const contentPreview = getConversationPreview(
+            conversation.messages,
+            conversation.summary
+          )
 
           const isSelected = selectedConversationId === conversation.id
 
@@ -67,7 +66,9 @@ export function AgentConversationList({
             >
               <Card
                 className={`p-4 transition ${
-                  isSelected ? 'border-primary bg-primary/5' : 'hover:border-primary'
+                  isSelected
+                    ? 'border-primary bg-primary/5'
+                    : 'hover:border-primary'
                 }`}
               >
                 <div className="flex items-center justify-between gap-4">
@@ -93,7 +94,11 @@ export function AgentConversationList({
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold">
-                    {selectedConversation.summary || 'Conversation preview'}
+                    {getConversationPreview(
+                      selectedConversation.messages,
+                      selectedConversation.summary,
+                      'Conversation preview'
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Updated {formatDate(selectedConversation.updatedAt)}
@@ -105,7 +110,7 @@ export function AgentConversationList({
                   aria-label="Close conversation preview"
                   onClick={() => setSelectedConversationId(null)}
                 >
-                  <IconClose className="h-4 w-4" />
+                  <IconClose className="size-4" />
                 </Button>
               </div>
               <div className="max-h-[500px] space-y-3 overflow-y-auto pr-2">

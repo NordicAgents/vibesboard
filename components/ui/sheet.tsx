@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import * as SheetPrimitive from '@radix-ui/react-dialog'
-
 import { cn } from '@/lib/utils'
 import { IconClose } from '@/components/ui/icons'
 
@@ -31,7 +30,7 @@ const SheetOverlay = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      'fixed inset-0 z-50 transition-all duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in',
+      'fixed inset-0 z-50 bg-[#111918]/45 backdrop-blur-sm transition-all duration-100 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:fade-in',
       className
     )}
     {...props}
@@ -55,15 +54,20 @@ const SheetContent = React.forwardRef<
 
   return (
     <SheetPortal>
+      <SheetOverlay />
       <SheetPrimitive.Content
         ref={ref}
+        aria-describedby={undefined}
         className={cn(
-          'fixed top-0 z-50 h-full bg-background p-6 opacity-100 shadow-lg',
+          'fixed top-0 z-50 h-full border-border bg-card p-6 text-card-foreground opacity-100 shadow-[0_24px_60px_rgba(17,25,24,0.22)]',
           sideClasses,
           className
         )}
         {...props}
       >
+        <SheetPrimitive.Title className="sr-only">
+          Navigation
+        </SheetPrimitive.Title>
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
           <IconClose />
@@ -103,7 +107,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className={cn('text-lg font-semibold text-foreground', className)}
+    className={cn('font-sans text-xl font-semibold text-foreground', className)}
     {...props}
   />
 ))

@@ -1,157 +1,214 @@
-import { createServerClient } from '@/lib/supabase/server'
-import { Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import {
+  type FeatureFlagName,
+  getParentFlag,
+  getFlagDepth,
+  getRootAncestor
+} from '@/lib/feature-flags'
 
-export type FeatureFlagName =
-    | 'BETA_ANALYTICS'
-    | 'ADVANCED_TOOLS'
-    | 'CUSTOM_BRANDING'
-    | 'API_ACCESS'
-    | 'TEAM_COLLABORATION'
+export interface TenantFeatureStatus {
+  id: string
+  name: string
+  description: string | null
+  isEnabled: boolean
+  isOverridden: boolean
+  parentFlagName: string | null
+  isDisabledByParent: boolean
+  depth: number
+}
 
 /**
- * Check if a feature is enabled for a specific tenant
+ * Check if a feature is enabled for a specific tenant.
+ * Automatically checks parent flags — if a parent is disabled,
+ * the child is disabled regardless of its own toggle.
  */
 export async function isFeatureEnabled(
-    tenantId: string,
-    featureName: FeatureFlagName
+  tenantId: string,
+  featureName: FeatureFlagName
 ): Promise<boolean> {
-    const supabase = await createServerClient()
+  // Get global feature flag by name
+  const flagsSnapshot = await adminDb
+    .collection(Collections.featureFlags)
+    .where('name', '==', featureName)
+    .limit(1)
+    .get()
 
-    // Get feature flag
-    const { data: flag, error: flagError } = await supabase
-        .from('feature_flags')
-        .select('id, default_value')
-        .eq('name', featureName)
-        .single()
+  if (flagsSnapshot.empty) return false
+  const flag = flagsSnapshot.docs[0].data()
 
-    if (flagError || !flag) {
-        return false
-    }
+  // Check for tenant-specific override
+  const toggleDoc = await adminDb
+    .collection(Collections.featureToggles(tenantId))
+    .doc(flagsSnapshot.docs[0].id)
+    .get()
 
-    // Check for tenant-specific override
-    const { data: toggle, error: toggleError } = await supabase
-        .from('tenant_feature_toggles')
-        .select('is_enabled')
-        .eq('tenant_id', tenantId)
-        .eq('feature_flag_id', flag.id)
-        .single()
+  const ownEnabled = toggleDoc.exists
+    ? (toggleDoc.data()?.isEnabled ?? flag.defaultValue)
+    : flag.defaultValue
 
-    // Return override if exists, otherwise return default
-    if (!toggleError && toggle) {
-        return toggle.is_enabled
-    }
+  if (!ownEnabled) return false
 
-    return flag.default_value
+  // Check parent flag — if parent is disabled, child is disabled
+  const parentFlagName = getParentFlag(featureName)
+  if (parentFlagName) {
+    const parentEnabled = await isFeatureEnabled(tenantId, parentFlagName)
+    if (!parentEnabled) return false
+  }
+
+  return true
 }
 
 /**
- * Get all enabled features for a tenant
+ * Get all enabled features for a tenant.
+ * Respects parent-child hierarchy.
  */
-export async function getEnabledFeatures(
-    tenantId: string
-): Promise<string[]> {
-    const supabase = await createServerClient()
+export async function getEnabledFeatures(tenantId: string): Promise<string[]> {
+  // Get all feature flags
+  const flagsSnapshot = await adminDb.collection(Collections.featureFlags).get()
 
-    // Get all feature flags
-    const { data: flags, error: flagsError } = await supabase
-        .from('feature_flags')
-        .select('*')
+  if (flagsSnapshot.empty) return []
 
-    if (flagsError || !flags) {
-        return []
-    }
+  // Get tenant-specific toggles
+  const togglesSnapshot = await adminDb
+    .collection(Collections.featureToggles(tenantId))
+    .get()
 
-    // Get tenant-specific toggles
-    const { data: toggles, error: togglesError } = await supabase
-        .from('tenant_feature_toggles')
-        .select('*')
-        .eq('tenant_id', tenantId)
+  const toggleMap = new Map<string, boolean>()
+  togglesSnapshot.docs.forEach((doc: any) => {
+    toggleMap.set(doc.id, doc.data().isEnabled)
+  })
 
-    if (togglesError) {
-        // Return features based on defaults only
-        return flags
-            .filter(flag => flag.default_value)
-            .map(flag => flag.name)
-    }
+  // Build a name→enabled map for parent lookups
+  const enabledMap = new Map<string, boolean>()
+  for (const doc of flagsSnapshot.docs) {
+    const flag = doc.data()
+    const override = toggleMap.get(doc.id)
+    enabledMap.set(
+      flag.name,
+      override !== undefined ? override : flag.defaultValue
+    )
+  }
 
-    // Merge defaults with overrides
-    const enabledFeatures: string[] = []
+  // Filter: include only if enabled AND parent (if any) is also enabled
+  const enabledFeatures: string[] = []
+  for (const [name, enabled] of enabledMap) {
+    if (!enabled) continue
+    const parent = getParentFlag(name as FeatureFlagName)
+    if (parent && !enabledMap.get(parent)) continue
+    enabledFeatures.push(name)
+  }
 
-    for (const flag of flags) {
-        const toggle = toggles?.find(t => t.feature_flag_id === flag.id)
-        const isEnabled = toggle ? toggle.is_enabled : flag.default_value
-
-        if (isEnabled) {
-            enabledFeatures.push(flag.name)
-        }
-    }
-
-    return enabledFeatures
+  return enabledFeatures
 }
 
 /**
- * Get all features with their status for a tenant
+ * Get all features with their status for a tenant.
+ * Includes hierarchy metadata for UI rendering.
  */
 export async function getTenantFeatures(
-    tenantId: string
-): Promise<Array<{
-    id: string
-    name: string
-    description: string | null
-    isEnabled: boolean
-    isOverridden: boolean
-}>> {
-    const supabase = await createServerClient()
+  tenantId: string
+): Promise<TenantFeatureStatus[]> {
+  const flagsSnapshot = await adminDb.collection(Collections.featureFlags).get()
 
-    // Get all feature flags
-    const { data: flags, error: flagsError } = await supabase
-        .from('feature_flags')
-        .select('*')
+  if (flagsSnapshot.empty) return []
 
-    if (flagsError || !flags) {
-        return []
+  const togglesSnapshot = await adminDb
+    .collection(Collections.featureToggles(tenantId))
+    .get()
+
+  const toggleMap = new Map<string, boolean>()
+  togglesSnapshot.docs.forEach((doc: any) => {
+    toggleMap.set(doc.id, doc.data().isEnabled)
+  })
+
+  // First pass: compute own enabled status for each flag
+  const features: TenantFeatureStatus[] = flagsSnapshot.docs.map((doc: any) => {
+    const flag = doc.data()
+    const override = toggleMap.get(doc.id)
+    const parentFlagName = getParentFlag(flag.name as FeatureFlagName)
+
+    return {
+      id: doc.id,
+      name: flag.name,
+      description: flag.description ?? null,
+      isEnabled: override !== undefined ? override : flag.defaultValue,
+      isOverridden: override !== undefined,
+      parentFlagName: parentFlagName,
+      isDisabledByParent: false, // computed in second pass
+      depth: getFlagDepth(flag.name as FeatureFlagName)
     }
+  })
 
-    // Get tenant-specific toggles
-    const { data: toggles } = await supabase
-        .from('tenant_feature_toggles')
-        .select('*')
-        .eq('tenant_id', tenantId)
+  // Build name→enabled lookup for parent checks
+  const enabledByName = new Map<string, boolean>()
+  for (const f of features) {
+    enabledByName.set(f.name, f.isEnabled)
+  }
 
-    return flags.map(flag => {
-        const toggle = toggles?.find(t => t.feature_flag_id === flag.id)
+  // Second pass: compute isDisabledByParent and effective isEnabled
+  // Process by depth (shallowest first) so parent state propagates correctly
+  const byDepth = [...features].sort((a, b) => a.depth - b.depth)
+  for (const f of byDepth) {
+    if (f.parentFlagName) {
+      const parentEnabled = enabledByName.get(f.parentFlagName) ?? false
+      if (!parentEnabled) {
+        f.isDisabledByParent = true
+        f.isEnabled = false
+        enabledByName.set(f.name, false) // propagate to grandchildren
+      }
+    }
+  }
 
-        return {
-            id: flag.id,
-            name: flag.name,
-            description: flag.description,
-            isEnabled: toggle ? toggle.is_enabled : flag.default_value,
-            isOverridden: !!toggle
-        }
-    })
+  // Sort: group by root ancestor, then depth, then alphabetical
+  features.sort((a, b) => {
+    const aRoot = getRootAncestor(a.name as FeatureFlagName)
+    const bRoot = getRootAncestor(b.name as FeatureFlagName)
+    // Different root groups → alphabetical by root
+    if (aRoot !== bRoot) return aRoot.localeCompare(bRoot)
+    // Same root group → depth ascending (parents first)
+    if (a.depth !== b.depth) return a.depth - b.depth
+    // Same depth → alphabetical
+    return a.name.localeCompare(b.name)
+  })
+
+  return features
 }
 
 /**
  * Toggle a feature for a tenant
  */
 export async function toggleFeature(
-    tenantId: string,
-    featureFlagId: string,
-    isEnabled: boolean
+  tenantId: string,
+  featureFlagId: string,
+  isEnabled: boolean
 ): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createServerClient()
+  try {
+    // Get flag name for denormalization
+    const flagDoc = await adminDb
+      .collection(Collections.featureFlags)
+      .doc(featureFlagId)
+      .get()
 
-    const { error } = await supabase
-        .from('tenant_feature_toggles')
-        .upsert({
-            tenant_id: tenantId,
-            feature_flag_id: featureFlagId,
-            is_enabled: isEnabled
-        })
+    const flagName = flagDoc.exists ? flagDoc.data()?.name : ''
 
-    if (error) {
-        return { success: false, error: error.message }
-    }
+    await adminDb
+      .collection(Collections.featureToggles(tenantId))
+      .doc(featureFlagId)
+      .set(
+        {
+          tenantId,
+          featureFlagId,
+          featureFlagName: flagName,
+          isEnabled,
+          updatedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        },
+        { merge: true }
+      )
 
     return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error?.message }
+  }
 }

@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { getAgentForUser } from '@/lib/agents/server'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { getAgentById } from '@/lib/agents/server'
 import { listAgentConversations } from '@/lib/agents/conversations'
 
 export const runtime = 'nodejs'
@@ -14,23 +11,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
-
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
-  const agent = await getAgentForUser(supabase, id, session.user.id)
+  const agent = await getAgentById(id)
 
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const conversations = await listAgentConversations(supabase, agent.id)
+  const conversations = await listAgentConversations(agent.tenantId, agent.id)
   return NextResponse.json({ conversations })
 }
