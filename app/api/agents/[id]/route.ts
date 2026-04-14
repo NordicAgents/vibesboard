@@ -106,6 +106,9 @@ export async function PATCH(
       ? { greetingText: payload.greetingText }
       : {}),
     ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
+    ...(payload.collectionFields !== undefined
+      ? { collectionFields: payload.collectionFields }
+      : {}),
     ...(payload.maxResponses !== undefined
       ? { maxResponses: payload.maxResponses }
       : {}),
@@ -136,6 +139,18 @@ export async function PATCH(
       : {}),
     ...(payload.handoffTargets !== undefined
       ? { handoffTargets: payload.handoffTargets }
+      : {}),
+    ...(payload.schedulingConfig !== undefined
+      ? { schedulingConfig: payload.schedulingConfig }
+      : {}),
+    ...(payload.dataConfig !== undefined
+      ? { dataConfig: payload.dataConfig }
+      : {}),
+    ...(payload.calendarAvailabilityConfig !== undefined
+      ? { calendarAvailabilityConfig: payload.calendarAvailabilityConfig }
+      : {}),
+    ...(payload.bookingConfig !== undefined
+      ? { bookingConfig: payload.bookingConfig }
       : {}),
     updatedAt: new Date().toISOString()
   }

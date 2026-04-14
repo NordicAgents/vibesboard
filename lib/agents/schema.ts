@@ -58,45 +58,86 @@ export const notificationConfigSchema = z.object({
     .default({})
 })
 
-export const schedulingConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  calendarConnectionId: z.string().nullable().default(null),
-  defaultDurationMinutes: z.number().int().min(5).max(480).default(30),
-  bufferMinutes: z.number().int().min(0).max(120).default(0),
-  timezone: z.string().default('UTC'),
-  availableHours: z
-    .object({
-      start: z.string().regex(/^\d{2}:\d{2}$/),
-      end: z.string().regex(/^\d{2}:\d{2}$/)
-    })
-    .default({ start: '09:00', end: '17:00' }),
-  availableDays: z
-    .array(z.number().int().min(0).max(6))
-    .default([1, 2, 3, 4, 5]),
-  meetingTitleTemplate: z.string().max(200).default('Meeting with {{name}}'),
-  meetingDescription: z.string().max(1000).optional(),
-  createMeetLink: z.boolean().default(true)
-})
+export const schedulingConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    calendarConnectionId: z.string().nullable().default(null),
+    defaultDurationMinutes: z.number().int().min(5).max(480).default(30),
+    bufferMinutes: z.number().int().min(0).max(120).default(0),
+    timezone: z.string().default('UTC'),
+    availableHours: z
+      .object({
+        start: z.string().regex(/^\d{2}:\d{2}$/),
+        end: z.string().regex(/^\d{2}:\d{2}$/)
+      })
+      .default({ start: '09:00', end: '17:00' }),
+    availableDays: z
+      .array(z.number().int().min(0).max(6))
+      .default([1, 2, 3, 4, 5]),
+    meetingTitleTemplate: z.string().max(200).default('Meeting with {{name}}'),
+    meetingDescription: z.string().max(1000).optional(),
+    createMeetLink: z.boolean().default(true)
+  })
+  .superRefine((config, ctx) => {
+    if (config.enabled && !config.calendarConnectionId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Scheduling requires a calendar connection before it can be enabled.',
+        path: ['calendarConnectionId']
+      })
+    }
+  })
 
 export const dataFieldMappingSchema = z.object({
   collectionFieldId: z.string(),
   targetColumn: z.string().min(1).max(200)
 })
 
-export const dataConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  dataConnectionId: z.string().nullable().default(null),
-  fieldMappings: z.array(dataFieldMappingSchema).max(50).default([]),
-  autoSubmitOnComplete: z.boolean().default(true),
-  updateKeyField: z.string().nullable().optional()
-})
+export const dataConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    dataConnectionId: z.string().nullable().default(null),
+    fieldMappings: z.array(dataFieldMappingSchema).max(50).default([]),
+    autoSubmitOnComplete: z.boolean().default(true),
+    updateKeyField: z.string().nullable().optional()
+  })
+  .superRefine((config, ctx) => {
+    if (config.enabled && !config.dataConnectionId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Data sync requires a connection before it can be enabled.',
+        path: ['dataConnectionId']
+      })
+    }
+  })
 
-export const calendarAvailabilityConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  calendarConnectionId: z.string().nullable().default(null),
-  calendarId: z.string().nullable().optional(),
-  resourceName: z.string().max(100).optional()
-})
+export const calendarAvailabilityConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    calendarConnectionId: z.string().nullable().default(null),
+    calendarId: z.string().nullable().optional(),
+    resourceName: z.string().max(100).optional()
+  })
+  .superRefine((config, ctx) => {
+    if (config.enabled && !config.calendarConnectionId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Availability Only requires a connected calendar before it can be enabled.',
+        path: ['calendarConnectionId']
+      })
+    }
+
+    if (config.enabled && !config.calendarId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Availability Only requires a selected calendar before it can be enabled.',
+        path: ['calendarId']
+      })
+    }
+  })
 
 export const bookableResourceSchema = z.object({
   id: z.string(),
@@ -107,17 +148,28 @@ export const bookableResourceSchema = z.object({
   timezone: z.string().default('UTC')
 })
 
-export const bookingConfigSchema = z.object({
-  enabled: z.boolean().default(false),
-  resources: z.array(bookableResourceSchema).default([]),
-  mode: z.enum(['enquiry', 'direct']).default('enquiry'),
-  eventTitleTemplate: z
-    .string()
-    .max(200)
-    .default('{guest_name} ({guest_count} guests)'),
-  eventTimeMode: z.enum(['all-day', 'timed']).default('all-day'),
-  overlapProtection: z.boolean().default(true)
-})
+export const bookingConfigSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    resources: z.array(bookableResourceSchema).default([]),
+    mode: z.enum(['enquiry', 'direct']).default('enquiry'),
+    eventTitleTemplate: z
+      .string()
+      .max(200)
+      .default('{guest_name} ({guest_count} guests)'),
+    eventTimeMode: z.enum(['all-day', 'timed']).default('all-day'),
+    overlapProtection: z.boolean().default(true)
+  })
+  .superRefine((config, ctx) => {
+    if (config.enabled && config.resources.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Simple booking requires at least one bookable resource before it can be enabled.',
+        path: ['resources']
+      })
+    }
+  })
 
 export const upsertAgentSchema = z.object({
   name: z.string().min(2).max(120),
