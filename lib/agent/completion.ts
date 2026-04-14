@@ -9,7 +9,7 @@ export type CompletionReason =
   | 'max_messages' // backward compat
   | null
 
-const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
+const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/g
 const HANDOFF_TO_AGENT_REGEX = /\[HANDOFF_TO_AGENT:([a-zA-Z0-9_-]+)\]/
 
 /**
@@ -69,8 +69,10 @@ export function createCompletionTransformStream(
   const encoder = new TextEncoder()
   let buffer = ''
   let held = ''
-  // Hold back enough chars to cover the longest marker ([COLLECTION_COMPLETE] = 21 chars)
+  // Hold back enough chars to cover short markers ([COLLECTION_COMPLETE] = 21 chars).
+  // SUGGESTIONS markers are open-ended in length, so we detect their start explicitly.
   const HOLD_BACK = 30
+  const SUGGESTIONS_START = '<!--SUGGESTIONS:'
 
   return new TransformStream({
     transform(chunk, controller) {
@@ -79,8 +81,19 @@ export function createCompletionTransformStream(
       buffer += text
       held += text
 
-      // Release everything except the last HOLD_BACK chars to prevent
-      // completion markers from flashing on the client during streaming
+      // If SUGGESTIONS marker has started, hold everything from that point
+      // so the full (potentially long) marker can be stripped at flush time.
+      const suggestionsIdx = held.indexOf(SUGGESTIONS_START)
+      if (suggestionsIdx !== -1) {
+        if (suggestionsIdx > 0) {
+          controller.enqueue(encoder.encode(held.slice(0, suggestionsIdx)))
+          held = held.slice(suggestionsIdx)
+        }
+        return
+      }
+
+      // Otherwise, release everything except the last HOLD_BACK chars to prevent
+      // short completion markers from flashing on the client during streaming.
       if (held.length > HOLD_BACK) {
         const toRelease = held.slice(0, held.length - HOLD_BACK)
         controller.enqueue(encoder.encode(toRelease))
