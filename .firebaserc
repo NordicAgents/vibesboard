@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "vibesboard",
+    "staging": "vibesboard-staging"
+  }
+}

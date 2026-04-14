@@ -1,7 +1,8 @@
-import { type Message } from 'ai'
-import { type SupabaseClient } from '@supabase/supabase-js'
+import { type Message } from '@/lib/types/message'
 
-import { type Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
+import { Collections } from '@/lib/firestore-types'
 import { embedTexts } from '@/lib/agent/embeddings'
 import { mapConversationRow } from '@/lib/agents/db'
 
@@ -22,7 +23,8 @@ const formatDate = (value: string) => {
   return date.toISOString().slice(0, 10)
 }
 
-const roleLabel = (role: Message['role']) => (role === 'assistant' ? 'Agent' : 'User')
+const roleLabel = (role: Message['role']) =>
+  role === 'assistant' ? 'Agent' : 'User'
 
 const truncate = (value: string, maxChars: number) => {
   if (value.length <= maxChars) return value
@@ -49,16 +51,13 @@ const renderMessageLines = (messages: Message[]) =>
     .filter(Boolean)
     .join('\n')
 
-type MatchRow =
-  Database['public']['Functions']['match_agent_conversation_chunks']['Returns'][number]
-
 export async function buildAskAiConversationContext({
-  supabase,
+  tenantId,
   agentId,
   question,
   contextConversationId
 }: {
-  supabase: SupabaseClient<Database>
+  tenantId: string
   agentId: string
   question: string
   contextConversationId?: string
@@ -69,11 +68,15 @@ export async function buildAskAiConversationContext({
 }> {
   const trimmedQuestion = question.trim()
   if (!trimmedQuestion) {
-    return { context: 'No question provided.', usedVectorSearch: false, sourceCount: 0 }
+    return {
+      context: 'No question provided.',
+      usedVectorSearch: false,
+      sourceCount: 0
+    }
   }
 
   const vectorContext = await buildVectorContext({
-    supabase,
+    tenantId,
     agentId,
     question: trimmedQuestion,
     contextConversationId
@@ -84,7 +87,7 @@ export async function buildAskAiConversationContext({
   }
 
   const fallbackContext = await buildFallbackContext({
-    supabase,
+    tenantId,
     agentId,
     contextConversationId
   })
@@ -96,12 +99,12 @@ export async function buildAskAiConversationContext({
 }
 
 async function buildVectorContext({
-  supabase,
+  tenantId,
   agentId,
   question,
   contextConversationId
 }: {
-  supabase: SupabaseClient<Database>
+  tenantId: string
   agentId: string
   question: string
   contextConversationId?: string
@@ -123,38 +126,47 @@ async function buildVectorContext({
     return { context: '', usedVectorSearch: false, sourceCount: 0 }
   }
 
-  const { data: matches, error: matchError } = await supabase.rpc(
-    'match_agent_conversation_chunks',
-    {
-      p_agent_id: agentId,
-      p_query_embedding: queryEmbedding,
-      p_match_count: MAX_VECTOR_MATCHES,
-      p_conversation_id: contextConversationId ?? null
-    }
-  )
+  const collPath = Collections.conversationChunks(tenantId, agentId)
 
-  if (matchError) {
-    console.warn('Ask AI: vector match error', matchError)
+  let snapshot: FirebaseFirestore.QuerySnapshot
+  try {
+    snapshot = await adminDb
+      .collection(collPath)
+      .findNearest('embedding', FieldValue.vector(queryEmbedding), {
+        limit: MAX_VECTOR_MATCHES,
+        distanceMeasure: 'COSINE'
+      })
+      .get()
+  } catch (error) {
+    console.warn('Ask AI: vector match error', error)
     return { context: '', usedVectorSearch: false, sourceCount: 0 }
   }
 
-  const rows = (matches ?? []) as MatchRow[]
+  let rows = snapshot.docs.map(doc => doc.data())
+
+  // Post-query filter for contextConversationId since findNearest
+  // does not support compound where clauses easily
+  if (contextConversationId) {
+    rows = rows.filter(row => row.conversationId === contextConversationId)
+  }
+
   if (!rows.length) {
     return { context: '', usedVectorSearch: true, sourceCount: 0 }
   }
 
-  const uniqueMessageHits: Array<{ conversationId: string; messageIndex: number }> =
-    []
+  const uniqueMessageHits: Array<{
+    conversationId: string
+    messageIndex: number
+  }> = []
   const seen = new Set<string>()
 
-  const sorted = [...rows].sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
-  for (const row of sorted) {
-    const key = `${row.conversation_id}:${row.message_index}`
+  for (const row of rows) {
+    const key = `${row.conversationId}:${row.messageIndex}`
     if (seen.has(key)) continue
     seen.add(key)
     uniqueMessageHits.push({
-      conversationId: row.conversation_id,
-      messageIndex: row.message_index
+      conversationId: row.conversationId,
+      messageIndex: row.messageIndex
     })
     if (uniqueMessageHits.length >= MAX_SOURCES) break
   }
@@ -163,19 +175,22 @@ async function buildVectorContext({
     new Set(uniqueMessageHits.map(hit => hit.conversationId))
   )
 
-  const { data: conversationRows, error: convoError } = await supabase
-    .from('vibe_agent_conversations')
-    .select('*')
-    .in('id', conversationIds)
-
-  if (convoError) {
-    console.warn('Ask AI: failed to fetch conversations for matches', convoError)
+  const convCollPath = Collections.conversations(tenantId, agentId)
+  let conversations: ReturnType<typeof mapConversationRow>[]
+  try {
+    const convResults = await Promise.all(
+      conversationIds.map(async cid => {
+        const doc = await adminDb.collection(convCollPath).doc(cid).get()
+        return doc.exists ? mapConversationRow(doc.data()!) : null
+      })
+    )
+    conversations = convResults.filter(
+      (c): c is NonNullable<typeof c> => c !== null && !!c.externalId
+    )
+  } catch (error) {
+    console.warn('Ask AI: failed to fetch conversations for matches', error)
     return { context: '', usedVectorSearch: true, sourceCount: 0 }
   }
-
-  const conversations = (conversationRows ?? [])
-    .map(row => mapConversationRow(row as any))
-    .filter(conversation => conversation.externalId)
 
   const byId = new Map(conversations.map(convo => [convo.id, convo]))
   const labels = new Map<string, number>()
@@ -232,34 +247,42 @@ async function buildVectorContext({
 }
 
 async function buildFallbackContext({
-  supabase,
+  tenantId,
   agentId,
   contextConversationId
 }: {
-  supabase: SupabaseClient<Database>
+  tenantId: string
   agentId: string
   contextConversationId?: string
 }): Promise<string> {
-  let query = supabase
-    .from('vibe_agent_conversations')
-    .select('*')
-    .eq('agent_id', agentId)
-    .not('external_id', 'is', null)
+  const convCollPath = Collections.conversations(tenantId, agentId)
 
-  if (contextConversationId) {
-    query = query.eq('id', contextConversationId).limit(1)
-  } else {
-    query = query.order('updated_at', { ascending: false }).limit(FALLBACK_CONVERSATIONS)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
+  let snapshot: FirebaseFirestore.QuerySnapshot
+  try {
+    if (contextConversationId) {
+      snapshot = await adminDb
+        .collection(convCollPath)
+        .where('id', '==', contextConversationId)
+        .limit(1)
+        .get()
+    } else {
+      // Fetch recent conversations sorted by updatedAt and filter for visitor
+      // conversations (those with externalId) in memory to avoid a composite index.
+      snapshot = await adminDb
+        .collection(convCollPath)
+        .orderBy('updatedAt', 'desc')
+        .limit(FALLBACK_CONVERSATIONS * 3)
+        .get()
+    }
+  } catch (error) {
     console.warn('Ask AI: fallback conversation query failed', error)
     return ''
   }
 
-  const conversations = (data ?? []).map(row => mapConversationRow(row as any))
+  const conversations = snapshot.docs
+    .map(doc => mapConversationRow(doc.data()!))
+    .filter(c => contextConversationId || c.externalId)
+    .slice(0, FALLBACK_CONVERSATIONS)
   if (!conversations.length) {
     return ''
   }
@@ -270,7 +293,9 @@ async function buildFallbackContext({
   conversations.forEach((conversation, index) => {
     if (totalChars >= MAX_TOTAL_CONTEXT_CHARS) return
 
-    const messages = (conversation.messages ?? []).slice(-FALLBACK_MESSAGES_PER_CONVO)
+    const messages = (conversation.messages ?? []).slice(
+      -FALLBACK_MESSAGES_PER_CONVO
+    )
     const lines = renderMessageLines(messages)
     if (!lines.trim()) return
 

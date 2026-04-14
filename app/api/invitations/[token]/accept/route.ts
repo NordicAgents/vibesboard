@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { FieldValue } from 'firebase-admin/firestore'
+import { setActiveTenantId } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'
 
 type RouteParams = {
-    params: Promise<{
-        token: string
-    }>
+  params: Promise<{
+    token: string
+  }>
 }
 
 /**
@@ -17,99 +18,93 @@ type RouteParams = {
  * Accept invitation (authenticated user)
  */
 export async function POST(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const auth = await requireAuth()
+  if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { token } = await params
 
-    const { token } = await params
+  // Get invitation by token (doc ID = token)
+  const invitationRef = adminDb.collection(Collections.invitations).doc(token)
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+  const invitationDoc = await invitationRef.get()
 
-    // Get invitation
-    const { data: invitation, error: inviteError } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('token', token)
-        .single()
+  if (!invitationDoc.exists) {
+    return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
+  }
 
-    if (inviteError || !invitation) {
-        return NextResponse.json(
-            { error: 'Invitation not found' },
-            { status: 404 }
-        )
-    }
+  const invitation = invitationDoc.data()!
 
-    // Check if invitation is expired
-    const now = new Date()
-    const expiresAt = new Date(invitation.expires_at)
+  // Check if invitation is expired
+  const now = new Date()
+  const expiresAt = new Date(invitation.expiresAt)
 
-    if (now > expiresAt) {
-        return NextResponse.json(
-            { error: 'Invitation has expired' },
-            { status: 410 }
-        )
-    }
+  if (now > expiresAt) {
+    return NextResponse.json(
+      { error: 'Invitation has expired' },
+      { status: 410 }
+    )
+  }
 
-    // Check if invitation is already accepted
-    if (invitation.status === 'accepted') {
-        return NextResponse.json(
-            { error: 'Invitation has already been accepted' },
-            { status: 410 }
-        )
-    }
+  // Check if invitation is already accepted
+  if (invitation.status === 'accepted') {
+    return NextResponse.json(
+      { error: 'Invitation has already been accepted' },
+      { status: 410 }
+    )
+  }
 
-    // Verify email matches (optional - could also allow accepting with different email)
-    // For now, we'll allow any authenticated user to accept
+  if (invitation.status !== 'pending') {
+    return NextResponse.json(
+      { error: 'Invitation is no longer valid' },
+      { status: 410 }
+    )
+  }
 
-    // Check if user is already a member
-    const { data: existingMember } = await supabase
-        .from('tenant_users')
-        .select('user_id')
-        .eq('tenant_id', invitation.tenant_id)
-        .eq('user_id', session.user.id)
-        .single()
+  const tenantId = invitation.tenantId
+  const userId = auth.user.id
 
-    if (existingMember) {
-        return NextResponse.json(
-            { error: 'You are already a member of this tenant' },
-            { status: 409 }
-        )
-    }
+  // Check if user is already a member
+  const memberDoc = await adminDb
+    .collection(Collections.members(tenantId))
+    .doc(userId)
+    .get()
 
-    // Create tenant_users record
-    const { error: memberError } = await supabase
-        .from('tenant_users')
-        .insert({
-            user_id: session.user.id,
-            tenant_id: invitation.tenant_id,
-            role: invitation.role
-        })
+  if (memberDoc.exists) {
+    return NextResponse.json(
+      { error: 'You are already a member of this tenant' },
+      { status: 409 }
+    )
+  }
 
-    if (memberError) {
-        return NextResponse.json(
-            { error: memberError.message },
-            { status: 500 }
-        )
-    }
+  // Use a batch to add member + update invitation + update user atomically
+  const batch = adminDb.batch()
 
-    // Mark invitation as accepted
-    const { error: updateError } = await supabase
-        .from('invitations')
-        .update({ status: 'accepted' })
-        .eq('id', invitation.id)
+  // Add user to tenant members
+  batch.set(adminDb.collection(Collections.members(tenantId)).doc(userId), {
+    userId,
+    tenantId,
+    role: invitation.role,
+    createdAt: now.toISOString()
+  })
 
-    if (updateError) {
-        // Log error but don't fail the request since user was already added
-        console.error('Failed to mark invitation as accepted:', updateError)
-    }
+  // Mark invitation as accepted
+  batch.update(invitationRef, {
+    status: 'accepted',
+    acceptedAt: now.toISOString()
+  })
 
-    return NextResponse.json({
-        success: true,
-        tenant_id: invitation.tenant_id
-    })
+  // Add tenantId to user's tenantIds array
+  batch.update(adminDb.collection(Collections.users).doc(userId), {
+    tenantIds: FieldValue.arrayUnion(tenantId)
+  })
+
+  await batch.commit()
+
+  // Set active tenant for the new member
+  await setActiveTenantId(tenantId)
+
+  return NextResponse.json({
+    success: true,
+    tenant_id: tenantId
+  })
 }

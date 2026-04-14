@@ -1,11 +1,12 @@
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapConversationRow } from '@/lib/agents/db'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { getAgentById } from '@/lib/agents/server'
+import { mapConversationDoc } from '@/lib/agents/db'
 import { summarizeConversation } from '@/lib/agent/summarize'
+import { canEditAgent } from '@/lib/agents/permissions'
 
 export const runtime = 'nodejs'
 
@@ -14,43 +15,42 @@ export async function POST(
   { params }: { params: Promise<{ id: string; cid: string }> }
 ) {
   const { id, cid } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
+  const { user } = authResult
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
+  const agent = await getAgentById(id)
+
+  if (!agent) {
+    return new NextResponse('Not found', { status: 404 })
   }
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+  const canEdit = await canEditAgent({
+    sessionUserId: user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
   })
 
-  const { data: agentRow } = await supabase
-    .from('vibe_agents')
-    .select('id, user_id')
-    .eq('id', id)
-    .eq('user_id', session.user.id)
-    .maybeSingle()
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 
-  if (!agentRow) {
+  const docRef = adminDb
+    .collection(Collections.conversations(agent.tenantId, agent.id))
+    .doc(cid)
+
+  const doc = await docRef.get()
+
+  if (!doc.exists) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const { data: convoRow, error: convoError } = await supabase
-    .from('vibe_agent_conversations')
-    .select('*')
-    .eq('id', cid)
-    .maybeSingle()
-
-  if (convoError) {
-    return NextResponse.json({ error: convoError.message }, { status: 500 })
-  }
-
-  if (!convoRow || convoRow.agent_id !== id) {
+  const data = doc.data()!
+  if (data.agentId !== id) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const conversation = mapConversationRow(convoRow as any)
+  const conversation = mapConversationDoc(data)
   let summary = conversation.summary ?? null
   let summaryGeneratedAt = conversation.summaryGeneratedAt ?? null
 
@@ -60,19 +60,12 @@ export async function POST(
   }
 
   const closedAt = new Date().toISOString()
-  const { error: updateError } = await supabase
-    .from('vibe_agent_conversations')
-    .update({
-      closed_at: closedAt,
-      summary,
-      summary_generated_at: summaryGeneratedAt,
-      updated_at: closedAt
-    } as any)
-    .eq('id', cid)
-
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
-  }
+  await docRef.update({
+    closedAt,
+    summary,
+    summaryGeneratedAt,
+    updatedAt: closedAt
+  })
 
   return NextResponse.json({ ok: true, summary, closedAt })
 }

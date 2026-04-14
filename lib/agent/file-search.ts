@@ -1,22 +1,16 @@
 import { Buffer } from 'node:buffer'
 
-import { Configuration, OpenAIApi } from 'openai-edge'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { FieldValue } from 'firebase-admin/firestore'
 
-import { getServiceSupabaseClient } from '@/lib/supabase/service-client'
-import { type Database } from '@/lib/db_types'
-import { OPENAI_VISION_MODEL } from '@/lib/openai'
+import { adminDb } from '@/lib/firebase/admin'
+import { downloadFile } from '@/lib/firebase/storage'
+import { Collections } from '@/lib/firestore-types'
+import { OPENAI_VISION_MODEL, isResponsesModel } from '@/lib/openai'
+import { createEmbedding, chatCompletionWithVision } from '@/lib/openai-compat'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
 const VISION_MODEL = OPENAI_VISION_MODEL
-const STORAGE_BUCKET = 'agent-files'
-
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY
-  })
-)
 
 const IMAGE_MIME_TYPES = new Set([
   'image/png',
@@ -38,7 +32,7 @@ const cleanText = (value: string) =>
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
-const guessMimeFromPath = (path: string) => {
+export const guessMimeFromPath = (path: string) => {
   const lower = path.toLowerCase()
   if (lower.endsWith('.pdf')) return 'application/pdf'
   if (lower.endsWith('.docx'))
@@ -76,15 +70,21 @@ const extractFromHtml = (raw: string) =>
   cleanText(raw.replace(htmlTagRegex, ' '))
 
 const extractFromWorkbook = async (buffer: Buffer) => {
-  const XLSX = await import('xlsx')
-  const workbook = XLSX.read(buffer, { type: 'buffer' })
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer as any)
   const parts: string[] = []
 
-  workbook.SheetNames.forEach(sheetName => {
-    const worksheet = workbook.Sheets[sheetName]
-    const csv = XLSX.utils.sheet_to_csv(worksheet)
-    if (csv?.trim()) {
-      parts.push(`# Sheet: ${sheetName}\n${csv}`)
+  workbook.eachSheet((worksheet, _sheetId) => {
+    const rows: string[] = []
+    worksheet.eachRow(row => {
+      const values = Array.isArray(row.values)
+        ? (row.values as unknown[]).slice(1) // exceljs row.values is 1-indexed with empty [0]
+        : []
+      rows.push(values.map(v => (v != null ? String(v) : '')).join(','))
+    })
+    if (rows.length > 0) {
+      parts.push(`# Sheet: ${worksheet.name}\n${rows.join('\n')}`)
     }
   })
 
@@ -107,14 +107,17 @@ const ensurePdfWorker = async (PDFParseClass: any) => {
   if (pdfWorkerConfigured) return
 
   try {
-    // Load the Node/Next.js worker helpers recommended by pdf-parse
     const workerModule: any = await import('pdf-parse/worker').catch(() => null)
 
     if (workerModule) {
       pdfWorkerGetPath =
-        typeof workerModule.getPath === 'function' ? workerModule.getPath : undefined
+        typeof workerModule.getPath === 'function'
+          ? workerModule.getPath
+          : undefined
       pdfWorkerGetData =
-        typeof workerModule.getData === 'function' ? workerModule.getData : undefined
+        typeof workerModule.getData === 'function'
+          ? workerModule.getData
+          : undefined
       pdfCanvasFactory = workerModule.CanvasFactory ?? undefined
     }
 
@@ -131,14 +134,13 @@ const ensurePdfWorker = async (PDFParseClass: any) => {
 
     pdfWorkerConfigured = true
   } catch {
-    // Ignore worker configuration errors; we'll still attempt parsing.
+    // Ignore worker configuration errors
   }
 }
 
 const extractFromPdf = async (buffer: Buffer) => {
   const pdfModule = await import('pdf-parse')
 
-  // Prefer the class-based API introduced in pdf-parse v2.x
   const PDFParseClass: any = (pdfModule as any).PDFParse
   if (typeof PDFParseClass === 'function') {
     await ensurePdfWorker(PDFParseClass)
@@ -152,14 +154,11 @@ const extractFromPdf = async (buffer: Buffer) => {
       return cleanText(result?.text || '')
     } finally {
       if (typeof parser.destroy === 'function') {
-        await parser.destroy().catch(() => {
-          /* ignore */
-        })
+        await parser.destroy().catch(() => {})
       }
     }
   }
 
-  // Fallback for the legacy function export (pdf-parse v1.x)
   const legacyParser: any =
     typeof (pdfModule as any).default === 'function'
       ? (pdfModule as any).default
@@ -177,40 +176,91 @@ const extractFromPdf = async (buffer: Buffer) => {
 
 const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   const base64 = buffer.toString('base64')
-  const response = await openai.createChatCompletion({
+  const dataUrl = `data:${mimeType};base64,${base64}`
+  const prompt =
+    'Extract all visible text from this image and provide a short description. Return plain text only.'
+
+  if (isResponsesModel(VISION_MODEL)) {
+    // Use the Responses API for gpt-5.4-nano and similar models
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) return ''
+
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        input: [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: prompt },
+              { type: 'input_image', image_url: dataUrl }
+            ]
+          }
+        ]
+      })
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '')
+      console.error(
+        '[extractTextFromImage] Responses API error',
+        res.status,
+        errorText
+      )
+      return ''
+    }
+
+    const json = await res.json()
+    // Parse Responses API output format
+    const output = json?.output
+    if (Array.isArray(output)) {
+      for (const item of output) {
+        if (item?.type !== 'message' || !Array.isArray(item.content)) continue
+        const parts: string[] = []
+        for (const part of item.content) {
+          if (part?.type === 'output_text' && typeof part.text === 'string') {
+            parts.push(part.text)
+          }
+        }
+        if (parts.length) return cleanText(parts.join(''))
+      }
+    }
+    return ''
+  }
+
+  // Fallback: Chat Completions API for older vision models
+  const visionJson = await chatCompletionWithVision({
     model: VISION_MODEL,
     messages: [
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text: 'Extract all visible text from this image and provide a short description. Return plain text only.'
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${base64}`
-            }
-          }
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: dataUrl } }
         ]
       }
     ]
   })
 
-  const json = await response.json()
-  const rawContent = json?.choices?.[0]?.message?.content
+  const rawContent = visionJson?.choices?.[0]?.message?.content
   const content =
     Array.isArray(rawContent) && rawContent.length
       ? rawContent
-          .map((entry: any) => (typeof entry?.text === 'string' ? entry.text : ''))
+          .map((entry: any) =>
+            typeof entry?.text === 'string' ? entry.text : ''
+          )
           .join('\n')
       : rawContent || ''
 
   return cleanText(String(content))
 }
 
-const extractTextFromBuffer = async (
+export const extractTextFromBuffer = async (
   buffer: Buffer,
   mimeType: string
 ): Promise<string> => {
@@ -280,49 +330,54 @@ const embedChunks = async (values: string[]) => {
   if (!values.length) {
     return []
   }
-  const response = await openai.createEmbedding({
+  const json = await createEmbedding({
     model: EMBEDDING_MODEL,
     input: values
   })
-  const json = await response.json()
   return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
 }
 
+/**
+ * Delete existing file chunks for a given agent + file key.
+ * Requires tenantId to resolve the subcollection path.
+ */
+const BATCH_LIMIT = 400
+
 const deleteExistingChunks = async (
-  supabase: SupabaseClient<Database>,
+  tenantId: string,
   agentId: string,
   fileKey: string
 ) => {
-  await supabase
-    .from('agent_file_chunks')
-    .delete()
-    .eq('agent_id', agentId)
-    .eq('file_key', fileKey)
+  const collPath = Collections.fileChunks(tenantId, agentId)
+  const snapshot = await adminDb
+    .collection(collPath)
+    .where('fileKey', '==', fileKey)
+    .get()
+
+  if (snapshot.empty) return
+
+  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    snapshot.docs
+      .slice(i, i + BATCH_LIMIT)
+      .forEach((doc: any) => batch.delete(doc.ref))
+    await batch.commit()
+  }
 }
 
 export const ingestFileForAgent = async (args: {
+  tenantId: string
   agentId: string
   fileKey: string
   fileName?: string
   mimeType?: string | null
 }) => {
-  const { agentId, fileKey } = args
+  const { tenantId, agentId, fileKey } = args
   const fileName = args.fileName || fileKey.split('/').pop() || fileKey
   const mimeType = args.mimeType || guessMimeFromPath(fileName)
 
-  const supabase = getServiceSupabaseClient()
-  const download = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .download(fileKey)
-
-  if (download.error || !download.data) {
-    throw new Error(
-      download.error?.message || 'Unable to download file for ingestion'
-    )
-  }
-
-  const arrayBuffer = await download.data.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+  // Download from GCS
+  const buffer = await downloadFile(fileKey)
 
   const text = await extractTextFromBuffer(buffer, mimeType)
 
@@ -343,99 +398,87 @@ export const ingestFileForAgent = async (args: {
     }
   }
 
-  await deleteExistingChunks(supabase, agentId, fileKey)
+  await deleteExistingChunks(tenantId, agentId, fileKey)
 
-  const rows = chunks.map((content, index) => ({
-    agent_id: agentId,
-    file_key: fileKey,
-    file_name: fileName,
-    mime_type: mimeType,
-    chunk_index: index,
-    content,
-    embedding: embeddings[index] ?? null
-  }))
+  // Write chunks to Firestore with vector embeddings
+  // Firestore batch writes are limited to 500 operations — split into batches of 400
+  const collPath = Collections.fileChunks(tenantId, agentId)
 
-  const { error } = await supabase.from('agent_file_chunks').insert(rows)
-  if (error) {
-    throw new Error(error.message)
+  for (let i = 0; i < chunks.length; i += BATCH_LIMIT) {
+    const batch = adminDb.batch()
+    const slice = chunks.slice(i, i + BATCH_LIMIT)
+
+    slice.forEach((content, sliceIndex) => {
+      const index = i + sliceIndex
+      const ref = adminDb.collection(collPath).doc()
+      batch.set(ref, {
+        id: ref.id,
+        agentId,
+        fileKey,
+        fileName,
+        mimeType,
+        chunkIndex: index,
+        content,
+        embedding: FieldValue.vector(embeddings[index] ?? []),
+        createdAt: new Date().toISOString()
+      })
+    })
+
+    await batch.commit()
   }
 
+  const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
+
   return {
-    chunksInserted: rows.length,
-    message: `Ingested ${rows.length} chunk(s) for search.`
+    chunksInserted: chunks.length,
+    totalChars,
+    message: `Ingested ${chunks.length} chunk(s) for search.`
   }
 }
 
+/**
+ * Read the full text content of an uploaded file (no chunking, no embedding).
+ * Used for direct context injection when files are small enough.
+ */
+export const readFullFileContent = async (
+  fileKey: string,
+  fileName?: string
+): Promise<{ text: string; fileName: string; charCount: number }> => {
+  const name = fileName || fileKey.split('/').pop() || fileKey
+  const mimeType = guessMimeFromPath(name)
+  const buffer = await downloadFile(fileKey)
+  const text = await extractTextFromBuffer(buffer, mimeType)
+  return { text, fileName: name, charCount: text.length }
+}
+
+/**
+ * Search agent file chunks — delegates to rag-retriever for a single search path.
+ */
 export const searchAgentFileChunks = async (args: {
+  tenantId: string
   agentId: string
   query: string
   limit?: number
 }) => {
-  const { agentId, query, limit = 8 } = args
-  const supabase = getServiceSupabaseClient()
+  const { tenantId, agentId, query, limit = 8 } = args
 
-  const embedResponse = await openai.createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: query
-  })
-  const embedJson = await embedResponse.json()
-  const queryEmbedding = embedJson?.data?.[0]?.embedding
+  try {
+    const { retrieveContext } = await import('@/lib/agent/rag-retriever')
+    const ragContext = await retrieveContext(tenantId, agentId, query, {
+      topK: limit,
+      enableFallback: true
+    })
 
-  if (!queryEmbedding) {
-    return { matches: [], error: 'Embedding generation failed.' }
-  }
+    const matches = ragContext.chunks.map(chunk => ({
+      fileName: chunk.fileName,
+      fileKey: chunk.fileKey,
+      snippet: chunk.content,
+      score: chunk.similarity
+    }))
 
-  const rpc = await supabase.rpc('match_agent_file_chunks', {
-    agent_id: agentId,
-    query_embedding: queryEmbedding,
-    match_count: limit
-  })
-
-  let rpcErrorMessage: string | undefined
-  if (rpc.error) {
-    const message = rpc.error.message ?? ''
-    rpcErrorMessage = message
-    const missingFn =
-      message.toLowerCase().includes('does not exist') ||
-      message.toLowerCase().includes('undefined function')
-
-    if (!missingFn) {
-      return { matches: [], error: message }
-    }
-  }
-
-  const matches =
-    rpc.data?.map(entry => ({
-      fileName: entry.file_name,
-      fileKey: entry.file_key,
-      snippet: entry.content,
-      score: entry.similarity ?? 0
-    })) ?? []
-
-  if (matches.length > 0) {
     return { matches }
-  }
-
-  // Fallback to a basic text search if the RPC is unavailable.
-  const textFallback = await supabase
-    .from('agent_file_chunks')
-    .select('file_key,file_name,content')
-    .eq('agent_id', agentId)
-    .ilike('content', `%${query}%`)
-    .limit(limit)
-
-  if (textFallback.error) {
-    return { matches: [], error: textFallback.error.message }
-  }
-
-  return {
-    matches:
-      textFallback.data?.map(entry => ({
-        fileName: entry.file_name,
-        fileKey: entry.file_key,
-        snippet: entry.content,
-        score: 0
-      })) ?? [],
-    error: rpcErrorMessage
+  } catch (err: any) {
+    console.error('[file-search] Search failed:', err?.message)
+    return { matches: [], error: err?.message ?? 'Search failed.' }
   }
 }

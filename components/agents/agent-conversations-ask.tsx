@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useCompletion } from 'ai/react'
 
 import { type VibeAgentConversation } from '@/lib/types'
+import { getConversationPreview } from '@/lib/agents/conversation-preview'
 import { formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -75,16 +76,18 @@ export function AgentConversationsAsk({
               <SelectItem value="all">All conversations</SelectItem>
               {conversations.map(conversation => (
                 <SelectItem key={conversation.id} value={conversation.id}>
-                  {conversation.summary?.slice(0, 60) ||
-                    conversation.messages.at(-1)?.content?.slice(0, 60) ||
-                    conversation.id.slice(0, 8)}
+                  {getConversationPreview(
+                    conversation.messages,
+                    conversation.summary
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {scope !== 'all' && selectedConversation && (
             <p className="text-xs text-muted-foreground">
-              Using conversation updated {formatDate(selectedConversation.updatedAt)}
+              Using conversation updated{' '}
+              {formatDate(selectedConversation.updatedAt)}
             </p>
           )}
         </div>
@@ -113,9 +116,7 @@ export function AgentConversationsAsk({
             </Button>
           </div>
         </form>
-        {error && (
-          <p className="text-sm text-destructive">{error.message}</p>
-        )}
+        {error && <p className="text-sm text-destructive">{error.message}</p>}
         {completion && (
           <div className="space-y-2 rounded-md border bg-muted/30 p-4 text-sm">
             <p className="font-medium text-muted-foreground">Answer</p>

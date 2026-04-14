@@ -19,22 +19,28 @@ export function ThemeToggle() {
     return null
   }
 
+  const isDarkMode = theme === 'dark'
+
   return (
     <Button
       variant="ghost"
       size="icon"
+      title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       onClick={() => {
         startTransition(() => {
           setTheme(theme === 'light' ? 'dark' : 'light')
         })
       }}
     >
-      {!theme ? null : theme === 'dark' ? (
+      {!theme ? null : isDarkMode ? (
         <IconMoon className="transition-all" />
       ) : (
         <IconSun className="transition-all" />
       )}
-      <span className="sr-only">Toggle theme</span>
+      <span className="sr-only">
+        {isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      </span>
     </Button>
   )
 }

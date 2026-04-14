@@ -1,17 +1,6 @@
 import 'server-only'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { auth as firebaseAuth } from '@/lib/firebase/auth'
 
-export const auth = async ({
-  cookieStore
-}: {
-  cookieStore: Awaited<ReturnType<typeof cookies>>
-}) => {
-  // Create a Supabase client configured to use cookies
-  const supabase = createServerComponentClient({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-  const { data, error } = await supabase.auth.getSession()
-  if (error) throw error
-  return data.session
-}
+// Re-export the Firebase auth helper as the app-wide auth() function.
+// This keeps all existing `import { auth } from '@/auth'` calls working.
+export const auth = firebaseAuth

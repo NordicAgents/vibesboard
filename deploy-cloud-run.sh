@@ -3,7 +3,6 @@
 set -euo pipefail
 
 # --- Config ---
-# Override via exported env vars; edit defaults as needed
 PROJECT_ID="vibesboard"
 REGION="europe-north1"
 SERVICE_NAME="vibeagent"
@@ -38,7 +37,7 @@ gcloud config set project "${PROJECT_ID}" --quiet >/dev/null
 
 # Validate project exists and you have access
 if ! gcloud projects describe "${PROJECT_ID}" >/dev/null 2>&1; then
-  echo "Project '${PROJECT_ID}' not found or access denied. Set PROJECT_ID env or ensure permissions." >&2
+  echo "Project '${PROJECT_ID}' not found or access denied." >&2
   exit 1
 fi
 
@@ -49,7 +48,7 @@ else
   podman login gcr.io -u oauth2accesstoken -p "$(gcloud auth print-access-token)"
 fi
 
-# Prepare build-time NEXT_PUBLIC_* args for Next.js client embed
+# --- Build args helper ---
 BUILD_ARGS=""
 add_build_arg() {
   local key="$1"; shift
@@ -77,50 +76,56 @@ get_env_value() {
   return 1
 }
 
-# Only include NEXT_PUBLIC_* actually used by the app
-for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_AUTH_GITHUB NEXT_PUBLIC_AUTH_GOOGLE NEXT_PUBLIC_APP_URL; do
+# --- Build-time NEXT_PUBLIC_* args (Firebase) ---
+for key in \
+  NEXT_PUBLIC_FIREBASE_API_KEY \
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID \
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
+  NEXT_PUBLIC_FIREBASE_APP_ID \
+  NEXT_PUBLIC_AUTH_GOOGLE \
+  NEXT_PUBLIC_APP_URL \
+  NEXT_PUBLIC_META_APP_ID \
+  NEXT_PUBLIC_FB_LOGIN_CONFIG_ID \
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY; do
   val=$(get_env_value "$key" || true)
   add_build_arg "$key" "$val"
 done
 
 echo "Using build-time public env: ${BUILD_ARGS:-<none>}"
 
-# Sanity check for required NEXT_PUBLIC_* if no .env.production provided
+# Sanity check
 if [ ! -f .env.production ]; then
-  req1=$(get_env_value NEXT_PUBLIC_SUPABASE_URL || true)
-  req2=$(get_env_value NEXT_PUBLIC_SUPABASE_ANON_KEY || true)
-  if [ -z "${req1}" ] || [ -z "${req2}" ]; then
-    echo "Error: Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY." >&2
-    echo "Provide them via exported env or .env, or create .env.production before building." >&2
+  req=$(get_env_value NEXT_PUBLIC_FIREBASE_API_KEY || true)
+  if [ -z "${req}" ]; then
+    echo "Error: Missing NEXT_PUBLIC_FIREBASE_API_KEY." >&2
+    echo "Provide it via exported env or .env." >&2
     exit 1
   fi
 fi
 
-# Build and push image (linux/amd64)
+# --- Build and push image (linux/amd64) ---
 ${ENGINE} build --platform linux/amd64 -t "${IMAGE_NAME}" ${BUILD_ARGS} .
 ${ENGINE} push "${IMAGE_NAME}"
 
-# Prepare runtime env vars
-# Prefer env.yaml file (safer for commas and special chars),
-# otherwise fall back to concatenating .env for --set-env-vars
-ENV_ARGS=""
-if [ -f env.yaml ]; then
-  echo "Using runtime env file: env.yaml"
-  ENV_ARGS="--env-vars-file=env.yaml"
-else
-  ENV_VARS=""
-  if [ -f .env ]; then
-    ENV_VARS=$(grep -v '^#' .env | sed '/^$/d' | paste -sd , -)
-  fi
-  if [ -n "${ENV_VARS}" ]; then
-    echo "Using runtime env vars from .env"
-    ENV_ARGS="--set-env-vars=${ENV_VARS}"
-  else
-    echo "No runtime env configured (env.yaml or .env)"
-  fi
+# --- Non-sensitive runtime env vars ---
+OPENAI_MODEL=$(get_env_value OPENAI_MODEL || echo "gpt-4o-mini")
+GCS_BUCKET_NAME=$(get_env_value GCS_BUCKET_NAME || echo "vibeagent-files")
+WHATSAPP_PHONE_NUMBER_ID=$(get_env_value WHATSAPP_PHONE_NUMBER_ID || true)
+NEXT_PUBLIC_APP_URL_VAL=$(get_env_value NEXT_PUBLIC_APP_URL || echo "https://www.vibesboard.com")
+
+NOTIFICATION_EMAIL_FROM_VAL=$(get_env_value NOTIFICATION_EMAIL_FROM || echo "VibeAgent <notifications@vibeagent.com>")
+
+ENV_VARS="OPENAI_MODEL=${OPENAI_MODEL}"
+ENV_VARS+=",GCS_BUCKET_NAME=${GCS_BUCKET_NAME}"
+ENV_VARS+=",NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL_VAL}"
+ENV_VARS+=",NOTIFICATION_EMAIL_FROM=${NOTIFICATION_EMAIL_FROM_VAL}"
+if [ -n "${WHATSAPP_PHONE_NUMBER_ID}" ]; then
+  ENV_VARS+=",WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}"
 fi
 
-# Deploy to Cloud Run
+# --- Deploy to Cloud Run ---
 gcloud run deploy "${SERVICE_NAME}" \
   --image="${IMAGE_NAME}" \
   --region="${REGION}" \
@@ -132,19 +137,99 @@ gcloud run deploy "${SERVICE_NAME}" \
   --min-instances=0 \
   --max-instances=3 \
   --timeout=600s \
-  ${ENV_ARGS}
+  --set-env-vars="${ENV_VARS}" \
+  --set-secrets="\
+OPENAI_API_KEY=openai-api-key:latest,\
+FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,\
+WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,\
+VERIFY_TOKEN=whatsapp-verify-token:latest,\
+ENCRYPTION_KEY=encryption-key:latest,\
+CRON_SECRET=cron-secret:latest,\
+META_APP_SECRET=meta-app-secret:latest,\
+WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest,\
+INSTAGRAM_INBOX_VERIFY_TOKEN=instagram-inbox-verify-token:latest,\
+RESEND_API_KEY=resend-api-key:latest,\
+STRIPE_SECRET_KEY=stripe-secret-key:latest,\
+STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest,\
+STRIPE_PRICE_PRO_BASE=stripe-price-pro-base:latest,\
+STRIPE_PRICE_PRO_OVERAGE=stripe-price-pro-overage:latest,\
+STRIPE_PRICE_TEAM_BASE=stripe-price-team-base:latest,\
+STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest,\
+GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest,\
+GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest,\
+GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest"
 
 SERVICE_URL=$(gcloud run services describe "${SERVICE_NAME}" --region="${REGION}" --format="value(status.url)")
+echo ""
 echo "Service deployed: ${SERVICE_URL}"
+echo ""
 
-cat <<'EONOTE'
-Note:
-- Server runtime environment variables are set above via Cloud Run. Client-side
-  variables must be prefixed with NEXT_PUBLIC_ and included at build time.
-  This script forwards NEXT_PUBLIC_* values from your shell or .env file
-  to the Docker build as --build-arg so Next.js can embed them.
+# --- Cloud Scheduler for WhatsApp queue processing ---
+# Cloud Scheduler is not available in all regions; use the nearest supported one.
+SCHEDULER_REGION="europe-west1"
+JOB_NAME="vibeagent-process-whatsapp-queue"
+echo "Setting up Cloud Scheduler cron job: ${JOB_NAME} (location: ${SCHEDULER_REGION})..."
 
-- This app sets several routes/pages to runtime = 'edge'. Next.js can run
-  these under next start, but behavior may differ from Vercel Edge. Test
-  your API routes after deploy.
-EONOTE
+CRON_TOKEN=$(gcloud secrets versions access latest --secret=cron-secret --project="${PROJECT_ID}")
+
+if gcloud scheduler jobs describe "${JOB_NAME}" --location="${SCHEDULER_REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "  Updating existing scheduler job..."
+  gcloud scheduler jobs update http "${JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="*/30 * * * *" \
+    --uri="${SERVICE_URL}/api/cron/process-whatsapp-queue" \
+    --http-method=GET \
+    --update-headers="Authorization=Bearer ${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+else
+  echo "  Creating new scheduler job..."
+  gcloud scheduler jobs create http "${JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="*/30 * * * *" \
+    --uri="${SERVICE_URL}/api/cron/process-whatsapp-queue" \
+    --http-method=GET \
+    --headers="Authorization=Bearer ${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+fi
+
+echo "Cloud Scheduler job configured: every 30 minutes"
+
+# --- Cloud Scheduler for billing cycle reset (free plan) ---
+BILLING_JOB_NAME="vibeagent-billing-reset"
+echo ""
+echo "Setting up Cloud Scheduler cron job: ${BILLING_JOB_NAME} (location: ${SCHEDULER_REGION})..."
+
+if gcloud scheduler jobs describe "${BILLING_JOB_NAME}" --location="${SCHEDULER_REGION}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "  Updating existing scheduler job..."
+  gcloud scheduler jobs update http "${BILLING_JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="0 2 * * *" \
+    --time-zone="UTC" \
+    --uri="${SERVICE_URL}/api/cron/billing-reset" \
+    --http-method=POST \
+    --update-headers="x-cron-secret=${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+else
+  echo "  Creating new scheduler job..."
+  gcloud scheduler jobs create http "${BILLING_JOB_NAME}" \
+    --location="${SCHEDULER_REGION}" \
+    --project="${PROJECT_ID}" \
+    --schedule="0 2 * * *" \
+    --time-zone="UTC" \
+    --uri="${SERVICE_URL}/api/cron/billing-reset" \
+    --http-method=POST \
+    --headers="x-cron-secret=${CRON_TOKEN}" \
+    --attempt-deadline=120s \
+    --quiet
+fi
+
+echo "Cloud Scheduler billing reset configured: daily at 2:00 AM UTC"
+echo ""
+echo "Secrets are injected from Google Secret Manager (not env.yaml)."
+echo "Non-sensitive config is set via --set-env-vars."

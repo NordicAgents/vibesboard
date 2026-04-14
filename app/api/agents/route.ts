@@ -1,120 +1,156 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
-import { getUserActiveTenant } from '@/lib/permissions'
-import { ensurePersonalTenant } from '@/lib/tenant-context'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { mapAgentDoc, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
+import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
+import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@/lib/agents/schema'
+import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
+import { nanoid } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
 export async function GET(req: Request) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const user = authResult.user
 
   const { searchParams } = new URL(req.url)
   const tenantId = searchParams.get('tenant_id')
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '9')
+  const from = (page - 1) * limit
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
+  const isSuperAdminUser = tenantId ? await isSuperAdmin(user.id) : false
 
-  let query = supabase
-    .from('vibe_agents')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  if (tenantId) {
-    // If tenant_id is provided, filter by it
-    // Note: We assume RLS or middleware ensures the user has access to this tenant
-    // But we can also add a check here if needed
-    query = query.eq('tenant_id', tenantId)
-  } else {
-    // Fallback: show agents created by the user (legacy behavior)
-    query = query.eq('user_id', session.user.id)
+  if (tenantId && !isSuperAdminUser) {
+    const isMember = await isMemberOfTenant(user.id, tenantId)
+    if (!isMember) {
+      return new NextResponse('Forbidden', { status: 403 })
+    }
   }
 
-  const { data, error } = await query
+  // Build the Firestore query
+  let baseQuery: FirebaseFirestore.Query = adminDb
+    .collection(Collections.agents(tenantId!))
+    .orderBy('createdAt', 'desc')
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!tenantId) {
+    // Fallback: show agents created by the user across all tenants
+    baseQuery = adminDb
+      .collectionGroup('agents')
+      .where('userId', '==', user.id)
+      .orderBy('createdAt', 'desc')
   }
+
+  // Get total count
+  const countSnapshot = await baseQuery.count().get()
+  const total = countSnapshot.data().count
+
+  // Apply pagination
+  const snapshot = await baseQuery.offset(from).limit(limit).get()
+
+  const agents = snapshot.docs.map(doc => mapAgentDoc(doc.data()))
 
   return NextResponse.json({
-    agents: (data ?? []).map(mapAgentRow)
+    agents,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
   })
 }
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const user = authResult.user
 
   const body = await req.json()
   const payload = upsertAgentSchema.parse(body)
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
   // Resolve the tenant the new agent should belong to.
-  // For now, use the user's active tenant (or first available tenant).
-  // If none exists, create/fetch a personal workspace so they can proceed.
-  let tenantId = await getUserActiveTenant(session.user.id)
-  if (!tenantId) {
-    try {
-      tenantId = await ensurePersonalTenant(session.user.id)
-    } catch (error) {
-      console.error('Failed to ensure personal tenant:', error)
-    }
-  }
+  const tenantId = await getActiveTenant(user.id)
 
   if (!tenantId) {
     return NextResponse.json(
-      { error: 'No tenant available for this user; ensure tenant membership exists.' },
+      {
+        error:
+          'No tenant available for this user; ensure tenant membership exists.'
+      },
       { status: 400 }
     )
   }
 
-  const slug = await ensureUniqueSlug(
-    createAgentSlug(payload.name),
-    supabase
-  )
+  // Look up the tenant slug for URL construction
+  const tenant = await getTenantById(tenantId)
+  const tenantSlug = tenant?.slug ?? 'unknown'
 
-  const { data, error } = await supabase
-    .from('vibe_agents')
-    .insert({
-      user_id: session.user.id,
-      tenant_id: tenantId,
-      name: payload.name,
-      instructions: payload.instructions,
-      file_keys: payload.fileKeys,
-      tools: payload.tools,
-      allow_anonymous: payload.allowAnonymous,
-      agent_url: slug,
-      ...(payload.greetingText !== undefined
-        ? { greeting_text: payload.greetingText }
-        : {})
-    })
-    .select('*')
-    .single()
+  const slug = await ensureUniqueSlug(createAgentSlug(payload.name), tenantId)
 
-  if (error || !data) {
+  const now = new Date().toISOString()
+  const newId = nanoid()
+  const docRef = adminDb.collection(Collections.agents(tenantId)).doc(newId)
+
+  const agentData = {
+    id: newId,
+    userId: user.id,
+    tenantId,
+    tenantSlug,
+    name: payload.name,
+    instructions: payload.instructions,
+    fileKeys: payload.fileKeys ?? [],
+    tools: payload.tools ?? [],
+    allowAnonymous: payload.allowAnonymous ?? false,
+    agentUrl: slug,
+    ...(payload.greetingText !== undefined && {
+      greetingText: payload.greetingText
+    }),
+    mode: payload.mode ?? 'provider',
+    ...(payload.maxResponses !== undefined && {
+      maxResponses: payload.maxResponses
+    }),
+    ...(payload.maxAgentResponses !== undefined && {
+      maxAgentResponses: payload.maxAgentResponses
+    }),
+    totalResponseCount: 0,
+    quickSuggestionsMode: payload.quickSuggestionsMode ?? 'off',
+    quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
+    sourceUrls: payload.sourceUrls ?? [],
+    domain: payload.domain ?? null,
+    retrievalStrategy: payload.retrievalStrategy ?? 'direct',
+    createdAt: now,
+    updatedAt: now
+  }
+
+  try {
+    await docRef.set(agentData)
+  } catch (error) {
     return NextResponse.json(
-      { error: error?.message ?? 'Unable to create agent' },
+      {
+        error: error instanceof Error ? error.message : 'Unable to create agent'
+      },
       { status: 500 }
     )
   }
 
-  return NextResponse.json({ agent: mapAgentRow(data) })
+  const agent = mapAgentDoc(agentData)
+
+  // Auto-create agent_files entries for uploaded files (RAG Phase 1)
+  if (payload.fileKeys && payload.fileKeys.length > 0) {
+    await createAgentFilesAndTriggerProcessing({
+      agentId: agent.id,
+      tenantId,
+      userId: user.id,
+      fileKeys: payload.fileKeys
+    })
+  }
+
+  return NextResponse.json({ agent })
 }
