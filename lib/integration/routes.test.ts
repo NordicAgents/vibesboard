@@ -52,7 +52,7 @@ function loadEnv() {
 
 loadEnv()
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
+const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3002'
 const AUTH_COOKIE = process.env.TEST_AUTH_COOKIE ?? ''
 
 async function isServerRunning(): Promise<boolean> {
@@ -61,7 +61,7 @@ async function isServerRunning(): Promise<boolean> {
       method: 'GET',
       signal: AbortSignal.timeout(3000)
     })
-    return res.status !== 0
+    return res.ok
   } catch {
     return false
   }
