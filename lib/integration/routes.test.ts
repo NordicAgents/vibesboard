@@ -52,7 +52,7 @@ function loadEnv() {
 
 loadEnv()
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
+const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3002'
 const AUTH_COOKIE = process.env.TEST_AUTH_COOKIE ?? ''
 
 async function isServerRunning(): Promise<boolean> {
