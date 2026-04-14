@@ -63,6 +63,11 @@ const EMPTY_DRAFT: DraftResource = {
   timezone: 'UTC'
 }
 
+const IANA_TIMEZONES: string[] =
+  typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+    ? (Intl as any).supportedValuesOf('timeZone')
+    : ['UTC', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Asia/Kolkata', 'Asia/Tokyo', 'Australia/Sydney']
+
 export function AgentBookingResourceConfig({
   config,
   onChange,
@@ -147,17 +152,7 @@ export function AgentBookingResourceConfig({
       )
       return
     }
-    const tz = draft.timezone.trim() || 'UTC'
-    const validTimezones: readonly string[] =
-      typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
-        ? (Intl as any).supportedValuesOf('timeZone')
-        : []
-    if (validTimezones.length > 0 && !validTimezones.includes(tz)) {
-      toast.error(
-        `"${tz}" is not a valid IANA timezone. Try e.g. Asia/Kolkata, America/New_York.`
-      )
-      return
-    }
+    const tz = draft.timezone || 'UTC'
     const resource: BookableResource = {
       id: nanoid(),
       name: draft.name.trim(),
@@ -421,14 +416,20 @@ export function AgentBookingResourceConfig({
                 <label className="text-xs font-medium text-muted-foreground">
                   Timezone
                 </label>
-                <Input
-                  placeholder="e.g. Asia/Kolkata"
+                <select
                   value={draft.timezone}
                   onChange={e =>
                     setDraft(d => ({ ...d, timezone: e.target.value }))
                   }
                   disabled={disabled}
-                />
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  {IANA_TIMEZONES.map(tz => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex gap-2">
