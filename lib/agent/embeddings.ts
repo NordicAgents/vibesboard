@@ -1,19 +1,14 @@
-import { type Message } from 'ai'
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { type SupabaseClient } from '@supabase/supabase-js'
+import { type Message } from '@/lib/types/message'
 
-import { type Database } from '@/lib/db_types'
+import { adminDb } from '@/lib/firebase/admin'
+import { FieldValue } from 'firebase-admin/firestore'
+import { Collections } from '@/lib/firestore-types'
+import { createEmbedding } from '@/lib/openai-compat'
 
 const CHUNK_SIZE = 800
 const CHUNK_OVERLAP = 200
 const MAX_BATCH_SIZE = 64
 const EMBEDDING_MODEL = 'text-embedding-3-small'
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
 
 interface ConversationChunk {
   messageIndex: number
@@ -38,7 +33,9 @@ const chunkText = (value: string): string[] => {
   return chunks
 }
 
-export const buildConversationChunks = (messages: Message[]): ConversationChunk[] => {
+export const buildConversationChunks = (
+  messages: Message[]
+): ConversationChunk[] => {
   const chunks: ConversationChunk[] = []
 
   messages.forEach((message, index) => {
@@ -72,38 +69,45 @@ export async function embedTexts(inputs: string[]): Promise<number[][]> {
     throw new Error('OPENAI_API_KEY is not configured')
   }
 
-  const response = await openai.createEmbedding({
+  const json = await createEmbedding({
     model: EMBEDDING_MODEL,
     input: inputs
   })
-  const json = await response.json()
 
   if (!json?.data) {
     throw new Error('Failed to fetch embeddings')
   }
 
-  return (json.data as Array<{ embedding: number[] }>).map(entry => entry.embedding)
+  return json.data.map(entry => entry.embedding)
 }
 
 interface UpsertConversationEmbeddingsArgs {
-  supabase: SupabaseClient<Database>
+  tenantId: string
   agentId: string
   conversationId: string
   messages: Message[]
 }
 
 export async function upsertConversationEmbeddings({
-  supabase,
+  tenantId,
   agentId,
   conversationId,
   messages
 }: UpsertConversationEmbeddingsArgs) {
   const chunks = buildConversationChunks(messages)
 
-  await supabase
-    .from('vibe_agent_conversation_chunks')
-    .delete()
-    .eq('conversation_id', conversationId)
+  // Delete existing chunks for this conversation
+  const collPath = Collections.conversationChunks(tenantId, agentId)
+  const existingSnapshot = await adminDb
+    .collection(collPath)
+    .where('conversationId', '==', conversationId)
+    .get()
+
+  if (!existingSnapshot.empty) {
+    const deleteBatch = adminDb.batch()
+    existingSnapshot.docs.forEach((doc: any) => deleteBatch.delete(doc.ref))
+    await deleteBatch.commit()
+  }
 
   if (!chunks.length) {
     return
@@ -117,22 +121,30 @@ export async function upsertConversationEmbeddings({
     return
   }
 
-  const rows = chunks.map((chunk, idx) => ({
-    agent_id: agentId,
-    conversation_id: conversationId,
-    message_index: chunk.messageIndex,
-    chunk_index: chunk.chunkIndex,
-    role: chunk.role,
-    content: chunk.content,
-    embedding: embeddings[idx]
-  }))
+  // Insert new chunks using batch writes
+  for (let i = 0; i < chunks.length; i += MAX_BATCH_SIZE) {
+    const batchSlice = chunks.slice(i, i + MAX_BATCH_SIZE)
+    const writeBatch = adminDb.batch()
 
-  for (let i = 0; i < rows.length; i += MAX_BATCH_SIZE) {
-    const batch = rows.slice(i, i + MAX_BATCH_SIZE)
-    const { error } = await supabase
-      .from('vibe_agent_conversation_chunks')
-      .insert(batch as any)
-    if (error) {
+    batchSlice.forEach((chunk, batchIdx) => {
+      const idx = i + batchIdx
+      const ref = adminDb.collection(collPath).doc()
+      writeBatch.set(ref, {
+        id: ref.id,
+        agentId,
+        conversationId,
+        messageIndex: chunk.messageIndex,
+        chunkIndex: chunk.chunkIndex,
+        role: chunk.role,
+        content: chunk.content,
+        embedding: FieldValue.vector(embeddings[idx]),
+        createdAt: new Date().toISOString()
+      })
+    })
+
+    try {
+      await writeBatch.commit()
+    } catch (error) {
       console.error('Failed to upsert conversation chunk batch', error)
       break
     }

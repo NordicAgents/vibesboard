@@ -1,58 +1,54 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin, isMemberOfTenant } from '@/lib/permissions'
+import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import { FieldValue } from 'firebase-admin/firestore'
 
 export const runtime = 'nodejs'
 
 type RouteParams = {
-    params: Promise<{
-        id: string
-    }>
+  params: Promise<{
+    id: string
+  }>
 }
 
 /**
  * GET /api/admin/tenants/[id]
- * Get single tenant details (SUPER_ADMIN or tenant member)
+ * Get single tenant details (SUPER_ADMIN only)
  */
 export async function GET(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { id } = await params
 
-    const { id } = await params
+  const tenantDoc = await adminDb.collection(Collections.tenants).doc(id).get()
 
-    // Check if user is super admin or member of tenant
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    const isMember = await isMemberOfTenant(session.user.id, id)
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    if (!isSuperAdminUser && !isMember) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+  const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+  // Get branding
+  const brandingDoc = await adminDb
+    .collection(Collections.branding(id))
+    .doc(id)
+    .get()
 
-    const { data: tenant, error } = await supabase
-        .from('tenants')
-        .select('*, tenant_branding(*), tenant_users(count)')
-        .eq('id', id)
-        .single()
+  const branding = brandingDoc.exists ? brandingDoc.data() : null
 
-    if (error || !tenant) {
-        return NextResponse.json(
-            { error: 'Tenant not found' },
-            { status: 404 }
-        )
-    }
+  // Get member count
+  const membersCount = await adminDb
+    .collection(Collections.members(id))
+    .count()
+    .get()
 
-    return NextResponse.json({ tenant })
+  return NextResponse.json({
+    tenant,
+    branding,
+    user_count: membersCount.data().count
+  })
 }
 
 /**
@@ -60,100 +56,113 @@ export async function GET(req: Request, { params }: RouteParams) {
  * Update tenant (SUPER_ADMIN only)
  */
 export async function PUT(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { id } = await params
+  const body = await req.json()
+  const { name, slug, status } = body
 
-    const { id } = await params
+  // Build update object
+  const updates: Record<string, any> = {
+    updatedAt: new Date().toISOString()
+  }
+  if (name !== undefined) updates.name = name
+  if (slug !== undefined) updates.slug = slug
+  if (
+    status !== undefined &&
+    ['active', 'trial', 'suspended'].includes(status)
+  ) {
+    updates.status = status
+  }
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+  if (Object.keys(updates).length === 1) {
+    // Only updatedAt, no real fields
+    return NextResponse.json(
+      { error: 'No valid fields to update' },
+      { status: 400 }
+    )
+  }
 
-    const body = await req.json()
-    const { name, slug, status } = body
+  const tenantRef = adminDb.collection(Collections.tenants).doc(id)
+  const tenantDoc = await tenantRef.get()
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    // Build update object
-    const updates: any = {}
-    if (name !== undefined) updates.name = name
-    if (slug !== undefined) updates.slug = slug
-    if (status !== undefined && ['active', 'trial', 'suspended'].includes(status)) {
-        updates.status = status
-    }
+  await tenantRef.update(updates)
 
-    if (Object.keys(updates).length === 0) {
-        return NextResponse.json(
-            { error: 'No valid fields to update' },
-            { status: 400 }
-        )
-    }
+  const updatedDoc = await tenantRef.get()
+  const tenant = { id: updatedDoc.id, ...updatedDoc.data() }
 
-    const { data: tenant, error } = await supabase
-        .from('tenants')
-        .update(updates)
-        .eq('id', id)
-        .select('*')
-        .single()
-
-    if (error || !tenant) {
-        return NextResponse.json(
-            { error: error?.message || 'Failed to update tenant' },
-            { status: 500 }
-        )
-    }
-
-    return NextResponse.json({ tenant })
+  return NextResponse.json({ tenant })
 }
 
 /**
  * DELETE /api/admin/tenants/[id]
- * Soft delete tenant (SUPER_ADMIN only)
- * Note: In this implementation, we're using hard delete due to RLS constraints
- * In production, you might want to add a soft delete mechanism
+ * Hard delete tenant and ALL related data (SUPER_ADMIN only).
+ *
+ * Cascade:
+ *  1. Remove tenantId from every member's user.tenantIds array
+ *  2. Delete all invitations for this tenant
+ *  3. Delete the slug reservation
+ *  4. recursiveDelete the tenant doc + every subcollection
+ *     (members, agents, conversations, files, chunks, hooks, branding, etc.)
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { id: tenantId } = await params
 
-    const { id } = await params
+  const tenantRef = adminDb.collection(Collections.tenants).doc(tenantId)
+  const tenantDoc = await tenantRef.get()
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+  const tenantData = tenantDoc.data()!
+  const slug = tenantData.slug as string | undefined
+
+  // 1. Remove tenantId from each member's user doc
+  const membersSnap = await adminDb
+    .collection(Collections.members(tenantId))
+    .get()
+
+  const userUpdateBatch = adminDb.batch()
+  for (const memberDoc of membersSnap.docs) {
+    const userId = memberDoc.id
+    userUpdateBatch.update(adminDb.collection(Collections.users).doc(userId), {
+      tenantIds: FieldValue.arrayRemove(tenantId)
     })
+  }
+  await userUpdateBatch.commit()
 
-    // Alternatively, just mark as suspended
-    const { data: tenant, error } = await supabase
-        .from('tenants')
-        .update({ status: 'suspended' })
-        .eq('id', id)
-        .select('*')
-        .single()
+  // 2. Delete all invitations referencing this tenant
+  const invitationsSnap = await adminDb
+    .collection(Collections.invitations)
+    .where('tenantId', '==', tenantId)
+    .get()
 
-    if (error || !tenant) {
-        return NextResponse.json(
-            { error: error?.message || 'Failed to delete tenant' },
-            { status: 500 }
-        )
+  if (!invitationsSnap.empty) {
+    const invBatch = adminDb.batch()
+    for (const invDoc of invitationsSnap.docs) {
+      invBatch.delete(invDoc.ref)
     }
+    await invBatch.commit()
+  }
 
-    return NextResponse.json({ success: true, tenant })
+  // 3. Delete slug reservation
+  if (slug) {
+    await adminDb.collection(Collections.tenantSlugs).doc(slug).delete()
+  }
+
+  // 4. Recursively delete tenant doc + all subcollections
+  //    (members, branding, feature_toggles, agents/*/conversations,
+  //     agents/*/files, agents/*/file_chunks, agents/*/hooks/*/jobs, etc.)
+  await adminDb.recursiveDelete(tenantRef)
+
+  return NextResponse.json({ success: true })
 }

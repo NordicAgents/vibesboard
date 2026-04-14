@@ -1,77 +1,148 @@
+'use client'
+
+import * as React from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { type UseChatHelpers } from 'ai/react'
 
-import { Button } from '@/components/ui/button'
+import { type AgentMode } from '@/lib/types'
 import { PromptForm } from '@/components/prompt-form'
-import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom'
-import { IconRefresh, IconStop } from '@/components/ui/icons'
-// Footer has been removed for a cleaner UI
+import { ChatCompletionBanner } from '@/components/chat-completion'
+import { QuickSuggestions } from '@/components/quick-suggestions'
 
-export interface ChatPanelProps
-  extends Pick<
-    UseChatHelpers,
-    | 'append'
-    | 'isLoading'
-    | 'reload'
-    | 'messages'
-    | 'stop'
-    | 'input'
-    | 'setInput'
-  > {
-  id?: string
+export interface ChatPanelProps extends Pick<
+  UseChatHelpers,
+  'append' | 'isLoading' | 'reload' | 'messages' | 'stop' | 'input' | 'setInput'
+> {
+  isChatComplete?: boolean
+  isAgentDisabled?: boolean
+  agentMode?: AgentMode
+  agentName?: string
+  onChatComplete?: () => void
+  onCorrect?: () => void
+  onEndConversation?: () => void
+  quickSuggestions?: string[]
 }
 
 export function ChatPanel({
-  id,
   isLoading,
   stop,
   append,
   reload,
   input,
   setInput,
-  messages
+  messages,
+  isChatComplete,
+  isAgentDisabled,
+  agentMode = 'provider',
+  agentName,
+  onChatComplete,
+  onCorrect,
+  onEndConversation,
+  quickSuggestions = []
 }: ChatPanelProps) {
+  const canRegenerate = React.useMemo(() => {
+    if (isLoading || isChatComplete) return false
+    const hasUser = messages?.some(m => m.role === 'user')
+    const hasAssistant = messages?.some(m => m.role === 'assistant')
+    return Boolean(hasUser && hasAssistant)
+  }, [isLoading, isChatComplete, messages])
+
   return (
-    <div className="fixed inset-x-0 bottom-0">
-      <ButtonScrollToBottom />
-      <div className="mx-auto sm:max-w-2xl sm:px-4">
-        <div className="flex h-10 items-center justify-center">
-          {isLoading ? (
-            <Button
-              variant="outline"
-              onClick={() => stop()}
-              className="rounded-full bg-purewhite-bg font-switzer dark:bg-background dark:text-foreground"
+    /* Full-width background, content centered in same column as messages */
+    <div className="relative shrink-0 bg-[#f7f7f5] dark:bg-[#222f30]">
+      {/* Gradient fade — full width, bleeds upward into the scroll area */}
+      <div
+        className="pointer-events-none absolute inset-x-0 -top-12 h-12 bg-gradient-to-b from-transparent to-[#f7f7f5] dark:to-[#222f30]"
+        aria-hidden="true"
+      />
+
+      {/* Centered content column — matches message column width */}
+      <div className="mx-auto w-full max-w-full px-3 pb-5 pt-2 sm:max-w-[760px] sm:px-6">
+        <AnimatePresence mode="wait">
+          {isChatComplete && !isLoading ? (
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
-              <IconStop className="mr-2" />
-              Stop generating
-            </Button>
+              <ChatCompletionBanner
+                mode={agentMode}
+                isAgentDisabled={isAgentDisabled}
+                onComplete={onChatComplete ?? (() => {})}
+                onCorrect={onCorrect}
+              />
+            </motion.div>
           ) : (
-            messages?.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => reload()}
-                className="rounded-full bg-purewhite-bg font-switzer dark:bg-background dark:text-foreground"
-              >
-                <IconRefresh className="mr-2" />
-                Regenerate response
-              </Button>
-            )
+            <motion.div
+              key="input"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="space-y-2"
+            >
+              {/* Quick suggestions */}
+              <AnimatePresence>
+                {quickSuggestions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <QuickSuggestions
+                      suggestions={quickSuggestions}
+                      disabled={isLoading || Boolean(isChatComplete)}
+                      onSelect={async value => {
+                        const trimmed = value.trim()
+                        if (!trimmed) return
+                        setInput('')
+                        await append({
+                          content: trimmed,
+                          role: 'user'
+                        })
+                      }}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Input form */}
+              <PromptForm
+                onSubmit={async value => {
+                  await append({
+                    content: value,
+                    role: 'user'
+                  })
+                }}
+                input={input}
+                setInput={setInput}
+                isLoading={isLoading}
+                onStop={() => stop()}
+                canRegenerate={canRegenerate}
+                onRegenerate={() => reload()}
+              />
+
+              {/* Escape hatch — always accessible so the user is never stuck */}
+              {onEndConversation &&
+                !isLoading &&
+                messages &&
+                messages.length > 1 && (
+                  <div className="flex justify-center pt-1">
+                    <button
+                      type="button"
+                      onClick={onEndConversation}
+                      className="text-xs text-muted-foreground/60 underline-offset-2 transition-colors hover:text-muted-foreground hover:underline"
+                    >
+                      End conversation
+                    </button>
+                  </div>
+                )}
+            </motion.div>
           )}
-        </div>
-        <div className="space-y-4 px-4 py-2 md:py-4">
-          <PromptForm
-            onSubmit={async value => {
-              await append({
-                id,
-                content: value,
-                role: 'user'
-              })
-            }}
-            input={input}
-            setInput={setInput}
-            isLoading={isLoading}
-          />
-          {/* Footer removed */}
-        </div>
+        </AnimatePresence>
       </div>
     </div>
   )

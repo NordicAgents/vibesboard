@@ -1,11 +1,19 @@
 import { searchAgentFileChunks } from '@/lib/agent/file-search'
-import { type ToolFactory, registerBuiltinTool, resolveToolDescription, resolveToolName } from './base'
+import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
+import {
+  type ToolFactory,
+  registerBuiltinTool,
+  resolveToolDescription,
+  resolveToolName
+} from './base'
 
 const sanitizeText = (input: string, max = 2000) =>
-  input
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max)
+  input.replace(/\s+/g, ' ').trim().slice(0, max)
+
+const truncate = (input: string, max: number) => {
+  const text = sanitizeText(input, max + 1)
+  return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}…` : text
+}
 
 const webFetchFactory: ToolFactory = ({ tool }) => {
   const name = resolveToolName(tool, 'web_fetch')
@@ -29,56 +37,23 @@ const webFetchFactory: ToolFactory = ({ tool }) => {
       const url = String(args?.url ?? '').trim()
       if (!url) return 'No URL provided.'
       try {
-        const res = await fetch(url)
-        if (!res.ok) {
-          return `Failed to fetch ${url}: ${res.status} ${res.statusText}`
+        const result = await fetchUrlContent(url)
+        if (result.error) {
+          return `Error fetching ${url}: ${result.error}`
         }
-        const text = await res.text()
-        return `URL: ${url}\n${sanitizeText(text)}`
+
+        const lines: string[] = [`URL: ${result.url}`]
+        if (result.title) {
+          lines.push(`Title: ${truncate(result.title, 200)}`)
+        }
+        if (result.description) {
+          lines.push(`Description: ${truncate(result.description, 300)}`)
+        }
+        lines.push('Content:')
+        lines.push(result.textContent)
+        return lines.join('\n')
       } catch (error) {
         return `Error fetching ${url}: ${error}`
-      }
-    }
-  }
-}
-
-const searchFactory: ToolFactory = ({ tool }) => {
-  const name = resolveToolName(tool, 'web_search')
-  return {
-    function: {
-      name,
-      description:
-        tool.description ||
-        'Search the public web for recent information using DuckDuckGo.',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'A concise search query.'
-          }
-        },
-        required: ['query']
-      }
-    },
-    execute: async (args: Record<string, any>) => {
-      const query = String(args?.query ?? '').trim()
-      if (!query) return 'No search query provided.'
-      const endpoint = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&ia=web`
-      try {
-        const res = await fetch(endpoint, {
-          headers: {
-            'User-Agent': 'VibeAgentBot/1.0 (+https://vibeagent.app)'
-          }
-        })
-        if (!res.ok) {
-          return `Search failed (${res.status} ${res.statusText}).`
-        }
-        const html = await res.text()
-        const text = html.replace(/<[^>]+>/g, ' ')
-        return `DuckDuckGo results for "${query}":\n${sanitizeText(text)}`
-      } catch (error) {
-        return `Search error: ${error}`
       }
     }
   }
@@ -116,6 +91,7 @@ const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
       }
 
       const { matches, error } = await searchAgentFileChunks({
+        tenantId: agent.tenantId!,
         agentId: agent.id,
         query,
         limit
@@ -130,10 +106,7 @@ const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
       }
 
       const formatted = matches
-        .map(
-          entry =>
-            `File: ${entry.fileName}\nScore: ${entry.score?.toFixed?.(4) ?? '0'}\nSnippet:\n${entry.snippet}`
-        )
+        .map(entry => `File: ${entry.fileName}\nSnippet:\n${entry.snippet}`)
         .join('\n---\n')
 
       return `Matches for "${query}":\n${formatted}`
@@ -142,5 +115,4 @@ const fileSearchFactory: ToolFactory = ({ agent, tool }) => {
 }
 
 registerBuiltinTool('builtin:web_fetch', webFetchFactory)
-registerBuiltinTool('builtin:search', searchFactory)
 registerBuiltinTool('builtin:file_search', fileSearchFactory)

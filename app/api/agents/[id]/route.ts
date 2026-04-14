@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { mapAgentRow } from '@/lib/agents/db'
+import { requireAuth } from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { mapAgentDoc } from '@/lib/agents/db'
 import { patchAgentSchema } from '@/lib/agents/schema'
+import { canEditAgent } from '@/lib/agents/permissions'
+import { getAgentById } from '@/lib/agents/server'
+import { deleteFile } from '@/lib/firebase/storage'
+import { assertSafeCallbackUrl } from '@/lib/agents/webhook-utils'
 
 export const runtime = 'nodejs'
 
@@ -14,29 +16,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const agent = await getAgentById(id)
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-  })
-
-  const { data } = await supabase
-    .from('vibe_agents')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', session.user.id)
-    .maybeSingle()
-
-  if (!data) {
+  if (!agent) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  return NextResponse.json({ agent: mapAgentRow(data) })
+  return NextResponse.json({ agent })
 }
 
 export async function PATCH(
@@ -44,53 +33,136 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
-
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
   const body = await req.json()
   const payload = patchAgentSchema.parse(body)
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+  // Validate webhook URL against SSRF at save time
+  const webhookUrl = payload.notificationConfig?.webhook?.url
+  if (webhookUrl) {
+    try {
+      assertSafeCallbackUrl(webhookUrl)
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : 'Invalid webhook URL' },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Validate handoff targets: no self-reference
+  if (payload.handoffTargets?.length) {
+    for (const targetId of payload.handoffTargets) {
+      if (targetId === id) {
+        return NextResponse.json(
+          { error: 'Agent cannot hand off to itself' },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
+  // Find agent using collectionGroup query
+  const agent = await getAgentById(id)
+
+  if (!agent) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  // Validate that all handoff targets exist and are in the same tenant
+  if (payload.handoffTargets?.length) {
+    for (const targetId of payload.handoffTargets) {
+      const target = await getAgentById(targetId)
+      if (!target || target.tenantId !== agent.tenantId) {
+        return NextResponse.json(
+          { error: `Invalid handoff target: ${targetId}` },
+          { status: 400 }
+        )
+      }
+    }
+  }
+
+  const canEdit = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
   })
 
-  const updates: Partial<Database['public']['Tables']['vibe_agents']['Update']> =
-    {
-      ...(payload.name ? { name: payload.name } : {}),
-      ...(payload.instructions ? { instructions: payload.instructions } : {}),
-      ...(payload.fileKeys !== undefined
-        ? { file_keys: payload.fileKeys }
-        : {}),
-      ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
-      ...(typeof payload.allowAnonymous === 'boolean'
-        ? { allow_anonymous: payload.allowAnonymous }
-        : {}),
-      ...(payload.greetingText !== undefined
-        ? { greeting_text: payload.greetingText }
-        : {}),
-      updated_at: new Date().toISOString()
-    }
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 
-  const { data, error } = await supabase
-    .from('vibe_agents')
-    .update(updates)
-    .eq('id', id)
-    .eq('user_id', session.user.id)
-    .select('*')
-    .single()
+  const updates: Record<string, any> = {
+    ...(payload.name ? { name: payload.name } : {}),
+    ...(payload.instructions ? { instructions: payload.instructions } : {}),
+    ...(payload.fileKeys !== undefined ? { fileKeys: payload.fileKeys } : {}),
+    ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
+    ...(typeof payload.allowAnonymous === 'boolean'
+      ? { allowAnonymous: payload.allowAnonymous }
+      : {}),
+    ...(payload.greetingText !== undefined
+      ? { greetingText: payload.greetingText }
+      : {}),
+    ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
+    ...(payload.maxResponses !== undefined
+      ? { maxResponses: payload.maxResponses }
+      : {}),
+    ...(payload.maxAgentResponses !== undefined
+      ? { maxAgentResponses: payload.maxAgentResponses }
+      : {}),
+    ...(payload.quickSuggestionsMode !== undefined
+      ? { quickSuggestionsMode: payload.quickSuggestionsMode }
+      : {}),
+    ...(payload.quickSuggestionsCount !== undefined
+      ? { quickSuggestionsCount: payload.quickSuggestionsCount }
+      : {}),
+    ...(typeof payload.googleReviewEnabled === 'boolean'
+      ? { googleReviewEnabled: payload.googleReviewEnabled }
+      : {}),
+    ...(payload.googlePlaceId !== undefined
+      ? { googlePlaceId: payload.googlePlaceId }
+      : {}),
+    ...(payload.sourceUrls !== undefined
+      ? { sourceUrls: payload.sourceUrls }
+      : {}),
+    ...(payload.domain !== undefined ? { domain: payload.domain } : {}),
+    ...(payload.retrievalStrategy !== undefined
+      ? { retrievalStrategy: payload.retrievalStrategy }
+      : {}),
+    ...(payload.notificationConfig !== undefined
+      ? { notificationConfig: payload.notificationConfig }
+      : {}),
+    ...(payload.handoffTargets !== undefined
+      ? { handoffTargets: payload.handoffTargets }
+      : {}),
+    updatedAt: new Date().toISOString()
+  }
 
-  if (error || !data) {
+  const docRef = adminDb.collection(`tenants/${agent.tenantId}/agents`).doc(id)
+
+  try {
+    await docRef.update(updates)
+  } catch (error) {
     return NextResponse.json(
-      { error: error?.message ?? 'Unable to update agent' },
+      {
+        error: error instanceof Error ? error.message : 'Unable to update agent'
+      },
       { status: 500 }
     )
   }
 
-  return NextResponse.json({ agent: mapAgentRow(data) })
+  // Fetch the updated document
+  const updatedDoc = await docRef.get()
+  if (!updatedDoc.exists) {
+    return NextResponse.json(
+      { error: 'Unable to retrieve updated agent' },
+      { status: 500 }
+    )
+  }
+
+  return NextResponse.json({ agent: mapAgentDoc(updatedDoc.data()!) })
 }
 
 export async function DELETE(
@@ -98,22 +170,51 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const cookieStore = await cookies()
-  const session = await auth({ cookieStore })
+  const authResult = await requireAuth()
+  if (!authResult.ok) return authResult.response
 
-  if (!session?.user) {
-    return new NextResponse('Unauthorized', { status: 401 })
+  // Find agent using collectionGroup query
+  const agent = await getAgentById(id)
+
+  if (!agent) {
+    return new NextResponse('Not found', { status: 404 })
   }
 
-  const supabase = createRouteHandlerClient<Database>({
-    cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
+  const canEdit = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
   })
 
-  await supabase
-    .from('vibe_agents')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', session.user.id)
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  // Clean up files from GCS
+  if (agent.fileKeys && agent.fileKeys.length > 0) {
+    await Promise.all(
+      agent.fileKeys.map(fileKey =>
+        deleteFile(fileKey).catch(err =>
+          console.error(`Error deleting file ${fileKey}:`, err)
+        )
+      )
+    )
+  }
+
+  // Recursively delete the agent document and all subcollections
+  // (conversations, bookings, hooks, etc.). Firestore does not cascade-delete
+  // subcollections automatically — without this, all subcollection data
+  // becomes orphaned and is never cleaned up.
+  const docRef = adminDb.collection(`tenants/${agent.tenantId}/agents`).doc(id)
+
+  try {
+    await adminDb.recursiveDelete(docRef)
+  } catch (error) {
+    return new NextResponse(
+      error instanceof Error ? error.message : 'Delete failed',
+      { status: 500 }
+    )
+  }
 
   return new NextResponse(null, { status: 204 })
 }

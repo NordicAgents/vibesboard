@@ -1,0 +1,56 @@
+name: Artifact Registry Cleanup
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"  # Every Sunday at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: ./.github/actions/gcp-auth
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Delete old images
+        run: |
+          REPO="us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app"
+          KEEP_RECENT=10
+          CUTOFF_DATE=$(date -d "30 days ago" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -v-30d +%Y-%m-%dT%H:%M:%S)
+
+          echo "Fetching image digests from $REPO..."
+          ALL_DIGESTS=$(gcloud artifacts docker images list "$REPO" \
+            --format="csv[no-heading](DIGEST,CREATE_TIME)" \
+            --sort-by="~CREATE_TIME")
+
+          TOTAL=$(echo "$ALL_DIGESTS" | wc -l | tr -d ' ')
+          echo "Found $TOTAL total images"
+
+          if [ "$TOTAL" -le "$KEEP_RECENT" ]; then
+            echo "Only $TOTAL images exist, keeping all (minimum $KEEP_RECENT)"
+            exit 0
+          fi
+
+          # Skip the most recent N images, delete the rest if older than cutoff
+          CANDIDATES=$(echo "$ALL_DIGESTS" | tail -n +$((KEEP_RECENT + 1)))
+          DELETED=0
+
+          while IFS=, read -r DIGEST CREATE_TIME; do
+            if [ -z "$DIGEST" ]; then continue; fi
+            if [[ "$CREATE_TIME" < "$CUTOFF_DATE" ]]; then
+              echo "Deleting $DIGEST (created $CREATE_TIME)..."
+              gcloud artifacts docker images delete "$REPO@$DIGEST" --quiet --delete-tags
+              DELETED=$((DELETED + 1))
+            fi
+          done <<< "$CANDIDATES"
+
+          echo "Deleted $DELETED images"

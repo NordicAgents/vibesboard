@@ -1,10 +1,35 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isSuperAdmin } from '@/lib/permissions'
-import { validateTenantSlug, validateTenantName, generateSlug } from '@/lib/validations'
+import { FieldValue } from 'firebase-admin/firestore'
+import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { adminDb, adminAuth } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import {
+  validateTenantSlug,
+  validateTenantName,
+  generateSlug
+} from '@/lib/validations'
+
+/** Try to resolve a userId to an email+name, checking Firestore first, then Firebase Auth. */
+async function resolveUserIdentity(
+  userId: string
+): Promise<{ email: string | null; name: string | null }> {
+  // 1. Firestore user doc
+  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
+  if (userDoc.exists) {
+    const data = userDoc.data()
+    if (data?.email) {
+      return { email: data.email, name: data.name ?? null }
+    }
+  }
+
+  // 2. Firebase Auth record (always exists if the user signed in)
+  try {
+    const authUser = await adminAuth.getUser(userId)
+    return { email: authUser.email ?? null, name: authUser.displayName ?? null }
+  } catch {
+    return { email: null, name: null }
+  }
+}
 
 export const runtime = 'nodejs'
 
@@ -13,57 +38,81 @@ export const runtime = 'nodejs'
  * List all tenants (SUPER_ADMIN only)
  */
 export async function GET(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { searchParams } = new URL(req.url)
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '10')
+  const status = searchParams.get('status')
+  const offset = (page - 1) * limit
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+  // Build query
+  let query: FirebaseFirestore.Query = adminDb
+    .collection(Collections.tenants)
+    .orderBy('createdAt', 'desc')
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+  if (status && ['active', 'trial', 'suspended'].includes(status)) {
+    query = query.where('status', '==', status)
+  }
 
-    // Get pagination parameters
-    const { searchParams } = new URL(req.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const status = searchParams.get('status')
-    const offset = (page - 1) * limit
+  // Get total count
+  const countSnapshot = await query.count().get()
+  const total = countSnapshot.data().count
 
-    // Build query
-    let query = supabase
-        .from('tenants')
-        .select('*, tenant_users(count)', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
+  // Get paginated results
+  const snapshot = await query.offset(offset).limit(limit).get()
 
-    // Apply status filter if provided
-    if (status && ['active', 'trial', 'suspended'].includes(status)) {
-        query = query.eq('status', status as 'active' | 'trial' | 'suspended')
-    }
+  const tenants = await Promise.all(
+    snapshot.docs.map(async doc => {
+      const tenant = { id: doc.id, ...doc.data() }
 
-    const { data, error, count } = await query
+      // Get member count for this tenant
+      const membersCount = await adminDb
+        .collection(Collections.members(doc.id))
+        .count()
+        .get()
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+      // Resolve owner identity: createdBy → first member → give up
+      const createdBy = (tenant as any).createdBy
+      let identity = {
+        email: null as string | null,
+        name: null as string | null
+      }
 
-    return NextResponse.json({
-        tenants: data,
-        pagination: {
-            page,
-            limit,
-            total: count || 0,
-            totalPages: Math.ceil((count || 0) / limit)
+      if (createdBy) {
+        identity = await resolveUserIdentity(createdBy)
+      }
+
+      // Fallback: try the first member if creator lookup failed
+      if (!identity.email) {
+        const firstMember = await adminDb
+          .collection(Collections.members(doc.id))
+          .limit(1)
+          .get()
+        if (!firstMember.empty) {
+          identity = await resolveUserIdentity(firstMember.docs[0].id)
         }
+      }
+
+      return {
+        ...tenant,
+        user_count: membersCount.data().count,
+        creator_email: identity.email,
+        creator_name: identity.name
+      }
     })
+  )
+
+  return NextResponse.json({
+    tenants,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  })
 }
 
 /**
@@ -71,90 +120,86 @@ export async function GET(req: Request) {
  * Create new tenant (SUPER_ADMIN only)
  */
 export async function POST(req: Request) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return auth.response
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const body = await req.json()
+  const { name, slug: providedSlug, created_by } = body
 
-    // Check if user is super admin
-    const isSuperAdminUser = await isSuperAdmin(session.user.id)
-    if (!isSuperAdminUser) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+  // Validate input
+  if (!name || !validateTenantName(name)) {
+    return NextResponse.json({ error: 'Invalid tenant name' }, { status: 400 })
+  }
 
-    const body = await req.json()
-    const { name, slug: providedSlug, created_by } = body
+  // Generate or validate slug
+  const slug = providedSlug || generateSlug(name)
+  if (!validateTenantSlug(slug)) {
+    return NextResponse.json({ error: 'Invalid tenant slug' }, { status: 400 })
+  }
 
-    // Validate input
-    if (!name || !validateTenantName(name)) {
-        return NextResponse.json(
-            { error: 'Invalid tenant name' },
-            { status: 400 }
-        )
-    }
+  const createdBy = created_by || auth.user.id
 
-    // Generate or validate slug
-    const slug = providedSlug || generateSlug(name)
-    if (!validateTenantSlug(slug)) {
-        return NextResponse.json(
-            { error: 'Invalid tenant slug' },
-            { status: 400 }
-        )
-    }
+  // Check if slug already exists
+  const slugDoc = await adminDb
+    .collection(Collections.tenantSlugs)
+    .doc(slug)
+    .get()
 
-    const createdBy = created_by || session.user.id
+  if (slugDoc.exists) {
+    return NextResponse.json(
+      { error: 'Tenant slug already exists' },
+      { status: 409 }
+    )
+  }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+  const now = new Date().toISOString()
+  const tenantRef = adminDb.collection(Collections.tenants).doc()
+  const tenantId = tenantRef.id
 
-    // Check if slug already exists
-    const { data: existing } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('slug', slug)
-        .single()
+  const tenantData = {
+    id: tenantId,
+    name,
+    slug,
+    status: 'active' as const,
+    createdBy,
+    isPersonal: false,
+    createdAt: now,
+    updatedAt: now
+  }
 
-    if (existing) {
-        return NextResponse.json(
-            { error: 'Tenant slug already exists' },
-            { status: 409 }
-        )
-    }
+  // Use batch to create tenant + slug lock + branding atomically
+  const batch = adminDb.batch()
 
-    // Create tenant
-    const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .insert({
-            name,
-            slug,
-            status: 'active',
-            created_by: createdBy,
-            is_personal: false
-        })
-        .select('*')
-        .single()
+  batch.set(tenantRef, tenantData)
 
-    if (tenantError || !tenant) {
-        return NextResponse.json(
-            { error: tenantError?.message || 'Failed to create tenant' },
-            { status: 500 }
-        )
-    }
+  batch.set(adminDb.collection(Collections.tenantSlugs).doc(slug), {
+    tenantId,
+    createdAt: now
+  })
 
-    // Create tenant branding record
-    const { error: brandingError } = await supabase
-        .from('tenant_branding')
-        .insert({
-            tenant_id: tenant.id
-        })
+  batch.set(adminDb.collection(Collections.branding(tenantId)).doc(tenantId), {
+    tenantId,
+    primaryColor: '#000000',
+    secondaryColor: '#ffffff',
+    overrides: [],
+    createdAt: now,
+    updatedAt: now
+  })
 
-    if (brandingError) {
-        // TODO: Consider rolling back tenant creation
-        console.error('Failed to create tenant branding:', brandingError)
-    }
+  // Add the creator as a TENANT_ADMIN member
+  batch.set(adminDb.collection(Collections.members(tenantId)).doc(createdBy), {
+    userId: createdBy,
+    tenantId,
+    role: 'TENANT_ADMIN',
+    createdAt: now
+  })
 
-    return NextResponse.json({ tenant }, { status: 201 })
+  // Update the creator's tenantIds array
+  batch.update(adminDb.collection(Collections.users).doc(createdBy), {
+    tenantIds: FieldValue.arrayUnion(tenantId)
+  })
+
+  await batch.commit()
+
+  return NextResponse.json({ tenant: tenantData }, { status: 201 })
 }

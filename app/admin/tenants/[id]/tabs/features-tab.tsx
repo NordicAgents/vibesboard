@@ -1,143 +1,170 @@
 'use client'
 
 import * as React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 import { FeatureToggle } from '@/components/tenants'
-import { Database } from '@/lib/db_types'
 import toast from 'react-hot-toast'
 
-type FeatureFlag = Database['public']['Tables']['feature_flags']['Row']
-type TenantFeatureToggle = Database['public']['Tables']['tenant_feature_toggles']['Row']
-
 interface TenantFeaturesTabProps {
-    tenantId: string
+  tenantId: string
 }
 
-interface FeatureWithToggle extends FeatureFlag {
-    tenant_override?: boolean
-    is_enabled: boolean
+interface TenantFeatureStatus {
+  id: string
+  name: string
+  description: string | null
+  isEnabled: boolean
+  isOverridden: boolean
+  parentFlagName: string | null
+  isDisabledByParent: boolean
+  depth: number
 }
 
 export function TenantFeaturesTab({ tenantId }: TenantFeaturesTabProps) {
-    const [features, setFeatures] = React.useState<FeatureWithToggle[]>([])
-    const [loading, setLoading] = React.useState(true)
+  const [features, setFeatures] = React.useState<TenantFeatureStatus[]>([])
+  const [loading, setLoading] = React.useState(true)
 
-    const fetchFeatures = React.useCallback(async () => {
-        try {
-            setLoading(true)
+  const fetchFeatures = React.useCallback(async () => {
+    try {
+      setLoading(true)
 
-            // Fetch all feature flags
-            const flagsResponse = await fetch('/api/admin/feature-flags')
-            if (!flagsResponse.ok) throw new Error('Failed to fetch feature flags')
-            const flagsData = await flagsResponse.json()
+      // Fetch tenant configuration
+      const configResponse = await fetch(`/api/tenants/${tenantId}/config`)
+      if (!configResponse.ok) throw new Error('Failed to fetch tenant config')
+      const configData = await configResponse.json()
 
-            // Fetch tenant configuration
-            const configResponse = await fetch(`/api/tenants/${tenantId}/config`)
-            if (!configResponse.ok) throw new Error('Failed to fetch tenant config')
-            const configData = await configResponse.json()
+      const statuses: TenantFeatureStatus[] =
+        configData.tenant?.features || configData.features || []
+      setFeatures(statuses)
+    } catch (error) {
+      console.error('Error fetching features:', error)
+      toast.error('Failed to load features')
+    } finally {
+      setLoading(false)
+    }
+  }, [tenantId])
 
-            // Merge feature flags with tenant toggles
-            const mergedFeatures: FeatureWithToggle[] = flagsData.flags.map(
-                (flag: FeatureFlag) => {
-                    const toggle = configData.features?.find(
-                        (f: TenantFeatureToggle) => f.feature_flag_id === flag.id
-                    )
-                    return {
-                        ...flag,
-                        tenant_override: toggle !== undefined,
-                        is_enabled: toggle ? toggle.is_enabled : flag.default_value,
-                    }
-                }
-            )
+  React.useEffect(() => {
+    fetchFeatures()
+  }, [fetchFeatures])
 
-            setFeatures(mergedFeatures)
-        } catch (error) {
-            console.error('Error fetching features:', error)
-            toast.error('Failed to load features')
-        } finally {
-            setLoading(false)
-        }
-    }, [tenantId])
+  const handleToggle = async (featureId: string, enabled: boolean) => {
+    try {
+      const response = await fetch(`/api/tenants/${tenantId}/features`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feature_flag_id: featureId,
+          is_enabled: enabled
+        })
+      })
 
-    React.useEffect(() => {
-        fetchFeatures()
-    }, [fetchFeatures])
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to toggle feature')
+      }
 
-    const handleToggle = async (featureId: string, enabled: boolean) => {
-        try {
-            const response = await fetch(`/api/tenants/${tenantId}/features`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    feature_flag_id: featureId,
-                    is_enabled: enabled,
-                }),
-            })
+      // Optimistically update UI — cascade through all descendants
+      setFeatures(prev => {
+        const toggled = prev.find(f => f.id === featureId)
+        if (!toggled) return prev
 
-            if (!response.ok) {
-                throw new Error('Failed to toggle feature')
+        // Collect all descendant names recursively
+        const getDescendantNames = (parentName: string): Set<string> => {
+          const names = new Set<string>()
+          for (const f of prev) {
+            if (f.parentFlagName === parentName) {
+              names.add(f.name)
+              for (const n of getDescendantNames(f.name)) {
+                names.add(n)
+              }
             }
-
-            // Optimistically update UI
-            setFeatures((prev) =>
-                prev.map((f) =>
-                    f.id === featureId
-                        ? { ...f, is_enabled: enabled, tenant_override: true }
-                        : f
-                )
-            )
-
-            toast.success('Feature updated successfully')
-        } catch (error) {
-            console.error('Error toggling feature:', error)
-            toast.error('Failed to toggle feature')
-            // Revert on error
-            fetchFeatures()
+          }
+          return names
         }
-    }
+        const descendants = getDescendantNames(toggled.name)
 
-    if (loading) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Feature Flags</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="h-16 animate-pulse rounded bg-muted" />
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
-        )
-    }
+        return prev.map(f => {
+          // Update the toggled feature
+          if (f.id === featureId) {
+            return { ...f, isEnabled: enabled, isOverridden: true }
+          }
+          // If toggling OFF, cascade disable to all descendants
+          if (!enabled && descendants.has(f.name)) {
+            return { ...f, isDisabledByParent: true }
+          }
+          // If toggling ON, un-cascade direct children only
+          if (enabled && f.parentFlagName === toggled.name) {
+            return { ...f, isDisabledByParent: false }
+          }
+          return f
+        })
+      })
 
+      toast.success('Feature updated successfully')
+    } catch (error) {
+      console.error('Error toggling feature:', error)
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to toggle feature'
+      )
+      // Revert on error
+      fetchFeatures()
+    }
+  }
+
+  if (loading) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Feature Flags</CardTitle>
-                <CardDescription>
-                    Enable or disable features for this tenant
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {features.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No feature flags available</p>
-                ) : (
-                    features.map((feature) => (
-                        <FeatureToggle
-                            key={feature.id}
-                            id={feature.id}
-                            name={feature.name}
-                            description={feature.description}
-                            isEnabled={feature.is_enabled}
-                            isOverridden={feature.tenant_override}
-                            onToggle={async (id, enabled) => await handleToggle(id, enabled)}
-                        />
-                    ))
-                )}
-            </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Feature Flags</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 animate-pulse rounded bg-muted" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Feature Flags</CardTitle>
+        <CardDescription>
+          Enable or disable features for this tenant
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {features.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No feature flags available
+          </p>
+        ) : (
+          features.map(feature => (
+            <FeatureToggle
+              key={feature.id}
+              id={feature.id}
+              name={feature.name}
+              description={feature.description}
+              isEnabled={feature.isEnabled}
+              isOverridden={feature.isOverridden}
+              depth={feature.depth}
+              isDisabledByParent={feature.isDisabledByParent}
+              parentFlagName={feature.parentFlagName}
+              onToggle={async (id, enabled) => await handleToggle(id, enabled)}
+            />
+          ))
+        )}
+      </CardContent>
+    </Card>
+  )
 }

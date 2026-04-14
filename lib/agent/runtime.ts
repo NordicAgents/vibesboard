@@ -1,18 +1,18 @@
-import { OpenAIStream } from 'ai'
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { type Message } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
+import { streamText as aiStreamText } from 'ai'
+import { type Message } from '@/lib/types/message'
 
 import { buildAgentSystemPrompt } from './prompts'
+import { buildAgentContext } from './context-builder'
 import { type VibeAgent } from '@/lib/types'
-import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools'
-import { runAgentGraph } from './graph'
-import { OPENAI_CHAT_MODEL, completeText, isResponsesModel, streamText } from '@/lib/openai'
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-
-const openai = new OpenAIApi(configuration)
+import { type ToolExecutionContext, type ToolKit } from './tools'
+import {
+  OPENAI_CHAT_MODEL,
+  completeText,
+  isResponsesModel,
+  streamText,
+  type ResponsesApiTool
+} from '@/lib/openai'
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -20,8 +20,13 @@ interface RunAgentStreamArgs {
   context?: string | null
   previewToken?: string | null
   temperature?: number
-  onCompletion?: (completion: string) => Promise<void> | void
+  onCompletion?: (
+    completion: string,
+    usage?: { promptTokens: number; completionTokens: number }
+  ) => Promise<void> | void
   toolContext?: ToolExecutionContext
+  handoffTargetNames?: Record<string, string>
+  remainingResponses?: number | null
 }
 
 export async function runAgentStream({
@@ -31,70 +36,48 @@ export async function runAgentStream({
   previewToken,
   temperature = 0.1,
   onCompletion,
-  toolContext
+  toolContext,
+  handoffTargetNames,
+  remainingResponses
 }: RunAgentStreamArgs) {
-  if (previewToken) {
-    configuration.apiKey = previewToken
-  } else if (process.env.OPENAI_API_KEY) {
-    configuration.apiKey = process.env.OPENAI_API_KEY
-  }
-
-  const toolkit = buildToolKit(agent, {
-    fileContext: toolContext?.fileContext ?? context
-  })
-
   const model = OPENAI_CHAT_MODEL
   const isResponses = isResponsesModel(model)
 
-  if (toolkit.functions.length) {
-    if (isResponses) {
-      const stream = await runResponsesAgentWithTools({
-        agent,
-        messages,
-        context,
-        toolkit,
-        model,
-        previewToken,
-        onCompletion,
-        toolContext
-      })
-      return stream
-    }
+  // Build context by pre-loading file content and source URLs.
+  // This also prunes the toolkit (removes file_search if all files fit in context).
+  // NOTE: dispose() must be called after the stream completes — not before — so
+  // that retriever-owned sandboxes (e.g. BashRetriever) remain live during tool execution.
+  const agentContext = await buildAgentContext(agent, toolContext)
+  const effectiveContext = agentContext.contextText || context || null
+  const toolkit = agentContext.toolkit
 
-    const finalMessages = await runAgentGraph({
-      openai,
+  if (isResponses && toolkit.functions.length) {
+    return runResponsesAgentWithTools({
       agent,
-      context,
       messages,
-      functions: toolkit.functions,
-      executors: toolkit.executors,
-      temperature
+      context: effectiveContext,
+      toolkit,
+      model,
+      previewToken,
+      onCompletion: async (completion, usage) => {
+        await agentContext.dispose()
+        if (onCompletion) await onCompletion(completion, usage)
+      },
+      toolContext,
+      hasFileOverflow: agentContext.hasFileOverflow,
+      handoffTargetNames,
+      remainingResponses
     })
-
-    const completionMessage = [...finalMessages]
-      .reverse()
-      .find(message => message.role === 'assistant')
-
-    const completion = completionMessage?.content ?? ''
-
-    if (onCompletion) {
-      await onCompletion(completion)
-    }
-
-    return stringToStream(completion)
   }
 
-  const systemPrompt = buildAgentSystemPrompt(agent, context)
-  if (isResponses) {
-    const conversation = messages
-      .map(
-        message =>
-          `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
-            typeof message.content === 'string' ? message.content : ''
-          }`
-      )
-      .join('\n\n')
+  const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
+    hasFileOverflow: agentContext.hasFileOverflow,
+    handoffTargetNames,
+    remainingResponses
+  })
 
+  if (isResponses) {
+    const conversation = formatConversation(messages)
     const prompt = `${systemPrompt}\n\n${
       conversation ? `Conversation so far:\n${conversation}` : ''
     }`
@@ -104,9 +87,16 @@ export async function runAgentStream({
       prompt,
       model,
       apiKey,
-      async onDone(completion) {
+      async onDone(completion, usage) {
+        await agentContext.dispose()
         if (onCompletion) {
-          await onCompletion(completion)
+          const mapped = usage
+            ? {
+                promptTokens: usage.inputTokens,
+                completionTokens: usage.outputTokens
+              }
+            : undefined
+          await onCompletion(completion, mapped)
         }
       }
     })
@@ -114,40 +104,86 @@ export async function runAgentStream({
     return stream
   }
 
+  // TODO: handoffTargetNames is not passed here — agents on the legacy Chat
+  // Completions path will not have handoff instructions injected into their
+  // system prompt. Low impact since OPENAI_CHAT_MODEL is a Responses API model
+  // in all current deployments. Fix by passing handoffTargetNames when removing
+  // or consolidating this legacy path.
+  const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
+    remainingResponses
+  })
   const payload = [
-    { role: 'system' as const, content: systemPrompt },
+    { role: 'system' as const, content: systemPromptLegacy },
     ...messages.map(message => ({
-      role: message.role,
-      content: message.content,
-      name: message.name,
-      function_call: message.function_call
+      role: message.role as 'system' | 'user' | 'assistant',
+      content: typeof message.content === 'string' ? message.content : ''
     }))
   ]
 
-  const response = await openai.createChatCompletion({
-    model,
-    stream: true,
+  const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? ''
+  const openaiClient = createOpenAI({ apiKey })
+
+  let disposed = false
+  const safeDispose = async () => {
+    if (disposed) return
+    disposed = true
+    await agentContext.dispose()
+  }
+
+  const result = await aiStreamText({
+    model: openaiClient(model),
+    messages: payload,
     temperature,
-    messages: payload as any
+    async onFinish({ text, usage }) {
+      await safeDispose()
+      if (onCompletion) {
+        const mapped = usage
+          ? {
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens
+            }
+          : undefined
+        await onCompletion(text, mapped)
+      }
+    }
   })
 
-  return OpenAIStream(response, {
-    async onCompletion(completion) {
-      if (onCompletion) {
-        await onCompletion(completion)
+  // Convert AsyncIterableStream<string> → ReadableStream<Uint8Array>
+  // so it remains compatible with wrapStreamWithCompletionDetection.
+  // Uses pull() instead of start() so chunks are only read when the
+  // downstream consumer is ready, respecting backpressure.
+  const encoder = new TextEncoder()
+  const iterator = result.textStream[Symbol.asyncIterator]()
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { value, done } = await iterator.next()
+        if (done) {
+          controller.close()
+          return
+        }
+        controller.enqueue(encoder.encode(value))
+      } catch (err) {
+        controller.error(err)
       }
+    },
+    cancel() {
+      // Client disconnected mid-stream — ensure retriever resources are freed
+      iterator.return?.()
+      safeDispose().catch(() => {})
     }
   })
 }
 
-const stringToStream = (value: string) => {
-  const encoder = new TextEncoder()
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encoder.encode(value))
-      controller.close()
-    }
-  })
+function formatConversation(messages: Message[]): string {
+  return messages
+    .map(
+      message =>
+        `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
+          typeof message.content === 'string' ? message.content : ''
+        }`
+    )
+    .join('\n\n')
 }
 
 interface ResponsesAgentWithToolsArgs {
@@ -157,10 +193,71 @@ interface ResponsesAgentWithToolsArgs {
   toolkit: ToolKit
   model: string
   previewToken?: string | null
-  onCompletion?: (completion: string) => Promise<void> | void
+  onCompletion?: (
+    completion: string,
+    usage?: { promptTokens: number; completionTokens: number }
+  ) => Promise<void> | void
   toolContext?: ToolExecutionContext
+  hasFileOverflow?: boolean
+  handoffTargetNames?: Record<string, string>
+  remainingResponses?: number | null
 }
 
+/**
+ * Validate tool arguments against the tool's JSON schema parameters.
+ * Checks that the args object is present, all required fields exist, and
+ * present fields match their declared primitive type.
+ * Returns an error string if invalid, null if valid.
+ */
+function validateToolArgs(
+  toolName: string,
+  args: Record<string, unknown>,
+  schema:
+    | { required?: string[]; properties?: Record<string, unknown> }
+    | undefined
+): string | null {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return `Tool "${toolName}" received invalid arguments (expected a JSON object).`
+  }
+
+  const properties = (schema?.properties ?? {}) as Record<
+    string,
+    { type?: string }
+  >
+  const required = schema?.required ?? []
+
+  for (const field of required) {
+    if (!(field in args)) {
+      return `Tool "${toolName}" missing required argument: "${field}".`
+    }
+  }
+
+  // Validate types for present fields with a declared primitive type.
+  // Catches model hallucinations like duration_minutes: "thirty" when number is expected.
+  const primitiveTypes: Record<string, string> = {
+    string: 'string',
+    number: 'number',
+    boolean: 'boolean'
+  }
+  for (const [field, def] of Object.entries(properties)) {
+    if (!(field in args)) continue
+    const expectedType = def.type
+    if (!expectedType || !(expectedType in primitiveTypes)) continue
+    const actualType = typeof args[field]
+    if (actualType !== primitiveTypes[expectedType]) {
+      return `Tool "${toolName}" argument "${field}" must be a ${expectedType}, got ${actualType}.`
+    }
+  }
+
+  return null
+}
+
+/**
+ * Use native OpenAI Responses API tool calling.
+ * 1. Call completeText() with tools — the API decides whether to call a tool.
+ * 2. If a tool was called, execute it and build a follow-up prompt.
+ * 3. Stream the final answer via streamText().
+ */
 const runResponsesAgentWithTools = async ({
   agent,
   messages,
@@ -169,86 +266,82 @@ const runResponsesAgentWithTools = async ({
   model,
   previewToken,
   onCompletion,
-  toolContext
+  toolContext,
+  hasFileOverflow,
+  handoffTargetNames,
+  remainingResponses
 }: ResponsesAgentWithToolsArgs) => {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? null
+  const systemPrompt = buildAgentSystemPrompt(agent, context, {
+    hasFileOverflow,
+    handoffTargetNames,
+    remainingResponses
+  })
+  const conversation = formatConversation(messages)
 
-  const systemPrompt = buildAgentSystemPrompt(agent, context)
+  // Convert toolkit functions to Responses API tool format
+  const tools: ResponsesApiTool[] = toolkit.functions.map(fn => ({
+    type: 'function' as const,
+    name: fn.name,
+    description: fn.description ?? 'No description.',
+    parameters:
+      fn.parameters && Object.keys(fn.parameters).length
+        ? fn.parameters
+        : { type: 'object', properties: {} }
+  }))
 
-  const toolsDescription = toolkit.functions
-    .map(fn => {
-      const params =
-        fn.parameters && Object.keys(fn.parameters).length
-          ? JSON.stringify(fn.parameters)
-          : '{}'
-      return `- ${fn.name}: ${fn.description ?? 'No description.'} Params: ${params}`
-    })
-    .join('\n')
-
-  const conversation = messages
-    .map(
-      message =>
-        `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
-          typeof message.content === 'string' ? message.content : ''
-        }`
-    )
-    .join('\n\n')
-
-  const planningPrompt =
+  const prompt =
     `${systemPrompt}\n\n` +
-    `You have access to the following tools:\n${toolsDescription || 'No tools.'}\n\n` +
-    `Tool usage protocol:\n` +
-    `- Decide whether you need exactly one tool call to answer the user.\n` +
-    `- If you need a tool, respond with STRICT JSON on a single line with this shape:\n` +
-    `  {"tool": "<tool_name>", "arguments": { ... }}\n` +
-    `- If you do not need any tool, respond with:\n` +
-    `  {"tool": null, "arguments": {}}\n` +
-    `Do not include any other text.\n\n` +
     `Conversation so far:\n` +
     (conversation || '(no prior messages).')
 
-  const decisionText = await completeText({
-    prompt: planningPrompt,
+  // Step 1: Call with native tools — model decides whether to use a tool
+  const decision = await completeText({
+    prompt,
     model,
-    apiKey
+    apiKey,
+    tools
   })
 
+  // Track cumulative token usage across decision + final stream
+  let totalPromptTokens = decision.usage?.inputTokens ?? 0
+  let totalCompletionTokens = decision.usage?.outputTokens ?? 0
+
+  // Step 2: If model chose a tool, execute it
+  let toolResult: string | null = null
   let chosenTool: string | null = null
   let toolArgs: Record<string, any> = {}
 
-  try {
-    const parsed = JSON.parse(decisionText.trim())
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      Object.prototype.hasOwnProperty.call(parsed, 'tool')
-    ) {
-      if (typeof parsed.tool === 'string' && toolkit.executors[parsed.tool]) {
-        chosenTool = parsed.tool
-        if (parsed.arguments && typeof parsed.arguments === 'object') {
-          toolArgs = parsed.arguments as Record<string, any>
-        }
+  if (decision.toolCalls.length > 0) {
+    const call = decision.toolCalls[0]
+    chosenTool = call.name
+    toolArgs = call.arguments ?? {}
+    const executor = toolkit.executors[chosenTool]
+
+    if (executor) {
+      // Validate args against the tool's JSON schema before execution.
+      // Guards against hallucinated or malformed args from the model.
+      const toolSchema = tools.find(t => t.name === chosenTool)
+      const validationError = validateToolArgs(
+        chosenTool,
+        toolArgs,
+        toolSchema?.parameters
+      )
+      if (validationError) {
+        toolResult = validationError
       } else {
-        chosenTool = null
+        try {
+          toolResult = await executor(toolArgs, {
+            fileContext: toolContext?.fileContext ?? context
+          })
+        } catch (error) {
+          toolResult = `Tool ${chosenTool} failed: ${error}`
+        }
       }
     }
-  } catch {
-    chosenTool = null
-    toolArgs = {}
   }
 
-  let toolResult: string | null = null
-  if (chosenTool) {
-    const executor = toolkit.executors[chosenTool]
-    try {
-      toolResult = await executor(toolArgs, {
-        fileContext: toolContext?.fileContext ?? context
-      })
-    } catch (error) {
-      toolResult = `Tool ${chosenTool} failed: ${error}`
-    }
-  }
-
+  // Step 3: Build final prompt and stream the answer
   const finalPromptParts: string[] = [
     systemPrompt,
     '',
@@ -264,12 +357,12 @@ const runResponsesAgentWithTools = async ({
       'Tool result:',
       toolResult,
       '',
-      'Now answer the user. Do not mention internal tool JSON.'
+      'Now answer the user based on the tool result. Do not mention internal tool details.'
     )
   } else {
     finalPromptParts.push(
       '',
-      'You decided that no tools are required. Answer the user directly based on the conversation.'
+      'Answer the user directly based on the conversation.'
     )
   }
 
@@ -279,9 +372,14 @@ const runResponsesAgentWithTools = async ({
     prompt: finalPrompt,
     model,
     apiKey,
-    async onDone(completion) {
+    async onDone(completion, usage) {
+      totalPromptTokens += usage?.inputTokens ?? 0
+      totalCompletionTokens += usage?.outputTokens ?? 0
       if (onCompletion) {
-        await onCompletion(completion)
+        await onCompletion(completion, {
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens
+        })
       }
     }
   })

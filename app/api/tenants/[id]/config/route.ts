@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { auth } from '@/auth'
-import { type Database } from '@/lib/db_types'
-import { isMemberOfTenant } from '@/lib/permissions'
+import {
+  requireTenantMember,
+  requireSuperAdmin
+} from '@/lib/firebase/route-handler'
+import { adminDb } from '@/lib/firebase/admin'
+import { Collections } from '@/lib/firestore-types'
+import type { TenantBrandingDocument } from '@/lib/firestore-types'
 import { getTenantFeatures } from '@/lib/features'
+import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'
 
 type RouteParams = {
-    params: Promise<{
-        id: string
-    }>
+  params: Promise<{
+    id: string
+  }>
 }
 
 /**
@@ -19,52 +22,55 @@ type RouteParams = {
  * Get tenant configuration including features and branding
  */
 export async function GET(req: Request, { params }: RouteParams) {
-    const cookieStore = await cookies()
-    const session = await auth({ cookieStore })
+  const { id: tenantId } = await params
 
-    if (!session?.user) {
-        return new NextResponse('Unauthorized', { status: 401 })
-    }
+  // Allow super admins to access any tenant's config (e.g. from admin panel)
+  const superAdminAuth = await requireSuperAdmin()
+  if (!superAdminAuth.ok) {
+    // Fall back to tenant membership check for regular users
+    const auth = await requireTenantMember(tenantId)
+    if (!auth.ok) return auth.response
+  }
 
-    const { id } = await params
+  // Get tenant details
+  const tenantDoc = await adminDb
+    .collection(Collections.tenants)
+    .doc(tenantId)
+    .get()
 
-    // Check if user is member of tenant
-    const isMember = await isMemberOfTenant(session.user.id, id)
-    if (!isMember) {
-        return new NextResponse('Forbidden', { status: 403 })
-    }
+  if (!tenantDoc.exists) {
+    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+  }
 
-    const supabase = createRouteHandlerClient<Database>({
-        cookies: () => cookieStore as unknown as ReturnType<typeof cookies>
-    })
+  const tenant = { id: tenantDoc.id, ...tenantDoc.data() }
 
-    // Get tenant details
-    const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', id)
-        .single()
+  // Get branding with base branding inheritance
+  const [brandingDoc, baseBranding] = await Promise.all([
+    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
+    getBaseBranding()
+  ])
 
-    if (tenantError || !tenant) {
-        return NextResponse.json(
-            { error: 'Tenant not found' },
-            { status: 404 }
-        )
-    }
+  const tenantBranding = brandingDoc.exists
+    ? (brandingDoc.data() as TenantBrandingDocument)
+    : null
 
-    // Get branding
-    const { data: branding } = await supabase
-        .from('tenant_branding')
-        .select('*')
-        .eq('tenant_id', id)
-        .single()
+  const effectiveBranding = resolveEffectiveBranding(
+    tenantBranding,
+    baseBranding
+  )
 
-    // Get features
-    const features = await getTenantFeatures(id)
+  // Get features
+  const features = await getTenantFeatures(tenantId)
 
-    return NextResponse.json({
-        tenant,
-        branding,
-        features
-    })
+  return NextResponse.json({
+    tenant: {
+      ...tenant,
+      branding: effectiveBranding,
+      features
+    },
+    branding: effectiveBranding,
+    baseBranding,
+    overrides: tenantBranding?.overrides ?? null,
+    features
+  })
 }

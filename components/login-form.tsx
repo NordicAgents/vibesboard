@@ -1,7 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from 'firebase/auth'
+import { getClientAuth } from '@/lib/firebase/client'
 
 import { Button } from '@/components/ui/button'
 import { IconSpinner } from '@/components/ui/icons'
@@ -13,17 +17,27 @@ import { useRouter } from 'next/navigation'
 
 interface LoginFormProps extends React.ComponentPropsWithoutRef<'div'> {
   action: 'sign-in' | 'sign-up'
+  redirectedFrom?: string
+}
+
+async function postSessionCookie(idToken: string): Promise<boolean> {
+  const res = await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken })
+  })
+  return res.ok
 }
 
 export function LoginForm({
   className,
   action = 'sign-in',
+  redirectedFrom,
   ...props
 }: LoginFormProps) {
   const [isLoading, setIsLoading] = React.useState(false)
   const router = useRouter()
-  // Create a Supabase client configured to use cookies
-  const supabase = createClientComponentClient()
+  const auth = getClientAuth()
 
   const [formState, setFormState] = React.useState<{
     email: string
@@ -33,95 +47,113 @@ export function LoginForm({
     password: ''
   })
 
-  const signIn = async () => {
-    const { email, password } = formState
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    return error
-  }
-
-  const signUp = async () => {
-    const { email, password } = formState
-    const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${location.origin}/api/auth/callback` }
-    })
-
-    if (!error && !data.session)
-      toast.success('Check your inbox to confirm your email address!')
-    return error
-  }
-
   const handleOnSubmit: React.FormEventHandler<HTMLFormElement> = async e => {
     e.preventDefault()
     setIsLoading(true)
 
-    const error = action === 'sign-in' ? await signIn() : await signUp()
+    try {
+      const { email, password } = formState
+      let userCredential
 
-    if (error) {
+      if (action === 'sign-in') {
+        userCredential = await signInWithEmailAndPassword(auth, email, password)
+      } else {
+        userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        )
+      }
+
+      const idToken = await userCredential.user.getIdToken()
+      const ok = await postSessionCookie(idToken)
+
+      if (!ok) {
+        toast.error('Failed to create session. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      router.push(redirectedFrom ?? '/')
+      router.refresh()
+    } catch (err: any) {
+      const message =
+        err?.code === 'auth/user-not-found'
+          ? 'No account found with that email.'
+          : err?.code === 'auth/wrong-password'
+            ? 'Incorrect password.'
+            : err?.code === 'auth/email-already-in-use'
+              ? 'An account with that email already exists.'
+              : err?.code === 'auth/weak-password'
+                ? 'Password should be at least 6 characters.'
+                : (err?.message ?? 'Authentication failed.')
+      toast.error(message)
+    } finally {
       setIsLoading(false)
-      toast.error(error.message)
-      return
     }
-
-    setIsLoading(false)
-    router.refresh()
   }
 
   return (
     <div {...props}>
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
-          <div className="flex flex-col gap-y-1">
-            <Label className="font-switzer text-sm font-medium text-black-primary dark:text-card-foreground">Email</Label>
+          <div className="flex flex-col gap-y-1.5">
+            <Label>Email</Label>
             <Input
               name="email"
               type="email"
+              placeholder="you@example.com"
               value={formState.email}
               onChange={e =>
-                setFormState(prev => ({
-                  ...prev,
-                  email: e.target.value
-                }))
+                setFormState(prev => ({ ...prev, email: e.target.value }))
               }
             />
           </div>
-          <div className="flex flex-col gap-y-1">
-            <Label className="font-switzer text-sm font-medium text-black-primary dark:text-card-foreground">Password</Label>
+          <div className="flex flex-col gap-y-1.5">
+            <Label>Password</Label>
             <Input
               name="password"
               type="password"
+              placeholder="••••••••"
               value={formState.password}
               onChange={e =>
-                setFormState(prev => ({
-                  ...prev,
-                  password: e.target.value
-                }))
+                setFormState(prev => ({ ...prev, password: e.target.value }))
               }
             />
           </div>
         </fieldset>
 
         <div className="mt-6 flex flex-col gap-4">
-          <Button disabled={isLoading} className="w-full rounded-full font-switzer">
-            {isLoading && <IconSpinner className="mr-2 animate-spin" />}
-            {action === 'sign-in' ? 'Sign In' : 'Sign Up'}
+          <Button disabled={isLoading} className="w-full">
+            {isLoading && <IconSpinner className="animate-spin" />}
+            {action === 'sign-in' ? 'Sign In' : 'Create Account'}
           </Button>
-          <p className="text-center font-switzer text-sm text-gray-secondary dark:text-muted-foreground">
+          <p className="text-center text-sm text-[#445e5f] dark:text-[#6f7f80]">
             {action === 'sign-in' ? (
               <>
                 Don&apos;t have an account?{' '}
-                <Link href="/sign-up" className="font-medium text-black-primary dark:text-card-foreground hover:underline">
+                <Link
+                  href={
+                    redirectedFrom
+                      ? `/sign-up?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+                      : '/sign-up'
+                  }
+                  className="font-medium text-accent-orange transition-colors hover:text-accent-warm"
+                >
                   Sign Up
                 </Link>
               </>
             ) : (
               <>
                 Already have an account?{' '}
-                <Link href="/sign-in" className="font-medium text-black-primary dark:text-card-foreground hover:underline">
+                <Link
+                  href={
+                    redirectedFrom
+                      ? `/sign-in?redirectedFrom=${encodeURIComponent(redirectedFrom)}`
+                      : '/sign-in'
+                  }
+                  className="font-medium text-accent-orange transition-colors hover:text-accent-warm"
+                >
                   Sign In
                 </Link>
               </>
