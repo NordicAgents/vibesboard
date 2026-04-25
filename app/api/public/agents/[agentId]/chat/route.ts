@@ -33,11 +33,13 @@ import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import { OPENAI_CHAT_MODEL } from '@/lib/openai'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
+  try {
   const { agentId } = await params
   const agent = await getAgentById(agentId)
 
@@ -354,6 +356,9 @@ export async function POST(
   return new Response(transformedStream, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Content-Encoding': 'identity',
+      'X-Accel-Buffering': 'no',
       'x-conversation-id': conversation.id,
       'x-agent-mode': activeAgent.mode,
       'x-max-responses': String(activeAgent.maxResponses ?? ''),
@@ -366,4 +371,11 @@ export async function POST(
       'x-remaining-responses': String(currentRemainingResponses ?? '')
     }
   })
+  } catch (err) {
+    console.error('[public-chat] handler failed:', err)
+    return NextResponse.json(
+      { error: 'Chat request failed. Please try again.' },
+      { status: 500 }
+    )
+  }
 }
