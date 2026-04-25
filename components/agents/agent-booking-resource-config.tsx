@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { nanoid } from 'nanoid'
 import { Switch } from '@/components/ui/switch'
@@ -13,11 +13,13 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card'
-import { Trash2, Plus } from 'lucide-react'
+import { CalendarDays, Trash2, Plus } from 'lucide-react'
 import type {
   AgentBookingConfig,
   BookableResource
 } from '@/lib/firestore-types'
+import { getBookingResourceConnectionPrompt } from '@/lib/agents/booking-resource-setup'
+import { buildGoogleCalendarAuthPath } from '@/lib/scheduling/oauth-return'
 
 interface CalendarConnectionSummary {
   id: string
@@ -97,22 +99,50 @@ export function AgentBookingResourceConfig({
   const [calendars, setCalendars] = useState<GoogleCalendarItem[]>([])
   const [loadingCalendars, setLoadingCalendars] = useState(false)
 
-  // Load calendar connections on mount
+  const loadConnections = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!tenantId) {
+        setConnections([])
+        setLoadingConnections(false)
+        return
+      }
+
+      setLoadingConnections(true)
+      try {
+        const res = await fetch('/api/scheduling/connections', { signal })
+        if (!res.ok) {
+          toast.error('Failed to load calendar connections')
+          return
+        }
+        const data = await res.json()
+        setConnections(data.connections ?? [])
+      } catch (err) {
+        if (!(err instanceof Error && err.name === 'AbortError')) {
+          toast.error('Failed to load calendar connections')
+        }
+      } finally {
+        if (!signal?.aborted) setLoadingConnections(false)
+      }
+    },
+    [tenantId]
+  )
+
+  // Load calendar connections on mount and when the tenant changes.
   useEffect(() => {
-    let mounted = true
-    fetch('/api/scheduling/connections')
-      .then(r => r.json())
-      .then(data => {
-        if (mounted) setConnections(data.connections ?? [])
-      })
-      .catch(() => toast.error('Failed to load calendar connections'))
-      .finally(() => {
-        if (mounted) setLoadingConnections(false)
-      })
-    return () => {
-      mounted = false
+    const controller = new AbortController()
+    void loadConnections(controller.signal)
+    return () => controller.abort()
+  }, [loadConnections])
+
+  // If the owner completes OAuth in another tab/window and returns here,
+  // refresh so the new connection appears without a manual reload.
+  useEffect(() => {
+    const handleFocus = () => {
+      void loadConnections()
     }
-  }, [tenantId])
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [loadConnections])
 
   // Load calendars when draft connection changes
   useEffect(() => {
@@ -187,9 +217,19 @@ export function AgentBookingResourceConfig({
   }
 
   const activeConnections = connections.filter(c => c.status === 'active')
+  const connectionPrompt = getBookingResourceConnectionPrompt({
+    loadingConnections,
+    activeConnectionCount: activeConnections.length,
+    totalConnectionCount: connections.length
+  })
   const canEnable = current.resources.length > 0
   const showResources = section !== 'behavior'
   const showBehavior = section !== 'resources'
+
+  const handleConnectCalendar = () => {
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    window.location.href = buildGoogleCalendarAuthPath(returnTo)
+  }
 
   return (
     <div className="space-y-5 pb-8">
@@ -247,26 +287,56 @@ export function AgentBookingResourceConfig({
                   {loadingConnections ? (
                     <p className="text-xs text-muted-foreground">Loading...</p>
                   ) : (
-                    <select
-                      value={draft.calendarConnectionId}
-                      onChange={e =>
-                        setDraft(d => ({
-                          ...d,
-                          calendarConnectionId: e.target.value,
-                          calendarId: '',
-                          calendarName: ''
-                        }))
-                      }
-                      disabled={disabled}
-                      className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                    >
-                      <option value="">Select a connection…</option>
-                      {activeConnections.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
+                    <div className="space-y-2">
+                      <select
+                        value={draft.calendarConnectionId}
+                        onChange={e =>
+                          setDraft(d => ({
+                            ...d,
+                            calendarConnectionId: e.target.value,
+                            calendarId: '',
+                            calendarName: ''
+                          }))
+                        }
+                        disabled={disabled || activeConnections.length === 0}
+                        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                      >
+                        <option value="">
+                          {activeConnections.length > 0
+                            ? 'Select a connection…'
+                            : 'No active Google Calendar connections'}
                         </option>
-                      ))}
-                    </select>
+                        {activeConnections.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {connectionPrompt.message && (
+                        <p className="text-xs text-muted-foreground">
+                          {connectionPrompt.message}
+                        </p>
+                      )}
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={
+                          connectionPrompt.showConnectAction
+                            ? 'default'
+                            : 'outline'
+                        }
+                        onClick={handleConnectCalendar}
+                        disabled={disabled}
+                        className="w-full"
+                      >
+                        <CalendarDays className="mr-1.5 size-3.5" />
+                        {activeConnections.length > 0
+                          ? 'Connect another Google Calendar'
+                          : 'Connect Google Calendar'}
+                      </Button>
+                    </div>
                   )}
                 </div>
 
