@@ -11,16 +11,13 @@ import { AgentReviewsTab } from '@/components/agents/agent-reviews-tab'
 import { AgentShareTab } from '@/components/agents/agent-share-tab'
 import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab'
 import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
-import { AgentSchedulingSettings } from '@/components/agents/agent-scheduling-settings'
-import { AgentDataSettings } from '@/components/agents/agent-data-settings'
-import { AgentCalendarAvailabilitySettings } from '@/components/agents/agent-calendar-availability-settings'
 import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiries'
-import { AgentBookingResourceConfig } from '@/components/agents/agent-booking-resource-config'
+import { AgentActionsFlow } from '@/components/agents/agent-actions-flow'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import type { AgentSharePayload, VibeAgent } from '@/lib/types'
 import { ArrowLeft } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import type { ActionCapability } from '@/lib/agents/action-config'
 
 interface AgentDashboardTabsProps {
   agent: VibeAgent
@@ -37,15 +34,6 @@ const SAVEABLE_TABS = [
   'reviews',
   'actions'
 ]
-
-// Sub-sections within the Actions tab
-const ACTION_SECTIONS = [
-  'scheduling',
-  'data',
-  'availability',
-  'booking'
-] as const
-type ActionSection = (typeof ACTION_SECTIONS)[number]
 
 export function AgentDashboardTabs({
   agent,
@@ -67,21 +55,12 @@ export function AgentDashboardTabs({
           ? 'booking-enquiries'
           : defaultTab
   const [activeTab, setActiveTab] = useState(resolvedDefault)
-  const [openSections, setOpenSections] = useState<Set<ActionSection>>(
-    new Set([defaultTab === 'data' ? 'data' : 'scheduling'])
-  )
-
-  const toggleSection = (section: ActionSection) => {
-    setOpenSections(prev => {
-      const next = new Set(prev)
-      if (next.has(section)) {
-        next.delete(section)
-      } else {
-        next.add(section)
-      }
-      return next
-    })
-  }
+  const initialActionCapability: ActionCapability =
+    defaultTab === 'data'
+      ? 'data'
+      : defaultTab === 'scheduling'
+        ? 'scheduling'
+        : 'booking'
 
   const form = useAgentForm(agent)
   const {
@@ -247,105 +226,24 @@ export function AgentDashboardTabs({
 
         <TabsContent value="actions">
           {agent.tenantId ? (
-            <div className="space-y-4">
-              {/* Sub-navigation for action sections (multi-select) */}
-              <div className="flex flex-wrap gap-2">
-                {ACTION_SECTIONS.map(section => {
-                  const isOpen = openSections.has(section)
-                  const isEnabled =
-                    section === 'scheduling'
-                      ? fields.schedulingConfig?.enabled
-                      : section === 'data'
-                        ? fields.dataConfig?.enabled
-                        : section === 'availability'
-                          ? fields.calendarAvailabilityConfig?.enabled
-                          : fields.bookingConfig?.enabled
-                  return (
-                    <button
-                      key={section}
-                      onClick={() => toggleSection(section)}
-                      className={cn(
-                        'rounded-lg border px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-all duration-150',
-                        isOpen
-                          ? 'border-accent-orange/30 bg-accent-orange/10 text-accent-orange'
-                          : 'border-border bg-card text-muted-foreground hover:bg-hover hover:text-foreground',
-                        isEnabled &&
-                          !isOpen &&
-                          'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400'
-                      )}
-                    >
-                      {isEnabled && (
-                        <span className="mr-1.5 inline-block size-1.5 rounded-full bg-green-500" />
-                      )}
-                      {section === 'scheduling'
-                        ? 'Scheduling'
-                        : section === 'data'
-                          ? 'Data'
-                          : section === 'availability'
-                            ? 'Availability'
-                            : 'Booking'}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {openSections.has('scheduling') && (
-                <FeatureGate
-                  feature="AGENT_ACTIONS"
-                  tenantId={agent.tenantId}
-                >
-                  <AgentSchedulingSettings
-                    config={fields.schedulingConfig}
-                    onChange={setters.setSchedulingConfig}
-                    disabled={saving || !canEdit}
-                    tenantId={agent.tenantId}
-                  />
-                </FeatureGate>
-              )}
-
-              {openSections.has('data') && (
-                <FeatureGate
-                  feature="AGENT_ACTIONS"
-                  tenantId={agent.tenantId}
-                >
-                  <AgentDataSettings
-                    config={fields.dataConfig}
-                    onChange={setters.setDataConfig}
-                    disabled={saving || !canEdit}
-                    tenantId={agent.tenantId}
-                    collectionFields={fields.collectionFields}
-                  />
-                </FeatureGate>
-              )}
-
-              {openSections.has('availability') && (
-                <FeatureGate
-                  feature="AGENT_ACTIONS"
-                  tenantId={agent.tenantId}
-                >
-                  <AgentCalendarAvailabilitySettings
-                    config={fields.calendarAvailabilityConfig}
-                    onChange={setters.setCalendarAvailabilityConfig}
-                    disabled={saving || !canEdit}
-                    tenantId={agent.tenantId}
-                  />
-                </FeatureGate>
-              )}
-
-              {openSections.has('booking') && (
-                <FeatureGate
-                  feature="AGENT_ACTIONS"
-                  tenantId={agent.tenantId}
-                >
-                  <AgentBookingResourceConfig
-                    config={fields.bookingConfig}
-                    onChange={setters.setBookingConfig}
-                    disabled={saving || !canEdit}
-                    tenantId={agent.tenantId}
-                  />
-                </FeatureGate>
-              )}
-            </div>
+            <FeatureGate feature="AGENT_ACTIONS" tenantId={agent.tenantId}>
+              <AgentActionsFlow
+                schedulingConfig={fields.schedulingConfig}
+                onSchedulingConfigChange={setters.setSchedulingConfig}
+                dataConfig={fields.dataConfig}
+                onDataConfigChange={setters.setDataConfig}
+                calendarAvailabilityConfig={fields.calendarAvailabilityConfig}
+                onCalendarAvailabilityConfigChange={
+                  setters.setCalendarAvailabilityConfig
+                }
+                bookingConfig={fields.bookingConfig}
+                onBookingConfigChange={setters.setBookingConfig}
+                disabled={saving || !canEdit}
+                tenantId={agent.tenantId}
+                collectionFields={fields.collectionFields}
+                initialCapability={initialActionCapability}
+              />
+            </FeatureGate>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
               Actions require a tenant. Assign this agent to a tenant first.
