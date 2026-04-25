@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { AgentCalendarAvailabilitySettings } from './agent-calendar-availability-settings'
 import { AgentSchedulingSettings } from './agent-scheduling-settings'
 import { AgentBookingResourceConfig } from './agent-booking-resource-config'
@@ -57,6 +58,19 @@ function getStatusBadgeVariant(state: ActionCapabilityState) {
     default:
       return 'outline' as const
   }
+}
+
+// For the booking capability, "Ready" means "configured but the master toggle
+// is off" — which silently disables every booking tool. Render it as an
+// unmistakable "Configured · OFF" so owners notice the agent has no tools.
+function getBookingBadgeVariant(state: ActionCapabilityState) {
+  if (state.status === 'ready') return 'outline' as const
+  return getStatusBadgeVariant(state)
+}
+
+function getBookingBadgeLabel(state: ActionCapabilityState) {
+  if (state.status === 'ready') return 'Configured · OFF'
+  return state.statusLabel
 }
 
 export function AgentActionsFlow({
@@ -138,8 +152,16 @@ export function AgentActionsFlow({
                       {state.summary}
                     </p>
                   </div>
-                  <Badge variant={getStatusBadgeVariant(state)}>
-                    {state.statusLabel}
+                  <Badge
+                    variant={
+                      state.capability === 'booking'
+                        ? getBookingBadgeVariant(state)
+                        : getStatusBadgeVariant(state)
+                    }
+                  >
+                    {state.capability === 'booking'
+                      ? getBookingBadgeLabel(state)
+                      : state.statusLabel}
                   </Badge>
                 </div>
                 {state.blocker && (
@@ -147,6 +169,13 @@ export function AgentActionsFlow({
                     {state.blocker}
                   </p>
                 )}
+                {state.capability === 'booking' &&
+                  state.status === 'ready' && (
+                    <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+                      Booking tools will not be available to the agent until
+                      the master toggle is on.
+                    </p>
+                  )}
                 <div className="mt-4">
                   <span className="text-xs font-medium text-foreground">
                     {state.ctaLabel}
@@ -188,6 +217,12 @@ export function AgentActionsFlow({
             {stateMap.availability_only.statusLabel}
           </Badge>
         </div>
+        {bookingConfig?.enabled && calendarAvailabilityConfig?.enabled && (
+          <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            Simple Booking is active — Availability Only is ignored at runtime.
+            Disable one to remove this warning.
+          </p>
+        )}
         <AgentCalendarAvailabilitySettings
           config={calendarAvailabilityConfig}
           onChange={onCalendarAvailabilityConfigChange}
@@ -228,10 +263,43 @@ export function AgentActionsFlow({
               Add each room or property calendar the owner buddy should manage.
             </p>
           </div>
-          <Badge variant={getStatusBadgeVariant(stateMap.booking)}>
-            {stateMap.booking.statusLabel}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end gap-0.5">
+              <span
+                className="text-xs font-medium text-muted-foreground"
+                title={
+                  bookingConfig && bookingConfig.resources.length > 0
+                    ? 'Master toggle — when off, the agent has no booking tools.'
+                    : 'Add at least one resource first'
+                }
+              >
+                Booking tools
+              </span>
+              <Switch
+                checked={!!bookingConfig?.enabled}
+                disabled={
+                  disabled ||
+                  !bookingConfig ||
+                  bookingConfig.resources.length === 0
+                }
+                onCheckedChange={enabled => {
+                  if (!bookingConfig) return
+                  onBookingConfigChange({ ...bookingConfig, enabled })
+                }}
+              />
+            </div>
+            <Badge variant={getBookingBadgeVariant(stateMap.booking)}>
+              {getBookingBadgeLabel(stateMap.booking)}
+            </Badge>
+          </div>
         </div>
+        {stateMap.booking.status === 'ready' && (
+          <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            Booking is configured but the master toggle above is off — the agent
+            has no booking tools and cannot create, update, or cancel
+            reservations.
+          </p>
+        )}
         <AgentBookingResourceConfig
           config={bookingConfig}
           onChange={onBookingConfigChange}
@@ -347,8 +415,16 @@ export function AgentActionsFlow({
                     </p>
                   )}
                 </div>
-                <Badge variant={getStatusBadgeVariant(state)}>
-                  {state.statusLabel}
+                <Badge
+                  variant={
+                    state.capability === 'booking'
+                      ? getBookingBadgeVariant(state)
+                      : getStatusBadgeVariant(state)
+                  }
+                >
+                  {state.capability === 'booking'
+                    ? getBookingBadgeLabel(state)
+                    : state.statusLabel}
                 </Badge>
               </div>
             </div>
