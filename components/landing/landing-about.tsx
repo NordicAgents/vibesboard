@@ -3,6 +3,10 @@
 import Image from 'next/image'
 
 import { FadeIn } from './fade-in'
+import {
+  LANDING_ABOUT_HEADING,
+  LANDING_ABOUT_PARAGRAPHS
+} from '@/lib/landing-about-copy'
 
 export function LandingAbout() {
   return (
@@ -22,7 +26,7 @@ export function LandingAbout() {
               <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-[#222f30]/10 bg-gray-200 shadow-soft dark:bg-muted sm:aspect-square">
                 <Image
                   src="/images/landing/updated-landing/about.png"
-                  alt="About vibesboard"
+                  alt="Vibesboard customer conversation automation workspace"
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 33vw"
@@ -34,23 +38,14 @@ export function LandingAbout() {
           <div className="flex w-full flex-col justify-center md:w-3/5 lg:w-2/3">
             <FadeIn delay={0.3}>
               <h3 className="mb-4 font-switzer text-2xl font-medium leading-tight text-black-primary dark:text-foreground sm:mb-6 sm:text-3xl md:text-4xl lg:mb-8 lg:text-5xl">
-                Where AI agents meet authentic human connection.
+                {LANDING_ABOUT_HEADING}
               </h3>
             </FadeIn>
             <FadeIn delay={0.4}>
               <div className="grid grid-cols-1 gap-4 text-base text-gray-secondary sm:gap-6 sm:text-lg lg:gap-8">
-                <p>
-                  Vibesboard empowers you to build custom AI agents that vibe
-                  with people on your behalf. Create unique personalities, share
-                  them with the world, and watch as they engage in meaningful
-                  conversations.
-                </p>
-                <p>
-                  Every interaction is automatically recorded and analyzed. Our
-                  AI-powered insights help you discover the real
-                  vibe—understanding sentiment, engagement patterns, and
-                  authentic reactions from every conversation.
-                </p>
+                {LANDING_ABOUT_PARAGRAPHS.map(paragraph => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
               </div>
             </FadeIn>
           </div>
