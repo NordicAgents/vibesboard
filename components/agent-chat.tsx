@@ -20,7 +20,6 @@ import {
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
-import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { EmptyScreen } from '@/components/empty-screen'
 import { nanoid } from '@/lib/utils'
 
@@ -441,15 +440,24 @@ export function AgentChat({
     }
   }, [rawMessages, isLoading, checkForCompletion])
 
-  // Auto-scroll to bottom on new messages
+  const lastMessageContent = messages[messages.length - 1]?.content ?? ''
+
+  // Auto-scroll only the chat history container. Using a viewport-level
+  // scroll anchor here can move the fixed public chat shell away from the
+  // bottom after streaming responses grow.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth'
+    const scrollElement = scrollRef.current
+    if (!scrollElement) return
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollElement.scrollTo({
+        top: scrollElement.scrollHeight,
+        behavior: isLoading ? 'auto' : 'smooth'
       })
-    }
-  }, [messages.length, isLoading])
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [messages.length, lastMessageContent, isLoading])
 
   const handleChatComplete = useCallback(() => {
     onChatComplete?.(messages, conversationId)
@@ -471,11 +479,14 @@ export function AgentChat({
 
   return (
     <div
-      className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}
+      className={cn(
+        'grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden',
+        className
+      )}
     >
       {/* Handoff breadcrumb trail */}
       {handoffChain.length > 0 && (
-        <div className="flex items-center gap-1 border-b border-border bg-bg-surface px-4 py-2 text-xs text-text-secondary">
+        <div className="row-start-1 flex items-center gap-1 border-b border-border bg-bg-surface px-4 py-2 text-xs text-text-secondary">
           <span>{agent.name}</span>
           {handoffChain.map((h, i) => (
             <Fragment key={h.agentId}>
@@ -497,7 +508,7 @@ export function AgentChat({
       {/* Scrollable messages area — full width, messages centered in column */}
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f7f7f5] dark:bg-[#222f30]"
+        className="row-start-2 min-h-0 overflow-y-auto overscroll-contain bg-[#f7f7f5] dark:bg-[#222f30]"
         style={{
           scrollbarWidth: 'thin',
           scrollbarColor: '#e4e3e3 transparent'
@@ -513,31 +524,32 @@ export function AgentChat({
               agentLogoUrl={agentLogoUrl}
               handoffIndicatorPrefix={HANDOFF_INDICATOR_PREFIX}
             />
-            <ChatScrollAnchor trackVisibility={isLoading} />
           </div>
         ) : (
           <EmptyScreen setInput={setInput} />
         )}
       </div>
 
-      {/* Sticky input panel */}
-      <ChatPanel
-        isLoading={isLoading}
-        stop={stop}
-        append={append}
-        reload={reload}
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        isChatComplete={isChatComplete}
-        isAgentDisabled={isAgentDisabled}
-        agentMode={agentMode}
-        agentName={activeAgentName}
-        onChatComplete={handleChatComplete}
-        onCorrect={handleCorrection}
-        onEndConversation={handleEndConversation}
-        quickSuggestions={quickSuggestions}
-      />
+      {/* Input panel */}
+      <div className="row-start-3 min-h-0">
+        <ChatPanel
+          isLoading={isLoading}
+          stop={stop}
+          append={append}
+          reload={reload}
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          isChatComplete={isChatComplete}
+          isAgentDisabled={isAgentDisabled}
+          agentMode={agentMode}
+          agentName={activeAgentName}
+          onChatComplete={handleChatComplete}
+          onCorrect={handleCorrection}
+          onEndConversation={handleEndConversation}
+          quickSuggestions={quickSuggestions}
+        />
+      </div>
     </div>
   )
 }

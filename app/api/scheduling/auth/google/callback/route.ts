@@ -8,6 +8,10 @@ import {
   listCalendars
 } from '@/lib/scheduling/google-auth'
 import { createCalendarConnection } from '@/lib/scheduling/connections'
+import {
+  appendSchedulingOAuthStatus,
+  getSafeSchedulingReturnTo
+} from '@/lib/scheduling/oauth-return'
 import { OAUTH_NONCE_COOKIE } from '../route'
 
 export const runtime = 'nodejs'
@@ -22,6 +26,27 @@ async function getAppOrigin(fallback: string): Promise<string> {
   return fallback
 }
 
+function getReturnToFromStateParam(stateParam: string | null): string | null {
+  if (!stateParam) return null
+  try {
+    const parsed = JSON.parse(stateParam) as { returnTo?: unknown }
+    return typeof parsed.returnTo === 'string'
+      ? getSafeSchedulingReturnTo(parsed.returnTo)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function getSchedulingRedirectUrl(
+  appOrigin: string,
+  returnTo: string | null | undefined,
+  key: 'scheduling_connected' | 'scheduling_error',
+  value: string
+): URL {
+  return new URL(appendSchedulingOAuthStatus(returnTo, key, value), appOrigin)
+}
+
 /**
  * GET /api/scheduling/auth/google/callback
  * Handles the OAuth callback from Google, exchanges the code for tokens,
@@ -34,19 +59,27 @@ export async function GET(req: Request) {
   const error = url.searchParams.get('error')
 
   const appOrigin = await getAppOrigin(url.origin)
+  const stateReturnTo = getReturnToFromStateParam(stateParam)
 
   if (error) {
     return NextResponse.redirect(
-      new URL(
-        `/agents?scheduling_error=${encodeURIComponent(error)}`,
-        appOrigin
+      getSchedulingRedirectUrl(
+        appOrigin,
+        stateReturnTo,
+        'scheduling_error',
+        error
       )
     )
   }
 
   if (!code || !stateParam) {
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=missing_params', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        stateReturnTo,
+        'scheduling_error',
+        'missing_params'
+      )
     )
   }
 
@@ -54,18 +87,35 @@ export async function GET(req: Request) {
   const authResult = await requireAuth()
   if (!authResult.ok) {
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=not_authenticated', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        stateReturnTo,
+        'scheduling_error',
+        'not_authenticated'
+      )
     )
   }
 
-  let state: { tenantId: string; userId: string; nonce?: string }
+  let state: {
+    tenantId: string
+    userId: string
+    nonce?: string
+    returnTo?: string
+  }
   try {
     state = JSON.parse(stateParam)
   } catch {
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=invalid_state', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        stateReturnTo,
+        'scheduling_error',
+        'invalid_state'
+      )
     )
   }
+
+  const returnTo = getSafeSchedulingReturnTo(state.returnTo)
 
   // Verify CSRF nonce — must match the cookie set at OAuth initiation.
   // Always clear the cookie regardless of outcome (single-use).
@@ -75,14 +125,24 @@ export async function GET(req: Request) {
 
   if (!storedNonce || !state.nonce || storedNonce !== state.nonce) {
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=invalid_nonce', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        returnTo,
+        'scheduling_error',
+        'invalid_nonce'
+      )
     )
   }
 
   // Verify the authenticated user matches the state
   if (authResult.user.id !== state.userId) {
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=user_mismatch', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        returnTo,
+        'scheduling_error',
+        'user_mismatch'
+      )
     )
   }
 
@@ -90,7 +150,12 @@ export async function GET(req: Request) {
   const tenantId = await getActiveTenant(authResult.user.id)
   if (!tenantId) {
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=no_tenant', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        returnTo,
+        'scheduling_error',
+        'no_tenant'
+      )
     )
   }
 
@@ -109,7 +174,12 @@ export async function GET(req: Request) {
     const primaryCalendar = calendars.find(c => c.primary) ?? calendars[0]
     if (!primaryCalendar) {
       return NextResponse.redirect(
-        new URL('/agents?scheduling_error=no_calendars', appOrigin)
+        getSchedulingRedirectUrl(
+          appOrigin,
+          returnTo,
+          'scheduling_error',
+          'no_calendars'
+        )
       )
     }
 
@@ -132,12 +202,22 @@ export async function GET(req: Request) {
     })
 
     return NextResponse.redirect(
-      new URL('/agents?scheduling_connected=true', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        returnTo,
+        'scheduling_connected',
+        'true'
+      )
     )
   } catch (err) {
     console.error('Google Calendar OAuth callback error:', err)
     return NextResponse.redirect(
-      new URL('/agents?scheduling_error=oauth_failed', appOrigin)
+      getSchedulingRedirectUrl(
+        appOrigin,
+        returnTo,
+        'scheduling_error',
+        'oauth_failed'
+      )
     )
   }
 }

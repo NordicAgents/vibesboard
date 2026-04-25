@@ -280,7 +280,8 @@ RULES:
 - When the owner asks about availability or bookings without specifying a room, query all rooms
 
 TOOL USAGE:
-- list_bookings: Query bookings across rooms. Use when the owner asks about bookings, availability, or schedule.
+- check_booking_availability: Check whether one room or all rooms are free for a date range. Use when the owner asks what is available.
+- list_bookings: Query existing bookings across rooms. Use when the owner asks about bookings or schedule.
 - create_booking: Create a new booking. Collect room, check-in, check-out, guest name, and guest count first. Confirm before creating.
 - update_booking: Edit a booking. Find it first with list_bookings, then confirm changes before updating.
 - cancel_booking: Cancel a booking. Find it first with list_bookings, confirm before deleting.`
