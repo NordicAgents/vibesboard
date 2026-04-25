@@ -145,9 +145,7 @@ function CustomerConversationMessage({
           {message.text}
         </p>
         <div className="mt-1 flex items-center justify-end gap-1">
-          <span className="text-[9px] text-[#111918]/50">
-            {message.time}
-          </span>
+          <span className="text-[9px] text-[#111918]/50">{message.time}</span>
           <svg
             width="14"
             height="8"
