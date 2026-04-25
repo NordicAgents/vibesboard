@@ -326,6 +326,11 @@ export function AgentBookingResourceConfig({
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-muted-foreground">
+                    Used for this resource&apos;s check-in/check-out and
+                    availability checks. The Scheduling section&apos;s timezone
+                    is separate and only applies to 1:1 appointment booking.
+                  </p>
                 </div>
 
                 <div className="flex gap-2">
@@ -377,7 +382,7 @@ export function AgentBookingResourceConfig({
                   <p className="text-sm font-medium">Enable simple booking</p>
                   <p className="text-xs text-muted-foreground">
                     {canEnable
-                      ? 'Agent can use the configured resources for booking.'
+                      ? 'Required. When OFF, the agent has no booking tools and cannot create, update, or cancel reservations.'
                       : 'Simple booking needs at least one bookable resource before it can be enabled.'}
                   </p>
                 </div>
