@@ -39,51 +39,13 @@ openssl rand -hex 32
 Add these to `.env.local`:
 
 ```bash
-# Existing variables (keep these)
-NEXT_PUBLIC_SUPABASE_URL=your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-
 # New variables (add these)
 ENCRYPTION_KEY=<output from first command>
 CRON_SECRET=<output from second command>
 WHATSAPP_VERIFY_TOKEN=<output from third command>
 ```
 
-### Step 3: Run Database Migration
-
-```bash
-# Push migration to Supabase
-npx supabase db push
-
-# Verify tables were created
-npx supabase db pull
-```
-
-**Expected tables created:**
-- `tenant_whatsapp_business_accounts`
-- `whatsapp_message_templates`
-- `whatsapp_contacts`
-- `whatsapp_contact_lists`
-- `whatsapp_contact_list_members`
-- `whatsapp_campaigns`
-- `whatsapp_campaign_lists`
-- `whatsapp_message_queue`
-
-### Step 4: Add Feature Flag to Database
-
-Run this SQL in Supabase SQL Editor:
-
-```sql
--- Insert the whatsapp_bulk_messaging feature flag
-INSERT INTO feature_flags (name, description, default_value)
-VALUES (
-  'whatsapp_bulk_messaging',
-  'Enable WhatsApp bulk messaging campaigns for promotional messages',
-  false
-)
-ON CONFLICT (name) DO NOTHING;
-```
+> **Note:** Data lives in Firestore. The WhatsApp collections (business accounts, templates, contacts, lists, campaigns, message queue) are auto-created on first write — no SQL migration step. Feature flags live in the `feature_flags` Firestore collection; toggle them via the admin UI rather than SQL.
 
 ### Step 5: Start Local Development Server
 
@@ -356,7 +318,7 @@ Hello Customer, welcome to our service!
    CRON_SECRET=<generate new for production>
    WHATSAPP_VERIFY_TOKEN=<generate new for production>
    ```
-3. Make sure existing Supabase vars are set
+3. Make sure existing Firebase service-account vars are set
 
 ### Step 2: Deploy to Production
 
@@ -373,31 +335,11 @@ vercel --prod
 - ✅ Set up cron job (runs every 30 seconds)
 - ✅ Deploy all API routes and pages
 
-### Step 3: Run Database Migration in Production
+### Step 3: Add Feature Flag in Production
 
-```bash
-# Connect to production Supabase
-npx supabase link --project-ref your-production-project
+Add a `whatsapp_bulk_messaging` document to the `feature_flags` Firestore collection (default `false`), or toggle it via the admin UI at `/admin/tenants`.
 
-# Push migration
-npx supabase db push
-```
-
-### Step 4: Add Feature Flag in Production
-
-Run this in Production Supabase SQL Editor:
-
-```sql
-INSERT INTO feature_flags (name, description, default_value)
-VALUES (
-  'whatsapp_bulk_messaging',
-  'Enable WhatsApp bulk messaging campaigns for promotional messages',
-  false
-)
-ON CONFLICT (name) DO NOTHING;
-```
-
-### Step 5: Configure Meta Webhooks for Production
+### Step 4: Configure Meta Webhooks for Production
 
 1. Go to Meta for Developers → Your App → WhatsApp → Configuration
 2. Set Webhook URL: `https://your-production-domain.com/api/webhooks/whatsapp-bulk-status`
@@ -440,47 +382,13 @@ ON CONFLICT (name) DO NOTHING;
 - Monitor for stuck messages
 - Track average processing time
 
-**2. Campaign Success Rates**
-```sql
--- Run in Supabase SQL Editor
-SELECT
-  COUNT(*) as total_campaigns,
-  COUNT(*) FILTER (WHERE status = 'completed') as completed,
-  COUNT(*) FILTER (WHERE status = 'failed') as failed,
-  ROUND(AVG(messages_delivered::decimal / NULLIF(messages_sent, 0) * 100), 2) as avg_delivery_rate
-FROM whatsapp_campaigns
-WHERE created_at > NOW() - INTERVAL '7 days';
-```
+**2. Campaign Success Rates** — query the `whatsapp_campaigns` collection (filter by `status` and recent `createdAt`); compute delivery rate from `messagesDelivered / messagesSent`.
 
-**3. Failed Messages**
-```sql
--- Find failed messages
-SELECT
-  c.name as campaign_name,
-  q.to_phone_number,
-  q.error_code,
-  q.error_message,
-  q.failed_at
-FROM whatsapp_message_queue q
-JOIN whatsapp_campaigns c ON c.id = q.campaign_id
-WHERE q.status = 'failed'
-ORDER BY q.failed_at DESC
-LIMIT 50;
-```
+**3. Failed Messages** — query the `whatsapp_message_queue` collection where `status == 'failed'`, ordered by `failedAt` desc.
 
-**4. Meta Account Health**
-```sql
--- Check account quality ratings
-SELECT
-  display_name,
-  phone_number,
-  quality_rating,
-  messaging_limit,
-  status,
-  updated_at
-FROM tenant_whatsapp_business_accounts
-ORDER BY updated_at DESC;
-```
+**4. Meta Account Health** — query the `tenant_whatsapp_business_accounts` collection; check `qualityRating`, `messagingLimit`, and `status` fields.
+
+> Use the Firebase console or a small admin script for these — there is no SQL layer.
 
 ### Regular Maintenance Tasks
 
@@ -685,13 +593,13 @@ ORDER BY updated_at DESC;
 
 ### During Development
 - Meta API Documentation: https://developers.facebook.com/docs/whatsapp
-- Supabase Documentation: https://supabase.com/docs
+- Firebase Firestore Documentation: https://firebase.google.com/docs/firestore
 - Vercel Cron Jobs: https://vercel.com/docs/cron-jobs
 
 ### Need Help?
 If you encounter issues during setup or testing:
 1. Check Vercel deployment logs
-2. Review Supabase database logs
+2. Review Firestore data in the Firebase console
 3. Verify environment variables
 4. Test API endpoints manually with Postman/Insomnia
 5. Check Meta app status and logs
