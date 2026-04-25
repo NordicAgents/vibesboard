@@ -113,6 +113,7 @@ export async function POST(req: Request) {
       greetingText: payload.greetingText
     }),
     mode: payload.mode ?? 'provider',
+    collectionFields: payload.collectionFields ?? [],
     ...(payload.maxResponses !== undefined && {
       maxResponses: payload.maxResponses
     }),
@@ -125,6 +126,24 @@ export async function POST(req: Request) {
     sourceUrls: payload.sourceUrls ?? [],
     domain: payload.domain ?? null,
     retrievalStrategy: payload.retrievalStrategy ?? 'direct',
+    ...(payload.notificationConfig !== undefined && {
+      notificationConfig: payload.notificationConfig
+    }),
+    ...(payload.handoffTargets !== undefined && {
+      handoffTargets: payload.handoffTargets
+    }),
+    ...(payload.schedulingConfig !== undefined && {
+      schedulingConfig: payload.schedulingConfig
+    }),
+    ...(payload.dataConfig !== undefined && {
+      dataConfig: payload.dataConfig
+    }),
+    ...(payload.calendarAvailabilityConfig !== undefined && {
+      calendarAvailabilityConfig: payload.calendarAvailabilityConfig
+    }),
+    ...(payload.bookingConfig !== undefined && {
+      bookingConfig: payload.bookingConfig
+    }),
     createdAt: now,
     updatedAt: now
   }

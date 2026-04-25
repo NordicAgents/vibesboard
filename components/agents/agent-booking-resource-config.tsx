@@ -36,6 +36,7 @@ interface Props {
   onChange: (config: AgentBookingConfig) => void
   disabled: boolean
   tenantId: string
+  section?: 'all' | 'resources' | 'behavior'
 }
 
 const DEFAULT_CONFIG: AgentBookingConfig = {
@@ -63,11 +64,26 @@ const EMPTY_DRAFT: DraftResource = {
   timezone: 'UTC'
 }
 
+const IANA_TIMEZONES: string[] =
+  typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
+    ? (Intl as any).supportedValuesOf('timeZone')
+    : [
+        'UTC',
+        'America/New_York',
+        'America/Los_Angeles',
+        'Europe/London',
+        'Europe/Paris',
+        'Asia/Kolkata',
+        'Asia/Tokyo',
+        'Australia/Sydney'
+      ]
+
 export function AgentBookingResourceConfig({
   config,
   onChange,
   disabled,
-  tenantId
+  tenantId,
+  section = 'all'
 }: Props) {
   const current = config ?? DEFAULT_CONFIG
 
@@ -147,17 +163,7 @@ export function AgentBookingResourceConfig({
       )
       return
     }
-    const tz = draft.timezone.trim() || 'UTC'
-    const validTimezones: readonly string[] =
-      typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl
-        ? (Intl as any).supportedValuesOf('timeZone')
-        : []
-    if (validTimezones.length > 0 && !validTimezones.includes(tz)) {
-      toast.error(
-        `"${tz}" is not a valid IANA timezone. Try e.g. Asia/Kolkata, America/New_York.`
-      )
-      return
-    }
+    const tz = draft.timezone || 'UTC'
     const resource: BookableResource = {
       id: nanoid(),
       name: draft.name.trim(),
@@ -173,295 +179,318 @@ export function AgentBookingResourceConfig({
   }
 
   const removeResource = (id: string) => {
-    update({ resources: current.resources.filter(r => r.id !== id) })
+    const resources = current.resources.filter(r => r.id !== id)
+    update({
+      resources,
+      enabled: resources.length > 0 ? current.enabled : false
+    })
   }
 
   const activeConnections = connections.filter(c => c.status === 'active')
   const canEnable = current.resources.length > 0
+  const showResources = section !== 'behavior'
+  const showBehavior = section !== 'resources'
 
   return (
     <div className="space-y-5 pb-8">
-      {/* Enable toggle */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Simple Booking</CardTitle>
-          <CardDescription>
-            {current.mode === 'direct'
-              ? 'Manage room bookings directly through the agent via Google Calendar.'
-              : "Let guests check availability and submit booking enquiries via the agent. You'll receive an email with an .ics attachment for each enquiry."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-md border p-3">
-            <div>
-              <p className="text-sm font-medium">Enable simple booking</p>
-              <p className="text-xs text-muted-foreground">
-                {canEnable
-                  ? 'Guests can check availability and submit enquiries'
-                  : 'Add at least one resource to enable'}
-              </p>
-            </div>
-            <Switch
-              checked={current.enabled}
-              disabled={disabled || !canEnable}
-              onCheckedChange={enabled => update({ enabled })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Booking mode & settings */}
-      {current.enabled && (
+      {showResources && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Booking Mode</CardTitle>
+            <CardTitle className="text-base">Bookable Resources</CardTitle>
             <CardDescription>
-              Choose how the agent handles bookings.
+              Add one or more room or property calendars. Simple booking
+              supports multiple resources and multiple calendars.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Mode
-              </label>
-              <select
-                value={current.mode ?? 'enquiry'}
-                onChange={e =>
-                  update({ mode: e.target.value as 'enquiry' | 'direct' })
-                }
-                disabled={disabled}
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          <CardContent className="space-y-3">
+            {current.resources.map(r => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
               >
-                <option value="enquiry">
-                  Enquiry — guests submit booking requests
-                </option>
-                <option value="direct">
-                  Direct — owner manages bookings via chat
-                </option>
-              </select>
-            </div>
-
-            {current.mode === 'direct' && (
-              <>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Event title template
-                  </label>
-                  <Input
-                    placeholder="{guest_name} ({guest_count} guests)"
-                    value={
-                      current.eventTitleTemplate ??
-                      '{guest_name} ({guest_count} guests)'
-                    }
-                    onChange={e =>
-                      update({ eventTitleTemplate: e.target.value })
-                    }
-                    disabled={disabled}
-                  />
+                <div>
+                  <p className="font-medium">{r.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Use {'{guest_name}'} and {'{guest_count}'} as placeholders.
+                    {r.calendarName} · {r.timezone}
                   </p>
                 </div>
+                <button
+                  onClick={() => removeResource(r.id)}
+                  disabled={disabled}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:text-destructive"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ))}
 
+            {adding ? (
+              <div className="space-y-3 rounded-lg border p-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Event time mode
+                    Resource name
                   </label>
-                  <select
-                    value={current.eventTimeMode ?? 'all-day'}
+                  <Input
+                    placeholder="e.g. Glass Cabin"
+                    value={draft.name}
                     onChange={e =>
-                      update({
-                        eventTimeMode: e.target.value as 'all-day' | 'timed'
-                      })
+                      setDraft(d => ({ ...d, name: e.target.value }))
                     }
                     disabled={disabled}
-                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                  >
-                    <option value="all-day">All-day events (date only)</option>
-                    <option value="timed">
-                      Timed events (2pm check-in, 11am check-out)
-                    </option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-between rounded-md border p-3">
-                  <div>
-                    <p className="text-sm font-medium">Overlap protection</p>
-                    <p className="text-xs text-muted-foreground">
-                      Block bookings that overlap with existing events
-                    </p>
-                  </div>
-                  <Switch
-                    checked={current.overlapProtection !== false}
-                    disabled={disabled}
-                    onCheckedChange={overlapProtection =>
-                      update({ overlapProtection })
-                    }
                   />
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Resources list */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Bookable Resources</CardTitle>
-          <CardDescription>
-            Each resource maps to a Google Calendar. Guests pick by name.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {current.resources.map(r => (
-            <div
-              key={r.id}
-              className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
-            >
-              <div>
-                <p className="font-medium">{r.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {r.calendarName} · {r.timezone}
-                </p>
-              </div>
-              <button
-                onClick={() => removeResource(r.id)}
-                disabled={disabled}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:text-destructive"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            </div>
-          ))}
-
-          {adding ? (
-            <div className="space-y-3 rounded-lg border p-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Resource name
-                </label>
-                <Input
-                  placeholder="e.g. Glass Cabin"
-                  value={draft.name}
-                  onChange={e =>
-                    setDraft(d => ({ ...d, name: e.target.value }))
-                  }
-                  disabled={disabled}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Calendar connection
-                </label>
-                {loadingConnections ? (
-                  <p className="text-xs text-muted-foreground">Loading...</p>
-                ) : (
-                  <select
-                    value={draft.calendarConnectionId}
-                    onChange={e =>
-                      setDraft(d => ({
-                        ...d,
-                        calendarConnectionId: e.target.value,
-                        calendarId: '',
-                        calendarName: ''
-                      }))
-                    }
-                    disabled={disabled}
-                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                  >
-                    <option value="">Select a connection…</option>
-                    {activeConnections.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {draft.calendarConnectionId && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Calendar
+                    Calendar connection
                   </label>
-                  {loadingCalendars ? (
-                    <p className="text-xs text-muted-foreground">
-                      Loading calendars...
-                    </p>
+                  {loadingConnections ? (
+                    <p className="text-xs text-muted-foreground">Loading...</p>
                   ) : (
                     <select
-                      value={draft.calendarId}
-                      onChange={e => {
-                        const cal = calendars.find(c => c.id === e.target.value)
-                        if (cal)
-                          setDraft(d => ({
-                            ...d,
-                            calendarId: cal.id,
-                            calendarName: cal.summary
-                          }))
-                      }}
+                      value={draft.calendarConnectionId}
+                      onChange={e =>
+                        setDraft(d => ({
+                          ...d,
+                          calendarConnectionId: e.target.value,
+                          calendarId: '',
+                          calendarName: ''
+                        }))
+                      }
                       disabled={disabled}
                       className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                     >
-                      <option value="">Select a calendar…</option>
-                      {calendars.map(cal => (
-                        <option key={cal.id} value={cal.id}>
-                          {cal.summary}
-                          {cal.primary ? ' (primary)' : ''}
+                      <option value="">Select a connection…</option>
+                      {activeConnections.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
                         </option>
                       ))}
                     </select>
                   )}
                 </div>
-              )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Timezone
-                </label>
-                <Input
-                  placeholder="e.g. Asia/Kolkata"
-                  value={draft.timezone}
-                  onChange={e =>
-                    setDraft(d => ({ ...d, timezone: e.target.value }))
-                  }
-                  disabled={disabled}
+                {draft.calendarConnectionId && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Calendar
+                    </label>
+                    {loadingCalendars ? (
+                      <p className="text-xs text-muted-foreground">
+                        Loading calendars...
+                      </p>
+                    ) : (
+                      <select
+                        value={draft.calendarId}
+                        onChange={e => {
+                          const cal = calendars.find(
+                            c => c.id === e.target.value
+                          )
+                          if (cal)
+                            setDraft(d => ({
+                              ...d,
+                              calendarId: cal.id,
+                              calendarName: cal.summary
+                            }))
+                        }}
+                        disabled={disabled}
+                        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                      >
+                        <option value="">Select a calendar…</option>
+                        {calendars.map(cal => (
+                          <option key={cal.id} value={cal.id}>
+                            {cal.summary}
+                            {cal.primary ? ' (primary)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Timezone
+                  </label>
+                  <select
+                    value={draft.timezone}
+                    onChange={e =>
+                      setDraft(d => ({ ...d, timezone: e.target.value }))
+                    }
+                    disabled={disabled}
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    {IANA_TIMEZONES.map(tz => (
+                      <option key={tz} value={tz}>
+                        {tz}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={addResource} disabled={disabled}>
+                    Add Resource
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAdding(false)
+                      setDraft(EMPTY_DRAFT)
+                      setCalendars([])
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAdding(true)}
+                disabled={disabled}
+                className="w-full"
+              >
+                <Plus className="mr-1.5 size-3.5" />
+                Add Resource
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {showBehavior && (
+        <>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Simple Booking</CardTitle>
+              <CardDescription>
+                Use this for resort room or property booking. It works with one
+                or many resource calendars.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <p className="text-sm font-medium">Enable simple booking</p>
+                  <p className="text-xs text-muted-foreground">
+                    {canEnable
+                      ? 'Agent can use the configured resources for booking.'
+                      : 'Simple booking needs at least one bookable resource before it can be enabled.'}
+                  </p>
+                </div>
+                <Switch
+                  checked={current.enabled}
+                  disabled={disabled || !canEnable}
+                  onCheckedChange={enabled => update({ enabled })}
                 />
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="flex gap-2">
-                <Button size="sm" onClick={addResource} disabled={disabled}>
-                  Add Resource
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setAdding(false)
-                    setDraft(EMPTY_DRAFT)
-                    setCalendars([])
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAdding(true)}
-              disabled={disabled}
-              className="w-full"
-            >
-              <Plus className="mr-1.5 size-3.5" />
-              Add Resource
-            </Button>
+          {current.enabled && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Booking Mode</CardTitle>
+                <CardDescription>
+                  Choose whether the agent handles guest enquiries or direct
+                  owner booking management.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Mode
+                  </label>
+                  <select
+                    value={current.mode ?? 'enquiry'}
+                    onChange={e =>
+                      update({ mode: e.target.value as 'enquiry' | 'direct' })
+                    }
+                    disabled={disabled}
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="enquiry">
+                      Enquiry — guests submit booking requests
+                    </option>
+                    <option value="direct">
+                      Direct — owner manages bookings via chat
+                    </option>
+                  </select>
+                </div>
+
+                {current.mode === 'direct' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Event title template
+                      </label>
+                      <Input
+                        placeholder="{guest_name} ({guest_count} guests)"
+                        value={
+                          current.eventTitleTemplate ??
+                          '{guest_name} ({guest_count} guests)'
+                        }
+                        onChange={e =>
+                          update({ eventTitleTemplate: e.target.value })
+                        }
+                        disabled={disabled}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Use {'{guest_name}'} and {'{guest_count}'} as
+                        placeholders.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Event time mode
+                      </label>
+                      <select
+                        value={current.eventTimeMode ?? 'all-day'}
+                        onChange={e =>
+                          update({
+                            eventTimeMode: e.target.value as 'all-day' | 'timed'
+                          })
+                        }
+                        disabled={disabled}
+                        className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                      >
+                        <option value="all-day">
+                          All-day events (date only)
+                        </option>
+                        <option value="timed">
+                          Timed events (2pm check-in, 11am check-out)
+                        </option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-md border p-3">
+                      <div>
+                        <p className="text-sm font-medium">
+                          Overlap protection
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Block bookings that overlap with existing events
+                        </p>
+                      </div>
+                      <Switch
+                        checked={current.overlapProtection !== false}
+                        disabled={disabled}
+                        onCheckedChange={overlapProtection =>
+                          update({ overlapProtection })
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   )
 }

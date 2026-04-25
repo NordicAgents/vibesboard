@@ -212,10 +212,10 @@ export function AgentCalendarAvailabilitySettings({
       {/* Calendar Connection */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Calendar Connection</CardTitle>
+          <CardTitle className="text-base">Availability Source</CardTitle>
           <CardDescription>
-            Connect a Google Calendar — the agent will check this account for
-            bookings
+            Legacy single-resource setup. Connect one Google Calendar account
+            for a simple availability-only agent.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -291,7 +291,8 @@ export function AgentCalendarAvailabilitySettings({
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Which Calendar to Check</CardTitle>
             <CardDescription>
-              Select the calendar where bookings are recorded
+              Select the single calendar the agent should treat as the source of
+              truth for availability
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -332,21 +333,22 @@ export function AgentCalendarAvailabilitySettings({
       {/* Availability Config */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Availability Check</CardTitle>
+          <CardTitle className="text-base">Availability Only</CardTitle>
           <CardDescription>
-            Let your agent check if dates are free based on calendar events
+            Use this when you only need the agent to answer whether one resource
+            is free. For multi-resource resort booking, use Simple Booking.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between rounded-md border p-3">
             <div>
-              <p className="text-sm font-medium">Enable availability check</p>
+              <p className="text-sm font-medium">Enable Availability Only</p>
               <p className="text-xs text-muted-foreground">
                 {!current.calendarConnectionId
-                  ? 'Connect a calendar first'
+                  ? 'Availability Only needs a connected calendar before it can be enabled.'
                   : !current.calendarId
-                    ? 'Select a calendar above'
-                    : 'Agent can check if dates are available'}
+                    ? 'Select the calendar above before enabling Availability Only.'
+                    : 'Agent can check whether the selected resource is free.'}
               </p>
             </div>
             <Switch

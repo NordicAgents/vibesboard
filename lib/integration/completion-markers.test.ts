@@ -29,7 +29,7 @@ type CompletionReason =
   | 'max_messages'
   | null
 
-const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:(\{[\s\S]*?\})-->/g
+const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/g
 const HANDOFF_TO_AGENT_REGEX = /\[HANDOFF_TO_AGENT:([a-zA-Z0-9_-]+)\]/
 
 function detectCompletionMarker(text: string): CompletionReason {
@@ -73,12 +73,22 @@ function createCompletionTransformStream(
   let buffer = ''
   let held = ''
   const HOLD_BACK = 30
+  const SUGGESTIONS_START = '<!--SUGGESTIONS:'
 
   return new TransformStream({
     transform(chunk, controller) {
       const text = decoder.decode(chunk, { stream: true })
       buffer += text
       held += text
+
+      const suggestionsIdx = held.indexOf(SUGGESTIONS_START)
+      if (suggestionsIdx !== -1) {
+        if (suggestionsIdx > 0) {
+          controller.enqueue(encoder.encode(held.slice(0, suggestionsIdx)))
+          held = held.slice(suggestionsIdx)
+        }
+        return
+      }
 
       if (held.length > HOLD_BACK) {
         const toRelease = held.slice(0, held.length - HOLD_BACK)
@@ -277,6 +287,13 @@ describe('stripCompletionMarkers', () => {
     assert.strictEqual(result, 'Hello')
   })
 
+  test('removes <!--SUGGESTIONS: ...-> with space after colon (LLM often adds space)', () => {
+    const result = stripCompletionMarkers(
+      'Hello <!--SUGGESTIONS: {"suggestions":["Check availability","Make a new booking"]}-->'
+    )
+    assert.strictEqual(result, 'Hello')
+  })
+
   test('removes all marker types at once', () => {
     const input =
       'Text [COLLECTION_COMPLETE] [INFO_COMPLETE] [HANDOFF_TO_HUMAN] <!--SUGGESTIONS:{"a":1}-->'
@@ -439,6 +456,40 @@ describe('createCompletionTransformStream marker handling', () => {
     assert.ok(
       !output.includes('<!--AGENT_HANDOFF:'),
       'Should not have handoff metadata'
+    )
+  })
+
+  test('strips <!--SUGGESTIONS:...-> without leaking it during streaming', async () => {
+    const input =
+      'Here is my response. <!--SUGGESTIONS:{"suggestions":["Option A","Option B"]}-->'
+    const stream = stringToStream(input)
+    const transformStream = createCompletionTransformStream()
+    const output = await consumeStream(stream.pipeThrough(transformStream))
+
+    assert.ok(
+      !output.includes('<!--SUGGESTIONS:'),
+      'SUGGESTIONS marker should not appear in output'
+    )
+    assert.ok(
+      output.includes('Here is my response.'),
+      'Main text should be preserved'
+    )
+  })
+
+  test('strips <!--SUGGESTIONS: ...-> with space after colon without leaking', async () => {
+    const input =
+      'Here is my response. <!--SUGGESTIONS: {"suggestions":["Check availability","Make a new booking","Edit an existing booking","Contact support"]}-->'
+    const stream = stringToStream(input)
+    const transformStream = createCompletionTransformStream()
+    const output = await consumeStream(stream.pipeThrough(transformStream))
+
+    assert.ok(
+      !output.includes('<!--SUGGESTIONS:'),
+      'Spaced SUGGESTIONS marker should not appear in output'
+    )
+    assert.ok(
+      output.includes('Here is my response.'),
+      'Main text should be preserved'
     )
   })
 
