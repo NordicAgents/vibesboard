@@ -10,6 +10,16 @@ function sanitizeFieldKey(value: string): string {
   return value.replace(/\./g, '_')
 }
 
+/** Coerce a token count to a finite non-negative integer.
+ *  Guards against NaN/Infinity reaching FieldValue.increment(), which
+ *  throws synchronously on non-finite values and would tear down a
+ *  streaming response. Negative values are also clamped to 0. */
+export function coerceTokenCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : 0
+}
+
 export interface RollupUpdateFields {
   [key: string]: any
 }
