@@ -7,8 +7,7 @@ export interface LandingHeroConversationMessage {
   time: string
 }
 
-export const LANDING_HERO_TAGLINE =
-  'Let your agent talk. Get your time back.'
+export const LANDING_HERO_TAGLINE = 'Let your agent talk. Get your time back.'
 
 export const LANDING_HERO_CONVERSATION: LandingHeroConversationMessage[] = [
   {
