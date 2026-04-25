@@ -4,13 +4,12 @@
 </a>
 
 <p align="center">
-  An open-source AI chatbot app template built with Next.js, the Vercel AI SDK, OpenAI, and Supabase Auth and Postgres DB.
+  An open-source AI chatbot app template built with Next.js, the Vercel AI SDK, OpenAI, and Firebase (Auth + Firestore).
 </p>
 
 <p align="center">
   <a href="#features"><strong>Features</strong></a> ·
   <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
   <a href="#running-locally"><strong>Running locally</strong></a> ·
   <a href="#authors"><strong>Authors</strong></a>
 </p>
@@ -27,34 +26,12 @@
   - Styling with [Tailwind CSS](https://tailwindcss.com)
   - [Radix UI](https://radix-ui.com) for headless component primitives
   - Icons from [Phosphor Icons](https://phosphoricons.com)
-- Chat History with [Supabase Postgres DB](https://supabase.com)
-- [Supabase Auth](https://supabase.com/auth) for authentication
+- Chat history persisted in [Firestore](https://firebase.google.com/docs/firestore)
+- [Firebase Auth](https://firebase.google.com/docs/auth) for authentication
 
 ## Model Providers
 
 This template ships with OpenAI `gpt-5-nano` as the default (override with `OPENAI_MODEL`). However, thanks to the [Vercel AI SDK](https://sdk.vercel.ai/docs), you can switch LLM providers to [Anthropic](https://anthropic.com), [Hugging Face](https://huggingface.co), or using [LangChain](https://js.langchain.com) with just a few lines of code.
-
-## Deploy Your Own
-
-You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsupabase-community%2Fvercel-ai-chatbot&env=OPENAI_API_KEY&envDescription=You%20must%20first%20activate%20a%20Billing%20Account%20here%3A%20https%3A%2F%2Fplatform.openai.com%2Faccount%2Fbilling%2Foverview&envLink=https%3A%2F%2Fplatform.openai.com%2Faccount%2Fapi-keys&project-name=vercel-ai-chatbot-with-supabase&repository-name=vercel-ai-chatbot-with-supabase&integration-ids=oac_VqOgBHqhEoFTPzGkPd7L0iH6&external-id=https%3A%2F%2Fgithub.com%2Fsupabase-community%2Fvercel-ai-chatbot%2Ftree%2Fmain)
-
-### Set up GitHub OAuth
-
-This demo uses GitHub Oauth. Follow the [GitHub OAuth setup steps](https://supabase.com/docs/guides/auth/social-login/auth-github) on your Supabase project.
-
-### Set up Google OAuth
-
-If you prefer Google sign-in, enable the Google provider in your Supabase project and configure client credentials:
-
-- In Supabase Dashboard, go to Auth > Providers > Google and paste your Google OAuth 2.0 Client ID and Client Secret.
-- In your environment, set `NEXT_PUBLIC_AUTH_GOOGLE=true`, `AUTH_GOOGLE_ID`, and `AUTH_GOOGLE_SECRET` (see `.env.example`).
-- Ensure your Site URL and redirect URL include `http://localhost:3000` and `http://localhost:3000/api/auth/callback` for local dev (or your deployed URL).
-
-### Configure your site url
-
-In the Supabase Dashboard, navigate to [Auth > URL configuration](https://app.supabase.com/project/_/auth/url-configuration) and set your Vercel URL as the site URL.
 
 ## Running locally
 
@@ -74,13 +51,6 @@ Initialize git submodules (required for the AI dev tooling):
 git submodule update --init
 ```
 
-[Install the Supabase CLI](https://supabase.com/docs/guides/cli) and start the local Supabase stack:
-
-```bash
-npm install supabase --save-dev
-npx supabase start
-```
-
 Install the local dependencies and start dev mode:
 
 ```bash
@@ -97,4 +67,3 @@ This library is created by [Vercel](https://vercel.com) and [Next.js](https://ne
 - Jared Palmer ([@jaredpalmer](https://twitter.com/jaredpalmer)) - [Vercel](https://vercel.com)
 - Shu Ding ([@shuding\_](https://twitter.com/shuding_)) - [Vercel](https://vercel.com)
 - shadcn ([@shadcn](https://twitter.com/shadcn)) - [Contractor](https://shadcn.com)
-- Thor Schaeff ([@thorwebdev](https://twitter.com/thorwebdev)) - [Supabaseifier](https://thor.bio)

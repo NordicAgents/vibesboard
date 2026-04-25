@@ -4,7 +4,11 @@ import { NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type UsageSource } from '@/lib/firestore-types'
 import { getPlanTemplate, computeMessageLimit, type PlanId } from '@/lib/plans'
-import { buildRollupUpdateFields, buildRollupSetFields } from './usage-core'
+import {
+  buildRollupUpdateFields,
+  buildRollupSetFields,
+  coerceTokenCount
+} from './usage-core'
 
 // ─── Billing cycle helpers ──────────────────────────────────────────
 
@@ -36,110 +40,125 @@ export interface RecordUsageParams {
 /**
  * Record a single LLM call for metering.
  * All writes are fire-and-forget — they must not block the chat response.
+ *
+ * The whole body is wrapped in try/catch so any synchronous throw (e.g. a
+ * future bad input that slips past coercion) cannot escape this helper and
+ * tear down the streaming HTTP response that called it.
  */
 export function recordUsage(params: RecordUsageParams): void {
-  const billingCycleId = getCurrentBillingCycleId()
-  const inputTokens = params.inputTokens ?? 0
-  const outputTokens = params.outputTokens ?? 0
-  const totalTokens = inputTokens + outputTokens
+  try {
+    const billingCycleId = getCurrentBillingCycleId()
+    // Coerce non-finite/negative values to 0. FieldValue.increment(NaN) throws
+    // synchronously at construction time, which would propagate out of the
+    // post-stream onCompletion callback and abort the response. See issue #152.
+    const inputTokens = coerceTokenCount(params.inputTokens)
+    const outputTokens = coerceTokenCount(params.outputTokens)
+    const totalTokens = inputTokens + outputTokens
 
-  // 1. Write usage log
-  const logRef = adminDb
-    .collection(Collections.usageLogs(params.tenantId))
-    .doc()
-  logRef
-    .set({
-      id: logRef.id,
-      tenantId: params.tenantId,
-      agentId: params.agentId,
-      conversationId: params.conversationId,
-      userId: params.userId,
+    // 1. Write usage log
+    const logRef = adminDb
+      .collection(Collections.usageLogs(params.tenantId))
+      .doc()
+    logRef
+      .set({
+        id: logRef.id,
+        tenantId: params.tenantId,
+        agentId: params.agentId,
+        conversationId: params.conversationId,
+        userId: params.userId,
+        source: params.source,
+        model: params.model,
+        inputTokens,
+        outputTokens,
+        totalTokens,
+        retrievalStrategy: params.retrievalStrategy ?? null,
+        toolCalled: params.toolCalled ?? null,
+        latencyMs: params.latencyMs ?? 0,
+        timestamp: new Date().toISOString(),
+        billingCycleId
+      })
+      .catch((err: unknown) =>
+        console.error('[usage] Failed to write usage log:', err)
+      )
+
+    // 2. Atomic increment on tenant message counter (only if subscription exists)
+    adminDb
+      .collection(Collections.tenants)
+      .doc(params.tenantId)
+      .get()
+      .then((snap: FirebaseFirestore.DocumentSnapshot) => {
+        if (snap.data()?.subscription?.planId) {
+          return adminDb
+            .collection(Collections.tenants)
+            .doc(params.tenantId)
+            .update({
+              'subscription.messageCount': FieldValue.increment(1)
+            })
+        }
+      })
+      .catch((err: unknown) =>
+        console.error('[usage] Failed to increment message count:', err)
+      )
+
+    // 3. Increment rollup (fire-and-forget)
+    // Use update() so dot-notation keys are interpreted as nested field paths.
+    // Falls back to set() if the document doesn't exist yet (first write this cycle).
+    const rollupRef = adminDb
+      .collection(Collections.usageRollups(params.tenantId))
+      .doc(billingCycleId)
+    const incrementFn = (n: number) => FieldValue.increment(n)
+    // Use externalId (prefixed) as the user key when userId is null to avoid
+    // merging all anonymous usage into a single bucket.
+    const effectiveUserId =
+      params.userId ?? (params.externalId ? `ext:${params.externalId}` : null)
+    const updateFields = buildRollupUpdateFields({
       source: params.source,
+      agentId: params.agentId,
       model: params.model,
+      userId: effectiveUserId,
       inputTokens,
       outputTokens,
-      totalTokens,
-      retrievalStrategy: params.retrievalStrategy ?? null,
-      toolCalled: params.toolCalled ?? null,
-      latencyMs: params.latencyMs ?? 0,
-      timestamp: new Date().toISOString(),
-      billingCycleId
+      incrementFn
     })
-    .catch((err: unknown) =>
-      console.error('[usage] Failed to write usage log:', err)
-    )
 
-  // 2. Atomic increment on tenant message counter (only if subscription exists)
-  adminDb
-    .collection(Collections.tenants)
-    .doc(params.tenantId)
-    .get()
-    .then((snap: FirebaseFirestore.DocumentSnapshot) => {
-      if (snap.data()?.subscription?.planId) {
-        return adminDb
-          .collection(Collections.tenants)
-          .doc(params.tenantId)
-          .update({
-            'subscription.messageCount': FieldValue.increment(1)
+    rollupRef
+      .update({
+        ...updateFields,
+        updatedAt: new Date().toISOString()
+      })
+      .catch((err: unknown) => {
+        // NOT_FOUND (code 5) — document doesn't exist yet, create it
+        if (
+          typeof err === 'object' &&
+          err !== null &&
+          (err as any).code === 5
+        ) {
+          const setFields = buildRollupSetFields({
+            tenantId: params.tenantId,
+            billingCycleId,
+            source: params.source,
+            agentId: params.agentId,
+            model: params.model,
+            userId: effectiveUserId,
+            inputTokens,
+            outputTokens,
+            incrementFn
           })
-      }
-    })
-    .catch((err: unknown) =>
-      console.error('[usage] Failed to increment message count:', err)
-    )
-
-  // 3. Increment rollup (fire-and-forget)
-  // Use update() so dot-notation keys are interpreted as nested field paths.
-  // Falls back to set() if the document doesn't exist yet (first write this cycle).
-  const rollupRef = adminDb
-    .collection(Collections.usageRollups(params.tenantId))
-    .doc(billingCycleId)
-  const incrementFn = (n: number) => FieldValue.increment(n)
-  // Use externalId (prefixed) as the user key when userId is null to avoid
-  // merging all anonymous usage into a single bucket.
-  const effectiveUserId =
-    params.userId ?? (params.externalId ? `ext:${params.externalId}` : null)
-  const updateFields = buildRollupUpdateFields({
-    source: params.source,
-    agentId: params.agentId,
-    model: params.model,
-    userId: effectiveUserId,
-    inputTokens,
-    outputTokens,
-    incrementFn
-  })
-
-  rollupRef
-    .update({
-      ...updateFields,
-      updatedAt: new Date().toISOString()
-    })
-    .catch((err: unknown) => {
-      // NOT_FOUND (code 5) — document doesn't exist yet, create it
-      if (typeof err === 'object' && err !== null && (err as any).code === 5) {
-        const setFields = buildRollupSetFields({
-          tenantId: params.tenantId,
-          billingCycleId,
-          source: params.source,
-          agentId: params.agentId,
-          model: params.model,
-          userId: effectiveUserId,
-          inputTokens,
-          outputTokens,
-          incrementFn
-        })
-        rollupRef
-          .set(
-            { ...setFields, updatedAt: new Date().toISOString() },
-            { merge: true }
-          )
-          .catch((e: unknown) =>
-            console.error('[usage] Failed to create rollup:', e)
-          )
-      } else {
-        console.error('[usage] Failed to update rollup:', err)
-      }
-    })
+          rollupRef
+            .set(
+              { ...setFields, updatedAt: new Date().toISOString() },
+              { merge: true }
+            )
+            .catch((e: unknown) =>
+              console.error('[usage] Failed to create rollup:', e)
+            )
+        } else {
+          console.error('[usage] Failed to update rollup:', err)
+        }
+      })
+  } catch (err: unknown) {
+    console.error('[usage] recordUsage threw synchronously:', err)
+  }
 }
 
 // ─── Check usage limit ──────────────────────────────────────────────
