@@ -11,12 +11,16 @@ import {
   createAgentSlug,
   ensureUniqueSlug
 } from '@/lib/agents/db'
-import { upsertAgentSchema } from '@/lib/agents/schema'
+import { bookingConfigSchema, upsertAgentSchema } from '@/lib/agents/schema'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
 import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
 import { nanoid } from '@/lib/utils'
 import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
+import {
+  createDirectBookingDraftConfig,
+  resolveAgentCreatorBookingConfig
+} from '@/lib/agents/booking-defaults'
 
 export const runtime = 'nodejs'
 
@@ -50,6 +54,7 @@ export async function POST(req: Request) {
     name: t.name,
     description: t.description
   }))
+  const directBookingDraftConfig = createDirectBookingDraftConfig()
 
   const systemPrompt = `You are an assistant that helps users create a "VibeAgent" through a conversational, step-by-step process.
 
@@ -110,6 +115,16 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - maxResponses (max AI responses per session; optional, null = unlimited)
 - maxAgentResponses (max total AI responses across all sessions; optional, null = unlimited)
 - retrievalStrategy (default: "direct"; options: "direct" | "rag" | "bash" — use "rag" for large/many files, "bash" for CSV/JSON/YAML structured data, "direct" for small files)
+- bookingConfig (optional; use this for resort, room, property, rental, or calendar-based booking managers)
+
+**Booking Manager Setup:**
+If the user wants an owner-facing booking manager for rooms, cabins, villas, rentals, resorts, or properties:
+- Include bookingConfig in the agentupdate block and create_agent call.
+- Use this exact draft config until calendars are connected:
+${JSON.stringify(directBookingDraftConfig, null, 2)}
+- Explain that the agent will be created with Direct booking setup started, then the owner must open the agent's Actions tab, add each room calendar as a Bookable Resource, and turn on Simple Booking.
+- Do NOT invent Google Calendar IDs, connection IDs, or room resources. Leave resources empty until the owner maps real calendars.
+- Instructions should say the agent manages availability, new bookings, edits, and cancellations across room calendars.
 
 **IMPORTANT - Form Updates:**
 Whenever you suggest values for the agent, include them in a special JSON block like this:
@@ -129,12 +144,14 @@ Whenever you suggest values for the agent, include them in a special JSON block 
 }
 ~~~
 
+When the draft is for resort/property booking management, include "bookingConfig" in that JSON block too.
+
 This lets the UI update the form in real-time. Include this block AFTER your explanation.
 
 **Functions to call:**
 
 1. **create_agent** - ONLY when user explicitly says "create it" or similar
-   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxResponses?: number | null, maxAgentResponses?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5, retrievalStrategy?: "direct" | "rag" | "bash" }
+   Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxResponses?: number | null, maxAgentResponses?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5, retrievalStrategy?: "direct" | "rag" | "bash", bookingConfig?: object }
 
 **Interaction style:**
 - Be conversational and encouraging
@@ -227,7 +244,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     quickSuggestionsCount: z.number().int().min(1).max(5).optional(),
     tools: z.array(z.string()).optional(),
     fileKeys: z.array(z.string()).optional(),
-    retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional()
+    retrievalStrategy: z.enum(['direct', 'rag', 'bash']).optional(),
+    bookingConfig: bookingConfigSchema.optional()
   })
 
   const openaiClient = createOpenAI({ apiKey })
@@ -271,6 +289,12 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           const agentMode = args.mode ?? 'provider'
           const maxResponses = args.maxResponses ?? null
           const maxAgentResponses = args.maxAgentResponses ?? null
+          const bookingConfig = resolveAgentCreatorBookingConfig({
+            name: args.name,
+            instructions: args.instructions,
+            greetingText: args.greetingText,
+            bookingConfig: args.bookingConfig
+          })
 
           const agentPayload = upsertAgentSchema.parse({
             name: args.name,
@@ -285,7 +309,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             maxAgentResponses,
             quickSuggestionsMode: args.quickSuggestionsMode ?? 'smart',
             quickSuggestionsCount: args.quickSuggestionsCount ?? 4,
-            retrievalStrategy: args.retrievalStrategy ?? 'direct'
+            retrievalStrategy: args.retrievalStrategy ?? 'direct',
+            ...(bookingConfig !== undefined && { bookingConfig })
           })
 
           const tenantId = await getActiveTenant(session.user.id)
@@ -326,6 +351,9 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
                 quickSuggestionsCount: agentPayload.quickSuggestionsCount,
                 sourceUrls: agentPayload.sourceUrls,
                 retrievalStrategy: agentPayload.retrievalStrategy,
+                ...(agentPayload.bookingConfig !== undefined && {
+                  bookingConfig: agentPayload.bookingConfig
+                }),
                 createdAt: now,
                 updatedAt: now
               })
@@ -358,7 +386,10 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
               maxAgentResponses,
               quickSuggestionsMode: agentPayload.quickSuggestionsMode,
               quickSuggestionsCount: agentPayload.quickSuggestionsCount,
-              retrievalStrategy: agentPayload.retrievalStrategy
+              retrievalStrategy: agentPayload.retrievalStrategy,
+              ...(agentPayload.bookingConfig !== undefined && {
+                bookingConfig: agentPayload.bookingConfig
+              })
             },
             null,
             2
