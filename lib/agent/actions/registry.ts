@@ -119,9 +119,16 @@ export async function injectActionTools(
   if (!agent.tenantId) return
 
   const enabled = await isFeatureEnabled(agent.tenantId, 'AGENT_ACTIONS')
-  if (!enabled) return
+  if (!enabled) {
+    console.warn(
+      `[actions] AGENT_ACTIONS flag off for tenant ${agent.tenantId} — agent ${agent.id} has no tools`
+    )
+    return
+  }
 
   const actions: AgentAction[] = agent.actions ?? buildLegacyActions(agent)
+
+  const startingToolCount = toolkit.functions.length
 
   for (const action of actions) {
     if (!action.enabled) continue
@@ -138,7 +145,13 @@ export async function injectActionTools(
         toolkit.executors[tool.function.name] = tool.execute
       }
     } catch (err) {
-      console.error(`Failed to inject ${action.type} tools:`, err)
+      console.error(`[actions] failed to inject ${action.type} tools:`, err)
     }
+  }
+
+  if (toolkit.functions.length === startingToolCount) {
+    console.warn(
+      `[actions] agent ${agent.id} has no enabled actions — running with 0 action tools`
+    )
   }
 }
