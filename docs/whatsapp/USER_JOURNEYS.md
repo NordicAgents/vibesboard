@@ -26,24 +26,19 @@
 # 1. Merge PR to dev/main
 # 2. Deploy automatically triggers on Vercel
 
-# 3. Run database migration in production
-npx supabase link --project-ref your-production-project
-npx supabase db push
+# 3. Add the whatsapp_bulk_messaging feature flag to the
+#    feature_flags Firestore collection (default: false),
+#    or toggle via the admin UI at /admin/tenants.
 
-# 4. Add feature flag to production database
-# Run in Supabase SQL Editor:
-INSERT INTO feature_flags (name, description, default_value)
-VALUES ('whatsapp_bulk_messaging', 'Enable WhatsApp bulk messaging', false);
-
-# 5. Set environment variables in Vercel
+# 4. Set environment variables in Vercel
 # - ENCRYPTION_KEY (for encrypting Meta access tokens)
 # - CRON_SECRET (for protecting cron endpoint)
 # - WHATSAPP_VERIFY_TOKEN (for Meta webhook verification)
 ```
 
-**Expected Time:** 15-20 minutes
+**Expected Time:** 10-15 minutes
 **Status:** ✅ One-time setup
-**Prerequisites:** Database migration file, Vercel access, Supabase access
+**Prerequisites:** Vercel access, Firebase admin access
 
 ---
 
@@ -199,7 +194,7 @@ Key Metrics to Track:
 - Database growth rate
 - Queue processing efficiency
 - API response times
-- Cost analysis (Vercel functions, Supabase usage)
+- Cost analysis (Vercel functions, Firestore reads/writes)
 
 **Expected Time:** 1 hour
 **Frequency:** Monthly
