@@ -28,11 +28,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# local env files
+# local env files (never commit — these contain real secrets)
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
+.env.staging
+
+# Agent worktrees (contain copied .env.local) and backup artifacts
+.claude/worktrees/
+.codex/worktrees/
+.gemini/worktrees/
+.worktree-backups/
+.claude/worktree-backups/
 
 # turbo
 .turbo
