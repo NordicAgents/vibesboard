@@ -218,11 +218,6 @@ Once database migration is run and environment variables are set:
 Before testing, set these in `.env.local`:
 
 ```bash
-# Existing (from your current setup)
-NEXT_PUBLIC_SUPABASE_URL=your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-
 # New - Generate these
 ENCRYPTION_KEY=<run: openssl rand -hex 32>
 CRON_SECRET=<run: openssl rand -hex 32>
@@ -249,13 +244,9 @@ npm install --save-dev @types/crypto-js
 
 ## 🚀 Deployment Steps
 
-### 1. Database Migration
+### 1. Data Layer
 
-```bash
-npx supabase db push
-```
-
-This will create all tables, RLS policies, and helper functions.
+Firestore collections are created on first write — no migration step required.
 
 ### 2. Generate Environment Variables
 
@@ -297,9 +288,7 @@ After deployment:
 - **API Endpoints:** 23 routes, ~1,300 lines of code (added `/api/tenants/current`)
 - **UI Pages:** 5 files, ~2,800 lines of code
 - **Total TypeScript:** ~6,600 lines
-- **Database Tables:** 8 tables (in migration SQL)
-- **RLS Policies:** 7 policies
-- **Helper Functions:** 3 PostgreSQL functions
+- **Firestore Collections:** 8 collections
 
 ---
 
@@ -341,7 +330,7 @@ After deployment:
 - ✅ **Webhook verification** - Meta webhook verified with token
 
 ### Scalability
-- ✅ **Database queue** - No Redis needed, PostgreSQL handles queue
+- ✅ **Database queue** - No Redis needed, Firestore handles queue
 - ✅ **Batch processing** - Processes 20 messages every 30 seconds
 - ✅ **Retry logic** - Exponential backoff for failed messages (3 attempts)
 - ✅ **Rate limiting** - Configurable messages per second (default: 20)
@@ -376,9 +365,6 @@ After deployment:
 - `/app/api/whatsapp-bulk/...`
 - `/app/api/cron/process-whatsapp-queue/route.ts`
 - `/app/api/webhooks/whatsapp-bulk-status/route.ts`
-
-### Database
-- `/supabase/migrations/20260215000000_whatsapp_bulk_messaging_feature.sql`
 
 ### Config
 - `/vercel.json`
