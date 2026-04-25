@@ -67,7 +67,7 @@
     "remark-math": "^5.1.1",
     "resend": "^6.9.4",
     "server-only": "^0.0.1",
-    "stripe": "^21.0.1",
+    "stripe": "^22.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
