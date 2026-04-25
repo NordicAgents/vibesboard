@@ -121,6 +121,9 @@ export function AgentCreatorChat({
                 }),
                 ...(updates.sourceUrls !== undefined && {
                   sourceUrls: updates.sourceUrls
+                }),
+                ...(updates.bookingConfig !== undefined && {
+                  bookingConfig: updates.bookingConfig
                 })
               }))
             } catch (parseError) {
@@ -352,7 +355,10 @@ export function AgentCreatorChat({
           maxResponses,
           maxAgentResponses,
           quickSuggestionsMode: formData.quickSuggestionsMode ?? 'smart',
-          quickSuggestionsCount: formData.quickSuggestionsCount ?? 4
+          quickSuggestionsCount: formData.quickSuggestionsCount ?? 4,
+          ...(formData.bookingConfig !== undefined && {
+            bookingConfig: formData.bookingConfig
+          })
         })
       })
 

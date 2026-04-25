@@ -17,7 +17,6 @@ import {
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { AgentCalendarAvailabilitySettings } from './agent-calendar-availability-settings'
 import { AgentSchedulingSettings } from './agent-scheduling-settings'
 import { AgentBookingResourceConfig } from './agent-booking-resource-config'
@@ -66,20 +65,12 @@ function getBookingBadgeLabel(state: ActionCapabilityState) {
   return state.statusLabel
 }
 
-interface MasterToggleConfig {
-  checked: boolean
-  disabled: boolean
-  onChange: (checked: boolean) => void
-  tooltip: string
-}
-
 interface DetailPanelProps {
   title: string
   description: string
   state: ActionCapabilityState
   badgeVariant: ReturnType<typeof getStatusBadgeVariant>
   badgeLabel: string
-  masterToggle?: MasterToggleConfig
   extraWarning?: string
   children: ReactNode
 }
@@ -90,7 +81,6 @@ function DetailPanel({
   state,
   badgeVariant,
   badgeLabel,
-  masterToggle,
   extraWarning,
   children
 }: DetailPanelProps) {
@@ -103,21 +93,6 @@ function DetailPanel({
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
           <div className="flex items-center gap-3">
-            {masterToggle && (
-              <div
-                className="flex flex-col items-end gap-0.5"
-                title={masterToggle.tooltip}
-              >
-                <span className="text-xs font-medium text-muted-foreground">
-                  Master toggle
-                </span>
-                <Switch
-                  checked={masterToggle.checked}
-                  disabled={masterToggle.disabled}
-                  onCheckedChange={masterToggle.onChange}
-                />
-              </div>
-            )}
             <Badge variant={badgeVariant}>{badgeLabel}</Badge>
           </div>
         </div>
@@ -215,7 +190,7 @@ export function AgentActionsFlow({
                   {isBooking && state.status === 'ready' && (
                     <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
                       Booking tools will not be available to the agent until
-                      the master toggle is on.
+                      Enable simple booking is on.
                     </p>
                   )}
                 </button>
@@ -272,24 +247,9 @@ export function AgentActionsFlow({
           state={stateMap.booking}
           badgeVariant={getBookingBadgeVariant(stateMap.booking)}
           badgeLabel={getBookingBadgeLabel(stateMap.booking)}
-          masterToggle={{
-            checked: !!bookingConfig?.enabled,
-            disabled:
-              disabled ||
-              !bookingConfig ||
-              bookingConfig.resources.length === 0,
-            onChange: enabled => {
-              if (!bookingConfig) return
-              onBookingConfigChange({ ...bookingConfig, enabled })
-            },
-            tooltip:
-              bookingConfig && bookingConfig.resources.length > 0
-                ? 'Master toggle — when off, the agent has no booking tools.'
-                : 'Add at least one resource first'
-          }}
           extraWarning={
             stateMap.booking.status === 'ready'
-              ? 'Booking is configured but the master toggle above is off — the agent has no booking tools and cannot create, update, or cancel reservations.'
+              ? 'Booking is configured but Enable simple booking is off — the agent has no booking tools and cannot create, update, or cancel reservations.'
               : undefined
           }
         >
