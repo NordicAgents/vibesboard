@@ -27,7 +27,9 @@ import {
   type AgentMode,
   type RetrievalStrategy
 } from '@/lib/types'
+import type { AgentBookingConfig } from '@/lib/firestore-types'
 import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
+import { getBookingConfigSummary } from '@/lib/agents/booking-defaults'
 
 export interface AgentFormData {
   name?: string
@@ -43,6 +45,7 @@ export interface AgentFormData {
   quickSuggestionsMode?: 'off' | 'smart' | 'always'
   quickSuggestionsCount?: number
   retrievalStrategy?: RetrievalStrategy
+  bookingConfig?: AgentBookingConfig
 }
 
 const RETRIEVAL_OPTIONS: {
@@ -88,6 +91,7 @@ export function AgentBuilderFormPreview({
     if (formData.mode) newFields.add('mode')
     if (formData.quickSuggestionsMode) newFields.add('quickSuggestions')
     if (formData.sourceUrls?.length) newFields.add('sourceUrls')
+    if (formData.bookingConfig) newFields.add('bookingConfig')
 
     setAnimatedFields(newFields)
   }, [formData])
@@ -103,6 +107,7 @@ export function AgentBuilderFormPreview({
   const toolOptions = Object.values(BUILTIN_AGENT_TOOLS)
   const quickSuggestionsMode = formData.quickSuggestionsMode ?? 'smart'
   const quickSuggestionsCount = formData.quickSuggestionsCount ?? 4
+  const bookingSummary = getBookingConfigSummary(formData.bookingConfig)
 
   return (
     <aside
@@ -338,6 +343,34 @@ export function AgentBuilderFormPreview({
             </div>
           </CardContent>
         </Card>
+
+        {/* Booking Setup */}
+        {bookingSummary && (
+          <Card
+            className={cn(
+              'transition-all duration-500',
+              animatedFields.has('bookingConfig') && 'ring-2 ring-primary/20'
+            )}
+          >
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                Booking Setup
+                <IconCheck className="size-4 text-green-600" />
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Owner-facing room booking workflow
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm">{bookingSummary}</p>
+              <p className="text-xs text-muted-foreground">
+                After creating the agent, open Actions, add each room&apos;s
+                Google Calendar as a bookable resource, then turn on Simple
+                Booking.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Retrieval Strategy */}
         <Card>

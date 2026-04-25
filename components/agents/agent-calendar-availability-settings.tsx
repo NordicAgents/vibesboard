@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, Plus, Trash2 } from 'lucide-react'
+import { buildGoogleCalendarAuthPath } from '@/lib/scheduling/oauth-return'
 
 interface CalendarConnectionSummary {
   id: string
@@ -178,7 +179,8 @@ export function AgentCalendarAvailabilitySettings({
   }
 
   const handleConnect = () => {
-    window.location.href = '/api/scheduling/auth/google'
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    window.location.href = buildGoogleCalendarAuthPath(returnTo)
   }
 
   const handleDisconnect = async (connectionId: string) => {
