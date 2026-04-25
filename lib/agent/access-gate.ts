@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { z } from 'zod'
 import { adminDb } from '@/lib/firebase/admin'
 import { Collections, type InviteCodeDocument } from '@/lib/firestore-types'
 import { FieldValue } from 'firebase-admin/firestore'
@@ -8,6 +9,12 @@ export {
   verifyPassword,
   generateCode
 } from './access-gate-crypto'
+
+// ─── Request schemas ────────────────────────────────────────────────────────
+
+export const setPasswordSchema = z.object({
+  password: z.string().min(1).max(200)
+})
 import {
   signToken,
   verifyToken,
