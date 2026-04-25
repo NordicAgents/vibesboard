@@ -8,10 +8,7 @@ import {
 
 test('landing hero tagline focuses on agent-led time savings', () => {
   assert.equal(LANDING_HERO_TAGLINE, 'Let your agent talk. Get your time back.')
-  assert.doesNotMatch(
-    LANDING_HERO_TAGLINE,
-    /WhatsApp|Instagram|AI-Powered/i
-  )
+  assert.doesNotMatch(LANDING_HERO_TAGLINE, /WhatsApp|Instagram|AI-Powered/i)
   assert.match(LANDING_HERO_TAGLINE, /agent/i)
   assert.match(LANDING_HERO_TAGLINE, /time/i)
 })
