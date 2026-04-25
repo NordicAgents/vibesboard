@@ -10,7 +10,11 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildRollupUpdateFields, buildRollupSetFields } from './usage-core.ts'
+import {
+  buildRollupUpdateFields,
+  buildRollupSetFields,
+  coerceTokenCount
+} from './usage-core.ts'
 
 // Fake increment that returns a tagged object so we can verify values
 const inc = (n: number) => ({ __increment: n })
@@ -330,6 +334,32 @@ describe('rollup field key structure', () => {
     }
   })
 
+  test('coerced NaN tokens never reach the increment function', () => {
+    // Simulates what happens in recordUsage when the upstream model returns
+    // NaN token counts. After coercion, the increment function must only
+    // receive finite numbers — FieldValue.increment(NaN) throws synchronously
+    // and would tear down the streaming HTTP response (issue #152).
+    const seen: number[] = []
+    const trackingInc = (n: number) => {
+      seen.push(n)
+      return { __increment: n }
+    }
+
+    buildRollupUpdateFields({
+      source: 'chat',
+      agentId: 'a',
+      model: 'm',
+      userId: 'u',
+      inputTokens: coerceTokenCount(NaN),
+      outputTokens: coerceTokenCount(NaN),
+      incrementFn: trackingInc
+    })
+
+    for (const n of seen) {
+      assert.ok(Number.isFinite(n), `increment got non-finite value: ${n}`)
+    }
+  })
+
   test('set fields use nested objects (not dot-notation)', () => {
     const fields = buildRollupSetFields({
       tenantId: 't',
@@ -348,5 +378,44 @@ describe('rollup field key structure', () => {
     assert.equal(typeof fields.byUser['u'], 'object')
     assert.equal(typeof fields.byUser['u'].byAgent, 'object')
     assert.equal(typeof fields.byUser['u'].byAgent['a'], 'object')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// coerceTokenCount — guards FieldValue.increment() against non-finite values
+// ---------------------------------------------------------------------------
+describe('coerceTokenCount', () => {
+  test('passes through finite non-negative numbers unchanged', () => {
+    assert.equal(coerceTokenCount(0), 0)
+    assert.equal(coerceTokenCount(1), 1)
+    assert.equal(coerceTokenCount(12345), 12345)
+    assert.equal(coerceTokenCount(0.5), 0.5)
+  })
+
+  test('coerces NaN to 0', () => {
+    assert.equal(coerceTokenCount(NaN), 0)
+  })
+
+  test('coerces Infinity and -Infinity to 0', () => {
+    assert.equal(coerceTokenCount(Infinity), 0)
+    assert.equal(coerceTokenCount(-Infinity), 0)
+  })
+
+  test('coerces negative numbers to 0', () => {
+    assert.equal(coerceTokenCount(-1), 0)
+    assert.equal(coerceTokenCount(-0.0001), 0)
+  })
+
+  test('coerces undefined and null to 0', () => {
+    assert.equal(coerceTokenCount(undefined), 0)
+    assert.equal(coerceTokenCount(null), 0)
+  })
+
+  test('coerces non-numeric values to 0', () => {
+    assert.equal(coerceTokenCount('100'), 0)
+    assert.equal(coerceTokenCount('abc'), 0)
+    assert.equal(coerceTokenCount({}), 0)
+    assert.equal(coerceTokenCount([]), 0)
+    assert.equal(coerceTokenCount(true), 0)
   })
 })
