@@ -2,33 +2,10 @@
 
 import Image from 'next/image'
 import { FadeIn } from './fade-in'
-
-const projects = [
-  {
-    id: 1,
-    title: 'Build Agents',
-    category: 'Creation',
-    image: '/images/landing/updated-landing/Build Agents.png'
-  },
-  {
-    id: 2,
-    title: 'Share & Vibe',
-    category: 'Interaction',
-    image: '/images/landing/updated-landing/share.png'
-  },
-  {
-    id: 3,
-    title: 'Record Vibes',
-    category: 'History',
-    image: '/images/landing/updated-landing/record.png'
-  },
-  {
-    id: 4,
-    title: 'AI Insights',
-    category: 'Analysis',
-    image: '/images/landing/updated-landing/Analysis.png'
-  }
-]
+import {
+  LANDING_SHOWCASE_HEADING,
+  LANDING_SHOWCASE_STEPS
+} from '@/lib/landing-showcase-copy'
 
 export function LandingShowcase() {
   return (
@@ -45,20 +22,19 @@ export function LandingShowcase() {
           </FadeIn>
           <FadeIn delay={0.2} className="max-w-2xl">
             <p className="font-switzer text-xl leading-tight text-black-primary dark:text-foreground sm:text-2xl md:text-3xl lg:text-4xl">
-              Create agents, vibe with people, and get real insights through AI
-              analysis.
+              {LANDING_SHOWCASE_HEADING}
             </p>
           </FadeIn>
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:gap-12">
-          {projects.map((project, index) => (
-            <FadeIn key={project.id} delay={0.2 + index * 0.1}>
+          {LANDING_SHOWCASE_STEPS.map((step, index) => (
+            <FadeIn key={step.id} delay={0.2 + index * 0.1}>
               <div className="group cursor-pointer rounded-3xl border border-[#222f30]/10 bg-purewhite-bg p-4 shadow-soft transition-transform duration-300 hover:-translate-y-1">
                 <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-gray-100 dark:bg-muted sm:mb-4">
                   <Image
-                    src={project.image}
-                    alt={project.title}
+                    src={step.image}
+                    alt={step.title}
                     fill
                     className="object-cover transition-transform duration-700 ease-custom group-hover:scale-105"
                     sizes="(max-width: 640px) 100vw, 50vw"
@@ -67,12 +43,15 @@ export function LandingShowcase() {
                 </div>
                 <div className="flex flex-col items-start justify-between gap-1 sm:flex-row sm:items-center sm:gap-0">
                   <h3 className="font-switzer text-lg font-medium text-black-primary dark:text-foreground sm:text-xl">
-                    {project.title}
+                    {step.title}
                   </h3>
                   <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-gray-secondary sm:text-sm">
-                    {project.category}
+                    {step.category}
                   </span>
                 </div>
+                <p className="mt-3 max-w-[38rem] font-switzer text-sm leading-relaxed text-gray-secondary dark:text-muted-foreground sm:text-base">
+                  {step.description}
+                </p>
               </div>
             </FadeIn>
           ))}
