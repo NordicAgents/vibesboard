@@ -242,6 +242,8 @@ export function AgentDashboardTabs({
                 tenantId={agent.tenantId}
                 collectionFields={fields.collectionFields}
                 initialCapability={initialActionCapability}
+                allowAnonymous={fields.allowAnonymous}
+                onGoToSetup={() => handleTabChange('setup')}
               />
             </FeatureGate>
           ) : (
