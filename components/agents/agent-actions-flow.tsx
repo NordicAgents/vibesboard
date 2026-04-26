@@ -37,6 +37,8 @@ interface Props {
   tenantId: string
   collectionFields: CollectionField[]
   initialCapability?: ActionCapability
+  allowAnonymous: boolean
+  onGoToSetup?: () => void
 }
 
 function getStatusBadgeVariant(state: ActionCapabilityState) {
@@ -124,7 +126,9 @@ export function AgentActionsFlow({
   disabled,
   tenantId,
   collectionFields,
-  initialCapability = 'booking'
+  initialCapability = 'booking',
+  allowAnonymous,
+  onGoToSetup
 }: Props) {
   const [activeCapability, setActiveCapability] =
     useState<ActionCapability>(initialCapability)
@@ -259,6 +263,8 @@ export function AgentActionsFlow({
             disabled={disabled}
             tenantId={tenantId}
             section="all"
+            allowAnonymous={allowAnonymous}
+            onGoToSetup={onGoToSetup}
           />
         </DetailPanel>
       )}
