@@ -107,3 +107,4 @@ jobs:
             GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest
             GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest
             GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
+            ACCESS_GATE_SECRET=access-gate-secret:latest
