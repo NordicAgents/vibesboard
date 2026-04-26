@@ -13,12 +13,13 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card'
-import { CalendarDays, Trash2, Plus } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Trash2, Plus } from 'lucide-react'
 import type {
   AgentBookingConfig,
   BookableResource
 } from '@/lib/firestore-types'
 import { getBookingResourceConnectionPrompt } from '@/lib/agents/booking-resource-setup'
+import { getDirectBookingAccessWarning } from '@/lib/agents/direct-booking-access-warning'
 import { buildGoogleCalendarAuthPath } from '@/lib/scheduling/oauth-return'
 
 interface CalendarConnectionSummary {
@@ -39,6 +40,8 @@ interface Props {
   disabled: boolean
   tenantId: string
   section?: 'all' | 'resources' | 'behavior'
+  allowAnonymous: boolean
+  onGoToSetup?: () => void
 }
 
 const DEFAULT_CONFIG: AgentBookingConfig = {
@@ -85,7 +88,9 @@ export function AgentBookingResourceConfig({
   onChange,
   disabled,
   tenantId,
-  section = 'all'
+  section = 'all',
+  allowAnonymous,
+  onGoToSetup
 }: Props) {
   const current = config ?? DEFAULT_CONFIG
 
@@ -225,6 +230,10 @@ export function AgentBookingResourceConfig({
   const canEnable = current.resources.length > 0
   const showResources = section !== 'behavior'
   const showBehavior = section !== 'resources'
+  const directBookingWarning = getDirectBookingAccessWarning(
+    current,
+    allowAnonymous
+  )
 
   const handleConnectCalendar = () => {
     const returnTo = `${window.location.pathname}${window.location.search}`
@@ -488,13 +497,43 @@ export function AgentBookingResourceConfig({
                     className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                   >
                     <option value="enquiry">
-                      Enquiry — guests submit booking requests
+                      Enquiry - guests submit requests for admin review
                     </option>
                     <option value="direct">
-                      Direct — owner manages bookings via chat
+                      Direct - agent writes calendar events immediately
                     </option>
                   </select>
                 </div>
+
+                {directBookingWarning && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-sm font-medium">
+                            {directBookingWarning.title}
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed">
+                            {directBookingWarning.message}
+                          </p>
+                        </div>
+                        {onGoToSetup && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={onGoToSetup}
+                            disabled={disabled}
+                            className="border-amber-300 bg-white/70 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-900/30"
+                          >
+                            {directBookingWarning.actionLabel}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {current.mode === 'direct' && (
                   <>
