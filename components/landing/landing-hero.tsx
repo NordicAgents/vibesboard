@@ -4,6 +4,11 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 
 import { Button } from '@/components/ui/button'
+import {
+  LANDING_HERO_CONVERSATION,
+  LANDING_HERO_TAGLINE,
+  type LandingHeroConversationMessage
+} from '@/lib/landing-hero-copy'
 
 /* ── animation config ─────────────────────────────────── */
 const ease = [0.21, 0.47, 0.32, 0.98] as const
@@ -102,6 +107,65 @@ const phoneFloat = {
   transition: { duration: 7, repeat: Infinity, ease: 'easeInOut' as const }
 }
 
+function AgentConversationMessage({
+  message,
+  delay
+}: {
+  message: LandingHeroConversationMessage
+  delay: number
+}) {
+  return (
+    <motion.div variants={msgReveal(delay)} className="flex items-end gap-2">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
+        <div className="size-3 rounded-full bg-[#a7e26e]" />
+      </div>
+      <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-[#192828] px-3.5 py-2.5">
+        <p className="text-[12.5px] leading-normal text-[#e8ede8] sm:text-[13px]">
+          {message.text}
+        </p>
+        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">
+          {message.time}
+        </span>
+      </div>
+    </motion.div>
+  )
+}
+
+function CustomerConversationMessage({
+  message,
+  delay
+}: {
+  message: LandingHeroConversationMessage
+  delay: number
+}) {
+  return (
+    <motion.div variants={msgReveal(delay)} className="flex justify-end">
+      <div className="max-w-[75%] rounded-2xl rounded-br-md bg-[#a7e26e] px-3.5 py-2.5">
+        <p className="text-[12.5px] leading-normal text-[#111918] sm:text-[13px]">
+          {message.text}
+        </p>
+        <div className="mt-1 flex items-center justify-end gap-1">
+          <span className="text-[9px] text-[#111918]/50">{message.time}</span>
+          <svg
+            width="14"
+            height="8"
+            viewBox="0 0 16 9"
+            fill="none"
+            stroke="#111918"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.5"
+          >
+            <polyline points="1 4.5 4 7.5 11 1" />
+            <polyline points="5 4.5 8 7.5 15 1" />
+          </svg>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 /* ── ticker items ─────────────────────────────────────── */
 const TICKER_ITEMS = [
   'WhatsApp Auto-Reply',
@@ -120,8 +184,6 @@ const LINE_3 = ['with', 'People']
 
 /* ── component ─────────────────────────────────────────── */
 export function LandingHero() {
-  const allWords = [...LINE_1, ...LINE_2, ...LINE_3]
-
   return (
     <section className="relative flex min-h-dvh flex-col overflow-hidden bg-[#111918]">
       {/* ══════════════════════════════════════════════════
@@ -316,8 +378,8 @@ export function LandingHero() {
               >
                 <Link href="/sign-in">Get Started</Link>
               </Button>
-              <p className="text-[13px] text-[#6f7f80]">
-                WhatsApp &bull; Instagram &bull; AI-Powered
+              <p className="max-w-[360px] text-[15px] font-medium leading-relaxed text-[#dbe8dd]/80 sm:text-[16px]">
+                {LANDING_HERO_TAGLINE}
               </p>
             </motion.div>
           </div>
@@ -519,158 +581,21 @@ export function LandingHero() {
                       </span>
                     </motion.div>
 
-                    {/* Bot message 1 */}
-                    <motion.div
-                      variants={msgReveal(1.0)}
-                      className="flex items-end gap-2"
-                    >
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
-                        <div className="h-3 w-3 rounded-full bg-[#a7e26e]" />
-                      </div>
-                      <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-[#192828] px-3.5 py-2.5">
-                        <p className="text-[12.5px] leading-[1.5] text-[#e8ede8] sm:text-[13px]">
-                          Hey! I&apos;m your{' '}
-                          <span className="font-semibold text-[#a7e26e]">
-                            VibeAgent
-                          </span>{' '}
-                          &mdash; ready to handle customer conversations 24/7.
-                        </p>
-                        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">
-                          9:41 AM
-                        </span>
-                      </div>
-                    </motion.div>
-
-                    {/* User message 1 */}
-                    <motion.div
-                      variants={msgReveal(1.5)}
-                      className="flex justify-end"
-                    >
-                      <div className="max-w-[75%] rounded-2xl rounded-br-md bg-[#a7e26e] px-3.5 py-2.5">
-                        <p className="text-[12.5px] leading-[1.5] text-[#111918] sm:text-[13px]">
-                          Can you auto-reply on WhatsApp?
-                        </p>
-                        <div className="mt-1 flex items-center justify-end gap-1">
-                          <span className="text-[9px] text-[#111918]/50">
-                            9:41 AM
-                          </span>
-                          <svg
-                            width="14"
-                            height="8"
-                            viewBox="0 0 16 9"
-                            fill="none"
-                            stroke="#111918"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            opacity="0.5"
-                          >
-                            <polyline points="1 4.5 4 7.5 11 1" />
-                            <polyline points="5 4.5 8 7.5 15 1" />
-                          </svg>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Bot message 2 */}
-                    <motion.div
-                      variants={msgReveal(2.0)}
-                      className="flex items-end gap-2"
-                    >
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
-                        <div className="h-3 w-3 rounded-full bg-[#a7e26e]" />
-                      </div>
-                      <div className="max-w-[80%] rounded-2xl rounded-bl-md bg-[#192828] px-3.5 py-2.5">
-                        <p className="text-[12.5px] leading-[1.5] text-[#e8ede8] sm:text-[13px]">
-                          Absolutely! I read, understand, and reply naturally
-                          &mdash; keeping every conversation on-brand.
-                        </p>
-                        <span className="mt-1 block text-right text-[9px] text-[#6f7f80]">
-                          9:42 AM
-                        </span>
-                      </div>
-                    </motion.div>
-
-                    {/* User message 2 */}
-                    <motion.div
-                      variants={msgReveal(2.5)}
-                      className="flex justify-end"
-                    >
-                      <div className="max-w-[68%] rounded-2xl rounded-br-md bg-[#a7e26e] px-3.5 py-2.5">
-                        <p className="text-[12.5px] leading-[1.5] text-[#111918] sm:text-[13px]">
-                          Let&apos;s set it up!
-                        </p>
-                        <div className="mt-1 flex items-center justify-end gap-1">
-                          <span className="text-[9px] text-[#111918]/50">
-                            9:42 AM
-                          </span>
-                          <svg
-                            width="14"
-                            height="8"
-                            viewBox="0 0 16 9"
-                            fill="none"
-                            stroke="#3b7a1a"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            opacity="0.7"
-                          >
-                            <polyline points="1 4.5 4 7.5 11 1" />
-                            <polyline points="5 4.5 8 7.5 15 1" />
-                          </svg>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Typing indicator */}
-                    <motion.div
-                      variants={msgReveal(3.0)}
-                      className="flex items-end gap-2"
-                    >
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#a7e26e]/20">
-                        <div className="h-3 w-3 rounded-full bg-[#a7e26e]" />
-                      </div>
-                      <div className="flex items-center gap-[5px] rounded-2xl rounded-bl-md bg-[#192828] px-4 py-3">
-                        <motion.span
-                          className="inline-block h-[6px] w-[6px] rounded-full bg-[#6f7f80]"
-                          animate={{
-                            opacity: [0.3, 1, 0.3] as number[],
-                            y: [0, -3, 0] as number[]
-                          }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            ease: 'easeInOut' as const
-                          }}
+                    {LANDING_HERO_CONVERSATION.map((message, index) =>
+                      message.role === 'agent' ? (
+                        <AgentConversationMessage
+                          key={message.id}
+                          message={message}
+                          delay={1 + index * 0.5}
                         />
-                        <motion.span
-                          className="inline-block h-[6px] w-[6px] rounded-full bg-[#6f7f80]"
-                          animate={{
-                            opacity: [0.3, 1, 0.3] as number[],
-                            y: [0, -3, 0] as number[]
-                          }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            ease: 'easeInOut' as const,
-                            delay: 0.15
-                          }}
+                      ) : (
+                        <CustomerConversationMessage
+                          key={message.id}
+                          message={message}
+                          delay={1 + index * 0.5}
                         />
-                        <motion.span
-                          className="inline-block h-[6px] w-[6px] rounded-full bg-[#6f7f80]"
-                          animate={{
-                            opacity: [0.3, 1, 0.3] as number[],
-                            y: [0, -3, 0] as number[]
-                          }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            ease: 'easeInOut' as const,
-                            delay: 0.3
-                          }}
-                        />
-                      </div>
-                    </motion.div>
+                      )
+                    )}
                   </motion.div>
 
                   {/* Input bar */}

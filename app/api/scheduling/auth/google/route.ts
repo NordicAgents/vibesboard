@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@/lib/features'
 import { getGoogleAuthUrl } from '@/lib/scheduling/google-auth'
+import { getSafeSchedulingReturnTo } from '@/lib/scheduling/oauth-return'
 
 export const runtime = 'nodejs'
 
@@ -16,6 +17,7 @@ export const OAUTH_NONCE_COOKIE = 'oauth_csrf_nonce'
  * Redirects the user to Google's OAuth consent screen.
  */
 export async function GET(req: Request) {
+  const url = new URL(req.url)
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
@@ -56,7 +58,13 @@ export async function GET(req: Request) {
     path: '/'
   })
 
-  const state = JSON.stringify({ tenantId, userId: user.id, nonce })
+  const returnTo = getSafeSchedulingReturnTo(url.searchParams.get('returnTo'))
+  const state = JSON.stringify({
+    tenantId,
+    userId: user.id,
+    nonce,
+    ...(returnTo ? { returnTo } : {})
+  })
   const authUrl = getGoogleAuthUrl(state, redirectUri)
 
   return NextResponse.redirect(authUrl)
