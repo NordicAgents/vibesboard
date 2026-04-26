@@ -300,7 +300,7 @@ export function SidebarResizableLayout({
           </div>
         </aside>
 
-        <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f7f7f5] dark:bg-[#111918]">
+        <div className="relative flex flex-1 flex-col overflow-hidden bg-[#f7f7f5] pt-16 dark:bg-[#111918] lg:pt-0">
           {/* Mobile top bar */}
           <div className="pointer-events-none absolute left-0 top-0 z-10 flex w-full items-center justify-end p-2 lg:hidden">
             <div className="pointer-events-auto flex items-center gap-2">
