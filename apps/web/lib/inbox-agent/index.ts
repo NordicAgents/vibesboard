@@ -1,6 +1,3 @@
-export { triggerInboxAgent, type InboxAgentContext } from './handler'
-export { resolveInboxAgent, type InboxChannel } from './resolve-agent'
-export {
-  sendWhatsAppAgentReply,
-  sendInstagramAgentReply
-} from './reply-adapters'
+// Re-export shim — real implementation in @vibesboard/inbox/index.
+// Deleted in Phase 12.
+export * from '@vibesboard/inbox/index'

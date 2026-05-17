@@ -91,12 +91,24 @@ importers:
       '@vibesboard/booking-enquiries':
         specifier: workspace:*
         version: link:../../packages/booking-enquiries
+      '@vibesboard/channel-chatwoot':
+        specifier: workspace:*
+        version: link:../../packages/channel-chatwoot
+      '@vibesboard/channel-instagram':
+        specifier: workspace:*
+        version: link:../../packages/channel-instagram
+      '@vibesboard/channel-whatsapp':
+        specifier: workspace:*
+        version: link:../../packages/channel-whatsapp
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@vibesboard/data':
         specifier: workspace:*
         version: link:../../packages/data
+      '@vibesboard/inbox':
+        specifier: workspace:*
+        version: link:../../packages/inbox
       '@vibesboard/policy':
         specifier: workspace:*
         version: link:../../packages/policy
@@ -483,6 +495,105 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/channel-chatwoot:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/agents':
+        specifier: workspace:*
+        version: link:../agents
+      '@vibesboard/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      crypto-js:
+        specifier: ^4.2.0
+        version: 4.2.0
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
+      nanoid:
+        specifier: ^4.0.2
+        version: 4.0.2
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@types/crypto-js':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/channel-instagram:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vibesboard/inbox':
+        specifier: workspace:*
+        version: link:../inbox
+      crypto-js:
+        specifier: ^4.2.0
+        version: 4.2.0
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@types/crypto-js':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/channel-whatsapp:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vibesboard/inbox':
+        specifier: workspace:*
+        version: link:../inbox
+      crypto-js:
+        specifier: ^4.2.0
+        version: 4.2.0
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@types/crypto-js':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/contracts:
     devDependencies:
       ai:
@@ -513,6 +624,43 @@ importers:
       '@types/crypto-js':
         specifier: ^4.2.2
         version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/inbox:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/agents':
+        specifier: workspace:*
+        version: link:../agents
+      '@vibesboard/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@vibesboard/channel-instagram':
+        specifier: workspace:*
+        version: link:../channel-instagram
+      '@vibesboard/channel-whatsapp':
+        specifier: workspace:*
+        version: link:../channel-whatsapp
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
+      nanoid:
+        specifier: ^4.0.2
+        version: 4.0.2
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
