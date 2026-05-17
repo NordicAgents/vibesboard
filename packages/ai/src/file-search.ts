@@ -376,7 +376,7 @@ export const ingestFileForAgent = async (args: {
   const fileName = args.fileName || fileKey.split('/').pop() || fileKey
   const mimeType = args.mimeType || guessMimeFromPath(fileName)
 
-  // Download from GCS
+  // Download from storage
   const buffer = await downloadFile(fileKey)
 
   const text = await extractTextFromBuffer(buffer, mimeType)

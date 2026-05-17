@@ -29,7 +29,7 @@ const ACCEPTED_MIME_TYPES = new Set([
 
 /**
  * POST /api/files/upload-url
- * Returns a signed URL for direct browser → GCS upload (pre-agent creation).
+ * Returns a signed URL for direct browser → S3 upload (pre-agent creation).
  */
 export async function POST(req: NextRequest) {
   const session = await auth()

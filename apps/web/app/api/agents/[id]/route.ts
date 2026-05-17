@@ -205,7 +205,7 @@ export async function DELETE(
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  // Clean up files from GCS
+  // Clean up files from storage
   if (agent.fileKeys && agent.fileKeys.length > 0) {
     await Promise.all(
       agent.fileKeys.map(fileKey =>

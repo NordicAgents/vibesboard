@@ -6,7 +6,7 @@ export const runtime = 'nodejs'
 
 /**
  * GET /api/agents/[id]/files/download-url?fileKey=...
- * Returns a signed download URL for a file in GCS
+ * Returns a signed download URL for a file in storage
  */
 export async function GET(
   req: NextRequest,

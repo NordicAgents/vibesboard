@@ -6,7 +6,7 @@ export const runtime = 'nodejs'
 
 /**
  * POST /api/agents/[id]/files/delete
- * Deletes a file from GCS
+ * Deletes a file from storage
  */
 export async function POST(
   req: NextRequest,
