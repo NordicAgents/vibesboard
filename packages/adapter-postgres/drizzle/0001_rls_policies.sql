@@ -7,33 +7,33 @@
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenants_iso ON tenants
   USING (
-    id = current_setting('app.current_tenant_id', true)::uuid
+    id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     OR current_setting('app.is_super_admin', true) = 'true'
   )
   WITH CHECK (
-    id = current_setting('app.current_tenant_id', true)::uuid
+    id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     OR current_setting('app.is_super_admin', true) = 'true'
   );
 
 ALTER TABLE tenant_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_members_iso ON tenant_members
   USING (
-    tenant_id = current_setting('app.current_tenant_id', true)::uuid
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     OR current_setting('app.is_super_admin', true) = 'true'
   )
   WITH CHECK (
-    tenant_id = current_setting('app.current_tenant_id', true)::uuid
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     OR current_setting('app.is_super_admin', true) = 'true'
   );
 
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY invitations_iso ON invitations
   USING (
-    tenant_id = current_setting('app.current_tenant_id', true)::uuid
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     OR current_setting('app.is_super_admin', true) = 'true'
   )
   WITH CHECK (
-    tenant_id = current_setting('app.current_tenant_id', true)::uuid
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
     OR current_setting('app.is_super_admin', true) = 'true'
   );
 
@@ -97,11 +97,11 @@ BEGIN
     EXECUTE format($p$
       CREATE POLICY %I ON %I
         USING (
-          tenant_id = current_setting('app.current_tenant_id', true)::uuid
+          tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
           OR current_setting('app.is_super_admin', true) = 'true'
         )
         WITH CHECK (
-          tenant_id = current_setting('app.current_tenant_id', true)::uuid
+          tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
           OR current_setting('app.is_super_admin', true) = 'true'
         )
     $p$, t || '_iso', t);

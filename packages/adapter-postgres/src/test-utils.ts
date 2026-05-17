@@ -48,8 +48,15 @@ export async function withTestDb<T>(
     'postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev')
   const appClient = postgres(appUrl, { max: 2, prepare: false })
 
+  // Extract the app role name from the app URL so we can grant privileges.
+  const appRole = new URL(appUrl).username
+
   try {
     await adminClient.unsafe(`CREATE SCHEMA "${schemaName}"`)
+    // Grant the app role access to the test schema so search_path resolution
+    // works and RLS policies can be evaluated against the test-schema tables.
+    await adminClient.unsafe(`GRANT USAGE ON SCHEMA "${schemaName}" TO ${appRole}`)
+    await adminClient.unsafe(`ALTER DEFAULT PRIVILEGES IN SCHEMA "${schemaName}" GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${appRole}`)
     await adminClient.unsafe(`SET search_path TO "${schemaName}"`)
     await appClient.unsafe(`SET search_path TO "${schemaName}", public`)
 
@@ -63,6 +70,12 @@ export async function withTestDb<T>(
         .split(/\r?\n/)
         .filter((line) => !/^\s*CREATE EXTENSION/i.test(line))
         .join('\n')
+        // Rewrite "public"."tablename" → "schemaName"."tablename" so FK
+        // constraints created in the test schema reference the schema-local
+        // tables rather than public.  Migrations are generated with explicit
+        // public-schema qualifiers; without this substitution every FK check
+        // would look up the parent row in public instead of the test schema.
+        .replace(/"public"\./g, `"${schemaName}".`)
       await adminClient.unsafe(filtered)
     }
 
