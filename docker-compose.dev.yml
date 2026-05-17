@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: vibesboard_dev
+      POSTGRES_USER: vibesboard
+      POSTGRES_PASSWORD: vibesboard
+    ports:
+      - '5432:5432'
+    volumes:
+      - vibesboard_pg:/var/lib/postgresql/data
+      - ./packages/adapter-postgres/docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vibesboard -d vibesboard_dev']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  adminer:
+    image: adminer:4
+    ports:
+      - '8888:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  vibesboard_pg:
