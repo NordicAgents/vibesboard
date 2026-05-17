@@ -88,6 +88,9 @@ importers:
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@vibesboard/data':
+        specifier: workspace:*
+        version: link:../../packages/data
       '@vibesboard/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -360,6 +363,31 @@ importers:
       firebase-admin:
         specifier: ^13.7.0
         version: 13.7.0(encoding@0.1.13)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/data:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vibesboard/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      crypto-js:
+        specifier: ^4.2.0
+        version: 4.2.0
+    devDependencies:
+      '@types/crypto-js':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

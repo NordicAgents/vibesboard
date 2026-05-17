@@ -38,6 +38,7 @@
     "@vibesboard/adapter-stripe": "workspace:*",
     "@vibesboard/booking-enquiries": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
+    "@vibesboard/data": "workspace:*",
     "@vibesboard/scheduling": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",
