@@ -49,8 +49,8 @@ export async function POST(
   const allConversations = snapshot.docs.map((doc: any) =>
     mapConversationDoc(doc.data())
   )
-  const visitorConversations = allConversations.filter(
-    (conversation: any) => Boolean(conversation.externalId)
+  const visitorConversations = allConversations.filter((conversation: any) =>
+    Boolean(conversation.externalId)
   )
 
   const nonVisitorConversationIds = allConversations
@@ -77,12 +77,10 @@ export async function POST(
     }
   }
 
-  const conversations = visitorConversations.filter(
-    (conversation: any) => {
-      if (!lastSync) return true
-      return new Date(conversation.updatedAt).getTime() > lastSync.getTime()
-    }
-  )
+  const conversations = visitorConversations.filter((conversation: any) => {
+    if (!lastSync) return true
+    return new Date(conversation.updatedAt).getTime() > lastSync.getTime()
+  })
 
   let synced = 0
   await limitConcurrency(conversations, 5, async (conversation: any) => {

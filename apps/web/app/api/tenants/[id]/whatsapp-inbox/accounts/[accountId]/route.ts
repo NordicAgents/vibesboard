@@ -84,10 +84,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
  * PATCH — Update account settings (agent assignment).
  * Body: { assignedAgentId?, agentAutoReply? }
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: tenantId, accountId } = await params
     const authResult = await requireTenantMember(tenantId)

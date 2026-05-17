@@ -5,7 +5,10 @@ import { type Message } from '@vibesboard/contracts'
 import { useCompletion } from 'ai/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-import { type VibeAgent, type VibeAgentConversation } from '@vibesboard/contracts'
+import {
+  type VibeAgent,
+  type VibeAgentConversation
+} from '@vibesboard/contracts'
 import { nanoid } from '@vibesboard/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'

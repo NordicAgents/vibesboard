@@ -4,7 +4,11 @@ import type { Message } from '@vibesboard/contracts'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { getHookById, verifySecret, recordHookUsage } from '@vibesboard/agents/hooks'
+import {
+  getHookById,
+  verifySecret,
+  recordHookUsage
+} from '@vibesboard/agents/hooks'
 import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
 import {
   ensureConversation,

@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
     .limit(100)
     .get()
 
-  const enquiries = snap.docs.map((d: any) => d.data() as BookingEnquiryDocument)
+  const enquiries = snap.docs.map(
+    (d: any) => d.data() as BookingEnquiryDocument
+  )
 
   return NextResponse.json({ enquiries })
 }

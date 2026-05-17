@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
-import { mapAgentDoc, createAgentSlug, ensureUniqueSlug } from '@vibesboard/agents/db'
+import {
+  mapAgentDoc,
+  createAgentSlug,
+  ensureUniqueSlug
+} from '@vibesboard/agents/db'
 import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@vibesboard/agents/schema'

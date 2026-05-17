@@ -11,7 +11,10 @@ import {
   createAgentSlug,
   ensureUniqueSlug
 } from '@vibesboard/agents/db'
-import { bookingConfigSchema, upsertAgentSchema } from '@vibesboard/agents/schema'
+import {
+  bookingConfigSchema,
+  upsertAgentSchema
+} from '@vibesboard/agents/schema'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'

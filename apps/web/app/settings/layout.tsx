@@ -38,7 +38,9 @@ async function getManageableTenants(userId: string): Promise<TenantDocument[]> {
   )
 
   const tenantDocs = await Promise.all(
-    tenantIds.map((id: any) => adminDb.collection(Collections.tenants).doc(id).get())
+    tenantIds.map((id: any) =>
+      adminDb.collection(Collections.tenants).doc(id).get()
+    )
   )
 
   return tenantDocs

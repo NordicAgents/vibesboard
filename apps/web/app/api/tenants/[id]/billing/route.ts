@@ -3,7 +3,11 @@ import { requireTenantMember } from '@/lib/firebase/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import { stripe } from '@vibesboard/adapter-stripe/server'
-import { getPlanTemplate, getAllPlanTemplates, type PlanId } from '@vibesboard/policy/plans'
+import {
+  getPlanTemplate,
+  getAllPlanTemplates,
+  type PlanId
+} from '@vibesboard/policy/plans'
 
 export const runtime = 'nodejs'
 

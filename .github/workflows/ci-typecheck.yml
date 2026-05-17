@@ -34,5 +34,5 @@ jobs:
         run: pnpm type-check
 
       - name: Type check (Cloud Functions)
-        working-directory: functions
+        working-directory: apps/functions
         run: npm ci && npm run build

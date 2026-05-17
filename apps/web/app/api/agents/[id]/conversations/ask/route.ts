@@ -12,7 +12,11 @@ import {
 import { nanoid } from '@vibesboard/utils'
 import { summarizeConversation } from '@vibesboard/ai/summarize'
 import { buildAskAiConversationContext } from '@vibesboard/ai/conversation-rag'
-import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@vibesboard/adapter-openai'
+import {
+  OPENAI_CHAT_MODEL,
+  isResponsesModel,
+  streamText
+} from '@vibesboard/adapter-openai'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 

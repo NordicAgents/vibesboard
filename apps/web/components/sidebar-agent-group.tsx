@@ -3,7 +3,10 @@
 import Link from 'next/link'
 import { useMemo } from 'react'
 
-import { type VibeAgent, type VibeAgentConversation } from '@vibesboard/contracts'
+import {
+  type VibeAgent,
+  type VibeAgentConversation
+} from '@vibesboard/contracts'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconArrowDown, IconArrowRight } from '@/components/ui/icons'

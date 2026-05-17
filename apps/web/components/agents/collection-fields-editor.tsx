@@ -3,7 +3,10 @@
 import { useCallback } from 'react'
 import { GripVertical, Plus, Trash2 } from 'lucide-react'
 
-import type { CollectionField, CollectionFieldType } from '@vibesboard/contracts'
+import type {
+  CollectionField,
+  CollectionFieldType
+} from '@vibesboard/contracts'
 import { nanoid } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

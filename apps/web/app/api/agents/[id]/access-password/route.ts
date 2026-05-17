@@ -11,7 +11,9 @@ export const runtime = 'nodejs'
 
 async function parseJsonBody(
   req: NextRequest
-): Promise<{ ok: true; body: unknown } | { ok: false; response: NextResponse }> {
+): Promise<
+  { ok: true; body: unknown } | { ok: false; response: NextResponse }
+> {
   try {
     return { ok: true, body: await req.json() }
   } catch {

@@ -4,7 +4,10 @@ import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { type VibeAgent } from '@vibesboard/contracts'
-import { deriveToolToggles, buildToolsPayload } from '@vibesboard/agents/tooling'
+import {
+  deriveToolToggles,
+  buildToolsPayload
+} from '@vibesboard/agents/tooling'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'

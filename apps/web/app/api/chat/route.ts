@@ -4,7 +4,11 @@ import { createOpenAI } from '@ai-sdk/openai'
 
 import { auth } from '@/auth'
 import { nanoid } from '@vibesboard/utils'
-import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@vibesboard/adapter-openai'
+import {
+  OPENAI_CHAT_MODEL,
+  isResponsesModel,
+  streamText
+} from '@vibesboard/adapter-openai'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 

@@ -2,7 +2,11 @@ import { after } from 'next/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { getHookById, verifySecret, recordHookUsage } from '@vibesboard/agents/hooks'
+import {
+  getHookById,
+  verifySecret,
+  recordHookUsage
+} from '@vibesboard/agents/hooks'
 import { getAgentById } from '@vibesboard/agents/server'
 import { createJob, runJobAsync } from '@vibesboard/agents/hook-jobs'
 

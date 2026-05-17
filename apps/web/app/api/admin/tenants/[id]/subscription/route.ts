@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
-import { getPlanTemplate, computeMessageLimit, type PlanId } from '@vibesboard/policy/plans'
+import {
+  getPlanTemplate,
+  computeMessageLimit,
+  type PlanId
+} from '@vibesboard/policy/plans'
 import { syncTenantFeatureFlags } from '@vibesboard/billing/plan-sync'
 
 export const runtime = 'nodejs'
