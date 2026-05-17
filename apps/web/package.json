@@ -33,6 +33,7 @@
     "@vercel/analytics": "^1.0.1",
     "@vercel/og": "^0.5.7",
     "@vibesboard/adapter-firebase": "workspace:*",
+    "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",

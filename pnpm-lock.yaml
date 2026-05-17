@@ -73,6 +73,9 @@ importers:
       '@vibesboard/adapter-firebase':
         specifier: workspace:*
         version: link:../../packages/adapter-firebase
+      '@vibesboard/adapter-openai':
+        specifier: workspace:*
+        version: link:../../packages/adapter-openai
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -263,6 +266,15 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/adapter-openai:
     devDependencies:
       '@types/node':
         specifier: ^25.6.0

@@ -4,10 +4,10 @@
 // (Firebase, OpenAI, Anthropic, Google, Stripe, channel-*) fleshes out the
 // methods it needs, defined by what current code actually calls. See spec §5.
 
-export type { IDataStore } from './data-store'
-export type { IAuth } from './auth'
-export type { IStorage } from './storage'
-export type { IAIProvider } from './ai-provider'
-export type { ICalendarProvider } from './calendar-provider'
-export type { IBilling } from './billing'
-export type { IInboxChannel } from './inbox-channel'
+export type { IDataStore } from './data-store.ts'
+export type { IAuth } from './auth.ts'
+export type { IStorage } from './storage.ts'
+export type { IAIProvider } from './ai-provider.ts'
+export type { ICalendarProvider } from './calendar-provider.ts'
+export type { IBilling } from './billing.ts'
+export type { IInboxChannel } from './inbox-channel.ts'

@@ -11,8 +11,8 @@
 //
 // See docs/superpowers/specs/2026-05-16-monorepo-split-design.md.
 
-export * from './firestore-types'
-export * from './types'
-export type { Message } from './message'
+export * from './firestore-types.ts'
+export * from './types.ts'
+export type { Message } from './message.ts'
 
-export * from './ports'
+export * from './ports/index.ts'
