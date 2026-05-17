@@ -12,6 +12,16 @@ const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 function resolveSecret(): string {
   const secret = process.env.BETTER_AUTH_SECRET
   if (secret) return secret
+  // `next build` sets NODE_ENV=production but does not inject runtime secrets.
+  // getDb() short-circuits to a no-op proxy under the same NEXT_PHASE guard;
+  // mirror that here so the auth instance can be constructed at prerender
+  // time without throwing. No real auth call runs in this phase.
+  if (
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.NEXT_PHASE === 'phase-export'
+  ) {
+    return 'build-time-placeholder-not-used'
+  }
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
       '[adapter-better-auth] BETTER_AUTH_SECRET must be set in production. ' +
