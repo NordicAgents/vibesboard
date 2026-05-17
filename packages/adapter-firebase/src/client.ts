@@ -1,7 +1,7 @@
 'use client'
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
-import { getAuth, type Auth } from 'firebase/auth'
+import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,6 +11,11 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
+
+// When NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST is set (dev only), wire the
+// client Auth SDK to the local emulator. Mirrors the admin-side detection
+// in ./admin.ts.
+const authEmulatorHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST
 
 let app: FirebaseApp | undefined
 let auth: Auth | undefined
@@ -26,6 +31,11 @@ export function getClientApp(): FirebaseApp {
 export function getClientAuth(): Auth {
   if (!auth) {
     auth = getAuth(getClientApp())
+    if (authEmulatorHost) {
+      connectAuthEmulator(auth, `http://${authEmulatorHost}`, {
+        disableWarnings: true
+      })
+    }
   }
   return auth
 }
