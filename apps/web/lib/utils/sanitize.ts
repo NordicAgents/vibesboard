@@ -1,7 +1,3 @@
-/**
- * Strip newlines and control characters from user-controlled strings before
- * interpolating them into AI system prompts to prevent prompt injection.
- */
-export function sanitizeForPrompt(value: string): string {
-  return value.replace(/[\r\n\x00-\x1F\x7F]/g, ' ').trim()
-}
+// Re-export shim — the real implementation lives in @vibesboard/utils.
+// Deleted in Phase 12.
+export * from '@vibesboard/utils'
