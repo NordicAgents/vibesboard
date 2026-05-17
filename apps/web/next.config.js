@@ -1,6 +1,10 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // pnpm workspace lives two levels up — tell Next to trace deps from there.
+  outputFileTracingRoot: path.join(__dirname, '../..'),
   reactStrictMode: true,
   images: {
     remotePatterns: [

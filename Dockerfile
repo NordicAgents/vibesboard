@@ -12,7 +12,10 @@ RUN corepack enable
 # Install deps (cached layer)
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/functions/package.json ./apps/functions/
+COPY packages/contracts/package.json ./packages/contracts/
 # Install all deps including dev (needed for build)
 RUN pnpm install --no-frozen-lockfile --prod=false
 
@@ -20,6 +23,8 @@ RUN pnpm install --no-frozen-lockfile --prod=false
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages/contracts/node_modules ./packages/contracts/node_modules
 COPY . .
 # Inject public runtime configuration at build time for client bundles
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
@@ -45,7 +50,7 @@ ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY \
     NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID \
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 # Build Next.js (standalone output)
-RUN pnpm run build
+RUN pnpm --filter @vibesboard/web build
 
 # Production runner (standalone — no separate node_modules needed)
 FROM node:20-alpine AS runner
@@ -57,14 +62,15 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 # Copy standalone build (includes server + minimal node_modules)
-COPY --from=builder /app/.next/standalone ./
-# Copy static assets and public files into standalone
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# Next.js standalone in a monorepo places the server under apps/web/
+COPY --from=builder /app/apps/web/.next/standalone ./
+# Copy static assets and public files into the standalone server root
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
 
 # Create cache dir writable by nextjs user (image optimization, etc.)
 RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next/cache
 
 USER nextjs
 EXPOSE 8080
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]

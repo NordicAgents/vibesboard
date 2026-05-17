@@ -58,7 +58,7 @@ env.yaml
 .kilocode
 
 # Cloud Functions build output
-functions/lib
+apps/functions/lib
 
 # test artifacts
 .playwright-mcp/
