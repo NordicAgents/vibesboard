@@ -9,6 +9,23 @@ import { onUserCreateAfter } from './on-user-create.ts'
 
 const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
+function resolveSecret(): string {
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (secret) return secret
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[adapter-better-auth] BETTER_AUTH_SECRET must be set in production. ' +
+        'Generate one with: openssl rand -hex 32',
+    )
+  }
+  // Dev fallback — print a loud warning so it doesn't slip into prod silently.
+  console.warn(
+    '[adapter-better-auth] BETTER_AUTH_SECRET is not set; using a public dev secret. ' +
+      'DO NOT use this configuration in production.',
+  )
+  return 'dev-secret-change-me'
+}
+
 function buildAuth() {
   return betterAuth({
   database: drizzleAdapter(getDb(), {
@@ -17,7 +34,7 @@ function buildAuth() {
     usePlural: true,
   }),
   baseURL,
-  secret: process.env.BETTER_AUTH_SECRET || 'dev-secret-change-me',
+  secret: resolveSecret(),
   // Our schema uses uuid columns; Better Auth's default ID generator emits
   // nanoids which would fail the uuid CHECK. Route through uuidv7.
   advanced: { database: { generateId: () => uuidv7() } },
@@ -41,6 +58,10 @@ function buildAuth() {
   },
   plugins: [
     magicLink({
+      // Hash the token in the verifications table so a DB reader (backup,
+      // psql access, SQLi vector) cannot replay an unexpired sign-in URL.
+      // The token in the email URL itself remains a one-time bearer secret.
+      storeToken: 'hashed',
       sendMagicLink: ({ email, url }) => sendMagicLinkEmail({ email, url }),
     }),
   ],
