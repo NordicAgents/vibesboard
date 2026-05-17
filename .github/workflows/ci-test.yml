@@ -54,9 +54,10 @@ jobs:
               echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
             fi
           done
-          # Create the bucket via the mc client image. Use --network host so
-          # 'localhost:9000' resolves to the runner-bound minio port.
-          docker run --rm --network host minio/mc:latest sh -c "
+          # Create the bucket via the mc client image. The image's ENTRYPOINT
+          # is 'mc'; override to sh so we can chain commands. --network host
+          # so 'localhost:9000' resolves to the runner-bound minio port.
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
             mc alias set local http://localhost:9000 vibesboard vibesboard &&
             (mc mb -p local/vibesboard-files || true) &&
             mc anonymous set none local/vibesboard-files &&
