@@ -1,0 +1,51 @@
+import { betterAuth } from 'better-auth'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { magicLink } from 'better-auth/plugins'
+import { getDb } from '@vibesboard/adapter-postgres/client'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { sendMagicLinkEmail, sendVerifyEmail, sendResetPasswordEmail } from './email.ts'
+import { onUserCreateAfter } from './on-user-create.ts'
+
+const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
+export const auth = betterAuth({
+  database: drizzleAdapter(getDb(), {
+    provider: 'pg',
+    schema,
+    usePlural: true,
+  }),
+  baseURL,
+  secret: process.env.BETTER_AUTH_SECRET || 'dev-secret-change-me',
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    sendResetPassword: ({ user, url }) => sendResetPasswordEmail({ user, url }),
+  },
+  emailVerification: {
+    sendVerificationEmail: ({ user, url }) => sendVerifyEmail({ user, url }),
+  },
+  socialProviders: {
+    ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
+      ? {
+          google: {
+            clientId: process.env.AUTH_GOOGLE_ID,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET,
+          },
+        }
+      : {}),
+  },
+  plugins: [
+    magicLink({
+      sendMagicLink: ({ email, url }) => sendMagicLinkEmail({ email, url }),
+    }),
+  ],
+  databaseHooks: {
+    user: {
+      create: {
+        after: (user) => onUserCreateAfter(user),
+      },
+    },
+  },
+})
+
+export type Auth = typeof auth
