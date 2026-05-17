@@ -1,16 +1,3 @@
-import { INTEGRATION_REGISTRY } from './registry'
-import type { IntegrationDefinition } from './types'
-
-export function getIntegrationByType(
-  type: string
-): IntegrationDefinition | undefined {
-  return INTEGRATION_REGISTRY.find(i => i.type === type)
-}
-
-export function getAvailableIntegrations(): IntegrationDefinition[] {
-  return INTEGRATION_REGISTRY.filter(i => i.status === 'available')
-}
-
-export function getComingSoonIntegrations(): IntegrationDefinition[] {
-  return INTEGRATION_REGISTRY.filter(i => i.status === 'coming_soon')
-}
+// Re-export shim — real implementation in @vibesboard/integrations/helpers.
+// Deleted in Phase 12.
+export * from '@vibesboard/integrations/helpers'
