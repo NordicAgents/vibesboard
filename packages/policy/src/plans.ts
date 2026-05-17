@@ -1,175 +1,123 @@
-import type { FeatureFlagName } from './feature-flags.ts'
-import type { PlanId, PlanTemplateDocument } from '@vibesboard/contracts'
+/**
+ * Self-host shim — Stripe is removed; there is one notional plan with
+ * no enforced limits. Callers of the previous plan API continue to
+ * compile via this module's exports; runtime behaviour is "always allowed".
+ */
 
 // Re-export PlanId so callers that imported it from '@/lib/plans' keep
 // working through the apps/web shim. Canonical definition is in
 // @vibesboard/contracts.
-export type { PlanId }
+export type { PlanId } from '@vibesboard/contracts'
+
+import type { PlanId } from '@vibesboard/contracts'
+import type { FeatureFlagName } from './feature-flags.ts'
 
 export interface PlanDefinition {
   id: PlanId
   name: string
-  price: number // monthly price in cents (0, 1900, 1000, 0)
-  pricePerSeat?: number // cents per seat (Team only: 1000)
-  minSeats?: number // minimum seats (Team only: 3)
-  includedMessages: number // per month (Free: 100, Pro: 5000)
-  includedMessagesPerSeat?: number // Team only: 10000/seat
-  overageRate: number // cents per message (0 = hard cap)
-  featureFlags: FeatureFlagName[] // flags enabled for this plan
+  price: number
+  pricePerSeat?: number
+  minSeats?: number
+  includedMessages: number
+  includedMessagesPerSeat?: number
+  overageRate: number
+  featureFlags: FeatureFlagName[]
 }
 
-/** Default plan definitions — used as seed data and fallback */
+// PlanLimits alias kept for any caller that used the old shape
+export interface PlanLimits {
+  messages: number
+  agents: number
+  members: number
+}
+
+// PlanTemplate alias kept for any caller that used the old shape
+export type PlanTemplate = PlanDefinition
+
 export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
   free: {
     id: 'free',
     name: 'Free',
     price: 0,
-    includedMessages: 100,
-    overageRate: 0, // hard cap
-    featureFlags: ['AGENT_LINKS']
+    includedMessages: Number.POSITIVE_INFINITY,
+    overageRate: 0,
+    featureFlags: [],
   },
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: 1900, // $19
-    includedMessages: 5000,
-    overageRate: 0.5, // $0.005
-    featureFlags: [
-      'AGENT_LINKS',
-      'EMBED_WIDGET',
-      'GOOGLE_REVIEW',
-      'INBOX',
-      'AGENT_NOTIFICATIONS',
-      'AGENT_NOTIFICATIONS_INAPP',
-      'AGENT_NOTIFICATIONS_EMAIL',
-      'AGENT_NOTIFICATIONS_WEBHOOK'
-    ]
+    price: 0,
+    includedMessages: Number.POSITIVE_INFINITY,
+    overageRate: 0,
+    featureFlags: [],
   },
   team: {
     id: 'team',
     name: 'Team',
-    price: 0, // base is per-seat
-    pricePerSeat: 1000, // $10/seat
-    minSeats: 3,
-    includedMessages: 0, // computed from seats
-    includedMessagesPerSeat: 10000,
-    overageRate: 0.3, // $0.003
-    featureFlags: [
-      'AGENT_LINKS',
-      'EMBED_WIDGET',
-      'GOOGLE_REVIEW',
-      'INBOX',
-      'WHATSAPP_INBOX',
-      'INSTAGRAM_INBOX',
-      'CHATWOOT',
-      'AGENT_NOTIFICATIONS',
-      'AGENT_NOTIFICATIONS_INAPP',
-      'AGENT_NOTIFICATIONS_EMAIL',
-      'AGENT_NOTIFICATIONS_WEBHOOK',
-      'TEAM_COLLABORATION',
-      'CUSTOM_BRANDING'
-    ]
+    price: 0,
+    includedMessages: Number.POSITIVE_INFINITY,
+    overageRate: 0,
+    featureFlags: [],
   },
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 0, // custom
-    includedMessages: 0, // custom
-    overageRate: 0, // custom
-    featureFlags: [] // all flags enabled by override
-  }
+    price: 0,
+    includedMessages: Number.POSITIVE_INFINITY,
+    overageRate: 0,
+    featureFlags: [],
+  },
 }
 
-// ─── Firestore-backed plan access (with cache) ─────────────────────
+// PLAN_TEMPLATES kept as an alias for DEFAULT_PLANS for backward compatibility
+export const PLAN_TEMPLATES = DEFAULT_PLANS
 
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
-const planCache = new Map<string, { data: PlanDefinition; expiresAt: number }>()
-
-export function toPlanDefinition(doc: PlanTemplateDocument): PlanDefinition {
+/** toPlanDefinition — identity shim; source document shape no longer matters */
+export function toPlanDefinition(doc: Record<string, unknown>): PlanDefinition {
   return {
-    id: doc.id as PlanId,
-    name: doc.name,
-    price: doc.price,
-    pricePerSeat: doc.pricePerSeat ?? undefined,
-    minSeats: doc.minSeats ?? undefined,
-    includedMessages: doc.includedMessages,
-    includedMessagesPerSeat: doc.includedMessagesPerSeat ?? undefined,
-    overageRate: doc.overageRate,
-    featureFlags: doc.featureFlags as FeatureFlagName[]
+    id: (doc.id as PlanId) ?? 'free',
+    name: (doc.name as string) ?? 'Self-host',
+    price: (doc.price as number) ?? 0,
+    pricePerSeat: doc.pricePerSeat as number | undefined,
+    minSeats: doc.minSeats as number | undefined,
+    includedMessages: Number.POSITIVE_INFINITY,
+    includedMessagesPerSeat: doc.includedMessagesPerSeat as number | undefined,
+    overageRate: 0,
+    featureFlags: [],
   }
 }
 
-/**
- * Get a plan template from Firestore, falling back to DEFAULT_PLANS.
- * Results are cached in-memory for 5 minutes.
- */
-export async function getPlanTemplate(planId: PlanId): Promise<PlanDefinition> {
-  const cached = planCache.get(planId)
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.data
-  }
-
-  try {
-    // Dynamic import to avoid pulling Firebase into client bundles
-    const { adminDb } = await import('@vibesboard/adapter-firebase/admin')
-    const { Collections } = await import('@vibesboard/contracts')
-
-    const snap = await adminDb
-      .collection(Collections.planTemplates)
-      .doc(planId)
-      .get()
-
-    if (snap.exists) {
-      const plan = toPlanDefinition(snap.data() as PlanTemplateDocument)
-      planCache.set(planId, {
-        data: plan,
-        expiresAt: Date.now() + CACHE_TTL_MS
-      })
-      return plan
-    }
-  } catch (err: unknown) {
-    console.error('[plans] Failed to read plan template from Firestore:', err)
-  }
-
-  // Fallback to code defaults
-  return DEFAULT_PLANS[planId]
+/** Always returns the default (unlimited) plan for any planId. */
+export async function getPlanTemplate(
+  _planId: PlanId | string | null | undefined,
+): Promise<PlanDefinition> {
+  return DEFAULT_PLANS.free
 }
 
-/** Get all plan templates from Firestore, falling back to DEFAULT_PLANS. */
+/** Returns all plans (all pointing to unlimited self-host config). */
 export async function getAllPlanTemplates(): Promise<PlanDefinition[]> {
-  try {
-    const { adminDb } = await import('@vibesboard/adapter-firebase/admin')
-    const { Collections } = await import('@vibesboard/contracts')
-
-    const snap = await adminDb.collection(Collections.planTemplates).get()
-    if (!snap.empty) {
-      return snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) =>
-        toPlanDefinition(d.data() as PlanTemplateDocument)
-      )
-    }
-  } catch (err: unknown) {
-    console.error('[plans] Failed to read plan templates from Firestore:', err)
-  }
-
   return Object.values(DEFAULT_PLANS)
 }
 
-/** Invalidate the in-memory plan template cache (e.g. after admin edits a plan). */
-export function invalidatePlanCache(planId?: PlanId): void {
-  if (planId) {
-    planCache.delete(planId)
-  } else {
-    planCache.clear()
+/** No-op: there is no cache to invalidate. */
+export function invalidatePlanCache(_planId?: PlanId): void {}
+
+/** Compute the effective message limit — always infinite in self-host. */
+export function computeMessageLimit(
+  _plan: PlanDefinition,
+  _seatCount: number,
+): number {
+  return Number.POSITIVE_INFINITY
+}
+
+export function getPlanLimits(_planId: PlanId | string | null | undefined): PlanLimits {
+  return {
+    messages: Number.POSITIVE_INFINITY,
+    agents: Number.POSITIVE_INFINITY,
+    members: Number.POSITIVE_INFINITY,
   }
 }
 
-/** Compute the effective message limit for a plan + seat count */
-export function computeMessageLimit(
-  plan: PlanDefinition,
-  seatCount: number
-): number {
-  if (plan.includedMessagesPerSeat) {
-    return seatCount * plan.includedMessagesPerSeat
-  }
-  return plan.includedMessages
+export function getDefaultPlanId(): PlanId {
+  return 'free'
 }
