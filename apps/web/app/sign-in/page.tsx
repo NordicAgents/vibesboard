@@ -8,7 +8,8 @@ import { getSafeRedirectPath } from '@/lib/redirects'
 
 export default function SignInPage() {
   const searchParams = useSearchParams()
-  const rawRedirectedFrom = searchParams.get('redirectedFrom') ?? searchParams.get('next') ?? undefined
+  const rawRedirectedFrom =
+    searchParams.get('redirectedFrom') ?? searchParams.get('next') ?? undefined
   const redirectedFrom = getSafeRedirectPath(rawRedirectedFrom) ?? undefined
 
   return (
@@ -26,10 +27,7 @@ export default function SignInPage() {
         </div>
 
         <div className="rounded-[1.75rem] border border-[#e4e3e3] bg-[#f5f8f7] p-6 shadow-soft dark:border-[#344348] dark:bg-[#192425] sm:p-8">
-          <LoginForm
-            action="sign-in"
-            redirectedFrom={redirectedFrom}
-          />
+          <LoginForm action="sign-in" redirectedFrom={redirectedFrom} />
 
           <div className="relative my-6">
             <Separator className="bg-[#e4e3e3] dark:bg-[#344348]" />

@@ -91,3 +91,14 @@ pnpm --filter @vibesboard/adapter-postgres test
 ```
 
 See [docs/superpowers/specs/2026-05-17-adapter-postgres-foundation-design.md](docs/superpowers/specs/2026-05-17-adapter-postgres-foundation-design.md) for the design.
+
+### Sign-in methods
+
+By default, the self-host stack supports three sign-in flows:
+
+- **Google OAuth** — set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` in `.env`.
+  Without these, the Google button on the sign-in page does nothing.
+- **Email + password** — works without any extra config. Email verification
+  is required. Resend handles delivery (`RESEND_API_KEY`); without a key,
+  verification URLs are logged to the server console (good enough for dev).
+- **Magic link** — same Resend wiring; same console fallback.

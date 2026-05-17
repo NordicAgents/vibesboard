@@ -40,7 +40,7 @@ export function LoginForm({
         const { error } = await authClient.signIn.email({
           email,
           password,
-          callbackURL,
+          callbackURL
         })
         if (error) {
           toast.error(error.message ?? 'Sign-in failed')
@@ -53,7 +53,7 @@ export function LoginForm({
           email,
           password,
           name,
-          callbackURL,
+          callbackURL
         })
         if (error) {
           toast.error(error.message ?? 'Sign-up failed')

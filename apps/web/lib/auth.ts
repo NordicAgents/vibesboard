@@ -17,7 +17,7 @@ export async function auth(): Promise<{ user: SessionUser } | null> {
       id: session.user.id,
       email: session.user.email,
       name: session.user.name ?? null,
-      image: session.user.image ?? null,
-    },
+      image: session.user.image ?? null
+    }
   }
 }
