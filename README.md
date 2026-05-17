@@ -79,8 +79,9 @@ Requirements: Docker, pnpm.
 ```bash
 cp .env.example .env       # already done if you run the full app locally
 pnpm install
-pnpm db:setup              # docker compose up + migrate + seed
+pnpm db:setup              # docker compose up Postgres + MinIO + migrate + seed
 pnpm db:studio             # browse the schema at https://local.drizzle.studio
+pnpm minio:console         # browse the S3 bucket at http://localhost:9001
 ```
 
 Run the package tests:
