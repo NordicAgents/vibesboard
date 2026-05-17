@@ -10,7 +10,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import { users } from './users'
 
-type TenantBranding = {
+type TenantBrandingJson = {
   logoUrl?: string
   primaryColor?: string
   secondaryColor?: string
@@ -28,7 +28,7 @@ export const tenants = pgTable('tenants', {
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   isPersonal: boolean('is_personal').notNull().default(false),
   googlePlaceId: text('google_place_id'),
-  branding: jsonb('branding').$type<TenantBranding>(),
+  branding: jsonb('branding').$type<TenantBrandingJson>(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
