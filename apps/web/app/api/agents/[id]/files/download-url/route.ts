@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getSignedDownloadUrl } from '@vibesboard/adapter-firebase/storage'
+import { getSignedDownloadUrl } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 

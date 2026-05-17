@@ -35,6 +35,7 @@
     "@vibesboard/adapter-firebase": "workspace:*",
     "@vibesboard/adapter-google": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
+    "@vibesboard/adapter-s3": "workspace:*",
     "@vibesboard/adapter-stripe": "workspace:*",
     "@vibesboard/agents": "workspace:*",
     "@vibesboard/ai": "workspace:*",

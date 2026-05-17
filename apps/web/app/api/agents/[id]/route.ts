@@ -6,7 +6,7 @@ import { mapAgentDoc } from '@vibesboard/agents/db'
 import { patchAgentSchema } from '@vibesboard/agents/schema'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getAgentById } from '@vibesboard/agents/server'
-import { deleteFile } from '@vibesboard/adapter-firebase/storage'
+import { deleteFile } from '@vibesboard/adapter-s3'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 
 export const runtime = 'nodejs'

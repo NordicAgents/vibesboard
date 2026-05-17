@@ -81,6 +81,9 @@ importers:
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../../packages/adapter-openai
+      '@vibesboard/adapter-s3':
+        specifier: workspace:*
+        version: link:../../packages/adapter-s3
       '@vibesboard/adapter-stripe':
         specifier: workspace:*
         version: link:../../packages/adapter-stripe
@@ -463,6 +466,9 @@ importers:
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../adapter-openai
+      '@vibesboard/adapter-s3':
+        specifier: workspace:*
+        version: link:../adapter-s3
       '@vibesboard/agents':
         specifier: workspace:*
         version: link:../agents
