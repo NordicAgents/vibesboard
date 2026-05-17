@@ -25,11 +25,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set environment variables
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PROD_FIREBASE_PROJECT: ${{ secrets.PROD_FIREBASE_PROJECT }}
+          STAGING_FIREBASE_PROJECT: ${{ secrets.STAGING_FIREBASE_PROJECT }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "FIREBASE_PROJECT=${{ secrets.PROD_FIREBASE_PROJECT }}" >> $GITHUB_ENV
+          if [ "$REF_NAME" = "main" ]; then
+            echo "FIREBASE_PROJECT=$PROD_FIREBASE_PROJECT" >> "$GITHUB_ENV"
           else
-            echo "FIREBASE_PROJECT=${{ secrets.STAGING_FIREBASE_PROJECT }}" >> $GITHUB_ENV
+            echo "FIREBASE_PROJECT=$STAGING_FIREBASE_PROJECT" >> "$GITHUB_ENV"
           fi
 
       - name: Authenticate to GCP
