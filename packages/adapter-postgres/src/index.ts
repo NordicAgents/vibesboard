@@ -1,7 +1,7 @@
 // @vibesboard/adapter-postgres
 //
 // Import via subpaths, not via this barrel:
-//   import { db }           from '@vibesboard/adapter-postgres/client'        // server-only
+//   import { withDb }       from '@vibesboard/adapter-postgres/client'        // server-only
 //   import * as schema      from '@vibesboard/adapter-postgres/schema'
 //   import { withTenant }   from '@vibesboard/adapter-postgres/tenant-context'
 //   import { withTestDb }   from '@vibesboard/adapter-postgres/test-utils'

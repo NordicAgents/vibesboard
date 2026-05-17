@@ -22,7 +22,26 @@ pnpm db:studio  # open Drizzle Studio at https://local.drizzle.studio
 ## Imports
 
 ```ts
-import { db }           from '@vibesboard/adapter-postgres/client'
+import { withDb }       from '@vibesboard/adapter-postgres/client'
 import * as schema      from '@vibesboard/adapter-postgres/schema'
 import { withTenant }   from '@vibesboard/adapter-postgres/tenant-context'
 ```
+
+## Usage
+
+```ts
+import { withTenant } from '@vibesboard/adapter-postgres/tenant-context'
+import { withDb }     from '@vibesboard/adapter-postgres/client'
+import { messages }   from '@vibesboard/adapter-postgres/schema'
+
+await withTenant({ tenantId, userId, isSuperAdmin: false }, async () => {
+  const rows = await withDb((tx) =>
+    tx.select().from(messages).where(eq(messages.conversationId, convId))
+  )
+})
+```
+
+`withDb` opens a transaction, applies the tenant context's `SET LOCAL`
+GUCs so RLS enforces isolation, then runs your function and commits.
+Without an active `withTenant` wrapper, tenant-scoped queries return
+zero rows (fail closed).
