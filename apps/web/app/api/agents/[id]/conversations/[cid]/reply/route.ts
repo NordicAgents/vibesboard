@@ -3,17 +3,17 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
-import { canEditAgent } from '@/lib/agents/permissions'
+import { getAgentById } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 import {
   getConversation,
   updateConversationMessages
-} from '@/lib/agents/conversations'
-import { sendChatwootMessage } from '@/lib/chatwoot/api-client'
+} from '@vibesboard/agents/conversations'
+import { sendChatwootMessage } from '@vibesboard/channel-chatwoot/api-client'
 import {
   listChatwootConnections,
   decryptToken
-} from '@/lib/chatwoot/connections'
+} from '@vibesboard/channel-chatwoot/connections'
 
 export const runtime = 'nodejs'
 

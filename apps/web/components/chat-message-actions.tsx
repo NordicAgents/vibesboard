@@ -1,11 +1,11 @@
 'use client'
 
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 
 import { Button } from '@/components/ui/button'
 import { IconCheck, IconCopy } from '@/components/ui/icons'
 import { useCopyToClipboard } from '@/lib/hooks/use-copy-to-clipboard'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 interface ChatMessageActionsProps extends React.ComponentProps<'div'> {
   message: Message

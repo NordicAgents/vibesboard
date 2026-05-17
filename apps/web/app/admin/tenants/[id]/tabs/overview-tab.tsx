@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import type { TenantDocument } from '@/lib/firestore-types'
+import type { TenantDocument } from '@vibesboard/contracts'
 import { Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 

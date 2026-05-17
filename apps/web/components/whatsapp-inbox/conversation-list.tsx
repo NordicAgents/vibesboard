@@ -1,9 +1,9 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { Badge } from '@/components/ui/badge'
 import { Bot } from 'lucide-react'
-import type { WhatsAppInboxConversationDocument } from '@/lib/firestore-types'
+import type { WhatsAppInboxConversationDocument } from '@vibesboard/contracts'
 
 interface ConversationListProps {
   conversations: WhatsAppInboxConversationDocument[]

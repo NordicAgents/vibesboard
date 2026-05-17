@@ -1,36 +1,36 @@
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 import { NextRequest, NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { getAgentById, getAgentNamesByTenant } from '@/lib/agents/server'
-import { agentChatRequestSchema } from '@/lib/agents/schema'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
+import { agentChatRequestSchema } from '@vibesboard/agents/schema'
 import {
   ensureConversation,
   updateConversationMessages,
   getConversation,
   recordConversationHandoff,
   updateConversationRef
-} from '@/lib/agents/conversations'
-import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
-import { runAgentStream } from '@/lib/agent/runtime'
-import { nanoid } from '@/lib/utils'
+} from '@vibesboard/agents/conversations'
+import { maybeAutoSummarize } from '@vibesboard/agents/auto-summarize'
+import { runAgentStream } from '@vibesboard/ai/runtime'
+import { nanoid } from '@vibesboard/utils'
 import {
   detectCompletionMarker,
   extractHandoffTarget,
   stripCompletionMarkers,
   wrapStreamWithCompletionDetection
-} from '@/lib/agent/completion'
+} from '@vibesboard/ai/completion'
 import {
   dispatchAgentNotification,
   mapCompletionToEvent
-} from '@/lib/agents/notifications'
-import { validateHandoff, buildHandoffContext } from '@/lib/agent/handoff'
-import { Collections } from '@/lib/firestore-types'
+} from '@vibesboard/agents/notifications'
+import { validateHandoff, buildHandoffContext } from '@vibesboard/ai/handoff'
+import { Collections } from '@vibesboard/contracts'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-import { reserveAgentResponseSlot } from '@/lib/agents/limits'
-import { OPENAI_CHAT_MODEL } from '@/lib/openai'
+import { reserveAgentResponseSlot } from '@vibesboard/agents/limits'
+import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

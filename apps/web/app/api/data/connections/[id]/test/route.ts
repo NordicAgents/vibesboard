@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   getDataConnection,
   getValidDataAccessToken
-} from '@/lib/data/connections'
-import { createDataProvider } from '@/lib/data/providers'
+} from '@vibesboard/data/connections'
+import { createDataProvider } from '@vibesboard/data/providers'
 
 export const runtime = 'nodejs'
 

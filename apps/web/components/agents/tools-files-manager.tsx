@@ -3,8 +3,8 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
-import { type VibeAgent } from '@/lib/types'
-import { deriveToolToggles, buildToolsPayload } from '@/lib/agents/tooling'
+import { type VibeAgent } from '@vibesboard/contracts'
+import { deriveToolToggles, buildToolsPayload } from '@vibesboard/agents/tooling'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -19,7 +19,7 @@ import {
   IconX,
   IconPlus
 } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 interface ToolsFilesManagerProps {
   agent: VibeAgent

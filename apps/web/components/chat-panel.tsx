@@ -4,7 +4,7 @@ import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { type UseChatHelpers } from 'ai/react'
 
-import { type AgentMode } from '@/lib/types'
+import { type AgentMode } from '@vibesboard/contracts'
 import { PromptForm } from '@/components/prompt-form'
 import { ChatCompletionBanner } from '@/components/chat-completion'
 import { QuickSuggestions } from '@/components/quick-suggestions'

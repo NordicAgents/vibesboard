@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { verifyRiscToken, handleRiscEvents } from '@/lib/google/risc'
+import { verifyRiscToken, handleRiscEvents } from '@vibesboard/adapter-google/risc'
 
 /**
  * POST /api/webhooks/google-risc

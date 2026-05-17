@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Bot } from 'lucide-react'
 
-import { type VibeAgent } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { type VibeAgent } from '@vibesboard/contracts'
+import { cn } from '@vibesboard/utils'
 
 interface SidebarAgentItemProps {
   agent: VibeAgent

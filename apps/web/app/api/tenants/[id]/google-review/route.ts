@@ -3,9 +3,9 @@ import {
   requireTenantMember,
   requireTenantAdmin
 } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 
 export const runtime = 'nodejs'
 

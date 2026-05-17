@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyButton } from '@/components/ui/copy-button'
-import { getAgentById } from '@/lib/agents/server'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type TenantDocument } from '@/lib/firestore-types'
+import { getAgentById } from '@vibesboard/agents/server'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections, type TenantDocument } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

@@ -1,7 +1,7 @@
 import 'server-only'
 
-import { isFeatureEnabled } from '@/lib/features'
-import { type FeatureFlagName } from '@/lib/feature-flags'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { type FeatureFlagName } from '@vibesboard/policy/feature-flags'
 
 interface ServerFeatureGateProps {
   feature: FeatureFlagName

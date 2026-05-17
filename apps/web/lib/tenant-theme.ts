@@ -1,10 +1,10 @@
 import 'server-only'
 
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import type { TenantBrandingDocument } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import type { TenantBrandingDocument } from '@vibesboard/contracts'
 import { ensureActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 import {
   hexToHslParts,

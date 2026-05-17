@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { BookingEnquiryDocument } from '@/lib/firestore-types'
+import type { BookingEnquiryDocument } from '@vibesboard/contracts'
 
 interface Props {
   agentId: string

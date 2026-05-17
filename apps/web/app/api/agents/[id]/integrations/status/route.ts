@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
-import { canEditAgent } from '@/lib/agents/permissions'
-import { listHooks } from '@/lib/agents/hooks'
-import { isFeatureEnabled } from '@/lib/features'
-import { INTEGRATION_REGISTRY } from '@/lib/integrations/registry'
-import type { IntegrationConnectionSummary } from '@/lib/integrations/types'
+import { getAgentById } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
+import { listHooks } from '@vibesboard/agents/hooks'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { INTEGRATION_REGISTRY } from '@vibesboard/integrations/registry'
+import type { IntegrationConnectionSummary } from '@vibesboard/integrations/types'
 
 export const runtime = 'nodejs'
 
@@ -61,7 +61,7 @@ export async function GET(
         case 'chatwoot': {
           try {
             const { listChatwootConnections } =
-              await import('@/lib/chatwoot/connections')
+              await import('@vibesboard/channel-chatwoot/connections')
             const connections = await listChatwootConnections(
               tenantId,
               agent.id,

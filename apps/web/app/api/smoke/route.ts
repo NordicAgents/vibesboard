@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 
-import { runAgentStream } from '@/lib/agent/runtime'
-import { type VibeAgent } from '@/lib/types'
+import { runAgentStream } from '@vibesboard/ai/runtime'
+import { type VibeAgent } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

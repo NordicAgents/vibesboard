@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
+import { getAgentById } from '@vibesboard/agents/server'
 import { getQrDataUrl } from '@/lib/qr'
-import { canEditAgent } from '@/lib/agents/permissions'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
 

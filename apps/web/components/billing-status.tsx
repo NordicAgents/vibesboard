@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import type { TenantSubscription } from '@/lib/firestore-types'
+import type { TenantSubscription } from '@vibesboard/contracts'
 
 interface BillingStatusProps {
   subscription: TenantSubscription | null

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
 
 export const runtime = 'nodejs'

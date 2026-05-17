@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import { FieldValue } from 'firebase-admin/firestore'
 import { setActiveTenantId } from '@/lib/tenant-context'
 

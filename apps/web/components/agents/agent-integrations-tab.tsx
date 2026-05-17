@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { getAvailableIntegrations } from '@/lib/integrations/helpers'
+import { cn } from '@vibesboard/utils'
+import { getAvailableIntegrations } from '@vibesboard/integrations/helpers'
 import type {
   IntegrationConnectionSummary,
   IntegrationDefinition
-} from '@/lib/integrations/types'
+} from '@vibesboard/integrations/types'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { IntegrationCard } from '@/components/agents/integration-card'
 import { AgentChatwootSettings } from '@/components/agents/agent-chatwoot-settings'
 import { AgentEmbedSettings } from '@/components/agents/agent-embed-settings'
 import { AgentHooksSettings } from '@/components/agents/agent-hooks-settings'
-import type { VibeAgent } from '@/lib/types'
+import type { VibeAgent } from '@vibesboard/contracts'
 
 interface AgentIntegrationsTabProps {
   agent: VibeAgent

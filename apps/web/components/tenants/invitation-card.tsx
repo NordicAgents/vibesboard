@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import type { InvitationDocument } from '@/lib/firestore-types'
+import type { InvitationDocument } from '@vibesboard/contracts'
 import { RoleBadge } from './role-badge'
 
 interface InvitationCardProps {

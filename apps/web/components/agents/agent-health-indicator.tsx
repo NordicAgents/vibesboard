@@ -1,6 +1,6 @@
 'use client'
 
-import type { VibeAgent } from '@/lib/types'
+import type { VibeAgent } from '@vibesboard/contracts'
 import type { AgentFormFields } from '@/lib/hooks/use-agent-form'
 import { Settings } from 'lucide-react'
 

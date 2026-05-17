@@ -1,10 +1,10 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Check } from 'lucide-react'
-import type { PlanDefinition } from '@/lib/plans'
+import type { PlanDefinition } from '@vibesboard/policy/plans'
 
 interface PlanCardProps {
   plan: PlanDefinition

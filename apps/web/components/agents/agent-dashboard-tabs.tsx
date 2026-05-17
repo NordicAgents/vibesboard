@@ -15,9 +15,9 @@ import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiri
 import { AgentActionsFlow } from '@/components/agents/agent-actions-flow'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
-import type { AgentSharePayload, VibeAgent } from '@/lib/types'
+import type { AgentSharePayload, VibeAgent } from '@vibesboard/contracts'
 import { ArrowLeft } from 'lucide-react'
-import type { ActionCapability } from '@/lib/agents/action-config'
+import type { ActionCapability } from '@vibesboard/agents/action-config'
 
 interface AgentDashboardTabsProps {
   agent: VibeAgent

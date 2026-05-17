@@ -8,9 +8,9 @@ import {
   ArrowRightLeft
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import type { NotificationDocument } from '@/lib/firestore-types'
+import type { NotificationDocument } from '@vibesboard/contracts'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 interface Props {
   tenantId: string

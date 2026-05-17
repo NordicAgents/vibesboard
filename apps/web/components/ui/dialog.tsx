@@ -3,7 +3,7 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { IconClose } from '@/components/ui/icons'
 
 const Dialog = DialogPrimitive.Root

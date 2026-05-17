@@ -9,19 +9,19 @@ import {
   useState
 } from 'react'
 import { useChat } from 'ai/react'
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 import { ChevronRight } from 'lucide-react'
 
-import { type AgentMode, type VibeAgent } from '@/lib/types'
+import { type AgentMode, type VibeAgent } from '@vibesboard/contracts'
 import {
   checkCompletion,
   isNewCollectorConversation
-} from '@/lib/agent/chat-completion-check'
-import { cn } from '@/lib/utils'
+} from '@vibesboard/ai/chat-completion-check'
+import { cn } from '@vibesboard/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
 import { EmptyScreen } from '@/components/empty-screen'
-import { nanoid } from '@/lib/utils'
+import { nanoid } from '@vibesboard/utils'
 
 // Completion signal markers (must match server-side)
 const COMPLETION_MARKERS = {

@@ -4,13 +4,13 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
+import { BUILTIN_AGENT_TOOLS } from '@vibesboard/agents/constants'
 import {
   type AgentToolType,
   type QuickSuggestionsMode,
   type RetrievalStrategy,
   type VibeAgentTool
-} from '@/lib/types'
+} from '@vibesboard/contracts'
 import { AgentBuilderHelper } from './agent-builder-helper'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,7 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 const RETRIEVAL_OPTIONS: {
   value: RetrievalStrategy

@@ -1,14 +1,14 @@
 import { notFound } from 'next/navigation'
 
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { mapAgentDoc } from '@/lib/agents/db'
-import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { mapAgentDoc } from '@vibesboard/agents/db'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
-import { hasValidAccessCookie } from '@/lib/agent/access-gate'
+import { hasValidAccessCookie } from '@/lib/access-gate'
 import { GatedAgentPage } from './gated-agent-page'
-import type { TenantBrandingDocument } from '@/lib/firestore-types'
+import type { TenantBrandingDocument } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

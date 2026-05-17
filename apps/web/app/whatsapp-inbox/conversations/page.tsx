@@ -21,7 +21,7 @@ import type {
   WhatsAppInboxConversationDocument,
   WhatsAppInboxMessageDocument,
   InboxConversationStatus
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 interface InboxAccount {
   id: string

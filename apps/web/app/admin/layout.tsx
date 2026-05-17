@@ -2,8 +2,8 @@ import * as React from 'react'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { auth } from '@/auth'
-import { isSuperAdmin } from '@/lib/permissions'
-import { cn } from '@/lib/utils'
+import { isSuperAdmin } from '@vibesboard/policy/permissions'
+import { cn } from '@vibesboard/utils'
 import {
   Building2,
   Flag,

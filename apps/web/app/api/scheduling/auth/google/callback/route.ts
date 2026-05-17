@@ -6,12 +6,12 @@ import {
   exchangeCode,
   getUserEmail,
   listCalendars
-} from '@/lib/scheduling/google-auth'
-import { createCalendarConnection } from '@/lib/scheduling/connections'
+} from '@vibesboard/scheduling/google-auth'
+import { createCalendarConnection } from '@vibesboard/scheduling/connections'
 import {
   appendSchedulingOAuthStatus,
   getSafeSchedulingReturnTo
-} from '@/lib/scheduling/oauth-return'
+} from '@vibesboard/scheduling/oauth-return'
 import { OAUTH_NONCE_COOKIE } from '../route'
 
 export const runtime = 'nodejs'

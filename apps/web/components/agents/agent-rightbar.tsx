@@ -10,7 +10,7 @@ import {
   type VibeAgentConversation,
   type AgentMode,
   type QuickSuggestionsMode
-} from '@/lib/types'
+} from '@vibesboard/contracts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 interface AgentRightbarProps {
   agent: VibeAgent

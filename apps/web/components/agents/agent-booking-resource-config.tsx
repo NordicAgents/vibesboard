@@ -17,10 +17,10 @@ import { AlertTriangle, CalendarDays, Trash2, Plus } from 'lucide-react'
 import type {
   AgentBookingConfig,
   BookableResource
-} from '@/lib/firestore-types'
-import { getBookingResourceConnectionPrompt } from '@/lib/agents/booking-resource-setup'
-import { getDirectBookingAccessWarning } from '@/lib/agents/direct-booking-access-warning'
-import { buildGoogleCalendarAuthPath } from '@/lib/scheduling/oauth-return'
+} from '@vibesboard/contracts'
+import { getBookingResourceConnectionPrompt } from '@vibesboard/agents/booking-resource-setup'
+import { getDirectBookingAccessWarning } from '@vibesboard/agents/direct-booking-access-warning'
+import { buildGoogleCalendarAuthPath } from '@vibesboard/scheduling/oauth-return'
 
 interface CalendarConnectionSummary {
   id: string

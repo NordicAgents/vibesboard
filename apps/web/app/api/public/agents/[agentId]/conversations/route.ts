@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getAgentById } from '@/lib/agents/server'
+import { getAgentById } from '@vibesboard/agents/server'
 import { ensureExternalSessionId } from '@/lib/agent-cookies'
-import { listAgentConversations } from '@/lib/agents/conversations'
+import { listAgentConversations } from '@vibesboard/agents/conversations'
 
 export const runtime = 'nodejs'
 

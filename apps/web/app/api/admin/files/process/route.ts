@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import {
   processBatch,
   type ProcessFileOptions
-} from '@/lib/agent/file-processor'
+} from '@vibesboard/ai/file-processor'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes for batch processing

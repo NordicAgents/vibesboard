@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { stripe } from '@vibesboard/adapter-stripe/server'
 import { requireTenantAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import {
   getOrCreateStripeCustomer,
   mapPlanToStripePrices
-} from '@/lib/stripe-helpers'
-import type { PlanId } from '@/lib/plans'
+} from '@vibesboard/billing/helpers'
+import type { PlanId } from '@vibesboard/policy/plans'
 
 export const runtime = 'nodejs'
 

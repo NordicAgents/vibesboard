@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import type { TenantDocument } from '@/lib/firestore-types'
+import type { TenantDocument } from '@vibesboard/contracts'
 
 interface TenantCardProps {
   tenant: TenantDocument

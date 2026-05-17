@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { bucket } from '@/lib/firebase/storage'
+import { bucket } from '@vibesboard/adapter-firebase/storage'
 
 export const runtime = 'nodejs'
 

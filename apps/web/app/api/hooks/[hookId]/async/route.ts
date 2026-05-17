@@ -2,9 +2,9 @@ import { after } from 'next/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
-import { getAgentById } from '@/lib/agents/server'
-import { createJob, runJobAsync } from '@/lib/agents/hook-jobs'
+import { getHookById, verifySecret, recordHookUsage } from '@vibesboard/agents/hooks'
+import { getAgentById } from '@vibesboard/agents/server'
+import { createJob, runJobAsync } from '@vibesboard/agents/hook-jobs'
 
 export const runtime = 'nodejs'
 

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { UseChatHelpers } from 'ai/react'
 
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { IconPaperclip, IconSpinner, IconX } from '@/components/ui/icons'
 
 export interface AttachedFile {

@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { PersistentSidebarLayout } from '@/components/layouts/persistent-sidebar-layout'
 import { redirect } from 'next/navigation'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export default async function WhatsAppInboxLayout({

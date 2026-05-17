@@ -1,37 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { Message } from '@/lib/types/message'
+import type { Message } from '@vibesboard/contracts'
 import { FieldValue } from 'firebase-admin/firestore'
 
-import { adminDb } from '@/lib/firebase/admin'
-import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
-import { getAgentById, getAgentNamesByTenant } from '@/lib/agents/server'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { getHookById, verifySecret, recordHookUsage } from '@vibesboard/agents/hooks'
+import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
 import {
   ensureConversation,
   updateConversationMessages,
   getConversation,
   recordConversationHandoff
-} from '@/lib/agents/conversations'
-import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
-import { runAgentStream } from '@/lib/agent/runtime'
+} from '@vibesboard/agents/conversations'
+import { maybeAutoSummarize } from '@vibesboard/agents/auto-summarize'
+import { runAgentStream } from '@vibesboard/ai/runtime'
 import {
   detectCompletionMarker,
   extractHandoffTarget,
   stripCompletionMarkers
-} from '@/lib/agent/completion'
-import { nanoid } from '@/lib/utils'
+} from '@vibesboard/ai/completion'
+import { nanoid } from '@vibesboard/utils'
 import {
   dispatchAgentNotification,
   mapCompletionToEvent
-} from '@/lib/agents/notifications'
+} from '@vibesboard/agents/notifications'
 import {
   validateHandoff,
   buildHandoffContext,
   MAX_HANDOFF_DEPTH
-} from '@/lib/agent/handoff'
-import { Collections } from '@/lib/firestore-types'
+} from '@vibesboard/ai/handoff'
+import { Collections } from '@vibesboard/contracts'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-import { OPENAI_CHAT_MODEL } from '@/lib/openai'
+import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
 

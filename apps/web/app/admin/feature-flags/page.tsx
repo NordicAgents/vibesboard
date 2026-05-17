@@ -29,8 +29,8 @@ import {
   FEATURE_FLAG_HIERARCHY,
   getFlagDepth,
   getRootAncestor
-} from '@/lib/feature-flags'
-import type { FeatureFlagName } from '@/lib/feature-flags'
+} from '@vibesboard/policy/feature-flags'
+import type { FeatureFlagName } from '@vibesboard/policy/feature-flags'
 import toast from 'react-hot-toast'
 
 interface FeatureFlag {

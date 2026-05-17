@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
-import { listAgentConversations } from '@/lib/agents/conversations'
+import { getAgentById } from '@vibesboard/agents/server'
+import { listAgentConversations } from '@vibesboard/agents/conversations'
 
 export const runtime = 'nodejs'
 

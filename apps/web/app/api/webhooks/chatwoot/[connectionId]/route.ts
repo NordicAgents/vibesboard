@@ -5,14 +5,14 @@ import { nanoid } from 'nanoid'
 import {
   getChatwootConnectionById,
   verifyWebhookSecret
-} from '@/lib/chatwoot/connections'
-import { handleChatwootMessage } from '@/lib/chatwoot/agent-handler'
-import { getAgentById } from '@/lib/agents/server'
+} from '@vibesboard/channel-chatwoot/connections'
+import { handleChatwootMessage } from '@vibesboard/channel-chatwoot/agent-handler'
+import { getAgentById } from '@vibesboard/agents/server'
 import {
   isConversationHandedOff,
   ensureConversation,
   updateConversationMessages
-} from '@/lib/agents/conversations'
+} from '@vibesboard/agents/conversations'
 
 export const runtime = 'nodejs'
 

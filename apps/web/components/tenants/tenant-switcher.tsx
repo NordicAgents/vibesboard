@@ -11,7 +11,7 @@ import {
   User,
   Users
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,

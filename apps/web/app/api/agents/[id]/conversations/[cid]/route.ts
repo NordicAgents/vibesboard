@@ -2,25 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
-import { canEditAgent } from '@/lib/agents/permissions'
+import { getAgentById } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 import {
   getConversation,
   markConversationHandedOff,
   resumeConversation,
   deleteConversation
-} from '@/lib/agents/conversations'
-import { mapConversationDoc } from '@/lib/agents/db'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+} from '@vibesboard/agents/conversations'
+import { mapConversationDoc } from '@vibesboard/agents/db'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import {
   handoffChatwootConversation,
   resumeChatwootConversation
-} from '@/lib/chatwoot/api-client'
+} from '@vibesboard/channel-chatwoot/api-client'
 import {
   listChatwootConnections,
   decryptToken
-} from '@/lib/chatwoot/connections'
+} from '@vibesboard/channel-chatwoot/connections'
 
 export const runtime = 'nodejs'
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AgentSchedulingConfig } from '@/lib/firestore-types'
+import type { AgentSchedulingConfig } from '@vibesboard/contracts'
 import {
   Card,
   CardContent,
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, Plus, Trash2 } from 'lucide-react'
-import { buildGoogleCalendarAuthPath } from '@/lib/scheduling/oauth-return'
+import { buildGoogleCalendarAuthPath } from '@vibesboard/scheduling/oauth-return'
 
 interface CalendarConnectionSummary {
   id: string

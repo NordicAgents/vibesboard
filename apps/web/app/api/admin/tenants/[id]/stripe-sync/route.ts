@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { stripe } from '@/lib/stripe'
-import { handleSubscriptionChange } from '@/lib/stripe-webhook-handlers'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { stripe } from '@vibesboard/adapter-stripe/server'
+import { handleSubscriptionChange } from '@vibesboard/billing/webhooks'
 
 export const runtime = 'nodejs'
 

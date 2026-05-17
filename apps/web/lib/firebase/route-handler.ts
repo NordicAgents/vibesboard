@@ -1,9 +1,9 @@
 import 'server-only'
 import { NextResponse } from 'next/server'
 import { auth, type SessionUser } from './auth'
-import { adminDb } from './admin'
-import { Collections } from '@/lib/firestore-types'
-import type { Role } from '@/lib/permissions'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import type { Role } from '@vibesboard/policy/permissions'
 
 interface AuthResult {
   user: SessionUser

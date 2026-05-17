@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import type {
   TenantDocument,
   TenantBrandingDocument
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 import toast from 'react-hot-toast'
 
 // Tab components

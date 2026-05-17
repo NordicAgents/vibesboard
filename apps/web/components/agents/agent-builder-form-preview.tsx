@@ -21,15 +21,15 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { IconSparkles, IconCheck, IconX, IconPlus } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import {
   type AgentToolType,
   type AgentMode,
   type RetrievalStrategy
-} from '@/lib/types'
-import type { AgentBookingConfig } from '@/lib/firestore-types'
-import { BUILTIN_AGENT_TOOLS } from '@/lib/agents/constants'
-import { getBookingConfigSummary } from '@/lib/agents/booking-defaults'
+} from '@vibesboard/contracts'
+import type { AgentBookingConfig } from '@vibesboard/contracts'
+import { BUILTIN_AGENT_TOOLS } from '@vibesboard/agents/constants'
+import { getBookingConfigSummary } from '@vibesboard/agents/booking-defaults'
 
 export interface AgentFormData {
   name?: string

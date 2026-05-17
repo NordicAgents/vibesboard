@@ -3,9 +3,9 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useCompletion } from 'ai/react'
 
-import { type VibeAgentConversation } from '@/lib/types'
-import { getConversationPreview } from '@/lib/agents/conversation-preview'
-import { formatDate } from '@/lib/utils'
+import { type VibeAgentConversation } from '@vibesboard/contracts'
+import { getConversationPreview } from '@vibesboard/agents/conversation-preview'
+import { formatDate } from '@vibesboard/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'

@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
-import { isSuperAdmin } from '@/lib/permissions'
+import { isSuperAdmin } from '@vibesboard/policy/permissions'
 import { AdminFileMonitor } from '@/components/admin/admin-file-monitor'
 
 export const metadata: Metadata = {

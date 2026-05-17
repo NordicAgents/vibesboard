@@ -15,7 +15,7 @@ import { UsageBreakdown } from '@/components/usage-breakdown'
 import type {
   TenantSubscription,
   UsageRollupDocument
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 interface DailyUsage {
   date: string

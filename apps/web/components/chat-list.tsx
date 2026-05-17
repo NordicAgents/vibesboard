@@ -1,6 +1,6 @@
 'use client'
 
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { ChatMessage } from '@/components/chat-message'

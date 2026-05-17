@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { migrateSubscriptionPrices } from '@/lib/stripe-price-migration'
-import type { PlanId } from '@/lib/plans'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { migrateSubscriptionPrices } from '@vibesboard/billing/price-migration'
+import type { PlanId } from '@vibesboard/policy/plans'
 
 export const runtime = 'nodejs'
 

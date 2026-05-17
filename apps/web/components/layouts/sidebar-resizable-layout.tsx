@@ -6,7 +6,7 @@ import { useSidebar } from '@/components/sidebar-context'
 import { SecondarySidebarSetterProvider } from '@/components/layouts/secondary-sidebar-context'
 import { Button } from '@/components/ui/button'
 import { IconSidebar, IconPlus, IconMenu } from '@/components/ui/icons'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import {
   Tooltip,
   TooltipContent,

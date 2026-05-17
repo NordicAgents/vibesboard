@@ -3,8 +3,8 @@ import {
   requireTenantMember,
   requireSuperAdmin
 } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

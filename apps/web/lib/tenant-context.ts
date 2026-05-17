@@ -1,11 +1,11 @@
 import { cookies } from 'next/headers'
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import {
   Collections,
   type TenantDocument,
   type TenantBrandingDocument
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 /** Lightweight member summary for display in the tenant switcher */
 export interface MemberSummary {

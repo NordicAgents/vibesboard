@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { getAgentById } from '@/lib/agents/server'
-import { completeText } from '@/lib/openai'
+import { getAgentById } from '@vibesboard/agents/server'
+import { completeText } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
 

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/firebase/route-handler'
-import { isFeatureEnabled } from '@/lib/features'
-import { listConversations } from '@/lib/instagram-inbox/conversations'
-import type { InboxConversationStatus } from '@/lib/firestore-types'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { listConversations } from '@vibesboard/channel-instagram/conversations'
+import type { InboxConversationStatus } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

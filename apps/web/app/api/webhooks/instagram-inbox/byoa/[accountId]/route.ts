@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   findByoaAccountById,
   decryptToken
-} from '@/lib/instagram-inbox/accounts'
+} from '@vibesboard/channel-instagram/accounts'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import {
   processInboundMessageForAccount,
   processDeliveryUpdate,
   processReadUpdate
-} from '@/lib/instagram-inbox/webhook-handlers'
+} from '@vibesboard/channel-instagram/webhook-handlers'
 
 export const runtime = 'nodejs'
 

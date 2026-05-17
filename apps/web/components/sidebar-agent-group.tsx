@@ -3,13 +3,13 @@
 import Link from 'next/link'
 import { useMemo } from 'react'
 
-import { type VibeAgent, type VibeAgentConversation } from '@/lib/types'
+import { type VibeAgent, type VibeAgentConversation } from '@vibesboard/contracts'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconArrowDown, IconArrowRight } from '@/components/ui/icons'
 import { SidebarAgentItem } from '@/components/sidebar-agent-item'
-import { getConversationPreview } from '@/lib/agents/conversation-preview'
-import { cn } from '@/lib/utils'
+import { getConversationPreview } from '@vibesboard/agents/conversation-preview'
+import { cn } from '@vibesboard/utils'
 
 interface SidebarAgentGroupProps {
   agent: VibeAgent

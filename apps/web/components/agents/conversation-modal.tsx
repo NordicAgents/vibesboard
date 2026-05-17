@@ -2,14 +2,14 @@
 
 import * as React from 'react'
 import Textarea from 'react-textarea-autosize'
-import { type Message } from '@/lib/types/message'
-import { type VibeAgentConversation } from '@/lib/types'
-import { formatDate, cn } from '@/lib/utils'
+import { type Message } from '@vibesboard/contracts'
+import { type VibeAgentConversation } from '@vibesboard/contracts'
+import { formatDate, cn } from '@vibesboard/utils'
 import { ChatList } from '@/components/chat-list'
 import { Button } from '@/components/ui/button'
 import { IconArrowLeft, IconSpinner } from '@/components/ui/icons'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
-import { getConversationPreview } from '@/lib/agents/conversation-preview'
+import { getConversationPreview } from '@vibesboard/agents/conversation-preview'
 import { Play, Pause, Send, Trash2 } from 'lucide-react'
 
 const HANDOFF_INDICATOR_PREFIX = '__handoff_indicator__'

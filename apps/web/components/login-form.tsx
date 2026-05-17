@@ -5,7 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from 'firebase/auth'
-import { getClientAuth } from '@/lib/firebase/client'
+import { getClientAuth } from '@vibesboard/adapter-firebase/client'
 
 import { Button } from '@/components/ui/button'
 import { IconSpinner } from '@/components/ui/icons'

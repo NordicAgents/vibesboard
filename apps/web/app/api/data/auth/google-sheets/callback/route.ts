@@ -6,8 +6,8 @@ import {
   exchangeCode,
   getUserEmail,
   listSpreadsheets
-} from '@/lib/data/google-sheets-auth'
-import { createDataConnection } from '@/lib/data/connections'
+} from '@vibesboard/data/google-sheets-auth'
+import { createDataConnection } from '@vibesboard/data/connections'
 
 export const runtime = 'nodejs'
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import type { AgentSharePayload, VibeAgent } from '@/lib/types'
+import type { AgentSharePayload, VibeAgent } from '@vibesboard/contracts'
 import { Button } from '@/components/ui/button'
 import {
   Card,

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAgentById } from '@/lib/agents/server'
-import { getConversation } from '@/lib/agents/conversations'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { getAgentById } from '@vibesboard/agents/server'
+import { getConversation } from '@vibesboard/agents/conversations'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

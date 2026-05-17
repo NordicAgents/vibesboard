@@ -10,9 +10,9 @@ import {
   getUserTenants,
   enrichTenantsWithMembers
 } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { Inbox, Instagram, Link as LinkIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 export interface SidebarListProps {
   userId?: string

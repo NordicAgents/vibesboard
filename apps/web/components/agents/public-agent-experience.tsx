@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { type Message } from 'ai/react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-import { type VibeAgent } from '@/lib/types'
+import { type VibeAgent } from '@vibesboard/contracts'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
 import { IconCheck, IconClose } from '@/components/ui/icons'

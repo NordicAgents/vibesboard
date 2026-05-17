@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { getAgentById } from '@/lib/agents/server'
-import { canEditAgent } from '@/lib/agents/permissions'
-import { processFile } from '@/lib/agent/file-processor'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { getAgentById } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
+import { processFile } from '@vibesboard/ai/file-processor'
 
 export const runtime = 'nodejs'
 

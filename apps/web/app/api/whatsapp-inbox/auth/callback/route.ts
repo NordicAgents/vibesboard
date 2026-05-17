@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { connectOAuthAccount } from '@/lib/whatsapp-inbox/accounts'
+import { connectOAuthAccount } from '@vibesboard/channel-whatsapp/accounts'
 
 export const runtime = 'nodejs'
 

@@ -2,9 +2,9 @@
 
 import * as React from 'react'
 import { signInWithPopup, GithubAuthProvider } from 'firebase/auth'
-import { getClientAuth } from '@/lib/firebase/client'
+import { getClientAuth } from '@vibesboard/adapter-firebase/client'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { Button, type ButtonProps } from '@/components/ui/button'
 import { IconGitHub, IconSpinner } from '@/components/ui/icons'
 import { useRouter } from 'next/navigation'

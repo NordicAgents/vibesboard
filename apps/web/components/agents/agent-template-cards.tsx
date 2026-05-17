@@ -3,7 +3,7 @@
 import {
   AGENT_TEMPLATES,
   getTemplateDefaults
-} from '@/lib/agents/focus-templates'
+} from '@vibesboard/agents/focus-templates'
 import { Headphones, UserPlus, HelpCircle, CalendarDays } from 'lucide-react'
 
 const ICON_MAP = {

@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { stripe } from '@vibesboard/adapter-stripe/server'
 import {
   handleSubscriptionChange,
   handleSubscriptionDeleted,
   handleInvoiceCreated,
   handlePaymentSucceeded,
   handlePaymentFailed
-} from '@/lib/stripe-webhook-handlers'
+} from '@vibesboard/billing/webhooks'
 import type Stripe from 'stripe'
 
 export const runtime = 'nodejs'

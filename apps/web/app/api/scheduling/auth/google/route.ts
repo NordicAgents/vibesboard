@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server'
 import { headers, cookies } from 'next/headers'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
-import { getGoogleAuthUrl } from '@/lib/scheduling/google-auth'
-import { getSafeSchedulingReturnTo } from '@/lib/scheduling/oauth-return'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { getGoogleAuthUrl } from '@vibesboard/scheduling/google-auth'
+import { getSafeSchedulingReturnTo } from '@vibesboard/scheduling/oauth-return'
 
 export const runtime = 'nodejs'
 

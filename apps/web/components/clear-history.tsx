@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-import { ServerActionResult } from '@/lib/types'
+import { ServerActionResult } from '@vibesboard/contracts'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,

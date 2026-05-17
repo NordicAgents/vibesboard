@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge } from '@/components/ui/badge'
-import { type Role } from '@/lib/permissions'
+import { type Role } from '@vibesboard/policy/permissions'
 
 interface RoleBadgeProps {
   role: Role

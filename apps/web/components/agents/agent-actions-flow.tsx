@@ -7,14 +7,14 @@ import type {
   AgentCalendarAvailabilityConfig,
   AgentDataConfig,
   AgentSchedulingConfig
-} from '@/lib/firestore-types'
-import type { CollectionField } from '@/lib/types'
+} from '@vibesboard/contracts'
+import type { CollectionField } from '@vibesboard/contracts'
 import {
   getActionCapabilityStates,
   type ActionCapability,
   type ActionCapabilityState
-} from '@/lib/agents/action-config'
-import { cn } from '@/lib/utils'
+} from '@vibesboard/agents/action-config'
+import { cn } from '@vibesboard/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AgentCalendarAvailabilitySettings } from './agent-calendar-availability-settings'

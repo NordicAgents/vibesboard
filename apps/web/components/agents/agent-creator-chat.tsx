@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ChatList } from '@/components/chat-list'
 import { PromptForm, type AttachedFile } from '@/components/prompt-form'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
-import { cn, nanoid } from '@/lib/utils'
+import { cn, nanoid } from '@vibesboard/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import {

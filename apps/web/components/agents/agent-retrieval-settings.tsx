@@ -10,8 +10,8 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
-import { type RetrievalStrategy } from '@/lib/types'
+import { cn } from '@vibesboard/utils'
+import { type RetrievalStrategy } from '@vibesboard/contracts'
 
 interface AgentRetrievalSettingsProps {
   agentId: string

@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-import { type AgentSharePayload, type VibeAgent } from '@/lib/types'
+import { type AgentSharePayload, type VibeAgent } from '@vibesboard/contracts'
 import { Button } from '@/components/ui/button'
 import {
   Card,

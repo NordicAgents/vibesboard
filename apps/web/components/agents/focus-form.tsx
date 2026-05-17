@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import type { VibeAgent, AgentSharePayload } from '@/lib/types'
+import type { VibeAgent, AgentSharePayload } from '@vibesboard/contracts'
 import type { UseAgentFormReturn } from '@/lib/hooks/use-agent-form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +14,7 @@ import { QrCode } from '@/components/qr-code'
 import { IconExternalLink } from '@/components/ui/icons'
 import { AgentHealthIndicator } from '@/components/agents/agent-health-indicator'
 import { AgentTemplateCards } from '@/components/agents/agent-template-cards'
-import { getTemplateDefaults } from '@/lib/agents/focus-templates'
+import { getTemplateDefaults } from '@vibesboard/agents/focus-templates'
 import {
   Tooltip,
   TooltipContent,

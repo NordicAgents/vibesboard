@@ -1,12 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 import { useCompletion } from 'ai/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-import { type VibeAgent, type VibeAgentConversation } from '@/lib/types'
-import { nanoid } from '@/lib/utils'
+import { type VibeAgent, type VibeAgentConversation } from '@vibesboard/contracts'
+import { nanoid } from '@vibesboard/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { PromptForm } from '@/components/prompt-form'

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { getAgentById } from '@/lib/agents/server'
-import { mapConversationDoc } from '@/lib/agents/db'
-import { upsertConversationEmbeddings } from '@/lib/agent/embeddings'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { getAgentById } from '@vibesboard/agents/server'
+import { mapConversationDoc } from '@vibesboard/agents/db'
+import { upsertConversationEmbeddings } from '@vibesboard/ai/embeddings'
 import { limitConcurrency } from '@/lib/async-utils'
-import { canEditAgent } from '@/lib/agents/permissions'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
 

@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import type { PlanId } from '@/lib/plans'
+import { cn } from '@vibesboard/utils'
+import type { PlanId } from '@vibesboard/policy/plans'
 
 interface UsageProgressProps {
   used: number

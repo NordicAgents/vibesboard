@@ -16,7 +16,7 @@ import { ColorPicker, BrandingPreview, LogoUpload } from '@/components/tenants'
 import type {
   TenantBrandingDocument,
   BrandingField
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 import { validateHexColor } from '@/lib/validations'
 import toast from 'react-hot-toast'
 import { Loader2, RotateCcw } from 'lucide-react'

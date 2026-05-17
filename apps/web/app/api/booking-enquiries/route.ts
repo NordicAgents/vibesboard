@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type BookingEnquiryDocument } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections, type BookingEnquiryDocument } from '@vibesboard/contracts'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'

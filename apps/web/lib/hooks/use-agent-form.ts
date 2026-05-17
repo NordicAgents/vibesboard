@@ -8,14 +8,14 @@ import type {
   AgentMode,
   CollectionField,
   QuickSuggestionsMode
-} from '@/lib/types'
+} from '@vibesboard/contracts'
 import type {
   AgentNotificationConfig,
   AgentSchedulingConfig,
   AgentDataConfig,
   AgentCalendarAvailabilityConfig,
   AgentBookingConfig
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 export interface AgentFormFields {
   name: string

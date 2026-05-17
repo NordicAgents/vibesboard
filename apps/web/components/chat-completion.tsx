@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 
-import { type AgentMode } from '@/lib/types'
+import { type AgentMode } from '@vibesboard/contracts'
 import { Button } from '@/components/ui/button'
 import { IconCheck, IconClose } from '@/components/ui/icons'
 

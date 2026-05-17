@@ -12,8 +12,8 @@ import {
   CardTitle,
   CardDescription
 } from '@/components/ui/card'
-import { type VibeAgent } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { type VibeAgent } from '@vibesboard/contracts'
+import { cn } from '@vibesboard/utils'
 
 interface AgentEmbedSettingsProps {
   agent: VibeAgent

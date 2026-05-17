@@ -2,9 +2,9 @@ import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentPageShell } from '@/components/agents/agent-page-shell'
 

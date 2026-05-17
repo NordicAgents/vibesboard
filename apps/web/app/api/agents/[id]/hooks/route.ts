@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
-import { canEditAgent } from '@/lib/agents/permissions'
-import { createHook, listHooks } from '@/lib/agents/hooks'
+import { getAgentById } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
+import { createHook, listHooks } from '@vibesboard/agents/hooks'
 
 export const runtime = 'nodejs'
 

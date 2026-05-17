@@ -19,8 +19,8 @@ import {
   getChildFlags,
   getAllDescendants,
   getParentFlag
-} from '@/lib/feature-flags'
-import type { FeatureFlagName } from '@/lib/feature-flags'
+} from '@vibesboard/policy/feature-flags'
+import type { FeatureFlagName } from '@vibesboard/policy/feature-flags'
 import toast from 'react-hot-toast'
 
 interface PlanTemplate {

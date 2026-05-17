@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@/lib/firebase/admin'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
 
 export const runtime = 'nodejs'
 

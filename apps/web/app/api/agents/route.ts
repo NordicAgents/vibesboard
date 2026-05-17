@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { mapAgentDoc, createAgentSlug, ensureUniqueSlug } from '@/lib/agents/db'
-import { isMemberOfTenant, isSuperAdmin } from '@/lib/permissions'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { mapAgentDoc, createAgentSlug, ensureUniqueSlug } from '@vibesboard/agents/db'
+import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
-import { upsertAgentSchema } from '@/lib/agents/schema'
-import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
-import { nanoid } from '@/lib/utils'
+import { upsertAgentSchema } from '@vibesboard/agents/schema'
+import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
+import { nanoid } from '@vibesboard/utils'
 
 export const runtime = 'nodejs'
 

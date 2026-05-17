@@ -3,8 +3,8 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { getDisplayTools } from '@/lib/agents/tooling'
-import { type VibeAgentTool } from '@/lib/types'
+import { getDisplayTools } from '@vibesboard/agents/tooling'
+import { type VibeAgentTool } from '@vibesboard/contracts'
 
 interface AgentCardPreviewProps {
   name: string

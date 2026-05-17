@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'react-hot-toast'
-import type { AgentCalendarAvailabilityConfig } from '@/lib/firestore-types'
+import type { AgentCalendarAvailabilityConfig } from '@vibesboard/contracts'
 import {
   Card,
   CardContent,
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { CalendarDays, Plus, Trash2 } from 'lucide-react'
-import { buildGoogleCalendarAuthPath } from '@/lib/scheduling/oauth-return'
+import { buildGoogleCalendarAuthPath } from '@vibesboard/scheduling/oauth-return'
 
 interface CalendarConnectionSummary {
   id: string

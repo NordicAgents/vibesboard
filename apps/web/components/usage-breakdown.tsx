@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 const SOURCE_LABELS: Record<string, string> = {
   chat: 'In-App Chat',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { type VibeAgentConversation } from '@/lib/types'
+import { type VibeAgentConversation } from '@vibesboard/contracts'
 import { ConversationView } from '@/components/agents/conversation-modal'
 
 interface HandoffConversationPageProps {

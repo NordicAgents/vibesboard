@@ -3,7 +3,7 @@ import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import {
   processInboundMessages,
   processStatusUpdates
-} from '@/lib/whatsapp-inbox/webhook-handlers'
+} from '@vibesboard/channel-whatsapp/webhook-handlers'
 
 export const runtime = 'nodejs'
 

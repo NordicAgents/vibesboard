@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireTenantAdmin } from '@/lib/firebase/route-handler'
-import { bucket } from '@/lib/firebase/storage'
+import { bucket } from '@vibesboard/adapter-firebase/storage'
 
 export const runtime = 'nodejs'
 

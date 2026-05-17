@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { deleteFile } from '@/lib/firebase/storage'
+import { deleteFile } from '@vibesboard/adapter-firebase/storage'
 
 export const runtime = 'nodejs'
 

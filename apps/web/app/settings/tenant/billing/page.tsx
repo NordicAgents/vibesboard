@@ -31,8 +31,8 @@ import {
   Loader2,
   Users
 } from 'lucide-react'
-import type { TenantSubscription } from '@/lib/firestore-types'
-import type { PlanDefinition, PlanId } from '@/lib/plans'
+import type { TenantSubscription } from '@vibesboard/contracts'
+import type { PlanDefinition, PlanId } from '@vibesboard/policy/plans'
 
 interface BillingData {
   subscription: TenantSubscription | null

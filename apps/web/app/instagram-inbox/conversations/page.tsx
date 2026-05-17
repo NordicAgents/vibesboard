@@ -20,7 +20,7 @@ import { Inbox, Search, Instagram, Bot } from 'lucide-react'
 import type {
   InstagramInboxConversationDocument,
   InstagramInboxMessageDocument
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 interface InboxAccount {
   id: string

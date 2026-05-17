@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   createDataConnection,
   getDataConnections
-} from '@/lib/data/connections'
-import { validateWebhookUrl } from '@/lib/data/validate-webhook-url'
+} from '@vibesboard/data/connections'
+import { validateWebhookUrl } from '@vibesboard/data/validate-webhook-url'
 
 export const runtime = 'nodejs'
 

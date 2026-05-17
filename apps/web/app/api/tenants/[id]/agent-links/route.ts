@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 import { requireTenantAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   getAgentLinksForTenant,
   isLinkSlugAvailable
-} from '@/lib/agent-links/db'
-import { createAgentLinkSchema } from '@/lib/agent-links/schema'
-import { nanoid } from '@/lib/utils'
+} from '@vibesboard/policy/agent-links/db'
+import { createAgentLinkSchema } from '@vibesboard/policy/agent-links/schema'
+import { nanoid } from '@vibesboard/utils'
 
 export const runtime = 'nodejs'
 

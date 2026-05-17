@@ -3,10 +3,10 @@ import {
   requireTenantMember,
   requireSuperAdmin
 } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import type { TenantBrandingDocument } from '@/lib/firestore-types'
-import { getTenantFeatures } from '@/lib/features'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import type { TenantBrandingDocument } from '@vibesboard/contracts'
+import { getTenantFeatures } from '@vibesboard/policy/features'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'

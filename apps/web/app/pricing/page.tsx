@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 import { auth } from '@/auth'
-import { getAllPlanTemplates, type PlanDefinition } from '@/lib/plans'
+import { getAllPlanTemplates, type PlanDefinition } from '@vibesboard/policy/plans'
 
 export const metadata = {
   title: 'Pricing — VibeAgent',

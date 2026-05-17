@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   getCalendarConnection,
   deleteCalendarConnection
-} from '@/lib/scheduling/connections'
-import { disableAgentsForConnection } from '@/lib/agents/server'
+} from '@vibesboard/scheduling/connections'
+import { disableAgentsForConnection } from '@vibesboard/agents/server'
 
 export const runtime = 'nodejs'
 

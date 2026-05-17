@@ -44,7 +44,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RoleBadge } from '@/components/tenants/role-badge'
 import { EmptyState } from '@/components/ui/empty-state'
-import { type Role } from '@/lib/permissions'
+import { type Role } from '@vibesboard/policy/permissions'
 import toast from 'react-hot-toast'
 
 interface TenantMember {

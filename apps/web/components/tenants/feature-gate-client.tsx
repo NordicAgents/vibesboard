@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { type FeatureFlagName } from '@/lib/feature-flags'
+import { type FeatureFlagName } from '@vibesboard/policy/feature-flags'
 
 interface FeatureGateProps {
   feature: FeatureFlagName

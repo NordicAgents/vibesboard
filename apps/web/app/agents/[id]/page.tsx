@@ -2,12 +2,12 @@ import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
-import { canEditAgent } from '@/lib/agents/permissions'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
 

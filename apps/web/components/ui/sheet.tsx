@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as SheetPrimitive from '@radix-ui/react-dialog'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { IconClose } from '@/components/ui/icons'
 
 const Sheet = SheetPrimitive.Root

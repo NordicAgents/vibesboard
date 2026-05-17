@@ -15,7 +15,7 @@ import {
   ChevronUp,
   Link
 } from 'lucide-react'
-import type { InviteCodeDocument } from '@/lib/firestore-types'
+import type { InviteCodeDocument } from '@vibesboard/contracts'
 
 interface InviteCodeManagerProps {
   agentId: string

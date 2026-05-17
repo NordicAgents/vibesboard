@@ -2,7 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { streamText as aiStreamText } from 'ai'
 
 import { auth } from '@/auth'
-import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
 

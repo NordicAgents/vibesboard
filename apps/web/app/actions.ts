@@ -3,14 +3,14 @@ import 'server-only'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import {
   type Chat,
   type VibeAgent,
   type VibeAgentConversation
-} from '@/lib/types'
-import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
+} from '@vibesboard/contracts'
+import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export async function getChats(userId?: string | null) {

@@ -1,7 +1,7 @@
 'use client'
 
-import { type VibeAgent } from '@/lib/types'
-import { getDisplayTools } from '@/lib/agents/tooling'
+import { type VibeAgent } from '@vibesboard/contracts'
+import { getDisplayTools } from '@vibesboard/agents/tooling'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,

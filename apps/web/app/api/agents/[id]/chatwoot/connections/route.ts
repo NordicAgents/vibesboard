@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { isFeatureEnabled } from '@/lib/features'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   validateChatwootCredentials,
   listChatwootInboxes,
@@ -12,13 +12,13 @@ import {
   assignAgentBotToInbox,
   deleteChatwootWebhook,
   deleteChatwootAgentBot
-} from '@/lib/chatwoot/api-client'
+} from '@vibesboard/channel-chatwoot/api-client'
 import {
   createChatwootConnection,
   listChatwootConnections,
   generateConnectionId,
   generateWebhookSecret
-} from '@/lib/chatwoot/connections'
+} from '@vibesboard/channel-chatwoot/connections'
 
 export const runtime = 'nodejs'
 

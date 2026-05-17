@@ -32,7 +32,7 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog'
-import { formatDate } from '@/lib/utils'
+import { formatDate } from '@vibesboard/utils'
 
 interface Hook {
   id: string

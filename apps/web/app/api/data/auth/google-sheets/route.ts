@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
-import { getGoogleSheetsAuthUrl } from '@/lib/data/google-sheets-auth'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { getGoogleSheetsAuthUrl } from '@vibesboard/data/google-sheets-auth'
 
 export const runtime = 'nodejs'
 

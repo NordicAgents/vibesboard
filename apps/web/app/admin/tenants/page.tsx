@@ -20,8 +20,8 @@ import {
 } from '@/components/ui/dialog'
 import { CreateTenantDialog } from '@/components/tenants'
 import { UsageProgress } from '@/components/usage-progress'
-import type { TenantDocument, TenantSubscription } from '@/lib/firestore-types'
-import type { PlanId } from '@/lib/plans'
+import type { TenantDocument, TenantSubscription } from '@vibesboard/contracts'
+import type { PlanId } from '@vibesboard/policy/plans'
 import toast from 'react-hot-toast'
 
 interface TenantWithStats extends TenantDocument {

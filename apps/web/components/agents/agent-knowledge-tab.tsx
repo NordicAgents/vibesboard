@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import type { VibeAgent } from '@/lib/types'
+import type { VibeAgent } from '@vibesboard/contracts'
 import { ToolsFilesManager } from '@/components/agents/tools-files-manager'
 
 interface AgentKnowledgeTabProps {

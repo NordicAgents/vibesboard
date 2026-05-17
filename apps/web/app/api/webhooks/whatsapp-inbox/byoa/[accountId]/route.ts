@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   findByoaAccountById,
   decryptToken
-} from '@/lib/whatsapp-inbox/accounts'
+} from '@vibesboard/channel-whatsapp/accounts'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import {
   processInboundMessagesForAccount,
   processStatusUpdates
-} from '@/lib/whatsapp-inbox/webhook-handlers'
+} from '@vibesboard/channel-whatsapp/webhook-handlers'
 
 export const runtime = 'nodejs'
 

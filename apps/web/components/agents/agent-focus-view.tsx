@@ -1,6 +1,6 @@
 'use client'
 
-import type { VibeAgent, AgentSharePayload } from '@/lib/types'
+import type { VibeAgent, AgentSharePayload } from '@vibesboard/contracts'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import { FocusForm } from '@/components/agents/focus-form'
 

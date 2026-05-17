@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 
-import { type VibeAgentConversation } from '@/lib/types'
-import { getConversationPreview } from '@/lib/agents/conversation-preview'
-import { formatDate } from '@/lib/utils'
+import { type VibeAgentConversation } from '@vibesboard/contracts'
+import { getConversationPreview } from '@vibesboard/agents/conversation-preview'
+import { formatDate } from '@vibesboard/utils'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { IconClose } from '@/components/ui/icons'

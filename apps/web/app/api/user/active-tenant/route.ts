@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { isMemberOfTenant } from '@/lib/permissions'
+import { isMemberOfTenant } from '@vibesboard/policy/permissions'
 import { setActiveTenantId, ensureActiveTenant } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'

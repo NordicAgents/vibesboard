@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { ExternalLink } from '@/components/external-link'
 
 export function FooterText(_props: React.ComponentProps<'p'>) {

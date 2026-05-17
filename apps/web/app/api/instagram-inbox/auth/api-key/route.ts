@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { connectApiKeyAccount } from '@/lib/instagram-inbox/accounts'
+import { connectApiKeyAccount } from '@vibesboard/channel-instagram/accounts'
 
 export const runtime = 'nodejs'
 

@@ -4,7 +4,7 @@ import {
   processInboundMessage,
   processDeliveryUpdate,
   processReadUpdate
-} from '@/lib/instagram-inbox/webhook-handlers'
+} from '@vibesboard/channel-instagram/webhook-handlers'
 
 export const runtime = 'nodejs'
 

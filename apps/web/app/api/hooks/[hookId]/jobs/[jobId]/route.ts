@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getHookById, verifySecret } from '@/lib/agents/hooks'
-import { getJob } from '@/lib/agents/hook-jobs'
+import { getHookById, verifySecret } from '@vibesboard/agents/hooks'
+import { getJob } from '@vibesboard/agents/hook-jobs'
 
 export const runtime = 'nodejs'
 

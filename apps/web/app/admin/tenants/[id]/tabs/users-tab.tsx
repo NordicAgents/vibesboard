@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { EmptyState } from '@/components/ui/empty-state'
 import { RoleBadge } from '@/components/tenants'
-import type { TenantRole } from '@/lib/firestore-types'
+import type { TenantRole } from '@vibesboard/contracts'
 import { UserPlus, MoreHorizontal, Loader2, Copy } from 'lucide-react'
 import {
   DropdownMenu,

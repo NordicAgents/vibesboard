@@ -4,8 +4,8 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 
-import { type Chat, ServerActionResult } from '@/lib/types'
-import { cn, formatDate } from '@/lib/utils'
+import { type Chat, ServerActionResult } from '@vibesboard/contracts'
+import { cn, formatDate } from '@vibesboard/utils'
 import {
   AlertDialog,
   AlertDialogAction,

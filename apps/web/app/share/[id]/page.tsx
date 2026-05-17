@@ -1,7 +1,7 @@
 import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
-import { formatDate } from '@/lib/utils'
+import { formatDate } from '@vibesboard/utils'
 import { getSharedChat } from '@/app/actions'
 import { ChatList } from '@/components/chat-list'
 // Footer removed for a cleaner shared view

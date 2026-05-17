@@ -1,9 +1,9 @@
 'use client'
 
 import { useChat } from 'ai/react'
-import { type Message } from '@/lib/types/message'
+import { type Message } from '@vibesboard/contracts'
 
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
 import { EmptyScreen } from '@/components/empty-screen'

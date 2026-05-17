@@ -14,12 +14,12 @@ import {
   Play,
   UserPlus
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import toast from 'react-hot-toast'
 import type {
   InstagramInboxMessageDocument,
   InstagramInboxConversationDocument
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 interface MessageThreadProps {
   tenantId: string

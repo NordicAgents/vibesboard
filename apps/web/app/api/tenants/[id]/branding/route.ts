@@ -3,14 +3,14 @@ import {
   requireTenantMember,
   requireTenantAdmin
 } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import type {
   TenantBrandingDocument,
   BrandingField
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 import { validateBrandingColors, validateUrl } from '@/lib/validations'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'

@@ -10,7 +10,7 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { type VibeAgent } from '@/lib/types'
+import { type VibeAgent } from '@vibesboard/contracts'
 import { Bot, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 

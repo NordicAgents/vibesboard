@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { getAgentById } from '@/lib/agents/server'
+import { getAgentById } from '@vibesboard/agents/server'
 import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import {
   verifyPassword,
   setAccessCookie,
   redeemInviteCode
-} from '@/lib/agent/access-gate'
+} from '@/lib/access-gate'
 
 export const runtime = 'nodejs'
 

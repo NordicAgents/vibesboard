@@ -1,12 +1,12 @@
 import 'server-only'
 
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import type {
   PlatformBrandingDocument,
   TenantBrandingDocument,
   BrandingField
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 
 // Hardcoded fallback if platform_config/branding doc doesn't exist yet
 const HARDCODED_FALLBACK: BaseBranding = {

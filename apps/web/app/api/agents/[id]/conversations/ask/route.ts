@@ -3,17 +3,17 @@ import { streamText as aiStreamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { getAgentById } from '@/lib/agents/server'
-import { agentAskRequestSchema } from '@/lib/agents/schema'
+import { getAgentById } from '@vibesboard/agents/server'
+import { agentAskRequestSchema } from '@vibesboard/agents/schema'
 import {
   ensureConversation,
   updateConversationMessages
-} from '@/lib/agents/conversations'
-import { nanoid } from '@/lib/utils'
-import { summarizeConversation } from '@/lib/agent/summarize'
-import { buildAskAiConversationContext } from '@/lib/agent/conversation-rag'
-import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@/lib/openai'
-import { canEditAgent } from '@/lib/agents/permissions'
+} from '@vibesboard/agents/conversations'
+import { nanoid } from '@vibesboard/utils'
+import { summarizeConversation } from '@vibesboard/ai/summarize'
+import { buildAskAiConversationContext } from '@vibesboard/ai/conversation-rag'
+import { OPENAI_CHAT_MODEL, isResponsesModel, streamText } from '@vibesboard/adapter-openai'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 
 export const runtime = 'nodejs'

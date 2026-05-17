@@ -4,13 +4,13 @@ import type {
   AgentMode,
   CollectionField,
   QuickSuggestionsMode
-} from '@/lib/types'
+} from '@vibesboard/contracts'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { CollectionFieldsEditor } from './collection-fields-editor'
 import { InviteCodeManager } from './invite-code-manager'
 

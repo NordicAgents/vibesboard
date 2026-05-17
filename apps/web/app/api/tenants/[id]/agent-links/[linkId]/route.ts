@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { requireTenantAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { isFeatureEnabled } from '@/lib/features'
-import { mapAgentLinkDoc } from '@/lib/agent-links/db'
-import { updateAgentLinkSchema } from '@/lib/agent-links/schema'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { mapAgentLinkDoc } from '@vibesboard/policy/agent-links/db'
+import { updateAgentLinkSchema } from '@vibesboard/policy/agent-links/schema'
 
 export const runtime = 'nodejs'
 

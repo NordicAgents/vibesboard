@@ -7,8 +7,8 @@ import {
   type AgentSharePayload,
   type VibeAgent,
   type VibeAgentConversation
-} from '@/lib/types'
-import { formatDate, cn } from '@/lib/utils'
+} from '@vibesboard/contracts'
+import { formatDate, cn } from '@vibesboard/utils'
 import { DashboardLayout } from '@/components/layouts/dashboard-layout'
 import { useSecondarySidebarSetter } from '@/components/layouts/secondary-sidebar-context'
 import {
@@ -25,7 +25,7 @@ import { ConversationView } from '@/components/agents/conversation-modal'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { Button } from '@/components/ui/button'
 import { IconRefresh, IconMessage } from '@/components/ui/icons'
-import { getConversationPreview } from '@/lib/agents/conversation-preview'
+import { getConversationPreview } from '@vibesboard/agents/conversation-preview'
 import { LayoutDashboard, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {

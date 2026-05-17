@@ -10,8 +10,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
-import type { IntegrationDefinition } from '@/lib/integrations/types'
+import { cn } from '@vibesboard/utils'
+import type { IntegrationDefinition } from '@vibesboard/integrations/types'
 
 const ICON_MAP: Record<string, LucideIcon> = {
   MessageCircle,

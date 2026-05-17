@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/firebase/route-handler'
-import { isFeatureEnabled } from '@/lib/features'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import {
   getConversation,
   updateConversationStatus,
   assignConversation,
   markAsRead
-} from '@/lib/whatsapp-inbox/conversations'
-import type { InboxConversationStatus } from '@/lib/firestore-types'
+} from '@vibesboard/channel-whatsapp/conversations'
+import type { InboxConversationStatus } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 

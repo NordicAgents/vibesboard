@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
-import { adminDb, adminAuth } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb, adminAuth } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import {
   validateTenantSlug,
   validateTenantName,

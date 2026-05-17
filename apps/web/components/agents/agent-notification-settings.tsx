@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import type {
   AgentNotificationConfig,
   NotificationEvent
-} from '@/lib/firestore-types'
+} from '@vibesboard/contracts'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
@@ -15,7 +15,7 @@ import {
   CardDescription
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 interface Props {
   config: AgentNotificationConfig | undefined

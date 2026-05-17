@@ -4,23 +4,23 @@ import { streamText as aiStreamText, tool } from 'ai'
 import { z } from 'zod'
 
 import { auth } from '@/auth'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
 import {
   BUILTIN_AGENT_TOOLS,
   createAgentSlug,
   ensureUniqueSlug
-} from '@/lib/agents/db'
-import { bookingConfigSchema, upsertAgentSchema } from '@/lib/agents/schema'
+} from '@vibesboard/agents/db'
+import { bookingConfigSchema, upsertAgentSchema } from '@vibesboard/agents/schema'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
-import { OPENAI_CHAT_MODEL, isResponsesModel } from '@/lib/openai'
-import { createAgentFilesAndTriggerProcessing } from '@/lib/agents/file-processing'
-import { nanoid } from '@/lib/utils'
-import { fetchUrlContent } from '@/lib/agent/fetch-url-content'
+import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
+import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
+import { nanoid } from '@vibesboard/utils'
+import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
-} from '@/lib/agents/booking-defaults'
+} from '@vibesboard/agents/booking-defaults'
 
 export const runtime = 'nodejs'
 

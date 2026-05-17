@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 
 interface QuickSuggestionsProps {
   suggestions: string[]

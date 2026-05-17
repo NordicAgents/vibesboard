@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { AgentCreatorChat } from '@/components/agents/agent-creator-chat'
-import { nanoid } from '@/lib/utils'
+import { nanoid } from '@vibesboard/utils'
 
 export const runtime = 'nodejs'
 

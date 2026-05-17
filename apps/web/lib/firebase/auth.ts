@@ -1,6 +1,6 @@
 import 'server-only'
 import { cookies } from 'next/headers'
-import { adminAuth } from './admin'
+import { adminAuth } from '@vibesboard/adapter-firebase/admin'
 import type { DecodedIdToken } from 'firebase-admin/auth'
 
 const SESSION_COOKIE_NAME = '__session'

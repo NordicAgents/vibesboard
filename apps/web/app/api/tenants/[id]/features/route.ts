@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, requireTenantAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { toggleFeature, getTenantFeatures } from '@/lib/features'
-import { isSuperAdmin, isTenantAdmin } from '@/lib/permissions'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { toggleFeature, getTenantFeatures } from '@vibesboard/policy/features'
+import { isSuperAdmin, isTenantAdmin } from '@vibesboard/policy/permissions'
 
 export const runtime = 'nodejs'
 

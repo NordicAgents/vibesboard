@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { getHookById, verifySecret, recordHookUsage } from '@/lib/agents/hooks'
-import { getAgentById } from '@/lib/agents/server'
+import { getHookById, verifySecret, recordHookUsage } from '@vibesboard/agents/hooks'
+import { getAgentById } from '@vibesboard/agents/server'
 import {
   ensureConversation,
   updateConversationMessages
-} from '@/lib/agents/conversations'
-import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
-import { runAgentStream } from '@/lib/agent/runtime'
-import { stripCompletionMarkers } from '@/lib/agent/completion'
-import { nanoid } from '@/lib/utils'
+} from '@vibesboard/agents/conversations'
+import { maybeAutoSummarize } from '@vibesboard/agents/auto-summarize'
+import { runAgentStream } from '@vibesboard/ai/runtime'
+import { stripCompletionMarkers } from '@vibesboard/ai/completion'
+import { nanoid } from '@vibesboard/utils'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-import { OPENAI_CHAT_MODEL } from '@/lib/openai'
+import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
 

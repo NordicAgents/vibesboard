@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections } from '@/lib/firestore-types'
-import { mapAgentDoc, mapConversationDoc } from '@/lib/agents/db'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections } from '@vibesboard/contracts'
+import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
 import { AgentChat } from '@/components/agent-chat'
-import { canEditAgent } from '@/lib/agents/permissions'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 import { HandoffConversationPage } from './handoff-page'
 
 export const runtime = 'nodejs'

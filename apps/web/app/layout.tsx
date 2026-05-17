@@ -4,7 +4,7 @@ import { Toaster } from 'react-hot-toast'
 
 import '@/app/globals.css'
 import { fontMono, fontSans } from '@/lib/fonts'
-import { cn } from '@/lib/utils'
+import { cn } from '@vibesboard/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
 import { Header } from '@/components/header'

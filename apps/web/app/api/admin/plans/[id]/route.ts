@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { Collections, type PlanTemplateDocument } from '@/lib/firestore-types'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { Collections, type PlanTemplateDocument } from '@vibesboard/contracts'
 import {
   invalidatePlanCache,
   computeMessageLimit,
   toPlanDefinition,
   type PlanId
-} from '@/lib/plans'
-import { syncTenantFeatureFlags } from '@/lib/plan-sync'
-import { mapPlanToStripePrices } from '@/lib/stripe-helpers'
-import { rotatePlanPrices } from '@/lib/stripe-price-migration'
+} from '@vibesboard/policy/plans'
+import { syncTenantFeatureFlags } from '@vibesboard/billing/plan-sync'
+import { mapPlanToStripePrices } from '@vibesboard/billing/helpers'
+import { rotatePlanPrices } from '@vibesboard/billing/price-migration'
 
 export const runtime = 'nodejs'
 

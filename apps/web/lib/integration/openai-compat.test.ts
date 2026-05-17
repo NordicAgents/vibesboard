@@ -47,17 +47,17 @@ function hasRealApiKey(): boolean {
 // -------------------------------------------------------------------
 describe('openai-compat module', () => {
   test('exports chatCompletion function', async () => {
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     assert.strictEqual(typeof mod.chatCompletion, 'function')
   })
 
   test('exports createEmbedding function', async () => {
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     assert.strictEqual(typeof mod.createEmbedding, 'function')
   })
 
   test('exports chatCompletionWithVision function', async () => {
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     assert.strictEqual(typeof mod.chatCompletionWithVision, 'function')
   })
 })
@@ -70,7 +70,7 @@ describe('openai-compat error handling', () => {
     const originalKey = process.env.OPENAI_API_KEY
     delete process.env.OPENAI_API_KEY
 
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     try {
       await assert.rejects(
         () =>
@@ -89,7 +89,7 @@ describe('openai-compat error handling', () => {
     const originalKey = process.env.OPENAI_API_KEY
     delete process.env.OPENAI_API_KEY
 
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     try {
       await assert.rejects(
         () =>
@@ -114,7 +114,7 @@ describe('openai-compat live API', () => {
       console.log('  ⏭ Skipping: no real OPENAI_API_KEY')
       return
     }
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     const result = await mod.chatCompletion({
       model: 'gpt-4o-mini',
       messages: [
@@ -138,7 +138,7 @@ describe('openai-compat live API', () => {
       console.log('  ⏭ Skipping: no real OPENAI_API_KEY')
       return
     }
-    const mod = await import('../openai-compat.ts')
+    const mod = await import('@vibesboard/adapter-openai')
     const result = await mod.createEmbedding({
       model: 'text-embedding-3-small',
       input: 'Hello world'

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/firebase/route-handler'
-import { adminDb } from '@/lib/firebase/admin'
-import { mapAgentDoc } from '@/lib/agents/db'
-import { patchAgentSchema } from '@/lib/agents/schema'
-import { canEditAgent } from '@/lib/agents/permissions'
-import { getAgentById } from '@/lib/agents/server'
-import { deleteFile } from '@/lib/firebase/storage'
-import { assertSafeCallbackUrl } from '@/lib/agents/webhook-utils'
+import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { mapAgentDoc } from '@vibesboard/agents/db'
+import { patchAgentSchema } from '@vibesboard/agents/schema'
+import { canEditAgent } from '@vibesboard/agents/permissions'
+import { getAgentById } from '@vibesboard/agents/server'
+import { deleteFile } from '@vibesboard/adapter-firebase/storage'
+import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 
 export const runtime = 'nodejs'
 

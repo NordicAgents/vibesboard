@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { AccessGateForm } from '@/components/agents/access-gate-form'
-import type { VibeAgent } from '@/lib/types'
+import type { VibeAgent } from '@vibesboard/contracts'
 
 interface GatedWidgetPageProps {
   agent: VibeAgent

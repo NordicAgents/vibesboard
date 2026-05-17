@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/firebase/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { isFeatureEnabled } from '@/lib/features'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   getCalendarConnection,
   getValidAccessToken
-} from '@/lib/scheduling/connections'
-import { listCalendars } from '@/lib/scheduling/google-auth'
+} from '@vibesboard/scheduling/connections'
+import { listCalendars } from '@vibesboard/scheduling/google-auth'
 
 export const runtime = 'nodejs'
 

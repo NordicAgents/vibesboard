@@ -3,7 +3,7 @@ import { ReactNode, Suspense } from 'react'
 import { SidebarResizableLayout } from '@/components/layouts/sidebar-resizable-layout'
 import { auth } from '@/auth'
 import { SidebarProvider } from '@/components/sidebar-context'
-import { hasTenantAdminAccess, isSuperAdmin } from '@/lib/permissions'
+import { hasTenantAdminAccess, isSuperAdmin } from '@vibesboard/policy/permissions'
 
 interface PersistentSidebarLayoutProps {
   children: ReactNode

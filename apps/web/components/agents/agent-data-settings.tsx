@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { AgentDataConfig, DataFieldMapping } from '@/lib/firestore-types'
-import type { CollectionField } from '@/lib/types'
+import type { AgentDataConfig, DataFieldMapping } from '@vibesboard/contracts'
+import type { CollectionField } from '@vibesboard/contracts'
 import {
   Card,
   CardContent,
