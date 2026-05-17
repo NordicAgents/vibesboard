@@ -1,11 +1,7 @@
 // Re-export inferred row/insert types from every schema module so consumers
 // can do `import type { Message } from '@vibesboard/adapter-postgres/types'`
 // without learning Drizzle's `$inferSelect` ceremony.
-export type {
-  User,
-  NewUser,
-  Session,
-} from './schema/users.ts'
+export type { User, NewUser, Session, Account, Verification } from './schema/users.ts'
 export type {
   Tenant,
   NewTenant,
