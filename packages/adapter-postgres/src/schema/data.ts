@@ -6,10 +6,10 @@ import {
   timestamp,
   index,
 } from 'drizzle-orm/pg-core'
-import { tenants } from './tenants'
-import { agents } from './agents'
-import { conversations } from './conversations'
-import { users } from './users'
+import { tenants } from './tenants.ts'
+import { agents } from './agents.ts'
+import { conversations } from './conversations.ts'
+import { users } from './users.ts'
 
 export const dataConnections = pgTable(
   'data_connections',

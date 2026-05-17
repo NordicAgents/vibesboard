@@ -21,9 +21,10 @@ function readMigrationFiles(): { name: string; sql: string }[] {
 }
 
 function migrateUrl(): string {
-  const u = process.env.DATABASE_MIGRATE_URL
-  if (!u) throw new Error('[adapter-postgres/test-utils] DATABASE_MIGRATE_URL is not set. Did you `pnpm db:up`?')
-  return u
+  return (
+    process.env.DATABASE_MIGRATE_URL ??
+    'postgres://vibesboard_migrate:vibesboard_migrate@localhost:5432/vibesboard_dev'
+  )
 }
 
 /**
@@ -44,7 +45,7 @@ export async function withTestDb<T>(
   const schemaName = `test_${randomUUID().replace(/-/g, '_')}`
   const adminClient = postgres(migrateUrl(), { max: 2, prepare: false })
   const appUrl = (process.env.DATABASE_URL ??
-    migrateUrl().replace('vibesboard_migrate', 'vibesboard_app'))
+    'postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev')
   const appClient = postgres(appUrl, { max: 2, prepare: false })
 
   try {

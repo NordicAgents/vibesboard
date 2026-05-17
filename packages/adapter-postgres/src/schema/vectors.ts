@@ -8,8 +8,8 @@ import {
   vector,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
-import { tenants } from './tenants'
-import { tsvector } from './custom-types'
+import { tenants } from './tenants.ts'
+import { tsvector } from './custom-types.ts'
 
 export const embeddings = pgTable(
   'embeddings',

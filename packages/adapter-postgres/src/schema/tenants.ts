@@ -8,7 +8,7 @@ import {
   primaryKey,
   index,
 } from 'drizzle-orm/pg-core'
-import { users } from './users'
+import { users } from './users.ts'
 
 type TenantBrandingJson = {
   logoUrl?: string

@@ -8,8 +8,8 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
-import { tenants } from './tenants'
-import { agents } from './agents'
+import { tenants } from './tenants.ts'
+import { agents } from './agents.ts'
 
 // Global feature definitions
 export const featureFlags = pgTable('feature_flags', {

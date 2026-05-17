@@ -6,8 +6,8 @@ import {
   timestamp,
   primaryKey,
 } from 'drizzle-orm/pg-core'
-import { tenants } from './tenants'
-import { users } from './users'
+import { tenants } from './tenants.ts'
+import { users } from './users.ts'
 
 export const tenantBranding = pgTable(
   'tenant_branding',

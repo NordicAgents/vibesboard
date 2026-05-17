@@ -8,10 +8,10 @@ import {
   timestamp,
   index,
 } from 'drizzle-orm/pg-core'
-import { tenants } from './tenants'
-import { agents } from './agents'
-import { users } from './users'
-import { conversations } from './conversations'
+import { tenants } from './tenants.ts'
+import { agents } from './agents.ts'
+import { users } from './users.ts'
+import { conversations } from './conversations.ts'
 
 // ─── WhatsApp ───────────────────────────────────────────────────────────
 
