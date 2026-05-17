@@ -1,10 +1,3 @@
-// lib/agent/actions/booking/types.ts
-import type { BookableResource } from '@/lib/firestore-types'
-
-export interface BookingConfig {
-  mode: 'enquiry' | 'direct'
-  resources: BookableResource[]
-  eventTitleTemplate: string
-  eventTimeMode: 'all-day' | 'timed'
-  overlapProtection: boolean
-}
+// Re-export shim — real implementation in @vibesboard/ai/actions/booking/types.
+// Deleted in Phase 12.
+export * from '@vibesboard/ai/actions/booking/types'

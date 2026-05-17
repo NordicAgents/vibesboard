@@ -1,8 +1,3 @@
-// lib/agent/actions/booking/index.ts
-import type { ActionModule } from '../types'
-import { buildBookingTools } from './tools'
-
-export const BookingModule: ActionModule = {
-  type: 'booking',
-  buildTools: buildBookingTools
-}
+// Re-export shim — real implementation in @vibesboard/ai/actions/booking/index.
+// Deleted in Phase 12.
+export * from '@vibesboard/ai/actions/booking/index'

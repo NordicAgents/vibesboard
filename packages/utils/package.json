@@ -10,6 +10,11 @@
   "scripts": {
     "type-check": "tsc --noEmit"
   },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "nanoid": "^4.0.2",
+    "tailwind-merge": "^3.4.0"
+  },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "typescript": "^5.9.3"

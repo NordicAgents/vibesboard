@@ -1,8 +1,3 @@
-// lib/agent/actions/appointments/index.ts
-import type { ActionModule } from '../types'
-import { buildAppointmentsTools } from './tools'
-
-export const AppointmentsModule: ActionModule = {
-  type: 'appointments',
-  buildTools: buildAppointmentsTools
-}
+// Re-export shim — real implementation in @vibesboard/ai/actions/appointments/index.
+// Deleted in Phase 12.
+export * from '@vibesboard/ai/actions/appointments/index'

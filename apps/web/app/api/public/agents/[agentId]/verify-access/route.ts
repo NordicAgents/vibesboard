@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { getAgentById } from '@/lib/agents/server'
-import { ensureExternalSessionId } from '@/lib/agent/cookies'
+import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import {
   verifyPassword,
   setAccessCookie,

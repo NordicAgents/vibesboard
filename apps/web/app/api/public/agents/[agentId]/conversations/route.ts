@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getAgentById } from '@/lib/agents/server'
-import { ensureExternalSessionId } from '@/lib/agent/cookies'
+import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import { listAgentConversations } from '@/lib/agents/conversations'
 
 export const runtime = 'nodejs'

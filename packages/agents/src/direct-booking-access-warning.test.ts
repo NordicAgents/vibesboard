@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { AgentBookingConfig } from '../firestore-types.ts'
+import type { AgentBookingConfig } from '@vibesboard/contracts'
 import {
   DIRECT_BOOKING_ANONYMOUS_WARNING,
   getDirectBookingAccessWarning

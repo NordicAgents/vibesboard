@@ -1,7 +1,3 @@
-import type { ActionModule } from '../types'
-import { buildDataTools } from './tools'
-
-export const DataModule: ActionModule = {
-  type: 'data',
-  buildTools: buildDataTools
-}
+// Re-export shim — real implementation in @vibesboard/ai/actions/data/index.
+// Deleted in Phase 12.
+export * from '@vibesboard/ai/actions/data/index'

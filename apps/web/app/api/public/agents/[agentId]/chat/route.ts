@@ -14,7 +14,7 @@ import {
 } from '@/lib/agents/conversations'
 import { maybeAutoSummarize } from '@/lib/agents/auto-summarize'
 import { runAgentStream } from '@/lib/agent/runtime'
-import { ensureExternalSessionId } from '@/lib/agent/cookies'
+import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import { hasValidAccessCookie } from '@/lib/agent/access-gate'
 import { nanoid } from '@/lib/utils'
 import {

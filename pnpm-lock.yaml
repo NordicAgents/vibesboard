@@ -82,6 +82,12 @@ importers:
       '@vibesboard/adapter-stripe':
         specifier: workspace:*
         version: link:../../packages/adapter-stripe
+      '@vibesboard/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
+      '@vibesboard/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@vibesboard/booking-enquiries':
         specifier: workspace:*
         version: link:../../packages/booking-enquiries
@@ -94,6 +100,9 @@ importers:
       '@vibesboard/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@vibesboard/retrieval':
+        specifier: workspace:*
+        version: link:../../packages/retrieval
       '@vibesboard/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
@@ -336,6 +345,122 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/agents:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/adapter-openai':
+        specifier: workspace:*
+        version: link:../adapter-openai
+      '@vibesboard/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vibesboard/policy':
+        specifier: workspace:*
+        version: link:../policy
+      '@vibesboard/utils':
+        specifier: workspace:*
+        version: link:../utils
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
+      nanoid:
+        specifier: ^4.0.2
+        version: 4.0.2
+      resend:
+        specifier: ^6.9.4
+        version: 6.9.4
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/ai:
+    dependencies:
+      '@ai-sdk/openai':
+        specifier: ^0.0.72
+        version: 0.0.72(zod@3.25.76)
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/adapter-openai':
+        specifier: workspace:*
+        version: link:../adapter-openai
+      '@vibesboard/agents':
+        specifier: workspace:*
+        version: link:../agents
+      '@vibesboard/booking-enquiries':
+        specifier: workspace:*
+        version: link:../booking-enquiries
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vibesboard/data':
+        specifier: workspace:*
+        version: link:../data
+      '@vibesboard/policy':
+        specifier: workspace:*
+        version: link:../policy
+      '@vibesboard/retrieval':
+        specifier: workspace:*
+        version: link:../retrieval
+      '@vibesboard/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@vibesboard/utils':
+        specifier: workspace:*
+        version: link:../utils
+      ai:
+        specifier: ^3.4.33
+        version: 3.4.33(react@19.2.3)(solid-js@1.9.10)(sswr@2.2.0(svelte@4.2.20))(svelte@4.2.20)(vue@3.5.22(typescript@5.9.3))(zod@3.25.76)
+      exceljs:
+        specifier: ^4.4.0
+        version: 4.4.0
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
+      jsdom:
+        specifier: ^27.2.0
+        version: 27.2.0
+      mammoth:
+        specifier: ^1.11.0
+        version: 1.11.0
+      nanoid:
+        specifier: ^4.0.2
+        version: 4.0.2
+      pdf-parse:
+        specifier: ^2.4.5
+        version: 2.4.5
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/jsdom':
+        specifier: ^27.0.0
+        version: 27.0.0
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/booking-enquiries:
     dependencies:
       '@vibesboard/adapter-firebase':
@@ -420,6 +545,37 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/retrieval:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/adapter-openai':
+        specifier: workspace:*
+        version: link:../adapter-openai
+      '@vibesboard/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vibesboard/utils':
+        specifier: workspace:*
+        version: link:../utils
+      just-bash:
+        specifier: ^2.14.0
+        version: 2.14.0
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/scheduling:
     dependencies:
       '@vibesboard/adapter-firebase':
@@ -443,6 +599,16 @@ importers:
         version: 5.9.3
 
   packages/utils:
+    dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      nanoid:
+        specifier: ^4.0.2
+        version: 4.0.2
+      tailwind-merge:
+        specifier: ^3.4.0
+        version: 3.4.0
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
