@@ -94,3 +94,47 @@ export async function fileExists(key: string): Promise<boolean> {
     throw err
   }
 }
+
+/**
+ * Server-side upload (no signed URL — for use in API routes that already
+ * have the file buffer in memory). Optional cacheControl is forwarded to
+ * S3 as the CacheControl header so CDNs / browsers can cache responses.
+ */
+export async function uploadFile(
+  key: string,
+  body: Buffer | Uint8Array | string,
+  contentType: string,
+  options?: { cacheControl?: string },
+): Promise<void> {
+  const command = new PutObjectCommand({
+    Bucket: getBucket(),
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    CacheControl: options?.cacheControl,
+  })
+  await getS3Client().send(command)
+}
+
+/**
+ * Fetch object metadata (Content-Type, size, etc.) without downloading
+ * the body. Returns `null` if the object doesn't exist.
+ */
+export async function getFileMetadata(
+  key: string,
+): Promise<{ contentType: string | undefined; size: number | undefined } | null> {
+  const command = new HeadObjectCommand({ Bucket: getBucket(), Key: key })
+  try {
+    const response = await getS3Client().send(command)
+    return {
+      contentType: response.ContentType,
+      size: response.ContentLength,
+    }
+  } catch (err: unknown) {
+    const name = (err as { name?: string } | null)?.name
+    if (name === 'NoSuchKey' || name === 'NotFound') return null
+    const meta = (err as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata
+    if (meta?.httpStatusCode === 404) return null
+    throw err
+  }
+}
