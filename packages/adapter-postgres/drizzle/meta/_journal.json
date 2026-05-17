@@ -29,6 +29,13 @@
       "when": 1779040547814,
       "tag": "0003_better_auth_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1747504800000,
+      "tag": "0004_sessions_updated_at",
+      "breakpoints": true
     }
   ]
 }
