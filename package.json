@@ -15,14 +15,15 @@
     "format:write": "pnpm --filter @vibesboard/web format:write",
     "format:check": "pnpm --filter @vibesboard/web format:check",
     "build:functions": "cd apps/functions && npm run build",
-    "db:up": "docker compose -f docker-compose.dev.yml up -d postgres adminer",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init",
     "db:down": "docker compose -f docker-compose.dev.yml down",
     "db:reset": "docker compose -f docker-compose.dev.yml down -v && pnpm db:up && sleep 2 && pnpm db:migrate && pnpm db:seed",
     "db:migrate": "pnpm --filter @vibesboard/adapter-postgres db:migrate",
     "db:generate": "pnpm --filter @vibesboard/adapter-postgres db:generate",
     "db:studio": "pnpm --filter @vibesboard/adapter-postgres exec drizzle-kit studio",
     "db:seed": "pnpm --filter @vibesboard/adapter-postgres exec node --experimental-strip-types src/seed.ts",
-    "db:setup": "pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed"
+    "db:setup": "pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed",
+    "minio:console": "open http://localhost:9001"
   },
   "overrides": {
     "glob": "^10.5.0",
