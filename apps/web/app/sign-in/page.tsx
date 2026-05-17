@@ -1,30 +1,15 @@
-import { auth } from '@/auth'
-import { LoginButton } from '@/components/login-button'
-import { GoogleLoginButton } from '@/components/google-login-button'
+'use client'
+
 import { LoginForm } from '@/components/login-form'
+import { GoogleLoginButton } from '@/components/google-login-button'
 import { Separator } from '@/components/ui/separator'
-import { redirect } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { getSafeRedirectPath } from '@/lib/redirects'
 
-export default async function SignInPage({
-  searchParams
-}: {
-  searchParams: Promise<{
-    redirectedFrom?: string | string[]
-    next?: string | string[]
-  }>
-}) {
-  const query = await searchParams
-  const rawRedirectedFrom = Array.isArray(query.redirectedFrom)
-    ? query.redirectedFrom[0]
-    : query.redirectedFrom
-  const rawNext = Array.isArray(query.next) ? query.next[0] : query.next
-  const redirectedFrom = getSafeRedirectPath(rawRedirectedFrom ?? rawNext)
-
-  const session = await auth()
-  if (session?.user) {
-    redirect(redirectedFrom ?? '/')
-  }
+export default function SignInPage() {
+  const searchParams = useSearchParams()
+  const rawRedirectedFrom = searchParams.get('redirectedFrom') ?? searchParams.get('next') ?? undefined
+  const redirectedFrom = getSafeRedirectPath(rawRedirectedFrom) ?? undefined
 
   return (
     <div className="flex min-h-[calc(100dvh-4rem)] flex-col items-center justify-center bg-[#f7f7f5] px-4 py-8 dark:bg-[#111918] sm:px-6">
@@ -43,7 +28,7 @@ export default async function SignInPage({
         <div className="rounded-[1.75rem] border border-[#e4e3e3] bg-[#f5f8f7] p-6 shadow-soft dark:border-[#344348] dark:bg-[#192425] sm:p-8">
           <LoginForm
             action="sign-in"
-            redirectedFrom={redirectedFrom ?? undefined}
+            redirectedFrom={redirectedFrom}
           />
 
           <div className="relative my-6">
@@ -54,8 +39,7 @@ export default async function SignInPage({
           </div>
 
           <div className="flex flex-col gap-3">
-            <LoginButton redirectedFrom={redirectedFrom ?? undefined} />
-            <GoogleLoginButton redirectedFrom={redirectedFrom ?? undefined} />
+            <GoogleLoginButton redirectedFrom={redirectedFrom} />
           </div>
         </div>
       </div>

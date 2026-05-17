@@ -1,11 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
-} from 'firebase/auth'
-import { getClientAuth } from '@vibesboard/adapter-firebase/client'
+import { authClient } from '@/lib/auth-client'
 
 import { Button } from '@/components/ui/button'
 import { IconSpinner } from '@/components/ui/icons'
@@ -20,15 +16,6 @@ interface LoginFormProps extends React.ComponentPropsWithoutRef<'div'> {
   redirectedFrom?: string
 }
 
-async function postSessionCookie(idToken: string): Promise<boolean> {
-  const res = await fetch('/api/auth/session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken })
-  })
-  return res.ok
-}
-
 export function LoginForm({
   className,
   action = 'sign-in',
@@ -36,77 +23,88 @@ export function LoginForm({
   ...props
 }: LoginFormProps) {
   const [isLoading, setIsLoading] = React.useState(false)
+  const [name, setName] = React.useState('')
+  const [email, setEmail] = React.useState('')
+  const [password, setPassword] = React.useState('')
+  const [needsVerify, setNeedsVerify] = React.useState(false)
   const router = useRouter()
-  const auth = getClientAuth()
 
-  const [formState, setFormState] = React.useState<{
-    email: string
-    password: string
-  }>({
-    email: '',
-    password: ''
-  })
+  const callbackURL = redirectedFrom ?? '/'
 
   const handleOnSubmit: React.FormEventHandler<HTMLFormElement> = async e => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const { email, password } = formState
-      let userCredential
-
       if (action === 'sign-in') {
-        userCredential = await signInWithEmailAndPassword(auth, email, password)
-      } else {
-        userCredential = await createUserWithEmailAndPassword(
-          auth,
+        const { error } = await authClient.signIn.email({
           email,
-          password
-        )
+          password,
+          callbackURL,
+        })
+        if (error) {
+          toast.error(error.message ?? 'Sign-in failed')
+          return
+        }
+        router.push(callbackURL)
+        router.refresh()
+      } else {
+        const { error } = await authClient.signUp.email({
+          email,
+          password,
+          name,
+          callbackURL,
+        })
+        if (error) {
+          toast.error(error.message ?? 'Sign-up failed')
+          return
+        }
+        setNeedsVerify(true)
       }
-
-      const idToken = await userCredential.user.getIdToken()
-      const ok = await postSessionCookie(idToken)
-
-      if (!ok) {
-        toast.error('Failed to create session. Please try again.')
-        setIsLoading(false)
-        return
-      }
-
-      router.push(redirectedFrom ?? '/')
-      router.refresh()
     } catch (err: any) {
-      const message =
-        err?.code === 'auth/user-not-found'
-          ? 'No account found with that email.'
-          : err?.code === 'auth/wrong-password'
-            ? 'Incorrect password.'
-            : err?.code === 'auth/email-already-in-use'
-              ? 'An account with that email already exists.'
-              : err?.code === 'auth/weak-password'
-                ? 'Password should be at least 6 characters.'
-                : (err?.message ?? 'Authentication failed.')
-      toast.error(message)
+      toast.error(err?.message ?? 'Authentication failed.')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (needsVerify) {
+    return (
+      <div {...props}>
+        <p className="text-sm text-[#445e5f] dark:text-[#6f7f80]">
+          We sent a verification link to <strong>{email}</strong>. Click it to
+          finish creating your account.
+        </p>
+      </div>
+    )
   }
 
   return (
     <div {...props}>
       <form onSubmit={handleOnSubmit}>
         <fieldset className="flex flex-col gap-y-4">
+          {action === 'sign-up' && (
+            <div className="flex flex-col gap-y-1.5">
+              <Label>Name</Label>
+              <Input
+                name="name"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+            </div>
+          )}
           <div className="flex flex-col gap-y-1.5">
             <Label>Email</Label>
             <Input
               name="email"
               type="email"
               placeholder="you@example.com"
-              value={formState.email}
-              onChange={e =>
-                setFormState(prev => ({ ...prev, email: e.target.value }))
-              }
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
             />
           </div>
           <div className="flex flex-col gap-y-1.5">
@@ -115,10 +113,10 @@ export function LoginForm({
               name="password"
               type="password"
               placeholder="••••••••"
-              value={formState.password}
-              onChange={e =>
-                setFormState(prev => ({ ...prev, password: e.target.value }))
-              }
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              minLength={action === 'sign-up' ? 8 : undefined}
             />
           </div>
         </fieldset>
