@@ -1,0 +1,6 @@
+packages:
+  - "apps/web"
+  - "packages/*"
+  # apps/functions is intentionally excluded — Firebase deploy runs `npm install`
+  # directly in the function source dir, so we keep it as a standalone npm package.
+

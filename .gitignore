@@ -58,7 +58,13 @@ env.yaml
 .kilocode
 
 # Cloud Functions build output
-functions/lib
+apps/functions/lib
+
+# Firebase emulator debug logs
+firebase-debug.log
+firestore-debug.log
+*-debug.log
+apps/functions/firebase-debug.log
 
 # test artifacts
 .playwright-mcp/
