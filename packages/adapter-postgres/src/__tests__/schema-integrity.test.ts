@@ -80,7 +80,7 @@ describe('schema integrity', () => {
             mode: 'provider',
           })
         }),
-        /unique|duplicate/i,
+        (err: any) => /unique|duplicate/i.test(err.cause?.message ?? err.message),
       )
     })
   })
@@ -92,7 +92,7 @@ describe('schema integrity', () => {
           await tx.execute(sql.raw(`SET LOCAL search_path TO "${schemaName}", public`))
           await tx.insert(tenants).values({ id: uuidv7(), name: 'X', slug: null as any })
         }),
-        /null value|violates not-null/i,
+        (err: any) => /null value|violates not-null/i.test(err.cause?.message ?? err.message),
       )
     })
   })

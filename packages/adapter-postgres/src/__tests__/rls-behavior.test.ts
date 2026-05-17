@@ -82,7 +82,7 @@ describe('rls behavior', () => {
             mode: 'provider',
           })
         }),
-        /row-level security|violates row-level security/i,
+        (err: any) => /row-level security|violates row-level security/i.test(err.cause?.message ?? err.message),
       )
     })
   })
