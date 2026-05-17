@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { magicLink } from 'better-auth/plugins'
+import { uuidv7 } from 'uuidv7'
 import { getDb } from '@vibesboard/adapter-postgres/client'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { sendMagicLinkEmail, sendVerifyEmail, sendResetPasswordEmail } from './email.ts'
@@ -16,6 +17,9 @@ export const auth = betterAuth({
   }),
   baseURL,
   secret: process.env.BETTER_AUTH_SECRET || 'dev-secret-change-me',
+  // Our schema uses uuid columns; Better Auth's default ID generator emits
+  // nanoids which would fail the uuid CHECK. Route through uuidv7.
+  advanced: { database: { generateId: () => uuidv7() } },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
