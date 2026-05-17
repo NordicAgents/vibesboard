@@ -4,17 +4,13 @@ on:
   push:
     branches: [dev, main]
     paths:
-      - "src/**"
-      - "app/**"
-      - "components/**"
-      - "lib/**"
-      - "public/**"
+      - "apps/web/**"
+      - "packages/**"
       - "package.json"
-      - "package-lock.json"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
       - "Dockerfile"
-      - "next.config.*"
-      - "tailwind.config.*"
   workflow_dispatch:
 
 concurrency:

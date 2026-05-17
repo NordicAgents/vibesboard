@@ -2,6 +2,7 @@
   "name": "vibeagent-monorepo",
   "version": "0.0.2",
   "private": true,
+  "packageManager": "pnpm@10.18.1",
   "scripts": {
     "dev": "pnpm --filter @vibesboard/web dev",
     "build": "pnpm --filter @vibesboard/web build",
