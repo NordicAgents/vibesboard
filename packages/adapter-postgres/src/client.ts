@@ -19,6 +19,25 @@ function readUrl(name: 'DATABASE_URL' | 'DATABASE_MIGRATE_URL'): string {
   return url
 }
 
+// True during `next build` when secrets aren't injected. We return a no-op
+// Drizzle proxy so module evaluation of pages that import auth/db doesn't
+// crash before any real query runs. Mirrors the pattern used in
+// packages/adapter-firebase/src/admin.ts.
+const isBuildTime =
+  !process.env.DATABASE_URL &&
+  (process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.NEXT_PHASE === 'phase-export')
+
+function noopProxy(): any {
+  return new Proxy(function () {}, {
+    get: (_t, prop) => {
+      if (prop === 'then') return undefined
+      return noopProxy()
+    },
+    apply: () => noopProxy(),
+  })
+}
+
 let _appSql: postgres.Sql | undefined
 let _appDb: Db | undefined
 
@@ -42,6 +61,7 @@ function appSql(): postgres.Sql {
  * tenant-scoped table. Fail closed.
  */
 export function getDb(): Db {
+  if (isBuildTime) return noopProxy() as Db
   if (!_appDb) {
     _appDb = drizzle(appSql(), { schema })
   }

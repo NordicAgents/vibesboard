@@ -9,7 +9,8 @@ import { onUserCreateAfter } from './on-user-create.ts'
 
 const baseURL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-export const auth = betterAuth({
+function buildAuth() {
+  return betterAuth({
   database: drizzleAdapter(getDb(), {
     provider: 'pg',
     schema,
@@ -50,6 +51,24 @@ export const auth = betterAuth({
       },
     },
   },
+  })
+}
+
+type AuthInstance = ReturnType<typeof buildAuth>
+
+let _auth: AuthInstance | undefined
+
+/**
+ * Lazy singleton — the underlying drizzleAdapter calls getDb() which reads
+ * DATABASE_URL at first use. Deferring creation lets `next build` import this
+ * module without touching the env (build-time prerendering doesn't actually
+ * invoke any auth method).
+ */
+export const auth = new Proxy({} as AuthInstance, {
+  get(_target, prop) {
+    if (!_auth) _auth = buildAuth()
+    return Reflect.get(_auth as object, prop)
+  },
 })
 
-export type Auth = typeof auth
+export type Auth = AuthInstance
