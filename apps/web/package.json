@@ -39,6 +39,7 @@
     "@vibesboard/booking-enquiries": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "@vibesboard/data": "workspace:*",
+    "@vibesboard/policy": "workspace:*",
     "@vibesboard/scheduling": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",

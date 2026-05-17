@@ -15,7 +15,7 @@ import type {
   UsageRollupDocument,
   UserUsage,
   UserAgentUsage
-} from './firestore-types.ts'
+} from '@vibesboard/contracts'
 
 describe('UsageRollupDocument type hierarchy', () => {
   test('byUser supports authenticated user -> agent -> tenant structure', () => {
