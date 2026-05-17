@@ -11,6 +11,10 @@ import { withTestDb } from '../test-utils.ts'
 const RLS_EXEMPT = new Set<string>([
   // Drizzle Kit creates this to track applied migrations. Not application data.
   '__drizzle_migrations',
+  // Better Auth verification tokens: identifier-keyed (the email being
+  // verified), inserted BEFORE the user exists. The auth flow itself needs
+  // to read/write by identifier without a user_id context. Stays public-readable.
+  'verifications',
 ])
 
 describe('rls coverage', () => {
