@@ -90,18 +90,12 @@ importers:
       '@vibesboard/adapter-s3':
         specifier: workspace:*
         version: link:../../packages/adapter-s3
-      '@vibesboard/adapter-stripe':
-        specifier: workspace:*
-        version: link:../../packages/adapter-stripe
       '@vibesboard/agents':
         specifier: workspace:*
         version: link:../../packages/agents
       '@vibesboard/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@vibesboard/billing':
-        specifier: workspace:*
-        version: link:../../packages/billing
       '@vibesboard/booking-enquiries':
         specifier: workspace:*
         version: link:../../packages/booking-enquiries
@@ -433,25 +427,6 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  packages/adapter-stripe:
-    dependencies:
-      '@stripe/stripe-js':
-        specifier: ^9.0.0
-        version: 9.0.0
-      server-only:
-        specifier: ^0.0.1
-        version: 0.0.1
-      stripe:
-        specifier: ^21.0.1
-        version: 21.0.1(@types/node@25.6.0)
-    devDependencies:
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   packages/agents:
     dependencies:
       '@vibesboard/adapter-firebase':
@@ -564,34 +539,6 @@ importers:
       '@types/jsdom':
         specifier: ^27.0.0
         version: 27.0.0
-      '@types/node':
-        specifier: ^25.6.0
-        version: 25.6.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  packages/billing:
-    dependencies:
-      '@vibesboard/adapter-firebase':
-        specifier: workspace:*
-        version: link:../adapter-firebase
-      '@vibesboard/adapter-stripe':
-        specifier: workspace:*
-        version: link:../adapter-stripe
-      '@vibesboard/contracts':
-        specifier: workspace:*
-        version: link:../contracts
-      '@vibesboard/policy':
-        specifier: workspace:*
-        version: link:../policy
-      server-only:
-        specifier: ^0.0.1
-        version: 0.0.1
-      stripe:
-        specifier: ^21.0.1
-        version: 21.0.1(@types/node@25.6.0)
-    devDependencies:
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0

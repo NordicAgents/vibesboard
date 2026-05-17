@@ -73,7 +73,7 @@ export const DEFAULT_PLANS: Record<PlanId, PlanDefinition> = {
 export const PLAN_TEMPLATES = DEFAULT_PLANS
 
 /** toPlanDefinition — identity shim; source document shape no longer matters */
-export function toPlanDefinition(doc: Record<string, unknown>): PlanDefinition {
+export function toPlanDefinition(doc: { id?: unknown; name?: unknown; price?: unknown; pricePerSeat?: unknown; minSeats?: unknown; includedMessagesPerSeat?: unknown; [key: string]: unknown }): PlanDefinition {
   return {
     id: (doc.id as PlanId) ?? 'free',
     name: (doc.name as string) ?? 'Self-host',
