@@ -4,17 +4,13 @@ on:
   push:
     branches: [dev, main]
     paths:
-      - "src/**"
-      - "app/**"
-      - "components/**"
-      - "lib/**"
-      - "public/**"
+      - "apps/web/**"
+      - "packages/**"
       - "package.json"
-      - "package-lock.json"
       - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
       - "Dockerfile"
-      - "next.config.*"
-      - "tailwind.config.*"
   workflow_dispatch:
 
 concurrency:
@@ -34,13 +30,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set environment
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PROD_CLOUD_RUN_SERVICE: ${{ secrets.PROD_CLOUD_RUN_SERVICE }}
+          STAGING_CLOUD_RUN_SERVICE: ${{ secrets.STAGING_CLOUD_RUN_SERVICE }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "ENV=prod" >> $GITHUB_ENV
-            echo "CLOUD_RUN_SERVICE=${{ secrets.PROD_CLOUD_RUN_SERVICE }}" >> $GITHUB_ENV
+          if [ "$REF_NAME" = "main" ]; then
+            echo "ENV=prod" >> "$GITHUB_ENV"
+            echo "CLOUD_RUN_SERVICE=$PROD_CLOUD_RUN_SERVICE" >> "$GITHUB_ENV"
           else
-            echo "ENV=staging" >> $GITHUB_ENV
-            echo "CLOUD_RUN_SERVICE=${{ secrets.STAGING_CLOUD_RUN_SERVICE }}" >> $GITHUB_ENV
+            echo "ENV=staging" >> "$GITHUB_ENV"
+            echo "CLOUD_RUN_SERVICE=$STAGING_CLOUD_RUN_SERVICE" >> "$GITHUB_ENV"
           fi
 
       - name: Authenticate to GCP

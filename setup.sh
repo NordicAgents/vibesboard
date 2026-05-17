@@ -60,11 +60,11 @@ ok "Dependencies installed"
 
 # ── 4. Install functions dependencies ─────────────────────────────────
 info "Installing Cloud Functions dependencies..."
-if [ -d "functions" ] && [ -f "functions/package.json" ]; then
-  (cd functions && npm install)
+if [ -d "apps/functions" ] && [ -f "apps/functions/package.json" ]; then
+  (cd apps/functions && npm install)
   ok "Functions dependencies installed"
 else
-  warn "functions/ directory not found — skipping"
+  warn "apps/functions/ directory not found — skipping"
 fi
 
 # ── 5. Environment file ──────────────────────────────────────────────
