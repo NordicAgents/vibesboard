@@ -82,6 +82,9 @@ importers:
       '@vibesboard/adapter-stripe':
         specifier: workspace:*
         version: link:../../packages/adapter-stripe
+      '@vibesboard/booking-enquiries':
+        specifier: workspace:*
+        version: link:../../packages/booking-enquiries
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -316,6 +319,28 @@ importers:
       stripe:
         specifier: ^21.0.1
         version: 21.0.1(@types/node@25.6.0)
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/booking-enquiries:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      '@vibesboard/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      resend:
+        specifier: ^6.9.4
+        version: 6.9.4
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
     devDependencies:
       '@types/node':
         specifier: ^25.6.0

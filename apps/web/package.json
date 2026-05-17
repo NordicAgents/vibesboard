@@ -36,6 +36,7 @@
     "@vibesboard/adapter-google": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/adapter-stripe": "workspace:*",
+    "@vibesboard/booking-enquiries": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",
