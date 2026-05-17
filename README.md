@@ -67,3 +67,26 @@ This library is created by [Vercel](https://vercel.com) and [Next.js](https://ne
 - Jared Palmer ([@jaredpalmer](https://twitter.com/jaredpalmer)) - [Vercel](https://vercel.com)
 - Shu Ding ([@shuding\_](https://twitter.com/shuding_)) - [Vercel](https://vercel.com)
 - shadcn ([@shadcn](https://twitter.com/shadcn)) - [Contractor](https://shadcn.com)
+
+## Self-host quickstart (Postgres data plane)
+
+Vibesboard is migrating to a fully self-hostable stack. Sub-project #1 (this PR)
+ships the Postgres adapter — schema, migrations, RLS, and dev tooling. It does
+not yet replace Firebase in the running app; that's sub-projects #2–#6.
+
+Requirements: Docker, pnpm.
+
+```bash
+cp .env.example .env       # already done if you run the full app locally
+pnpm install
+pnpm db:setup              # docker compose up + migrate + seed
+pnpm db:studio             # browse the schema at https://local.drizzle.studio
+```
+
+Run the package tests:
+
+```bash
+pnpm --filter @vibesboard/adapter-postgres test
+```
+
+See [docs/superpowers/specs/2026-05-17-adapter-postgres-foundation-design.md](docs/superpowers/specs/2026-05-17-adapter-postgres-foundation-design.md) for the design.
