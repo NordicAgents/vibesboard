@@ -18,7 +18,6 @@ import { TenantBrandingTab } from './tabs/branding-tab'
 import { TenantFeaturesTab } from './tabs/features-tab'
 import { TenantUsersTab } from './tabs/users-tab'
 import { TenantAgentsTab } from './tabs/agents-tab'
-import { TenantSubscriptionTab } from './tabs/subscription-tab'
 import { TenantUsageTab } from './tabs/usage-tab'
 
 interface PageProps {
@@ -100,7 +99,6 @@ export default function TenantDetailPage({ params }: PageProps) {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="subscription">Subscription</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -110,10 +108,6 @@ export default function TenantDetailPage({ params }: PageProps) {
 
         <TabsContent value="overview">
           <TenantOverviewTab tenant={tenant} onUpdate={fetchTenant} />
-        </TabsContent>
-
-        <TabsContent value="subscription">
-          <TenantSubscriptionTab tenantId={tenant.id} />
         </TabsContent>
 
         <TabsContent value="branding">

@@ -199,7 +199,7 @@ export function TenantSwitcher({
         <DropdownMenuItem
           onSelect={() => {
             setOpen(false)
-            router.push('/settings/tenant/billing?action=create-team')
+            router.push('/settings/tenant')
           }}
           className="mx-1 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 hover:bg-[#e6ede6] focus:bg-[#e6ede6] dark:hover:bg-[#344348] dark:focus:bg-[#344348]"
         >

@@ -23,10 +23,10 @@ export function usageLimitResponse(result: UsageLimitResult) {
   return NextResponse.json(
     {
       error: 'usage_limit_reached',
-      message: `You've used all ${result.limit} messages this month. Upgrade to Pro for 5,000 messages/month.`,
+      message: `You've used all ${result.limit} messages this month.`,
       used: result.used,
       limit: result.limit,
-      upgradeUrl: '/settings/tenant/billing'
+      upgradeUrl: '/settings/tenant'
     },
     { status: 429 }
   )
