@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { requireAuth } from '@/lib/firebase/route-handler'
+import { requireAuth } from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { mapAgentDoc } from '@vibesboard/agents/db'
 import { patchAgentSchema } from '@vibesboard/agents/schema'

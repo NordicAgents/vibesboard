@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import {
   requireTenantMember,
   requireTenantAdmin
-} from '@/lib/firebase/route-handler'
+} from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import type {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireTenantMember } from '@/lib/firebase/route-handler'
+import { requireTenantMember } from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import { stripe } from '@vibesboard/adapter-stripe/server'

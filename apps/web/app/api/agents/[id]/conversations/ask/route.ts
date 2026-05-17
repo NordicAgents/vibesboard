@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { streamText as aiStreamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
-import { requireAuth } from '@/lib/firebase/route-handler'
+import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { agentAskRequestSchema } from '@vibesboard/agents/schema'
 import {

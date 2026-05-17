@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { requireSuperAdmin } from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections, type PlanTemplateDocument } from '@vibesboard/contracts'
 import {

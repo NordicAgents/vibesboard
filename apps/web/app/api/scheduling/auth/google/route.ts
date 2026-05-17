@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto'
 import { NextResponse } from 'next/server'
 import { headers, cookies } from 'next/headers'
-import { requireAuth } from '@/lib/firebase/route-handler'
+import { requireAuth } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getGoogleAuthUrl } from '@vibesboard/scheduling/google-auth'

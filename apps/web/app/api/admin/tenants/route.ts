@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
-import { requireSuperAdmin } from '@/lib/firebase/route-handler'
+import { requireSuperAdmin } from '@/lib/auth/route-handler'
 import { adminDb, adminAuth } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import {

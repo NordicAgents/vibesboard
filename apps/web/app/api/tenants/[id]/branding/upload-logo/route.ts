@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { requireTenantAdmin } from '@/lib/auth/route-handler'
 import { uploadFile } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
