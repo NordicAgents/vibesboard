@@ -38,27 +38,30 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Bring up Postgres + MinIO via docker compose
-        run: docker compose -f docker-compose.dev.yml up -d postgres minio minio-init
+        run: docker compose -f docker-compose.dev.yml up -d --wait postgres minio
 
-      - name: Wait for Postgres healthy
+      - name: Bootstrap MinIO bucket
         run: |
+          # Wait until MinIO answers /minio/health/live (the compose healthcheck
+          # already covers this but we re-check from the runner's perspective
+          # to ensure host networking is reachable).
           for i in $(seq 1 30); do
-            if docker compose -f docker-compose.dev.yml ps postgres | grep -q "healthy"; then
-              echo "Postgres healthy"; exit 0
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO reachable"; break
             fi
-            echo "Waiting for Postgres... ($i/30)"; sleep 2
-          done
-          echo "Postgres failed to reach healthy state"; docker compose -f docker-compose.dev.yml logs postgres; exit 1
-
-      - name: Wait for MinIO bucket bootstrap
-        run: |
-          for i in $(seq 1 30); do
-            if docker compose -f docker-compose.dev.yml ps minio-init | grep -qE "exited \(0\)|Exit 0"; then
-              echo "MinIO init complete"; exit 0
+            echo "Waiting for MinIO... ($i/30)"; sleep 2
+            if [ "$i" = "30" ]; then
+              echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
             fi
-            echo "Waiting for minio-init... ($i/30)"; sleep 2
           done
-          echo "minio-init never exited cleanly"; docker compose -f docker-compose.dev.yml logs minio-init; exit 1
+          # Create the bucket via the mc client image. Use --network host so
+          # 'localhost:9000' resolves to the runner-bound minio port.
+          docker run --rm --network host minio/mc:latest sh -c "
+            mc alias set local http://localhost:9000 vibesboard vibesboard &&
+            (mc mb -p local/vibesboard-files || true) &&
+            mc anonymous set none local/vibesboard-files &&
+            mc ls local/
+          "
 
       - name: Apply database migrations
         run: pnpm db:migrate
