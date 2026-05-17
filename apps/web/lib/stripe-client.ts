@@ -1,10 +1,3 @@
-import { loadStripe, type Stripe } from '@stripe/stripe-js'
-
-let stripePromise: Promise<Stripe | null> | null = null
-
-export function getStripe() {
-  if (!stripePromise) {
-    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
-  }
-  return stripePromise
-}
+// Re-export shim — the real Stripe browser SDK init lives in
+// @vibesboard/adapter-stripe/client. Deleted in Phase 12.
+export * from '@vibesboard/adapter-stripe/client'

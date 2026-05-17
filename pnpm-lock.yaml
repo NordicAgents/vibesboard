@@ -73,9 +73,15 @@ importers:
       '@vibesboard/adapter-firebase':
         specifier: workspace:*
         version: link:../../packages/adapter-firebase
+      '@vibesboard/adapter-google':
+        specifier: workspace:*
+        version: link:../../packages/adapter-google
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../../packages/adapter-openai
+      '@vibesboard/adapter-stripe':
+        specifier: workspace:*
+        version: link:../../packages/adapter-stripe
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -274,7 +280,42 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/adapter-google:
+    dependencies:
+      '@vibesboard/adapter-firebase':
+        specifier: workspace:*
+        version: link:../adapter-firebase
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/adapter-openai:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/adapter-stripe:
+    dependencies:
+      '@stripe/stripe-js':
+        specifier: ^9.0.0
+        version: 9.0.0
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      stripe:
+        specifier: ^21.0.1
+        version: 21.0.1(@types/node@25.6.0)
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
