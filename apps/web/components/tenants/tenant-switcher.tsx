@@ -7,7 +7,6 @@ import {
   ChevronsUpDown,
   Loader2,
   Building2,
-  Plus,
   User,
   Users
 } from 'lucide-react'
@@ -194,22 +193,12 @@ export function TenantSwitcher({
           </>
         )}
 
-        {/* Create new team workspace */}
-        <DropdownMenuSeparator className="bg-[#e4e3e3] dark:bg-[#344348]" />
-        <DropdownMenuItem
-          onSelect={() => {
-            setOpen(false)
-            router.push('/settings/tenant')
-          }}
-          className="mx-1 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 hover:bg-[#e6ede6] focus:bg-[#e6ede6] dark:hover:bg-[#344348] dark:focus:bg-[#344348]"
-        >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#e6ede6] dark:bg-[#344348]">
-            <Plus className="size-3.5 text-accent-orange" />
-          </div>
-          <span className="text-sm font-medium text-[#6f7f80]">
-            New Team Workspace
-          </span>
-        </DropdownMenuItem>
+        {/*
+          "New Team Workspace" entry removed in sub-project #5 — the previous
+          flow opened a paid team-creation dialog in the deleted billing page.
+          Self-host doesn't have paid teams; if a future feature wants
+          ad-hoc workspace creation, wire a fresh dialog here.
+        */}
       </DropdownMenuContent>
     </DropdownMenu>
   )

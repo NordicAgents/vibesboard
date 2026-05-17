@@ -73,7 +73,6 @@ export async function middleware(req: NextRequest) {
     !pathname.includes('/landing') &&
     !pathname.includes('/privacy-policy') &&
     !pathname.includes('/terms-of-service') &&
-    !pathname.includes('/pricing') &&
     pathname !== '/'
 
   if (!sessionCookie && isProtectedRoute) {

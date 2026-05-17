@@ -26,7 +26,6 @@ export function usageLimitResponse(result: UsageLimitResult) {
       message: `You've used all ${result.limit} messages this month.`,
       used: result.used,
       limit: result.limit,
-      upgradeUrl: '/settings/tenant'
     },
     { status: 429 }
   )
