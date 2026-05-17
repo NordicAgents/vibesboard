@@ -25,7 +25,7 @@ export function usageLimitResponse(result: UsageLimitResult) {
       error: 'usage_limit_reached',
       message: `You've used all ${result.limit} messages this month.`,
       used: result.used,
-      limit: result.limit,
+      limit: result.limit
     },
     { status: 429 }
   )
