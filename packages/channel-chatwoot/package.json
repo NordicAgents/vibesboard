@@ -18,13 +18,13 @@
     "@vibesboard/ai": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "crypto-js": "^4.2.0",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^13.10.0",
     "nanoid": "^4.0.2",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.8.0",
     "typescript": "^5.9.3"
   }
 }

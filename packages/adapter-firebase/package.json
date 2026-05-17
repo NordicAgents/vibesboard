@@ -14,12 +14,12 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "firebase": "^12.9.0",
-    "firebase-admin": "^13.7.0",
+    "firebase": "^12.13.0",
+    "firebase-admin": "^13.10.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.8.0",
     "typescript": "^5.9.3"
   }
 }

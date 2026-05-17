@@ -20,14 +20,14 @@
     "@vibesboard/contracts": "workspace:*",
     "@vibesboard/policy": "workspace:*",
     "@vibesboard/utils": "workspace:*",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^13.10.0",
     "nanoid": "^4.0.2",
-    "resend": "^6.9.4",
+    "resend": "^6.12.3",
     "server-only": "^0.0.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.8.0",
     "typescript": "^5.9.3"
   }
 }
