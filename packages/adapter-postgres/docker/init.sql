@@ -9,6 +9,7 @@ CREATE ROLE vibesboard_migrate WITH LOGIN PASSWORD 'vibesboard_migrate' BYPASSRL
 CREATE ROLE vibesboard_app WITH LOGIN PASSWORD 'vibesboard_app';
 
 -- Grants
+GRANT CREATE ON DATABASE vibesboard_dev TO vibesboard_migrate;
 GRANT ALL ON SCHEMA public TO vibesboard_migrate;
 GRANT USAGE ON SCHEMA public TO vibesboard_app;
 
