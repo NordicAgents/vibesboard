@@ -2,7 +2,6 @@
   "name": "@vibesboard/adapter-postgres",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -15,7 +14,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --import ./ts-register.mjs --test 'src/__tests__/**/*.test.ts'",
+    "test": "node --experimental-strip-types --test 'src/__tests__/**/*.test.ts'",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },

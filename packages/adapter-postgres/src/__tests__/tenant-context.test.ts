@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { withTenant, getContext, type TenantContext } from '../tenant-context'
+import { withTenant, getContext, type TenantContext } from '../tenant-context.ts'
 
 describe('tenant-context', () => {
   test('getContext returns undefined outside withTenant', () => {
