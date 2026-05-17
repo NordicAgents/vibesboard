@@ -248,6 +248,12 @@ importers:
 
   packages/contracts:
     devDependencies:
+      ai:
+        specifier: ^3.4.33
+        version: 3.4.33(react@19.2.3)(solid-js@1.9.10)(sswr@2.2.0(svelte@4.2.20))(svelte@4.2.20)(vue@3.5.22(typescript@5.9.3))(zod@3.25.76)
+      firebase-admin:
+        specifier: ^13.7.0
+        version: 13.7.0(encoding@0.1.13)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

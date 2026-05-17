@@ -1,7 +1,10 @@
 import type { FeatureFlagName } from './feature-flags'
-import type { PlanTemplateDocument } from './firestore-types'
+import type { PlanId, PlanTemplateDocument } from './firestore-types'
 
-export type PlanId = 'free' | 'pro' | 'team' | 'enterprise'
+// Re-export PlanId so callers importing from `@/lib/plans` keep working
+// during the monorepo migration. The canonical definition lives in
+// @vibesboard/contracts (re-exported via @/lib/firestore-types).
+export type { PlanId }
 
 export interface PlanDefinition {
   id: PlanId

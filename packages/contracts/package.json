@@ -10,7 +10,17 @@
   "scripts": {
     "type-check": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "ai": "*",
+    "firebase-admin": "*"
+  },
+  "peerDependenciesMeta": {
+    "ai": { "optional": true },
+    "firebase-admin": { "optional": true }
+  },
   "devDependencies": {
+    "ai": "^3.4.33",
+    "firebase-admin": "^13.7.0",
     "typescript": "^5.9.3"
   }
 }

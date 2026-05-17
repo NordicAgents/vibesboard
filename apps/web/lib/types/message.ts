@@ -1,5 +1,3 @@
-/**
- * Shared chat message type used across server routes and components.
- * Re-exported from the ai SDK so all imports stay compatible with useChat.
- */
-export type { Message } from 'ai'
+// Re-export shim — Message now comes from @vibesboard/contracts.
+// Deleted in Phase 12.
+export type { Message } from '@vibesboard/contracts'
