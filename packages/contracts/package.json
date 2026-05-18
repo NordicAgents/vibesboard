@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "ai": "^3.4.33",
-    "firebase-admin": "^13.7.0",
+    "firebase-admin": "^13.10.0",
     "typescript": "^5.9.3"
   }
 }

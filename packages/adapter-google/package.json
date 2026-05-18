@@ -16,7 +16,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.8.0",
     "typescript": "^5.9.3"
   }
 }
