@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { deleteFile } from '@vibesboard/adapter-firebase/storage'
+import { deleteFile } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 
 /**
  * POST /api/agents/[id]/files/delete
- * Deletes a file from GCS
+ * Deletes a file from storage
  */
 export async function POST(
   req: NextRequest,

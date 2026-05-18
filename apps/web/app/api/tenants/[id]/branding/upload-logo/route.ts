@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireTenantAdmin } from '@/lib/firebase/route-handler'
-import { bucket } from '@vibesboard/adapter-firebase/storage'
+import { requireTenantAdmin } from '@/lib/auth/route-handler'
+import { uploadFile } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 
@@ -18,7 +18,7 @@ type RouteParams = {
 
 /**
  * POST /api/tenants/[id]/branding/upload-logo
- * Upload a logo file to GCS. Returns a proxy URL served by our own API.
+ * Upload a logo file to S3. Returns a proxy URL served by our own API.
  */
 export async function POST(req: Request, { params }: RouteParams) {
   const { id: tenantId } = await params
@@ -49,15 +49,10 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   try {
     const key = `branding/${tenantId}/logo`
-
     const buffer = Buffer.from(await file.arrayBuffer())
-    const gcsFile = bucket.file(key)
 
-    await gcsFile.save(buffer, {
-      contentType: file.type,
-      metadata: {
-        cacheControl: 'public, max-age=3600'
-      }
+    await uploadFile(key, buffer, file.type, {
+      cacheControl: 'public, max-age=3600',
     })
 
     // Return our own proxy URL — cache-bust with timestamp

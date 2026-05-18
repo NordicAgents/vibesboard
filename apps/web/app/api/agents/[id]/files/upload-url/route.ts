@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getSignedUploadUrl } from '@vibesboard/adapter-firebase/storage'
+import { getSignedUploadUrl } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 
 /**
  * POST /api/agents/[id]/files/upload-url
- * Returns a signed URL for direct browser → GCS upload
+ * Returns a signed URL for direct browser → S3 upload
  */
 export async function POST(
   req: NextRequest,

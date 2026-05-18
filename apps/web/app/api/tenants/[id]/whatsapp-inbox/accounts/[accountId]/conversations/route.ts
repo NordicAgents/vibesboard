@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireTenantMember } from '@/lib/firebase/route-handler'
+import { requireTenantMember } from '@/lib/auth/route-handler'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { listConversations } from '@vibesboard/channel-whatsapp/conversations'
 import type { InboxConversationStatus } from '@vibesboard/contracts'

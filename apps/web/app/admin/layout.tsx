@@ -8,7 +8,6 @@ import {
   Building2,
   Flag,
   FileText,
-  CreditCard,
   Palette,
   ShieldCheck,
   ArrowLeft
@@ -20,7 +19,6 @@ const iconMap: Record<string, LucideIcon> = {
   Building2,
   Flag,
   FileText,
-  CreditCard,
   Palette
 }
 
@@ -28,7 +26,6 @@ const navItems: NavItem[] = [
   { href: '/admin/tenants', iconName: 'Building2', label: 'Tenants' },
   { href: '/admin/branding', iconName: 'Palette', label: 'Branding' },
   { href: '/admin/feature-flags', iconName: 'Flag', label: 'Feature Flags' },
-  { href: '/admin/plans', iconName: 'CreditCard', label: 'Plans' },
   { href: '/admin/files', iconName: 'FileText', label: 'File Processing' }
 ]
 

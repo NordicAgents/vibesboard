@@ -18,9 +18,9 @@ import {
 export interface UserMenuProps {
   user: {
     id: string
-    email?: string
-    name?: string
-    image?: string
+    email?: string | null
+    name?: string | null
+    image?: string | null
   }
   isSuperAdmin?: boolean
   canManageTenant?: boolean

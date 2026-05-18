@@ -29,7 +29,7 @@ const nextConfig = {
   // Ensure pdf-parse and its native canvas dependency are available
   // to the Node.js runtime (and serverless targets) without bundling
   // their worker files incorrectly.
-  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas', 'firebase-admin', '@google-cloud/storage', '@google-cloud/firestore', 'crypto-js', 'csv-parse', 'just-bash'],
+  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas', 'firebase-admin', '@google-cloud/storage', '@google-cloud/firestore', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', 'crypto-js', 'csv-parse', 'just-bash'],
   async headers() {
     return [
       {
