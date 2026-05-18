@@ -52,6 +52,7 @@
     "@vibesboard/scheduling": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",
+    "uuidv7": "^1.0.2",
     "better-auth": "^1.1.0",
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",

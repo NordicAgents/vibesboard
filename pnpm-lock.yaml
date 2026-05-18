@@ -240,6 +240,9 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      uuidv7:
+        specifier: ^1.0.2
+        version: 1.2.1
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -429,6 +432,9 @@ importers:
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../adapter-openai
+      '@vibesboard/adapter-postgres':
+        specifier: workspace:*
+        version: link:../adapter-postgres
       '@vibesboard/ai':
         specifier: workspace:*
         version: link:../ai
@@ -441,6 +447,9 @@ importers:
       '@vibesboard/utils':
         specifier: workspace:*
         version: link:../utils
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       firebase-admin:
         specifier: ^13.7.0
         version: 13.7.0(encoding@0.1.13)
@@ -753,9 +762,15 @@ importers:
       '@vibesboard/adapter-firebase':
         specifier: workspace:*
         version: link:../adapter-firebase
+      '@vibesboard/adapter-postgres':
+        specifier: workspace:*
+        version: link:../adapter-postgres
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../contracts
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       firebase-admin:
         specifier: ^13.7.0
         version: 13.7.0(encoding@0.1.13)

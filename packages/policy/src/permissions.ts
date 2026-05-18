@@ -1,81 +1,79 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { eq, and, inArray } from 'drizzle-orm'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { users, tenantMembers } from '@vibesboard/adapter-postgres/schema'
 
 export type Role = 'SUPER_ADMIN' | 'TENANT_ADMIN' | 'MEMBER'
 
+// Identity-adjacent lookups use the BYPASSRLS migrate role: a user querying
+// "what tenants am I in?" runs before any tenant GUC is set, so the standard
+// _iso policies (tenant_id = current_tenant_id) would return zero rows.
+
 export async function getUserRole(
   userId: string,
-  tenantId: string
+  tenantId: string,
 ): Promise<Role | null> {
-  const doc = await adminDb
-    .collection(Collections.members(tenantId))
-    .doc(userId)
-    .get()
-
-  if (!doc.exists) return null
-  return doc.data()?.role as Role
+  const rows = await getMigrateDb()
+    .select({ role: tenantMembers.role })
+    .from(tenantMembers)
+    .where(and(eq(tenantMembers.userId, userId), eq(tenantMembers.tenantId, tenantId)))
+    .limit(1)
+  return (rows[0]?.role as Role) ?? null
 }
 
 export async function isSuperAdmin(userId: string): Promise<boolean> {
-  // Check the user document for the isSuperAdmin flag
-  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
-
-  if (userDoc.exists && userDoc.data()?.isSuperAdmin) {
-    return true
-  }
-
-  // Fallback: check if user has SUPER_ADMIN role in any tenant
-  const snapshot = await adminDb
-    .collectionGroup('members')
-    .where('userId', '==', userId)
-    .where('role', '==', 'SUPER_ADMIN')
+  const rows = await getMigrateDb()
+    .select({ isSuperAdmin: users.isSuperAdmin })
+    .from(users)
+    .where(eq(users.id, userId))
     .limit(1)
-    .get()
+  if (rows[0]?.isSuperAdmin === true) return true
 
-  return !snapshot.empty
+  // Fallback: SUPER_ADMIN role in any tenant
+  const memberRows = await getMigrateDb()
+    .select({ role: tenantMembers.role })
+    .from(tenantMembers)
+    .where(and(eq(tenantMembers.userId, userId), eq(tenantMembers.role, 'SUPER_ADMIN')))
+    .limit(1)
+  return memberRows.length > 0
 }
 
 export async function isTenantAdmin(
   userId: string,
-  tenantId: string
+  tenantId: string,
 ): Promise<boolean> {
-  const doc = await adminDb
-    .collection(Collections.members(tenantId))
-    .doc(userId)
-    .get()
-
-  if (!doc.exists) return false
-  const role = doc.data()?.role
+  const role = await getUserRole(userId, tenantId)
   return role === 'TENANT_ADMIN' || role === 'SUPER_ADMIN'
 }
 
 export async function canManageTenant(
   userId: string,
-  tenantId: string
+  tenantId: string,
 ): Promise<boolean> {
   return isTenantAdmin(userId, tenantId)
 }
 
 export async function isMemberOfTenant(
   userId: string,
-  tenantId: string
+  tenantId: string,
 ): Promise<boolean> {
-  const doc = await adminDb
-    .collection(Collections.members(tenantId))
-    .doc(userId)
-    .get()
-
-  return doc.exists
+  const rows = await getMigrateDb()
+    .select({ tenantId: tenantMembers.tenantId })
+    .from(tenantMembers)
+    .where(and(eq(tenantMembers.userId, userId), eq(tenantMembers.tenantId, tenantId)))
+    .limit(1)
+  return rows.length > 0
 }
 
 export async function hasTenantAdminAccess(userId: string): Promise<boolean> {
-  // Check across all tenants if user has admin access
-  const snapshot = await adminDb
-    .collectionGroup('members')
-    .where('userId', '==', userId)
-    .where('role', 'in', ['TENANT_ADMIN', 'SUPER_ADMIN'])
+  const rows = await getMigrateDb()
+    .select({ role: tenantMembers.role })
+    .from(tenantMembers)
+    .where(
+      and(
+        eq(tenantMembers.userId, userId),
+        inArray(tenantMembers.role, ['TENANT_ADMIN', 'SUPER_ADMIN']),
+      ),
+    )
     .limit(1)
-    .get()
-
-  return !snapshot.empty
+  return rows.length > 0
 }

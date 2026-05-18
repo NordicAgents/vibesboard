@@ -1,8 +1,15 @@
 import { cookies } from 'next/headers'
-import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { eq, and, desc } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import {
-  Collections,
+  tenants as tenantsTable,
+  tenantMembers as tenantMembersTable,
+  tenantBranding as tenantBrandingTable,
+  users as usersTable
+} from '@vibesboard/adapter-postgres/schema'
+import {
   type TenantDocument,
   type TenantBrandingDocument
 } from '@vibesboard/contracts'
@@ -21,6 +28,38 @@ export interface TenantWithMembers extends TenantDocument {
 }
 
 const ACTIVE_TENANT_COOKIE = 'active_tenant_id'
+
+// Tenant resolution is identity-adjacent: a user asking "which tenants am I
+// a member of?" runs before any tenant GUC is set, so the standard _iso RLS
+// policies (tenant_id = current_tenant_id) would return zero rows. We use
+// the BYPASSRLS migrate role for these lookups; the per-row filter is
+// expressed explicitly in the WHERE clause (user_id / tenant_id eq).
+
+// Map a Postgres tenants row to the legacy TenantDocument shape with ISO-
+// string timestamps (the existing UI / API responses expect strings).
+function rowToTenantDocument(row: {
+  id: string
+  name: string
+  slug: string
+  status: string
+  createdBy: string | null
+  isPersonal: boolean
+  googlePlaceId: string | null
+  createdAt: Date
+  updatedAt: Date
+}): TenantDocument {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    status: row.status as TenantDocument['status'],
+    createdBy: row.createdBy ?? '',
+    isPersonal: row.isPersonal,
+    googlePlaceId: row.googlePlaceId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
+  }
+}
 
 export async function getActiveTenantId(): Promise<string | null> {
   const cookieStore = await cookies()
@@ -55,132 +94,94 @@ export async function getActiveTenant(userId?: string): Promise<string | null> {
 export async function getUserTenants(
   userId: string
 ): Promise<TenantDocument[]> {
-  // Try collectionGroup query first (source of truth: actual member docs).
-  // Falls back to tenantIds array if the index isn't deployed yet.
-  let tenantIds: string[]
-
-  try {
-    const membersSnapshot = await adminDb
-      .collectionGroup('members')
-      .where('userId', '==', userId)
-      .where('role', 'in', ['SUPER_ADMIN', 'TENANT_ADMIN', 'MEMBER'])
-      .get()
-
-    if (membersSnapshot.empty) return []
-
-    tenantIds = membersSnapshot.docs.map(
-      (doc: QueryDocumentSnapshot) => doc.data().tenantId as string
+  const rows = await getMigrateDb()
+    .select({
+      id: tenantsTable.id,
+      name: tenantsTable.name,
+      slug: tenantsTable.slug,
+      status: tenantsTable.status,
+      createdBy: tenantsTable.createdBy,
+      isPersonal: tenantsTable.isPersonal,
+      googlePlaceId: tenantsTable.googlePlaceId,
+      createdAt: tenantsTable.createdAt,
+      updatedAt: tenantsTable.updatedAt
+    })
+    .from(tenantsTable)
+    .innerJoin(
+      tenantMembersTable,
+      eq(tenantsTable.id, tenantMembersTable.tenantId)
     )
-  } catch {
-    // Fallback: read from user doc's tenantIds array
-    const userDoc = await adminDb
-      .collection(Collections.users)
-      .doc(userId)
-      .get()
-    if (!userDoc.exists) return []
-    tenantIds = userDoc.data()?.tenantIds ?? []
-    if (!tenantIds.length) return []
-  }
+    .where(eq(tenantMembersTable.userId, userId))
+    .orderBy(desc(tenantsTable.createdAt))
 
-  // Fetch tenant documents
-  const tenantDocs = await Promise.all(
-    tenantIds.map((id: string) =>
-      adminDb.collection(Collections.tenants).doc(id).get()
-    )
-  )
-
-  const tenants = tenantDocs
-    .filter(doc => doc.exists)
-    .map(doc => doc.data() as TenantDocument)
-
-  // Self-heal: sync tenantIds array on the user document if it has diverged
-  selfHealTenantIds(userId, tenantIds).catch(err =>
-    console.error(`[getUserTenants] self-heal failed for user ${userId}:`, err)
-  )
-
-  return tenants
-}
-
-/**
- * Reconcile the user's tenantIds array with actual members subcollection.
- * Only writes when there is an actual difference.
- */
-async function selfHealTenantIds(
-  userId: string,
-  memberTenantIds: string[]
-): Promise<void> {
-  const userRef = adminDb.collection(Collections.users).doc(userId)
-  const userDoc = await userRef.get()
-
-  const existingIds: string[] = userDoc.exists
-    ? (userDoc.data()?.tenantIds ?? [])
-    : []
-
-  const existingSet = new Set(existingIds)
-  const memberSet = new Set(memberTenantIds)
-
-  if (
-    existingSet.size === memberSet.size &&
-    [...memberSet].every(id => existingSet.has(id))
-  ) {
-    return // Already in sync
-  }
-
-  await userRef.set({ tenantIds: memberTenantIds }, { merge: true })
+  return rows.map(rowToTenantDocument)
 }
 
 export async function getTenantById(
   tenantId: string
 ): Promise<TenantDocument | null> {
-  const doc = await adminDb.collection(Collections.tenants).doc(tenantId).get()
+  const rows = await getMigrateDb()
+    .select({
+      id: tenantsTable.id,
+      name: tenantsTable.name,
+      slug: tenantsTable.slug,
+      status: tenantsTable.status,
+      createdBy: tenantsTable.createdBy,
+      isPersonal: tenantsTable.isPersonal,
+      googlePlaceId: tenantsTable.googlePlaceId,
+      createdAt: tenantsTable.createdAt,
+      updatedAt: tenantsTable.updatedAt
+    })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId))
+    .limit(1)
 
-  if (!doc.exists) return null
-  return doc.data() as TenantDocument
+  if (rows.length === 0) return null
+  return rowToTenantDocument(rows[0])
 }
 
 export async function getActiveTenantBranding(): Promise<TenantBrandingDocument | null> {
   const tenantId = await getActiveTenantId()
   if (!tenantId) return null
 
-  const doc = await adminDb
-    .collection(Collections.branding(tenantId))
-    .doc(tenantId)
-    .get()
+  const rows = await getMigrateDb()
+    .select()
+    .from(tenantBrandingTable)
+    .where(eq(tenantBrandingTable.tenantId, tenantId))
+    .limit(1)
 
-  if (!doc.exists) return null
-  return doc.data() as TenantBrandingDocument
+  if (rows.length === 0) return null
+  return rows[0] as unknown as TenantBrandingDocument
 }
 
 export async function getTenantContext(userId: string) {
   const tenantId = await getActiveTenantId()
   if (!tenantId) return null
 
-  // Get tenant
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
+  const tenant = await getTenantById(tenantId)
+  if (!tenant) return null
 
-  if (!tenantDoc.exists) return null
-  const tenant = tenantDoc.data() as TenantDocument
+  const brandingRows = await getMigrateDb()
+    .select()
+    .from(tenantBrandingTable)
+    .where(eq(tenantBrandingTable.tenantId, tenantId))
+    .limit(1)
+  const branding =
+    brandingRows.length > 0
+      ? (brandingRows[0] as unknown as TenantBrandingDocument)
+      : null
 
-  // Get branding
-  const brandingDoc = await adminDb
-    .collection(Collections.branding(tenantId))
-    .doc(tenantId)
-    .get()
-
-  const branding = brandingDoc.exists
-    ? (brandingDoc.data() as TenantBrandingDocument)
-    : null
-
-  // Get user role
-  const memberDoc = await adminDb
-    .collection(Collections.members(tenantId))
-    .doc(userId)
-    .get()
-
-  const role = memberDoc.exists ? (memberDoc.data()?.role ?? null) : null
+  const memberRows = await getMigrateDb()
+    .select({ role: tenantMembersTable.role })
+    .from(tenantMembersTable)
+    .where(
+      and(
+        eq(tenantMembersTable.tenantId, tenantId),
+        eq(tenantMembersTable.userId, userId)
+      )
+    )
+    .limit(1)
+  const role = memberRows[0]?.role ?? null
 
   return { tenant, branding, role }
 }
@@ -188,30 +189,33 @@ export async function getTenantContext(userId: string) {
 export async function ensureActiveTenant(
   userId: string
 ): Promise<string | null> {
-  let tenantId = await getActiveTenantId()
+  const cookieTenantId = await getActiveTenantId()
 
-  // Check if user has access to current tenant
-  if (tenantId) {
-    const memberDoc = await adminDb
-      .collection(Collections.members(tenantId))
-      .doc(userId)
-      .get()
-
-    if (memberDoc.exists) {
-      return tenantId
-    }
+  // If a cookie tenant exists, verify the user is still a member.
+  if (cookieTenantId) {
+    const rows = await getMigrateDb()
+      .select({ tenantId: tenantMembersTable.tenantId })
+      .from(tenantMembersTable)
+      .where(
+        and(
+          eq(tenantMembersTable.tenantId, cookieTenantId),
+          eq(tenantMembersTable.userId, userId)
+        )
+      )
+      .limit(1)
+    if (rows.length > 0) return cookieTenantId
   }
 
-  // Get user's tenants and prefer personal workspace
-  const tenants = await getUserTenants(userId)
-  const personal = tenants.find(t => t.isPersonal)
-  const chosen = personal ?? tenants[0]
+  // Otherwise pick the user's personal tenant if one exists; fall back to
+  // the most recently-created tenant they belong to.
+  const list = await getUserTenants(userId)
+  const personal = list.find(t => t.isPersonal)
+  const chosen = personal ?? list[0]
+  if (chosen) return chosen.id
 
-  if (chosen) {
-    return chosen.id
-  }
-
-  // As a fallback, create a personal tenant
+  // Last resort: create a personal tenant. In the Better Auth flow this is
+  // already done by the onUserCreateAfter hook, so this branch only fires
+  // for users that pre-date the hook or had their tenant deleted.
   try {
     return await ensurePersonalTenant(userId)
   } catch (error) {
@@ -221,72 +225,54 @@ export async function ensureActiveTenant(
 }
 
 /**
- * Create or fetch the user's personal tenant.
+ * Create a personal tenant + TENANT_ADMIN membership for a user that doesn't
+ * have one. Idempotent: returns the existing personal tenant if found.
  */
 export async function ensurePersonalTenant(userId: string): Promise<string> {
-  // Check if user already has a personal tenant
-  const userDoc = await adminDb.collection(Collections.users).doc(userId).get()
-  const tenantIds: string[] = userDoc.exists
-    ? (userDoc.data()?.tenantIds ?? [])
-    : []
+  const existing = await getUserTenants(userId)
+  const personal = existing.find(t => t.isPersonal)
+  if (personal) return personal.id
 
-  for (const tid of tenantIds) {
-    const tenantDoc = await adminDb
-      .collection(Collections.tenants)
-      .doc(tid)
-      .get()
-    if (tenantDoc.exists && tenantDoc.data()?.isPersonal) {
-      return tid
-    }
+  const userRows = await getMigrateDb()
+    .select({ email: usersTable.email, name: usersTable.name })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1)
+  const userName = userRows[0]?.name ?? 'Personal'
+  const email = userRows[0]?.email ?? `user-${userId.slice(0, 8)}`
+
+  const base =
+    email
+      .split('@')[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .slice(0, 32) || 'workspace'
+  let slug = base
+  for (let i = 0; i < 100; i++) {
+    const collision = await getMigrateDb()
+      .select({ id: tenantsTable.id })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.slug, slug))
+      .limit(1)
+    if (collision.length === 0) break
+    slug = `${base}-${i + 1}`
   }
 
-  // Create a new personal tenant
-  const tenantRef = adminDb.collection(Collections.tenants).doc()
-  const tenantId = tenantRef.id
-  const userName = userDoc.data()?.name ?? 'Personal'
-  const slug = `user-${userId.slice(0, 8)}`
-  const now = new Date().toISOString()
-
-  const batch = adminDb.batch()
-
-  // Create tenant
-  batch.set(tenantRef, {
-    id: tenantId,
-    name: `${userName}'s Workspace`,
-    slug,
-    status: 'active',
-    createdBy: userId,
-    isPersonal: true,
-    createdAt: now,
-    updatedAt: now
+  const tenantId = uuidv7()
+  await getMigrateDb().transaction(async tx => {
+    await tx.insert(tenantsTable).values({
+      id: tenantId,
+      name: `${userName}'s Workspace`,
+      slug,
+      createdBy: userId,
+      isPersonal: true
+    })
+    await tx.insert(tenantMembersTable).values({
+      tenantId,
+      userId,
+      role: 'TENANT_ADMIN'
+    })
   })
-
-  // Create slug reservation
-  batch.set(adminDb.collection(Collections.tenantSlugs).doc(slug), {
-    tenantId,
-    createdAt: now
-  })
-
-  // Create membership
-  batch.set(adminDb.collection(Collections.members(tenantId)).doc(userId), {
-    userId,
-    tenantId,
-    role: 'TENANT_ADMIN',
-    createdAt: now
-  })
-
-  // Update user's tenantIds (use set+merge so it works even if onUserCreated
-  // Cloud Function hasn't created the user doc yet — race condition)
-  const { FieldValue } = await import('firebase-admin/firestore')
-  batch.set(
-    adminDb.collection(Collections.users).doc(userId),
-    {
-      tenantIds: FieldValue.arrayUnion(tenantId)
-    },
-    { merge: true }
-  )
-
-  await batch.commit()
 
   return tenantId
 }
@@ -298,32 +284,30 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
 export async function enrichTenantsWithMembers(
   tenants: TenantDocument[]
 ): Promise<TenantWithMembers[]> {
+  if (tenants.length === 0) return []
+
   return Promise.all(
     tenants.map(async tenant => {
-      const membersSnap = await adminDb
-        .collection(Collections.members(tenant.id))
-        .get()
-
-      const memberSummaries = await Promise.all(
-        membersSnap.docs.map(async (memberDoc: QueryDocumentSnapshot) => {
-          const userId = memberDoc.id
-          const userDoc = await adminDb
-            .collection(Collections.users)
-            .doc(userId)
-            .get()
-          const userData = userDoc.exists ? userDoc.data() : null
-          return {
-            userId,
-            email: (userData?.email as string) ?? null,
-            name: (userData?.name as string) ?? null
-          }
+      const rows = await getMigrateDb()
+        .select({
+          userId: tenantMembersTable.userId,
+          email: usersTable.email,
+          name: usersTable.name
         })
-      )
+        .from(tenantMembersTable)
+        .innerJoin(usersTable, eq(tenantMembersTable.userId, usersTable.id))
+        .where(eq(tenantMembersTable.tenantId, tenant.id))
+
+      const members: MemberSummary[] = rows.map(r => ({
+        userId: r.userId,
+        email: r.email ?? null,
+        name: r.name ?? null
+      }))
 
       return {
         ...tenant,
-        memberCount: memberSummaries.length,
-        members: memberSummaries
+        memberCount: members.length,
+        members
       }
     })
   )
