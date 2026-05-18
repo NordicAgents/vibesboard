@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getSignedUploadUrl } from '@vibesboard/adapter-firebase/storage'
+import { getSignedUploadUrl } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 
@@ -29,7 +29,7 @@ const ACCEPTED_MIME_TYPES = new Set([
 
 /**
  * POST /api/files/upload-url
- * Returns a signed URL for direct browser → GCS upload (pre-agent creation).
+ * Returns a signed URL for direct browser → S3 upload (pre-agent creation).
  */
 export async function POST(req: NextRequest) {
   const session = await auth()

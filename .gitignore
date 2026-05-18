@@ -68,3 +68,6 @@ apps/functions/firebase-debug.log
 
 # test artifacts
 .playwright-mcp/
+
+# Local Postgres volumes (if overriding the default named volume path)
+docker-volumes/

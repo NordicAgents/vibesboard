@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { requireAuth } from '@/lib/firebase/route-handler'
+import { requireAuth } from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { mapAgentDoc } from '@vibesboard/agents/db'
 import { patchAgentSchema } from '@vibesboard/agents/schema'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getAgentById } from '@vibesboard/agents/server'
-import { deleteFile } from '@vibesboard/adapter-firebase/storage'
+import { deleteFile } from '@vibesboard/adapter-s3'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 
 export const runtime = 'nodejs'
@@ -205,7 +205,7 @@ export async function DELETE(
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  // Clean up files from GCS
+  // Clean up files from storage
   if (agent.fileKeys && agent.fileKeys.length > 0) {
     await Promise.all(
       agent.fileKeys.map(fileKey =>

@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { cn } from '@vibesboard/utils'
 import type { PlanId } from '@vibesboard/policy/plans'
 
@@ -75,24 +74,13 @@ export function UsageProgress({
       )}
       {isFree && percentage >= 90 && !isOverLimit && (
         <p className="text-xs text-red-600 dark:text-red-400">
-          Approaching your free plan limit.{' '}
-          <Link
-            href="/settings/tenant/billing"
-            className="underline text-accent-orange hover:text-accent-warm"
-          >
-            Upgrade for more messages.
-          </Link>
+          Approaching your free plan limit.
         </p>
       )}
       {isFree && isOverLimit && (
         <p className="text-xs text-red-600 dark:text-red-400">
-          Free plan limit reached.{' '}
-          <Link
-            href="/settings/tenant/billing"
-            className="underline text-accent-orange hover:text-accent-warm"
-          >
-            Upgrade to continue using your agents.
-          </Link>
+          Free plan limit reached. Contact your administrator to continue using
+          your agents.
         </p>
       )}
     </div>

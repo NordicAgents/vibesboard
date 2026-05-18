@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth, requireTenantAdmin } from '@/lib/firebase/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import { maskEmail } from '@/lib/email'

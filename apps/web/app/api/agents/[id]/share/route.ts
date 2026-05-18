@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 
-import { requireAuth } from '@/lib/firebase/route-handler'
+import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { getQrDataUrl } from '@/lib/qr'
 import { canEditAgent } from '@vibesboard/agents/permissions'

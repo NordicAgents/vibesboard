@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { downloadFile } from '@vibesboard/adapter-firebase/storage'
+import { downloadFile } from '@vibesboard/adapter-s3'
 import { Collections } from '@vibesboard/contracts'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createEmbedding, chatCompletionWithVision } from '@vibesboard/adapter-openai'
@@ -376,7 +376,7 @@ export const ingestFileForAgent = async (args: {
   const fileName = args.fileName || fileKey.split('/').pop() || fileKey
   const mimeType = args.mimeType || guessMimeFromPath(fileName)
 
-  // Download from GCS
+  // Download from storage
   const buffer = await downloadFile(fileKey)
 
   const text = await extractTextFromBuffer(buffer, mimeType)

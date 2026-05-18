@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
-import { requireAuth } from '@/lib/firebase/route-handler'
+import { requireAuth } from '@/lib/auth/route-handler'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
