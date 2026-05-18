@@ -1,7 +1,9 @@
 import { type Message } from '@vibesboard/contracts'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type AgentDocument } from '@vibesboard/contracts'
+import { eq, and } from 'drizzle-orm'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
+import { type AgentDocument } from '@vibesboard/contracts'
 import {
   type AgentToolType,
   type BuiltinToolType,
@@ -159,21 +161,22 @@ export const createAgentSlug = (name: string) => {
 }
 
 /**
- * Ensure slug uniqueness within a tenant's agents collection.
+ * Ensure slug uniqueness within a tenant's agents table. Uses the BYPASSRLS
+ * migrate role so the lookup runs without a current_tenant_id GUC context;
+ * the (tenant_id, slug) tuple is filtered explicitly in the WHERE clause.
  */
 export const ensureUniqueSlug = async (slug: string, tenantId: string) => {
-  const collPath = Collections.agents(tenantId)
   let candidate = slug
   let attempt = 0
 
   while (attempt < 5) {
-    const snapshot = await adminDb
-      .collection(collPath)
-      .where('agentUrl', '==', candidate)
+    const rows = await getMigrateDb()
+      .select({ id: agentsTable.id })
+      .from(agentsTable)
+      .where(and(eq(agentsTable.tenantId, tenantId), eq(agentsTable.slug, candidate)))
       .limit(1)
-      .get()
 
-    if (snapshot.empty) {
+    if (rows.length === 0) {
       return candidate
     }
 
