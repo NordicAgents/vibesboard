@@ -7,11 +7,11 @@ import {
   tenants as tenantsTable,
   tenantMembers as tenantMembersTable,
   tenantBranding as tenantBrandingTable,
-  users as usersTable,
+  users as usersTable
 } from '@vibesboard/adapter-postgres/schema'
 import {
   type TenantDocument,
-  type TenantBrandingDocument,
+  type TenantBrandingDocument
 } from '@vibesboard/contracts'
 
 /** Lightweight member summary for display in the tenant switcher */
@@ -57,7 +57,7 @@ function rowToTenantDocument(row: {
     isPersonal: row.isPersonal,
     googlePlaceId: row.googlePlaceId,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
   }
 }
 
@@ -72,7 +72,7 @@ export async function setActiveTenantId(tenantId: string) {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 365,
+    maxAge: 60 * 60 * 24 * 365
   })
 }
 
@@ -91,7 +91,9 @@ export async function getActiveTenant(userId?: string): Promise<string | null> {
   return tenantId
 }
 
-export async function getUserTenants(userId: string): Promise<TenantDocument[]> {
+export async function getUserTenants(
+  userId: string
+): Promise<TenantDocument[]> {
   const rows = await getMigrateDb()
     .select({
       id: tenantsTable.id,
@@ -102,10 +104,13 @@ export async function getUserTenants(userId: string): Promise<TenantDocument[]> 
       isPersonal: tenantsTable.isPersonal,
       googlePlaceId: tenantsTable.googlePlaceId,
       createdAt: tenantsTable.createdAt,
-      updatedAt: tenantsTable.updatedAt,
+      updatedAt: tenantsTable.updatedAt
     })
     .from(tenantsTable)
-    .innerJoin(tenantMembersTable, eq(tenantsTable.id, tenantMembersTable.tenantId))
+    .innerJoin(
+      tenantMembersTable,
+      eq(tenantsTable.id, tenantMembersTable.tenantId)
+    )
     .where(eq(tenantMembersTable.userId, userId))
     .orderBy(desc(tenantsTable.createdAt))
 
@@ -113,7 +118,7 @@ export async function getUserTenants(userId: string): Promise<TenantDocument[]> 
 }
 
 export async function getTenantById(
-  tenantId: string,
+  tenantId: string
 ): Promise<TenantDocument | null> {
   const rows = await getMigrateDb()
     .select({
@@ -125,7 +130,7 @@ export async function getTenantById(
       isPersonal: tenantsTable.isPersonal,
       googlePlaceId: tenantsTable.googlePlaceId,
       createdAt: tenantsTable.createdAt,
-      updatedAt: tenantsTable.updatedAt,
+      updatedAt: tenantsTable.updatedAt
     })
     .from(tenantsTable)
     .where(eq(tenantsTable.id, tenantId))
@@ -172,8 +177,8 @@ export async function getTenantContext(userId: string) {
     .where(
       and(
         eq(tenantMembersTable.tenantId, tenantId),
-        eq(tenantMembersTable.userId, userId),
-      ),
+        eq(tenantMembersTable.userId, userId)
+      )
     )
     .limit(1)
   const role = memberRows[0]?.role ?? null
@@ -182,7 +187,7 @@ export async function getTenantContext(userId: string) {
 }
 
 export async function ensureActiveTenant(
-  userId: string,
+  userId: string
 ): Promise<string | null> {
   const cookieTenantId = await getActiveTenantId()
 
@@ -194,8 +199,8 @@ export async function ensureActiveTenant(
       .where(
         and(
           eq(tenantMembersTable.tenantId, cookieTenantId),
-          eq(tenantMembersTable.userId, userId),
-        ),
+          eq(tenantMembersTable.userId, userId)
+        )
       )
       .limit(1)
     if (rows.length > 0) return cookieTenantId
@@ -204,7 +209,7 @@ export async function ensureActiveTenant(
   // Otherwise pick the user's personal tenant if one exists; fall back to
   // the most recently-created tenant they belong to.
   const list = await getUserTenants(userId)
-  const personal = list.find((t) => t.isPersonal)
+  const personal = list.find(t => t.isPersonal)
   const chosen = personal ?? list[0]
   if (chosen) return chosen.id
 
@@ -225,7 +230,7 @@ export async function ensureActiveTenant(
  */
 export async function ensurePersonalTenant(userId: string): Promise<string> {
   const existing = await getUserTenants(userId)
-  const personal = existing.find((t) => t.isPersonal)
+  const personal = existing.find(t => t.isPersonal)
   if (personal) return personal.id
 
   const userRows = await getMigrateDb()
@@ -237,8 +242,11 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
   const email = userRows[0]?.email ?? `user-${userId.slice(0, 8)}`
 
   const base =
-    email.split('@')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 32) ||
-    'workspace'
+    email
+      .split('@')[0]
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .slice(0, 32) || 'workspace'
   let slug = base
   for (let i = 0; i < 100; i++) {
     const collision = await getMigrateDb()
@@ -251,18 +259,18 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
   }
 
   const tenantId = uuidv7()
-  await getMigrateDb().transaction(async (tx) => {
+  await getMigrateDb().transaction(async tx => {
     await tx.insert(tenantsTable).values({
       id: tenantId,
       name: `${userName}'s Workspace`,
       slug,
       createdBy: userId,
-      isPersonal: true,
+      isPersonal: true
     })
     await tx.insert(tenantMembersTable).values({
       tenantId,
       userId,
-      role: 'TENANT_ADMIN',
+      role: 'TENANT_ADMIN'
     })
   })
 
@@ -274,33 +282,33 @@ export async function ensurePersonalTenant(userId: string): Promise<string> {
  * Used by the tenant switcher to show who is in each workspace.
  */
 export async function enrichTenantsWithMembers(
-  tenants: TenantDocument[],
+  tenants: TenantDocument[]
 ): Promise<TenantWithMembers[]> {
   if (tenants.length === 0) return []
 
   return Promise.all(
-    tenants.map(async (tenant) => {
+    tenants.map(async tenant => {
       const rows = await getMigrateDb()
         .select({
           userId: tenantMembersTable.userId,
           email: usersTable.email,
-          name: usersTable.name,
+          name: usersTable.name
         })
         .from(tenantMembersTable)
         .innerJoin(usersTable, eq(tenantMembersTable.userId, usersTable.id))
         .where(eq(tenantMembersTable.tenantId, tenant.id))
 
-      const members: MemberSummary[] = rows.map((r) => ({
+      const members: MemberSummary[] = rows.map(r => ({
         userId: r.userId,
         email: r.email ?? null,
-        name: r.name ?? null,
+        name: r.name ?? null
       }))
 
       return {
         ...tenant,
         memberCount: members.length,
-        members,
+        members
       }
-    }),
+    })
   )
 }
