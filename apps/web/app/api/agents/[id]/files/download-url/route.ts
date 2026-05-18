@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getSignedDownloadUrl } from '@vibesboard/adapter-firebase/storage'
+import { getSignedDownloadUrl } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 
 /**
  * GET /api/agents/[id]/files/download-url?fileKey=...
- * Returns a signed download URL for a file in GCS
+ * Returns a signed download URL for a file in storage
  */
 export async function GET(
   req: NextRequest,

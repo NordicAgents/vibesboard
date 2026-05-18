@@ -6,7 +6,6 @@ import {
   Building2,
   Link2,
   BarChart3,
-  CreditCard,
   ArrowLeft
 } from 'lucide-react'
 import { cn } from '@vibesboard/utils'
@@ -110,12 +109,6 @@ export default async function SettingsLayout({
       href: '/settings/tenant/usage',
       icon: BarChart3,
       iconName: 'BarChart3' as const
-    },
-    {
-      title: 'Billing',
-      href: '/settings/tenant/billing',
-      icon: CreditCard,
-      iconName: 'CreditCard' as const
     },
     ...(!isActivePersonal && teamCollaborationEnabled
       ? [

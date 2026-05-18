@@ -20,6 +20,7 @@
     "@ai-sdk/openai": "^0.0.72",
     "@vibesboard/adapter-firebase": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
+    "@vibesboard/adapter-s3": "workspace:*",
     "@vibesboard/agents": "workspace:*",
     "@vibesboard/booking-enquiries": "workspace:*",
     "@vibesboard/contracts": "workspace:*",

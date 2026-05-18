@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const SESSION_COOKIE_NAME = '__session'
+// Better Auth sets this cookie name by default (configurable via cookies plugin).
+const SESSION_COOKIE_NAME = 'better-auth.session_token'
 
 // Reserved slugs that cannot be tenant slugs (match app routes)
 const RESERVED_SLUGS = new Set([
@@ -72,7 +73,6 @@ export async function middleware(req: NextRequest) {
     !pathname.includes('/landing') &&
     !pathname.includes('/privacy-policy') &&
     !pathname.includes('/terms-of-service') &&
-    !pathname.includes('/pricing') &&
     pathname !== '/'
 
   if (!sessionCookie && isProtectedRoute) {
