@@ -108,4 +108,26 @@ export function createMigrateClient(): Db {
   return drizzle(client, { schema })
 }
 
+let _migrateSql: postgres.Sql | undefined
+let _migrateDb: Db | undefined
+
+/**
+ * Cached BYPASSRLS Drizzle client for the migrate role. Used by infrastructure
+ * code that operates outside the RLS-enforced app context — notably Better
+ * Auth, whose identity operations (create user, find session, etc.) happen
+ * BEFORE a current_user_id / current_tenant_id GUC exists. App business
+ * logic must NOT call this; use `withDb` + `withTenant` instead.
+ *
+ * Mirrors getDb()'s build-time noop fallback so `next build` can import
+ * modules that reference this without DATABASE_MIGRATE_URL set.
+ */
+export function getMigrateDb(): Db {
+  if (isBuildTime) return noopProxy() as Db
+  if (!_migrateDb) {
+    _migrateSql = postgres(readUrl('DATABASE_MIGRATE_URL'), { prepare: false, max: 2 })
+    _migrateDb = drizzle(_migrateSql, { schema })
+  }
+  return _migrateDb
+}
+
 export { schema }

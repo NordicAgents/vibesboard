@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { magicLink } from 'better-auth/plugins'
 import { uuidv7 } from 'uuidv7'
-import { getDb } from '@vibesboard/adapter-postgres/client'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { sendMagicLinkEmail, sendVerifyEmail, sendResetPasswordEmail } from './email.ts'
 import { onUserCreateAfter } from './on-user-create.ts'
@@ -38,7 +38,12 @@ function resolveSecret(): string {
 
 function buildAuth() {
   return betterAuth({
-  database: drizzleAdapter(getDb(), {
+  // Better Auth runs identity ops BEFORE a current_user_id GUC exists, so
+  // the RLS-enforced app role would reject INSERTs on `users` / `sessions`
+  // / `accounts` (users_self USING clause fails closed). Use the BYPASSRLS
+  // migrate role for the identity layer; app code keeps using getDb() +
+  // withTenant() for tenant-scoped queries.
+  database: drizzleAdapter(getMigrateDb(), {
     provider: 'pg',
     schema,
     usePlural: true,
