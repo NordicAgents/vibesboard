@@ -1,2 +1,2 @@
 // @vibesboard/tenants — workspace & membership operations on Postgres.
-export {}
+export * from './workspace.ts'
