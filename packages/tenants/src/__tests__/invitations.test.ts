@@ -97,4 +97,17 @@ describe('acceptInvitation', () => {
       assert.deepEqual(result, { ok: false, code: 'ALREADY_MEMBER' })
     })
   })
+
+  test('INVALID for a non-pending, non-accepted invitation', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { ownerId, inviteeId, tenantId } = await seedTenantAndUser(adminDb)
+      const token = uuidv7()
+      await adminDb.insert(invitations).values({
+        id: uuidv7(), tenantId, email: 'guest@acme.com', token, role: 'MEMBER',
+        status: 'expired', expiresAt: new Date(Date.now() + 60 * 60 * 1000), createdBy: ownerId,
+      })
+      const result = await acceptInvitation(adminDb, { token, userId: inviteeId })
+      assert.deepEqual(result, { ok: false, code: 'INVALID' })
+    })
+  })
 })

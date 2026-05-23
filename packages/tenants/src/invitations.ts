@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { tenantMembers, invitations } from '@vibesboard/adapter-postgres/schema'
+import { isUniqueViolation } from './db-utils.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -52,17 +53,24 @@ export async function acceptInvitation(
     return { ok: false, code: 'ALREADY_MEMBER' }
   }
 
-  await db.transaction(async (tx) => {
-    await tx.insert(tenantMembers).values({
-      tenantId: invite.tenantId,
-      userId: input.userId,
-      role: invite.role,
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(tenantMembers).values({
+        tenantId: invite.tenantId,
+        userId: input.userId,
+        role: invite.role,
+      })
+      await tx
+        .update(invitations)
+        .set({ status: 'accepted', acceptedAt: new Date() })
+        .where(eq(invitations.id, invite.id))
     })
-    await tx
-      .update(invitations)
-      .set({ status: 'accepted', acceptedAt: new Date() })
-      .where(eq(invitations.id, invite.id))
-  })
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return { ok: false, code: 'ALREADY_MEMBER' }
+    }
+    throw err
+  }
 
   return { ok: true, tenantId: invite.tenantId }
 }
