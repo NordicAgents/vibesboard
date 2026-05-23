@@ -44,7 +44,7 @@ and deploys per-branch (`dev`→staging, `main`→prod) via
 | Postgres host | **Self-managed PostgreSQL 16 + pgvector on an Always-Free `e2-micro` VM** | $0 within GCP's Always Free tier; stays entirely on the GCP account. |
 | VM region | **`us-central1`** (Always-Free eligible) | Free tier is US-only (`us-west1`/`us-central1`/`us-east1`). |
 | Cloud Run → DB connectivity | **Direct VPC egress** to the VM's **private IP** | No connector cost (free), keeps Postgres off the public internet. |
-| Migrations | **Cloud Run Job** (Direct VPC egress) triggered by the deploy workflow | In-network access to the private-IP VM; no public exposure, no IAP-tunnel-in-CI. |
+| Migrations | **GitHub runner via IAP TCP tunnel** to the VM's 5432, running the repo's `pnpm db:migrate` | The app's standalone image ships neither drizzle-kit nor the migration SQL, so a Cloud Run Job from that image can't migrate. The runner has the full repo; IAP keeps the DB private (no public 5432). |
 | Object storage | **Existing GCS bucket via S3-interop** (`vibeagent-files-staging`) | Completes the data plane without a new bucket. |
 | Scope | **Staging only** | Prod isn't migrated; guard all new wiring to the staging branch path. |
 
@@ -83,11 +83,13 @@ and deploys per-branch (`dev`→staging, `main`→prod) via
 - A VPC subnet in **`europe-north1`** for Cloud Run **Direct VPC egress**, and
   the VM on a subnet in **`us-central1`**, both in the same (global) VPC, so
   internal routing reaches the VM's private IP cross-region.
-- **Firewall:** allow TCP `5432` to the VM **only from the VPC internal ranges**
-  (Cloud Run egress subnet + the migration job). No `0.0.0.0/0`. SSH only via
-  IAP (`35.235.240.0/20`).
-- The Cloud Run **service** and the migration **job** both attach Direct VPC
-  egress to the `europe-north1` subnet.
+- **Firewall:** allow TCP `5432` to the VM from (a) the VPC **internal ranges**
+  (for the Cloud Run app via Direct VPC egress) and (b) the **IAP range**
+  `35.235.240.0/20` (for the CD migration tunnel and `psql` admin). SSH (`22`)
+  also from the IAP range only. No `0.0.0.0/0`.
+- The Cloud Run **service** attaches Direct VPC egress to the `europe-north1`
+  subnet to reach the VM's private IP at runtime. CD migrations reach the VM
+  over a separate **IAP TCP tunnel** (not Direct VPC egress).
 
 ### Object storage (S3-interop)
 
@@ -101,7 +103,7 @@ requires a region string; GCS ignores it), `S3_FORCE_PATH_STYLE=false`, using a
 | Secret | Contents | Consumed by |
 |---|---|---|
 | `database-url-staging` | App-role connection to the VM **private IP**, `sslmode=require` (`vibesboard_app`) | Cloud Run service |
-| `database-migrate-url-staging` | Migrate-role connection to the VM **private IP**, `sslmode=require` (`vibesboard_migrate`) | Migration Cloud Run Job |
+| `database-migrate-url-staging` | Migrate-role connection to `localhost:5432` (IAP tunnel), `sslmode=require` (`vibesboard_migrate`) | CD migration step (GitHub runner) |
 | `better-auth-secret-staging` | `openssl rand -hex 32` | Cloud Run service |
 | `s3-access-key-id-staging` | GCS HMAC access key id | Cloud Run service |
 | `s3-secret-access-key-staging` | GCS HMAC secret | Cloud Run service |
@@ -115,17 +117,19 @@ access is over Direct VPC egress, no proxy/tunnel or public exposure is needed.)
   (`midhunxavier1993@gmail.com`, already has project access) — it creates the
   VM, network, secrets, and migration job, and reaches the VM via IAP SSH.
 - **WIF service account** (used by CD) needs `run.developer` to deploy the
-  service and execute the migration job, plus `secretmanager.secretAccessor` on
-  the five new secrets if it reads them at deploy time.
-- **Cloud Run runtime SA** (service + migration job) needs
-  `secretmanager.secretAccessor` to mount the secrets at runtime.
+  service, plus `iap.tunnelResourceAccessor` + `compute.viewer` to open the IAP
+  tunnel for the migration step.
+- **Cloud Run runtime SA** (`319148717246-compute@developer.gserviceaccount.com`)
+  needs `secretmanager.secretAccessor` to mount the secrets at runtime.
 
 ## CD workflow changes (`deploy-cloudrun.yml`, staging path only)
 
-1. **Migration step** (only on `dev`): after build/push, `gcloud run jobs
-   execute vibesboard-staging-migrate --wait`. The job runs the app image with
-   command `pnpm db:migrate`, Direct VPC egress, and `DATABASE_MIGRATE_URL` from
-   the secret. The `deploy` step runs only if the job succeeds.
+1. **Migration step** (only on `dev`): open an IAP TCP tunnel to the VM
+   (`gcloud compute start-iap-tunnel vibesboard-staging-pg 5432
+   --local-host-port=localhost:5432 --zone=us-central1-a &`), then run
+   `pnpm db:migrate` with `DATABASE_MIGRATE_URL` (localhost:5432, migrate role)
+   from the staging secret. The `deploy` job `needs:` this and only runs if it
+   succeeds.
 2. **`deploy` job additions**, guarded to staging via the existing
    `github.ref_name == 'main'` ternaries (prod unaffected):
    - `flags:` Direct VPC egress (`--network`/`--subnet` + `--vpc-egress`).
@@ -136,22 +140,22 @@ access is over Direct VPC egress, no proxy/tunnel or public exposure is needed.)
      `S3_ACCESS_KEY_ID=s3-access-key-id-staging:latest`,
      `S3_SECRET_ACCESS_KEY=s3-secret-access-key-staging:latest`.
 
-The migration **Cloud Run Job** is created once (out of band or via a documented
-`gcloud run jobs create`), then re-executed by CD each deploy.
 
 ## Execution order (bootstrap, run via `gcloud`)
 
-1. Enable APIs: `compute`, `run`, `iap`, `secretmanager` (as needed).
-2. Create the VPC + two subnets (`europe-north1` for Cloud Run egress,
-   `us-central1` for the VM) + firewall rules (5432 from internal; IAP SSH).
-3. Create the `e2-micro` VM (no external IP) with the Postgres+pgvector startup
-   script; 30 GB standard disk.
+1. Enable APIs: `compute`, `iap`, `secretmanager` (Cloud Run already in use).
+2. Use the **default VPC** (auto-mode already has `us-central1` +
+   `europe-north1` subnets). Add firewall rules: IAP range `35.235.240.0/20` →
+   tcp `22,5432`; internal range → tcp `5432` (covered by `default-allow-internal`
+   if present, else add it).
+3. Create the `e2-micro` VM (no external IP, `us-central1-a`) with the
+   Postgres-16 + pgvector startup script; 30 GB standard disk.
 4. Over IAP SSH: create DB, the two roles + grants, `CREATE EXTENSION vector`.
 5. Create the GCS HMAC key for `vibeagent-files-staging`.
-6. Create the five Secret Manager secrets; grant IAM.
-7. Create the migration Cloud Run Job.
-8. Land the `deploy-cloudrun.yml` changes in a PR to `dev`.
-9. Push → CD executes the migrate job → deploys → staging live on Postgres.
+6. Create the five Secret Manager secrets; grant IAM (runtime SA secretAccessor;
+   WIF SA iap.tunnelResourceAccessor + compute.viewer).
+7. Land the `deploy-cloudrun.yml` changes in a PR to `dev`.
+8. Push → CD runs the IAP-tunnel migrate step → deploys → staging live on Postgres.
 
 ## Verification (staging e2e in Chrome)
 
