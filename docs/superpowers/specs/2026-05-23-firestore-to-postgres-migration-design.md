@@ -3,9 +3,9 @@
 **Date:** 2026-05-23
 **Status:** Approved (design); pending spec review
 **Scope:** Migrate the application's data plane from Firestore to the existing
-Postgres adapter, incrementally and verifiably. **Firebase Auth is explicitly
-out of scope** and stays in place; only Firestore (`adminDb`) data access is
-being replaced.
+Postgres adapter, incrementally and verifiably. **Authentication is already on
+Better Auth** (see below) — this migration is purely Firestore (`adminDb`) data
+access → Postgres. No auth work is in scope.
 
 ## Background
 
@@ -33,13 +33,16 @@ components, `actions.ts`, `lib/`) and feature packages (`ai`, `agents`,
 
 - Replace all Firestore data access with Postgres, one domain at a time.
 - Keep staging working at every step ("everything works").
-- Make the *future* Firebase Auth migration cheap by designing the identity
-  schema auth-agnostic now.
+- Mop up the residual `adminAuth` use in `admin/tenants` as that route migrates.
 
 ## Non-goals
 
-- Migrating Firebase Auth (token verification, sign-in). Separate future
-  project; `adapter-better-auth` is out of scope here.
+- Any authentication work. Auth is **already on Better Auth** (`lib/auth.ts` →
+  `@vibesboard/adapter-better-auth`; `session.user.id` is the Postgres `users.id`
+  UUID). The `users`/`sessions`/`accounts`/`verifications` tables already exist.
+- Google RISC / Cross-Account Protection (`adapter-google/src/risc.ts`, the only
+  remaining `adminAuth` consumer besides `admin/tenants`). Left on Firebase;
+  revisit only on a full de-Google.
 - Migrating object storage (already on `adapter-s3`).
 - Backfilling existing staging data (see Data strategy).
 - Building a two-adapter (`IDataStore`) switch.
@@ -49,31 +52,60 @@ components, `actions.ts`, `lib/`) and feature packages (`ai`, `agents`,
 | Decision | Choice | Rationale |
 |---|---|---|
 | Existing staging data | **Wipe & reseed** | Staging data is disposable. No backfill/dual-write tooling. |
-| Data-access shape | **Per-domain repository functions** in `adapter-postgres/src/repos/` | Hides Drizzle/SQL behind named, testable functions; one cutover point per domain. No interface ceremony. |
+| Data-access shape | **Direct Drizzle in the consuming code + `rowToX` mappers**, following the #170 precedent | One commit of merged, live-verified precedent (`lib/tenant-context.ts`, `agents/db.ts`, `policy/permissions.ts`, `api/agents/route.ts`). Co-located helpers are still testable units; consistency with merged code wins over a new `repos/` abstraction. |
 | Cutover unit | **Per-domain PRs merged to `dev`**, bottom-up by dependency | Small, reviewable, independently verifiable & revertible. Staging runs mixed until the final PR, but no domain is ever split across two stores. |
 | Verification | **TDD repos + route integration tests + staging smoke** | Matches the repo's TDD mandate; asserts RLS/tenant isolation. |
-| Firebase Auth | **Keep; migrate later** | Gated on the data plane existing; isolates risk; security blast radius. |
+| Authentication | **Already on Better Auth — no work** | `lib/auth.ts` resolves sessions via Better Auth; `session.user.id` is the Postgres UUID. Nothing to migrate. |
+
+## Already migrated by #170 (do not re-do)
+
+Commit #170 (merged) already moved part of the identity/agents domains to
+Postgres, and set the pattern this migration follows:
+
+- `apps/web/lib/tenant-context.ts` — `getActiveTenant`, `ensureActiveTenant`,
+  `getUserTenants`, `getTenantById`, `getTenantContext`, `ensurePersonalTenant`,
+  `enrichTenantsWithMembers`, `getActiveTenantBranding`.
+- `packages/policy/src/permissions.ts` — `isMemberOfTenant`, `isSuperAdmin`,
+  `isTenantAdmin`, `getUserRole`, `hasTenantAdminAccess`.
+- `packages/agents/src/db.ts` — `ensureUniqueSlug`, `mapAgentDoc`,
+  `createAgentSlug`.
+- `apps/web/app/api/agents/route.ts` — agents GET/POST.
+- `apps/web/middleware.ts` — already free of `adminDb`.
+- `apps/web/lib/auth.ts` + `apps/web/lib/auth/route-handler.ts` — auth is on
+  Better Auth; `requireAuth`/`requireTenantMember`/`requireTenantAdmin`/
+  `requireSuperAdmin` already query Postgres (`tenantMembers`, `users`) under
+  `withTenant`/`withDb`. Reuse these in every migrated route.
 
 ## Architecture
 
-### Repository layer
+### Data-access pattern (established by #170)
 
-Add per-domain modules under `packages/adapter-postgres/src/repos/`. Each
-exports plain async functions wrapping Drizzle queries, run inside the existing
-`tenant-context`/RLS helpers:
+Data access lives **in the consuming code** — the route handler, or a
+co-located helper module (`apps/web/lib/*`, `packages/<pkg>/src/*`) — using
+Drizzle directly via subpath imports:
 
-```
-packages/adapter-postgres/src/
-  repos/
-    tenants.ts  agents.ts  files.ts  conversations.ts
-    channels.ts  scheduling.ts  data-connections.ts  hooks.ts  usage.ts
-    __tests__/        # repo + RLS isolation tests
-  index.ts            # re-exports all repos (currently `export {}`)
+```ts
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client' // BYPASSRLS, identity ops
+import { withDb }       from '@vibesboard/adapter-postgres/client' // RLS tenant-scoped ops
+import { tenants, tenantMembers, users } from '@vibesboard/adapter-postgres/schema'
+import { uuidv7 } from 'uuidv7'
 ```
 
-The functions *are* the contract — e.g. `getTenantById(db, id)`,
-`createAgent(db, input)`. The `IDataStore` stub stays unused and is removed in
-teardown.
+Conventions, all taken from #170:
+
+- **Mappers.** A `rowToX` / `toXRecord` function normalizes a Postgres row to
+  the legacy document shape the UI/API already expect (e.g. `agentUrl`,
+  `tenantSlug`, ISO-string timestamps). Mappers keep the migration invisible to
+  callers and the frontend.
+- **IDs.** `uuidv7()` generated in app code, not DB-side.
+- **Identity/tenancy ops use `getMigrateDb()` (BYPASSRLS)** with explicit
+  `WHERE user_id = … / tenant_id = …` filters, because resolving *which* tenant
+  a request belongs to runs *before* any tenant GUC context exists, so RLS
+  `tenant_id = current_tenant_id` policies would return zero rows. Tenant-scoped
+  domain ops (agents, conversations, files, …) use `withDb` under RLS.
+
+The `IDataStore` stub stays unused and is removed in teardown. No `repos/`
+layer is introduced.
 
 ### Cutover mechanism
 
@@ -94,8 +126,8 @@ temporary cost of incremental migration; it ends at the teardown PR.
 
 Applied once, inside each repo:
 
-- **IDs.** Firestore auto-IDs become Postgres-generated keys (returned by the
-  repo). Slug docs (`tenantSlugs`) become unique-constrained columns.
+- **IDs.** Firestore auto-IDs become `uuidv7()` values generated in app code.
+  Slug docs (`tenantSlugs`) become unique-constrained columns.
 - **Timestamps.** `FieldValue.serverTimestamp()` → column `default now()` /
   explicit `new Date()`.
 - **Subcollections → child tables.** `members(tenantId)`, `hookJobs(...)`, etc.
@@ -107,24 +139,19 @@ Applied once, inside each repo:
   tenant + slug + branding + member + user) become a single Drizzle
   **transaction**.
 
-## Identity schema — auth-agnostic (makes future auth migration cheap)
+## Identity schema (already auth-agnostic)
 
-This is the one correction folded in to keep the deferred Firebase Auth
-migration cheap:
+No work needed — the schema already does the right thing:
 
-- `users` has its own **internal UUID primary key**, stable forever.
-- The Firebase UID is stored in a separate `firebase_uid` mapping column
-  (external-identity link), **not** used as the primary key.
-- **All FKs across every other domain reference the internal UUID**, never the
-  Firebase UID.
+- `users` has an **internal UUID primary key** (`uuid('id').primaryKey()`),
+  stable forever. There is no `firebase_uid` column and none is needed.
+- External identity is handled by Better Auth's `accounts` table
+  (`providerId` + `accountId`), and `session.user.id` already resolves to the
+  internal `users.id` UUID.
+- All FKs across domains already reference the internal UUID.
 
-When Better Auth lands later, add a `better_auth_id` mapping (or use Better
-Auth account-linking) — the internal UUID never changes, every dependent row
-stays valid, and there is **no second identity migration**. The auth swap
-becomes a localized change to the verify-token path.
-
-Firebase Auth itself (`adminAuth`) is untouched: no passwords or sessions are
-stored in Postgres during this migration.
+Migration code therefore reads the current user as `session.user.id` (a
+Postgres UUID) — no Firebase UID translation anywhere.
 
 ## Migration order (PR sequence)
 
@@ -151,10 +178,11 @@ here.
 
 ## Verification (per PR)
 
-1. **TDD on repos** — tests first for each repository function against a real
-   test Postgres (extend the existing `test-utils.ts` + pgvector harness).
-   Tests assert **RLS/tenant isolation**: a repo call under tenant A cannot see
-   tenant B's rows.
+1. **TDD on data-access helpers** — tests first for each co-located data
+   helper (e.g. `lib/tenant-context.ts`, route handlers, package `db.ts`)
+   against a real test Postgres (extend the existing `test-utils.ts` + pgvector
+   harness). Tests assert **RLS/tenant isolation**: a tenant-scoped (`withDb`)
+   call under tenant A cannot see tenant B's rows.
 2. **Route integration tests** — for each migrated API route, exercise the
    handler against test Postgres, asserting request→repo→response wiring
    (status, tenant scoping, shape).
@@ -183,5 +211,5 @@ on staging.
 
 ## Out-of-scope follow-ups
 
-- Firebase Auth → Better Auth migration (separate project; enabled cheaply by
-  the auth-agnostic identity schema above).
+- Google RISC (`adapter-google/src/risc.ts`) and the residual `adminAuth`
+  import — addressed only on a future full de-Google effort.
