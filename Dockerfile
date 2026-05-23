@@ -16,13 +16,14 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 # Every workspace package's manifest must be present before `pnpm install`
 # resolves the workspace:* refs in apps/web/package.json.
+COPY packages/adapter-better-auth/package.json ./packages/adapter-better-auth/
 COPY packages/adapter-firebase/package.json ./packages/adapter-firebase/
 COPY packages/adapter-google/package.json ./packages/adapter-google/
 COPY packages/adapter-openai/package.json ./packages/adapter-openai/
-COPY packages/adapter-stripe/package.json ./packages/adapter-stripe/
+COPY packages/adapter-postgres/package.json ./packages/adapter-postgres/
+COPY packages/adapter-s3/package.json ./packages/adapter-s3/
 COPY packages/agents/package.json ./packages/agents/
 COPY packages/ai/package.json ./packages/ai/
-COPY packages/billing/package.json ./packages/billing/
 COPY packages/booking-enquiries/package.json ./packages/booking-enquiries/
 COPY packages/channel-chatwoot/package.json ./packages/channel-chatwoot/
 COPY packages/channel-instagram/package.json ./packages/channel-instagram/
@@ -34,6 +35,7 @@ COPY packages/integrations/package.json ./packages/integrations/
 COPY packages/policy/package.json ./packages/policy/
 COPY packages/retrieval/package.json ./packages/retrieval/
 COPY packages/scheduling/package.json ./packages/scheduling/
+COPY packages/tenants/package.json ./packages/tenants/
 COPY packages/utils/package.json ./packages/utils/
 # Install all deps including dev (needed for build)
 RUN pnpm install --no-frozen-lockfile --prod=false
