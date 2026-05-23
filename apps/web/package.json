@@ -50,6 +50,7 @@
     "@vibesboard/policy": "workspace:*",
     "@vibesboard/retrieval": "workspace:*",
     "@vibesboard/scheduling": "workspace:*",
+    "@vibesboard/tenants": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",
     "uuidv7": "^1.0.2",
