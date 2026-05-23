@@ -61,9 +61,18 @@ function rowToTenantDocument(row: {
   }
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function getActiveTenantId(): Promise<string | null> {
   const cookieStore = await cookies()
-  return cookieStore.get(ACTIVE_TENANT_COOKIE)?.value || null
+  const value = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value || null
+  // Ignore a stale/invalid active-tenant cookie (e.g. a legacy Firestore ID
+  // left over from a pre-Postgres session). tenant_id is a uuid column, so a
+  // non-uuid value would otherwise throw on every query and 500 every page
+  // with no way to recover. Treat it as absent and let callers re-resolve.
+  if (value && !UUID_RE.test(value)) return null
+  return value
 }
 
 export async function setActiveTenantId(tenantId: string) {
