@@ -183,9 +183,13 @@ here.
    against a real test Postgres (extend the existing `test-utils.ts` + pgvector
    harness). Tests assert **RLS/tenant isolation**: a tenant-scoped (`withDb`)
    call under tenant A cannot see tenant B's rows.
-2. **Route integration tests** — for each migrated API route, exercise the
-   handler against test Postgres, asserting request→repo→response wiring
-   (status, tenant scoping, shape).
+2. **Thin routes + extract-to-package** — `apps/web` has **no** Postgres-backed
+   test harness (its `test` script runs only pure-logic `lib/**/*.test.ts`).
+   So each route's DB logic is **extracted into a package helper** (covered by
+   `withTestDb` per #1); the route handler stays thin (auth + validation + call
+   helper + map response) and is verified live on staging (#170 verified the
+   agents route this way). We do not add a PG integration-test harness to
+   `apps/web`.
 3. **Staging smoke checklist** — a short per-domain manual script in the PR
    description, run after deploy-to-staging before the next PR.
 
