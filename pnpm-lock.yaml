@@ -126,6 +126,9 @@ importers:
       '@vibesboard/scheduling':
         specifier: workspace:*
         version: link:../../packages/scheduling
+      '@vibesboard/tenants':
+        specifier: workspace:*
+        version: link:../../packages/tenants
       '@vibesboard/utils':
         specifier: workspace:*
         version: link:../../packages/utils
@@ -837,6 +840,25 @@ importers:
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/tenants:
+    dependencies:
+      '@vibesboard/adapter-postgres':
+        specifier: workspace:*
+        version: link:../adapter-postgres
+      uuidv7:
+        specifier: ^1.0.2
+        version: 1.2.1
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
