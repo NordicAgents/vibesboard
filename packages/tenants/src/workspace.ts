@@ -30,10 +30,18 @@ export type CreateTeamWorkspaceResult =
   | { ok: true; tenant: CreatedTenant }
   | { ok: false; code: 'LIMIT' | 'SLUG_TAKEN' }
 
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === '23505'
+}
+
 /**
  * Create a team (non-personal) workspace and make the creator TENANT_ADMIN.
  * Identity-adjacent: callers pass a BYPASSRLS migrate client because there is
  * no tenant GUC context at workspace-creation time.
+ *
+ * The caller is responsible for ensuring `input.userId` references an existing
+ * user — a non-existent user id will surface as a thrown FK error, not a typed
+ * result.
  */
 export async function createTeamWorkspace(
   db: Db,
@@ -58,37 +66,44 @@ export async function createTeamWorkspace(
   }
 
   const tenantId = uuidv7()
-  const row = await db.transaction(async (tx) => {
-    const inserted = await tx
-      .insert(tenants)
-      .values({
-        id: tenantId,
-        name: input.name,
-        slug: input.slug,
-        status: 'pending',
-        createdBy: input.userId,
-        isPersonal: false,
+  try {
+    const row = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(tenants)
+        .values({
+          id: tenantId,
+          name: input.name,
+          slug: input.slug,
+          status: 'pending',
+          createdBy: input.userId,
+          isPersonal: false,
+        })
+        .returning()
+      await tx.insert(tenantMembers).values({
+        tenantId,
+        userId: input.userId,
+        role: 'TENANT_ADMIN',
       })
-      .returning()
-    await tx.insert(tenantMembers).values({
-      tenantId,
-      userId: input.userId,
-      role: 'TENANT_ADMIN',
+      return inserted[0]
     })
-    return inserted[0]
-  })
 
-  return {
-    ok: true,
-    tenant: {
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      status: row.status,
-      createdBy: row.createdBy as string,
-      isPersonal: row.isPersonal,
-      createdAt: row.createdAt.toISOString(),
-      updatedAt: row.updatedAt.toISOString(),
-    },
+    return {
+      ok: true,
+      tenant: {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        status: row.status,
+        createdBy: row.createdBy ?? input.userId,
+        isPersonal: row.isPersonal,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      },
+    }
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return { ok: false, code: 'SLUG_TAKEN' }
+    }
+    throw err
   }
 }
