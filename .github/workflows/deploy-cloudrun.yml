@@ -152,6 +152,7 @@ jobs:
             GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
             ACCESS_GATE_SECRET=access-gate-secret:latest
             ${{ github.ref_name == 'dev' && 'DATABASE_URL=database-url-staging:latest' || '' }}
+            ${{ github.ref_name == 'dev' && 'DATABASE_MIGRATE_URL=database-migrate-url-staging:latest' || '' }}
             ${{ github.ref_name == 'dev' && 'BETTER_AUTH_SECRET=better-auth-secret-staging:latest' || '' }}
             ${{ github.ref_name == 'dev' && 'S3_ACCESS_KEY_ID=s3-access-key-id-staging:latest' || '' }}
             ${{ github.ref_name == 'dev' && 'S3_SECRET_ACCESS_KEY=s3-secret-access-key-staging:latest' || '' }}
