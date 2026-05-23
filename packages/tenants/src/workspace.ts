@@ -3,6 +3,7 @@ import { and, eq, count } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { tenants, tenantMembers } from '@vibesboard/adapter-postgres/schema'
+import { isUniqueViolation } from './db-utils.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -29,10 +30,6 @@ export interface CreatedTenant {
 export type CreateTeamWorkspaceResult =
   | { ok: true; tenant: CreatedTenant }
   | { ok: false; code: 'LIMIT' | 'SLUG_TAKEN' }
-
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === '23505'
-}
 
 /**
  * Create a team (non-personal) workspace and make the creator TENANT_ADMIN.
