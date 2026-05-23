@@ -22,7 +22,42 @@ permissions:
   id-token: write
 
 jobs:
+  migrate:
+    # Staging only — applies Drizzle migrations to the staging Postgres VM over
+    # an IAP TCP tunnel before the service deploys. Prod has no Postgres yet.
+    if: github.ref_name == 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Authenticate to GCP
+        uses: ./.github/actions/gcp-auth
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - name: Open IAP tunnel to staging Postgres
+        run: |
+          gcloud compute start-iap-tunnel vibesboard-staging-pg 5432 \
+            --local-host-port=localhost:5432 --zone=us-central1-a \
+            --project=${{ secrets.GCP_PROJECT_ID }} &
+          for i in $(seq 1 30); do (echo > /dev/tcp/localhost/5432) >/dev/null 2>&1 && break; sleep 1; done
+      - name: Run migrations
+        env:
+          DATABASE_MIGRATE_URL: ${{ secrets.STAGING_DATABASE_MIGRATE_URL }}
+        run: pnpm db:migrate
+
   deploy:
+    needs: [migrate]
+    # migrate is skipped on main (prod) — still allow prod to deploy.
+    if: always() && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
     runs-on: ubuntu-latest
     env:
       PREFIX: ${{ github.ref_name == 'main' && 'PROD' || 'STAGING' }}
@@ -82,11 +117,19 @@ jobs:
           service: ${{ env.CLOUD_RUN_SERVICE }}
           region: europe-north1
           image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
+          # Direct VPC egress (staging only) so the service can reach the
+          # private-IP Postgres VM; empty on prod (no-op).
+          flags: ${{ github.ref_name == 'dev' && '--network=default --subnet=default --vpc-egress=private-ranges-only' || '' }}
           env_vars: |
             OPENAI_MODEL=gpt-4o-mini
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
             NOTIFICATION_EMAIL_FROM=VibeAgent <notifications@vibeagent.com>
+            ${{ github.ref_name == 'dev' && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
+            ${{ github.ref_name == 'dev' && 'S3_REGION=us-east-1' || '' }}
+            ${{ github.ref_name == 'dev' && 'S3_BUCKET=vibeagent-files-staging' || '' }}
+            ${{ github.ref_name == 'dev' && 'S3_FORCE_PATH_STYLE=false' || '' }}
+            ${{ github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL) || '' }}
           secrets: |
             OPENAI_API_KEY=openai-api-key:latest
             FIREBASE_SERVICE_ACCOUNT_KEY=${{ github.ref_name == 'main' && 'firebase-service-account-key' || 'firebase-service-account-key-staging' }}:latest
@@ -108,3 +151,7 @@ jobs:
             GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest
             GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
             ACCESS_GATE_SECRET=access-gate-secret:latest
+            ${{ github.ref_name == 'dev' && 'DATABASE_URL=database-url-staging:latest' || '' }}
+            ${{ github.ref_name == 'dev' && 'BETTER_AUTH_SECRET=better-auth-secret-staging:latest' || '' }}
+            ${{ github.ref_name == 'dev' && 'S3_ACCESS_KEY_ID=s3-access-key-id-staging:latest' || '' }}
+            ${{ github.ref_name == 'dev' && 'S3_SECRET_ACCESS_KEY=s3-secret-access-key-staging:latest' || '' }}
