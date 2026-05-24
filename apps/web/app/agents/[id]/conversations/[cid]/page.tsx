@@ -4,6 +4,7 @@ import { auth } from '@/auth'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
+import { getConversation } from '@vibesboard/agents/conversations'
 import { AgentChat } from '@/components/agent-chat'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { HandoffConversationPage } from './handoff-page'
@@ -48,17 +49,23 @@ export default async function AgentConversationPage({
   let conversation: ReturnType<typeof mapConversationDoc> | undefined
 
   if (cid !== 'new' && tenantId) {
-    let convoDoc = await adminDb
-      .collection(Collections.conversations(tenantId, agent.id))
-      .doc(cid)
-      .get()
+    const found = await getConversation(tenantId, agent.id, cid)
 
-    // If not found directly, check if this agent has a conversation ref for it
-    if (!convoDoc.exists) {
+    if (found) {
+      conversation = found
+      conversationId = found.id
+      initialMessages = found.messages
+    } else {
+      // If not found directly, check if this agent has a conversation ref for it
+      // (handoff refs remain Firestore-backed until 4b).
       const refDoc = await adminDb
         .collection(Collections.conversationRefs(tenantId, agent.id))
         .doc(cid)
         .get()
+
+      let convoDoc:
+        | FirebaseFirestore.DocumentSnapshot
+        | undefined
 
       if (refDoc.exists) {
         const refData = refDoc.data()!
@@ -70,15 +77,14 @@ export default async function AgentConversationPage({
           .get()
       }
 
-      if (!convoDoc.exists) {
+      if (!convoDoc?.exists) {
         notFound()
       }
-    }
 
-    const convoData = convoDoc.data()!
-    conversation = mapConversationDoc(convoData)
-    conversationId = conversation.id
-    initialMessages = conversation.messages
+      conversation = mapConversationDoc(convoDoc.data()!)
+      conversationId = conversation.id
+      initialMessages = conversation.messages
+    }
   }
 
   // Handed-off Chatwoot conversations get the human reply UI
