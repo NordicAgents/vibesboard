@@ -3,6 +3,7 @@ import { type Message } from '@vibesboard/contracts'
 import { eq, and } from 'drizzle-orm'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
+import type { Agent } from '@vibesboard/adapter-postgres/schema'
 import { type AgentDocument } from '@vibesboard/contracts'
 import {
   type AgentToolType,
@@ -186,3 +187,40 @@ export const ensureUniqueSlug = async (slug: string, tenantId: string) => {
 
   return `${slug}-${nanoid(6).toLowerCase()}`
 }
+
+/** Map a Postgres agents row (+ the tenant's slug) to the VibeAgent shape. */
+export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): VibeAgent => ({
+  id: row.id,
+  userId: row.userId ?? '',
+  tenantId: row.tenantId,
+  tenantSlug,
+  name: row.name,
+  instructions: row.instructions,
+  fileKeys: row.fileKeys ?? [],
+  agentUrl: row.slug,
+  tools: sanitizeTools(row.tools ?? []),
+  allowAnonymous: row.allowAnonymous ?? false,
+  accessPassword: row.accessPasswordHash ?? null,
+  greetingText: row.greetingText ?? null,
+  mode: row.mode ?? 'provider',
+  maxResponses: row.maxResponses ?? null,
+  maxAgentResponses: row.maxAgentResponses ?? null,
+  totalResponseCount: row.totalResponseCount ?? 0,
+  quickSuggestionsMode: row.quickSuggestionsMode ?? 'off',
+  quickSuggestionsCount: row.quickSuggestionsCount ?? 4,
+  sourceUrls: [],
+  lastEmbeddingsSyncAt: row.lastEmbeddingsSyncAt?.toISOString() ?? null,
+  googleReviewEnabled: row.googleReviewEnabled ?? false,
+  googlePlaceId: row.googlePlaceId ?? null,
+  domain: null,
+  retrievalStrategy: row.retrievalStrategy ?? 'direct',
+  notificationConfig: row.notificationConfig ?? undefined,
+  handoffTargets: row.handoffTargets ?? [],
+  collectionFields: row.collectionFields ?? undefined,
+  schedulingConfig: row.schedulingConfig ?? undefined,
+  dataConfig: (row.dataConfig as unknown) as VibeAgent['dataConfig'] ?? undefined,
+  calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
+  bookingConfig: row.bookingConfig ?? undefined,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+})
