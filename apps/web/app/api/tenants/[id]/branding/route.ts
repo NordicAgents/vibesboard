@@ -1,146 +1,94 @@
 import { NextResponse } from 'next/server'
+import { requireTenantMember, requireTenantAdmin } from '@/lib/auth/route-handler'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import {
-  requireTenantMember,
-  requireTenantAdmin
-} from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import type {
-  TenantBrandingDocument,
-  BrandingField
-} from '@vibesboard/contracts'
+  getTenantBranding,
+  upsertTenantBranding,
+  type BrandingField,
+} from '@vibesboard/tenants'
+import { getTenantById } from '@/lib/tenant-context'
 import { validateBrandingColors, validateUrl } from '@/lib/validations'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
+import { getBaseBranding, resolveEffectiveBranding, type BaseBranding } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'
 
-type RouteParams = {
-  params: Promise<{
-    id: string
-  }>
+type RouteParams = { params: Promise<{ id: string }> }
+
+function toResolverInput(
+  row: Awaited<ReturnType<typeof getTenantBranding>>,
+): Parameters<typeof resolveEffectiveBranding>[0] {
+  if (!row) return null
+  return {
+    primaryColor: row.primaryColor,
+    secondaryColor: row.secondaryColor,
+    logoUrl: row.logoUrl ?? undefined,
+    overrides: row.overrides ?? undefined,
+  } as Parameters<typeof resolveEffectiveBranding>[0]
 }
 
-/**
- * GET /api/tenants/[id]/branding
- * Get tenant branding with base branding and inheritance metadata
- */
 export async function GET(req: Request, { params }: RouteParams) {
   const { id: tenantId } = await params
-
   const auth = await requireTenantMember(tenantId)
   if (!auth.ok) return auth.response
 
-  const [brandingDoc, baseBranding] = await Promise.all([
-    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
-    getBaseBranding()
+  const db = getMigrateDb()
+  const [row, baseBranding] = await Promise.all([
+    getTenantBranding(db, tenantId),
+    getBaseBranding(),
   ])
-
-  const tenantBranding = brandingDoc.exists
-    ? (brandingDoc.data() as TenantBrandingDocument)
-    : null
-
-  const effective = resolveEffectiveBranding(tenantBranding, baseBranding)
+  const effective = resolveEffectiveBranding(toResolverInput(row), baseBranding)
 
   return NextResponse.json({
     branding: effective,
     baseBranding,
-    overrides: tenantBranding?.overrides ?? null,
-    raw: tenantBranding
+    overrides: row?.overrides ?? null,
+    raw: row,
   })
 }
 
-function parseBrandingBody(body: Record<string, any>) {
+function parseBrandingBody(body: Record<string, unknown>) {
   return {
-    logoUrl: body.logo_url ?? body.logoUrl,
-    primaryColor: body.primary_color ?? body.primaryColor,
-    secondaryColor: body.secondary_color ?? body.secondaryColor
+    logoUrl: (body.logo_url ?? body.logoUrl) as string | undefined,
+    primaryColor: (body.primary_color ?? body.primaryColor) as string | undefined,
+    secondaryColor: (body.secondary_color ?? body.secondaryColor) as string | undefined,
   }
 }
 
 function validateColors(
   primaryColor: string | undefined,
-  secondaryColor: string | undefined
+  secondaryColor: string | undefined,
 ): NextResponse | null {
   if (!primaryColor && !secondaryColor) return null
-  if (
-    validateBrandingColors(
-      primaryColor || '#000000',
-      secondaryColor || '#ffffff'
-    )
-  )
-    return null
-  return NextResponse.json(
-    { error: 'Invalid color format. Use hex colors (e.g., #000000)' },
-    { status: 400 }
-  )
+  if (validateBrandingColors(primaryColor || '#000000', secondaryColor || '#ffffff')) return null
+  return NextResponse.json({ error: 'Invalid color format. Use hex colors (e.g., #000000)' }, { status: 400 })
 }
 
 function validateLogoUrl(logoUrl: string | undefined): NextResponse | null {
   if (!logoUrl || logoUrl === '') return null
   if (logoUrl.startsWith('/api/tenants/')) return null
   if (validateUrl(logoUrl)) return null
-  return NextResponse.json(
-    { error: 'Invalid logo URL format' },
-    { status: 400 }
-  )
+  return NextResponse.json({ error: 'Invalid logo URL format' }, { status: 400 })
 }
 
-function buildBrandingUpdates(
-  fields: { logoUrl: any; primaryColor: any; secondaryColor: any },
-  tenantId: string
-): Record<string, any> {
-  const updates: Record<string, any> = {
-    tenantId,
-    updatedAt: new Date().toISOString()
-  }
-  if (fields.logoUrl !== undefined) updates.logoUrl = fields.logoUrl || null
-  if (fields.primaryColor !== undefined)
-    updates.primaryColor = fields.primaryColor
-  if (fields.secondaryColor !== undefined)
-    updates.secondaryColor = fields.secondaryColor
-  return updates
-}
-
-function isFieldOverridden(effective: any, base: any): boolean {
+function isFieldOverridden(effective: unknown, base: unknown): boolean {
   return effective !== undefined && effective !== base
 }
 
 function computeOverrides(
-  updates: Record<string, any>,
-  existing: TenantBrandingDocument | null,
-  baseBranding: Record<string, any>
+  next: { logoUrl: string | null; primaryColor: string; secondaryColor: string },
+  baseBranding: BaseBranding,
 ): BrandingField[] {
-  const fields: Array<{ key: BrandingField; effective: any; base: any }> = [
-    {
-      key: 'primaryColor',
-      effective: updates.primaryColor ?? existing?.primaryColor,
-      base: baseBranding.primaryColor
-    },
-    {
-      key: 'secondaryColor',
-      effective: updates.secondaryColor ?? existing?.secondaryColor,
-      base: baseBranding.secondaryColor
-    },
-    {
-      key: 'logoUrl',
-      effective: updates.logoUrl ?? existing?.logoUrl,
-      base: baseBranding.logoUrl || null
-    }
+  const fields: Array<{ key: BrandingField; effective: unknown; base: unknown }> = [
+    { key: 'primaryColor', effective: next.primaryColor, base: baseBranding.primaryColor },
+    { key: 'secondaryColor', effective: next.secondaryColor, base: baseBranding.secondaryColor },
+    { key: 'logoUrl', effective: next.logoUrl ?? undefined, base: baseBranding.logoUrl ?? undefined },
   ]
-  return fields
-    .filter(f => isFieldOverridden(f.effective, f.base))
-    .map(f => f.key)
+  return fields.filter((f) => isFieldOverridden(f.effective, f.base)).map((f) => f.key)
 }
 
-/**
- * PUT /api/tenants/[id]/branding
- * Update tenant branding (TENANT_ADMIN or SUPER_ADMIN)
- * Tracks which fields differ from base branding in the overrides array
- */
 export async function PUT(req: Request, { params }: RouteParams) {
   const { id: tenantId } = await params
-
   const auth = await requireTenantAdmin(tenantId)
   if (!auth.ok) return auth.response
 
@@ -149,78 +97,66 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   const colorError = validateColors(fields.primaryColor, fields.secondaryColor)
   if (colorError) return colorError
-
   const logoError = validateLogoUrl(fields.logoUrl)
   if (logoError) return logoError
 
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
+  const db = getMigrateDb()
 
-  if (!tenantDoc.exists) {
+  const tenant = await getTenantById(tenantId)
+  if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
-
-  const tenantData = tenantDoc.data()!
-  if (tenantData.isPersonal) {
+  if (tenant.isPersonal) {
     return NextResponse.json(
       { error: 'Branding is not configurable for personal workspaces' },
-      { status: 403 }
+      { status: 403 },
     )
   }
 
   if (auth.role !== 'SUPER_ADMIN') {
-    const customBrandingEnabled = await isFeatureEnabled(
-      tenantId,
-      'CUSTOM_BRANDING'
-    )
+    const customBrandingEnabled = await isFeatureEnabled(tenantId, 'CUSTOM_BRANDING')
     if (!customBrandingEnabled) {
       return NextResponse.json(
         { error: 'Custom branding is disabled for this workspace' },
-        { status: 403 }
+        { status: 403 },
       )
     }
   }
 
-  const updates = buildBrandingUpdates(fields, tenantId)
-
-  if (Object.keys(updates).length === 2) {
-    return NextResponse.json(
-      { error: 'No valid fields to update' },
-      { status: 400 }
-    )
+  if (
+    fields.logoUrl === undefined &&
+    fields.primaryColor === undefined &&
+    fields.secondaryColor === undefined
+  ) {
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const brandingRef = adminDb
-    .collection(Collections.branding(tenantId))
-    .doc(tenantId)
-
-  const [existingDoc, baseBranding] = await Promise.all([
-    brandingRef.get(),
-    getBaseBranding()
+  const [existing, baseBranding] = await Promise.all([
+    getTenantBranding(db, tenantId),
+    getBaseBranding(),
   ])
-  const existing = existingDoc.exists
-    ? (existingDoc.data() as TenantBrandingDocument)
-    : null
 
-  updates.overrides = computeOverrides(updates, existing, baseBranding)
+  const next = {
+    logoUrl:
+      fields.logoUrl !== undefined ? fields.logoUrl || null : (existing?.logoUrl ?? null),
+    primaryColor: fields.primaryColor ?? existing?.primaryColor ?? baseBranding.primaryColor,
+    secondaryColor: fields.secondaryColor ?? existing?.secondaryColor ?? baseBranding.secondaryColor,
+  }
+  const overrides = computeOverrides(next, baseBranding)
 
-  await brandingRef.set(updates, { merge: true })
+  await upsertTenantBranding(db, tenantId, { ...next, overrides })
 
-  const updatedDoc = await brandingRef.get()
-  const updatedBranding = updatedDoc.data() as TenantBrandingDocument
-  const effective = resolveEffectiveBranding(updatedBranding, baseBranding)
-
-  return NextResponse.json({
-    branding: effective,
+  const effective = resolveEffectiveBranding(
+    {
+      primaryColor: next.primaryColor,
+      secondaryColor: next.secondaryColor,
+      logoUrl: next.logoUrl ?? undefined,
+      overrides,
+    } as Parameters<typeof resolveEffectiveBranding>[0],
     baseBranding,
-    overrides: updatedBranding.overrides ?? null
-  })
+  )
+
+  return NextResponse.json({ branding: effective, baseBranding, overrides })
 }
 
-/**
- * PATCH /api/tenants/[id]/branding
- * Alias for PUT — update tenant branding
- */
 export { PUT as PATCH }
