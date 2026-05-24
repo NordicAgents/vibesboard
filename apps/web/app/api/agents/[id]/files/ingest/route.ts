@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { ingestFileForAgent } from '@vibesboard/ai/file-search'
+import { getFileByKey } from '@vibesboard/ai/files-store'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
@@ -29,7 +30,7 @@ export async function POST(
     )
   }
 
-  // Find agent via collectionGroup query
+  // Find agent via Postgres
   const agent = await getAgentById(id)
 
   if (!agent) {
@@ -54,13 +55,23 @@ export async function POST(
     )
   }
 
+  // Look up the file record to get the fileId
+  const fileRecord = await getFileByKey(id, fileKey)
+  if (!fileRecord) {
+    return NextResponse.json(
+      { error: 'File record not found for this agent and fileKey' },
+      { status: 404 }
+    )
+  }
+
   try {
     const result = await ingestFileForAgent({
       tenantId: agent.tenantId,
       agentId: id,
+      fileId: fileRecord.id,
       fileKey,
-      fileName,
-      mimeType
+      fileName: fileName ?? fileRecord.fileName,
+      mimeType: mimeType ?? fileRecord.mimeType
     })
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {

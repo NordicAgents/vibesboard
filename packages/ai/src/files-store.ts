@@ -47,3 +47,7 @@ export async function getPendingFiles(tenantId: string, agentId: string, limit =
   const rows = await db.select().from(files).where(and(eq(files.tenantId, tenantId), eq(files.agentId, agentId), eq(files.status, 'pending'))).orderBy(asc(files.createdAt)).limit(limit)
   return rows.map(rowToFile)
 }
+export async function getFileByKey(agentId: string, fileKey: string, db: Db = getMigrateDb()): Promise<FileRecord | null> {
+  const rows = await db.select().from(files).where(and(eq(files.agentId, agentId), eq(files.fileKey, fileKey))).limit(1)
+  return rows.length ? rowToFile(rows[0]) : null
+}

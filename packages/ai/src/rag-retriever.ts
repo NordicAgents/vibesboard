@@ -3,10 +3,11 @@
  * Advanced retrieval strategies for knowledge base search
  */
 
-import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { createEmbedding } from '@vibesboard/adapter-openai'
+import {
+  vectorSearchFileChunks,
+  keywordSearchFileChunks
+} from '@vibesboard/ai/rag-store'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
@@ -73,7 +74,7 @@ export async function retrieveContext(
 }
 
 /**
- * Vector similarity search using Firestore native findNearest
+ * Vector similarity search using Postgres pgvector cosine distance
  */
 async function vectorSearch(
   tenantId: string,
@@ -88,29 +89,7 @@ async function vectorSearch(
       return []
     }
 
-    const collPath = Collections.fileChunks(tenantId, agentId)
-    const snapshot = await adminDb
-      .collection(collPath)
-      .findNearest('embedding', FieldValue.vector(embedding), {
-        limit: topK,
-        distanceMeasure: 'COSINE'
-      })
-      .get()
-
-    if (snapshot.empty) return []
-
-    return snapshot.docs.map((doc: any) => {
-      const data = doc.data()
-      return {
-        fileId: data.fileId ?? '',
-        fileName: data.fileName,
-        fileKey: data.fileKey,
-        chunkIndex: data.chunkIndex,
-        content: data.content,
-        similarity: null, // Firestore findNearest doesn't return distance scores
-        mimeType: data.mimeType ?? undefined
-      }
-    })
+    return vectorSearchFileChunks({ tenantId, agentId, queryEmbedding: embedding, topK })
   } catch (error) {
     console.error('[RAG] Vector search exception:', error)
     return []
@@ -118,7 +97,7 @@ async function vectorSearch(
 }
 
 /**
- * Keyword-based search fallback
+ * Keyword-based search fallback using Postgres full-text search (tsvector)
  */
 async function keywordSearch(
   tenantId: string,
@@ -127,31 +106,7 @@ async function keywordSearch(
   topK: number
 ): Promise<RetrievedChunk[]> {
   try {
-    const collPath = Collections.fileChunks(tenantId, agentId)
-    // Firestore doesn't support ILIKE / full-text search natively.
-    // Load a broader set and filter in-memory, capped at 200 to avoid full-collection scans.
-    const scanLimit = Math.min(topK * 10, 200)
-    const snapshot = await adminDb.collection(collPath).limit(scanLimit).get()
-
-    const queryLower = query.toLowerCase()
-    return snapshot.docs
-      .filter((doc: any) => {
-        const content: string = doc.data().content ?? ''
-        return content.toLowerCase().includes(queryLower)
-      })
-      .slice(0, topK)
-      .map((doc: any) => {
-        const data = doc.data()
-        return {
-          fileId: data.fileId ?? '',
-          fileName: data.fileName,
-          fileKey: data.fileKey,
-          chunkIndex: data.chunkIndex,
-          content: data.content,
-          similarity: null, // keyword fallback — no similarity score available
-          mimeType: data.mimeType ?? undefined
-        }
-      })
+    return keywordSearchFileChunks({ tenantId, agentId, query, topK })
   } catch (error) {
     console.error('[RAG] Keyword search exception:', error)
     return []
