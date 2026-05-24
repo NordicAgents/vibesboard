@@ -208,8 +208,35 @@ export const hookJobs = pgTable(
   }),
 )
 
+type InviteCodeRedemption = { redeemedAt: string; externalId: string }
+
+export const agentInviteCodes = pgTable(
+  'agent_invite_codes',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    maxUses: integer('max_uses'),
+    usedCount: integer('used_count').notNull().default(0),
+    revoked: boolean('revoked').notNull().default(false),
+    redemptions: jsonb('redemptions').$type<InviteCodeRedemption[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byAgent: index('agent_invite_codes_agent_idx').on(t.tenantId, t.agentId, t.createdAt),
+    byCode: uniqueIndex('agent_invite_codes_code_idx').on(t.tenantId, t.agentId, t.code),
+  }),
+)
+
 export type Agent = typeof agents.$inferSelect
 export type NewAgent = typeof agents.$inferInsert
 export type AgentLink = typeof agentLinks.$inferSelect
 export type Hook = typeof hooks.$inferSelect
 export type HookJob = typeof hookJobs.$inferSelect
+export type AgentInviteCode = typeof agentInviteCodes.$inferSelect
