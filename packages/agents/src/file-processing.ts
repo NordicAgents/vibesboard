@@ -1,5 +1,4 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { insertFiles } from '@vibesboard/ai/files-store'
 import { processFile } from '@vibesboard/ai/file-processor'
 
 /**
@@ -43,66 +42,35 @@ export async function createAgentFilesAndTriggerProcessing(params: {
   const { agentId, tenantId, userId, fileKeys } = params
 
   try {
-    const batch = adminDb.batch()
-    const collPath = Collections.agentFiles(tenantId, agentId)
-    const createdFiles: Array<{
-      id: string
-      agentId: string
-      fileKey: string
-      fileName: string
-      mimeType: string
-    }> = []
-
-    for (const fileKey of fileKeys) {
-      try {
-        const fileName = fileKey.split('/').pop() || fileKey
-        const mimeType = guessMimeType(fileName)
-
-        const ref = adminDb.collection(collPath).doc()
-        const now = new Date().toISOString()
-
-        batch.set(ref, {
-          id: ref.id,
-          agentId,
-          tenantId,
-          userId,
-          fileKey,
-          fileName,
-          fileSize: 0,
-          mimeType,
-          status: 'pending',
-          createdAt: now,
-          updatedAt: now
-        })
-
-        createdFiles.push({
-          id: ref.id,
-          agentId,
-          fileKey,
-          fileName,
-          mimeType
-        })
-      } catch (error) {
-        console.error(`Failed to prepare file entry for ${fileKey}:`, error)
+    const inputs = fileKeys.map(fileKey => {
+      const fileName = fileKey.split('/').pop() || fileKey
+      return {
+        tenantId,
+        agentId,
+        userId,
+        fileKey,
+        fileName,
+        mimeType: guessMimeType(fileName),
+        fileSize: 0
       }
-    }
+    })
 
-    if (createdFiles.length === 0) {
+    if (inputs.length === 0) {
       return
     }
 
-    await batch.commit()
+    const created = await insertFiles(inputs)
 
     // Trigger background processing for each file (non-blocking)
     Promise.all(
-      createdFiles.map(file =>
+      created.map(f =>
         processFile({
-          fileId: file.id,
-          agentId: file.agentId,
+          fileId: f.id,
+          agentId,
           tenantId,
-          fileKey: file.fileKey,
-          fileName: file.fileName,
-          mimeType: file.mimeType || 'application/octet-stream'
+          fileKey: f.fileKey,
+          fileName: f.fileName,
+          mimeType: f.mimeType
         })
       )
     ).catch(error => {
@@ -110,7 +78,7 @@ export async function createAgentFilesAndTriggerProcessing(params: {
     })
 
     console.log(
-      `[Agent Creation] Triggered processing for ${createdFiles.length} files`
+      `[Agent Creation] Triggered processing for ${created.length} files`
     )
   } catch (error) {
     console.error('[Agent Creation] Error in file processing setup:', error)

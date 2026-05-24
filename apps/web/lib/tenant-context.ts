@@ -185,7 +185,9 @@ export async function getTenantById(
   return rowToTenantDocument(rows[0])
 }
 
-export async function getTenantBySlug(slug: string): Promise<TenantDocument | null> {
+export async function getTenantBySlug(
+  slug: string
+): Promise<TenantDocument | null> {
   const rows = await getMigrateDb()
     .select({
       id: tenantsTable.id,
