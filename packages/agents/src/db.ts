@@ -197,6 +197,18 @@ export const rowToConversation = (
   updatedAt: row.updatedAt.toISOString()
 })
 
+/** Mark an agent's conversation embeddings as synced at the given time. */
+export const setAgentEmbeddingsSyncedAt = async (
+  agentId: string,
+  when: Date,
+  db = getMigrateDb()
+): Promise<void> => {
+  await db
+    .update(agentsTable)
+    .set({ lastEmbeddingsSyncAt: when, updatedAt: when })
+    .where(eq(agentsTable.id, agentId))
+}
+
 export const createAgentSlug = (name: string) => {
   const base = slugify(name)
   return base.length ? base : nanoid().toLowerCase()
