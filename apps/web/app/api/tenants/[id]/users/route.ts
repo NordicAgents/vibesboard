@@ -3,8 +3,8 @@ import {
   requireTenantMember,
   requireSuperAdmin
 } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { listTenantMembers } from '@vibesboard/tenants'
 
 export const runtime = 'nodejs'
 
@@ -28,36 +28,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     if (!auth.ok) return auth.response
   }
 
-  // Get all members
-  const membersSnapshot = await adminDb
-    .collection(Collections.members(tenantId))
-    .get()
-
-  // Fetch user details for each member
-  const users = await Promise.all(
-    membersSnapshot.docs.map(async (memberDoc: any) => {
-      const memberData = memberDoc.data()
-      const userId = memberDoc.id
-
-      // Get user profile from users collection
-      const userDoc = await adminDb
-        .collection(Collections.users)
-        .doc(userId)
-        .get()
-
-      const userData = userDoc.exists ? userDoc.data() : null
-
-      return {
-        user_id: userId,
-        tenant_id: tenantId,
-        role: memberData.role,
-        created_at: memberData.createdAt,
-        email: userData?.email ?? null,
-        name: userData?.name ?? null,
-        image: userData?.image ?? null
-      }
-    })
-  )
+  const users = await listTenantMembers(getMigrateDb(), tenantId)
 
   return NextResponse.json({ users })
 }
