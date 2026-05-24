@@ -54,4 +54,15 @@ describe('adapter-s3 smoke', () => {
     // 6. delete is idempotent — no throw on missing key
     await deleteFile(key)
   })
+
+  test('signed upload URL carries no checksum params (GCS/R2 compatibility)', async () => {
+    // AWS SDK v3 >= 3.729 otherwise injects x-amz-checksum-crc32 with an
+    // empty-body checksum, which breaks non-empty presigned PUTs to GCS/R2.
+    const url = await getSignedUploadUrl(`test-${randomUUID()}/x.txt`, 'text/plain')
+    const q = new URL(url).searchParams
+    assert.equal(q.get('x-amz-checksum-crc32'), null)
+    assert.equal(q.get('x-amz-sdk-checksum-algorithm'), null)
+    // sanity: it is still a signed URL
+    assert.ok(q.get('X-Amz-Signature'))
+  })
 })
