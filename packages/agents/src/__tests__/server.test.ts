@@ -9,6 +9,7 @@ import {
   getAgentById,
   getAgentBySlug,
   getAgentNamesByTenant,
+  getAgentsForTenant,
 } from '../server.ts'
 
 async function seed(adminDb: any) {
@@ -76,6 +77,64 @@ describe('agent server reads', () => {
         [agentId]: 'Support',
       })
       assert.deepEqual(await getAgentNamesByTenant(tenantId, [], adminDb), {})
+    })
+  })
+
+  test('getAgentsForTenant lists agents for the tenant, newest first, mapped', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, userId } = await seed(adminDb)
+      // a second, newer agent in the same tenant
+      const newerId = randomUUID()
+      await adminDb.insert(agents).values({
+        id: newerId,
+        tenantId,
+        userId,
+        name: 'Sales',
+        slug: 'sales',
+        instructions: 'hi',
+        createdAt: new Date(Date.now() + 1000),
+      })
+      // an agent in a different tenant — must NOT appear
+      const otherTenant = randomUUID()
+      await adminDb.insert(tenants).values({
+        id: otherTenant,
+        name: 'Other',
+        slug: 'other',
+        createdBy: userId,
+        isPersonal: false,
+      })
+      await adminDb.insert(agents).values({
+        id: randomUUID(),
+        tenantId: otherTenant,
+        userId,
+        name: 'Nope',
+        slug: 'nope',
+        instructions: 'hi',
+      })
+
+      const list = await getAgentsForTenant(tenantId, adminDb)
+      assert.equal(list.length, 2)
+      assert.deepEqual(
+        list.map((a) => a.id),
+        [newerId, agentId],
+      ) // newest first
+      assert.equal(list[0].tenantSlug, 'acme')
+      assert.equal(list[1].agentUrl, 'support')
+    })
+  })
+
+  test('getAgentsForTenant returns [] for a tenant with no agents', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { userId } = await seed(adminDb)
+      const empty = randomUUID()
+      await adminDb.insert(tenants).values({
+        id: empty,
+        name: 'Empty',
+        slug: 'empty',
+        createdBy: userId,
+        isPersonal: false,
+      })
+      assert.deepEqual(await getAgentsForTenant(empty, adminDb), [])
     })
   })
 })
