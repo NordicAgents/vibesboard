@@ -2,11 +2,12 @@ import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import { mapConversationDoc } from '@vibesboard/agents/db'
+import { type VibeAgentConversation } from '@vibesboard/contracts'
 import { getAgentById } from '@vibesboard/agents/server'
-import { listAgentConversations } from '@vibesboard/agents/conversations'
+import {
+  listAgentConversations,
+  listHandoffConversationsForAgent
+} from '@vibesboard/agents/conversations'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
 import { canEditAgent } from '@vibesboard/agents/permissions'
@@ -49,33 +50,16 @@ export default async function AgentPageAsChat({
 
   // Fetch conversations for this agent
   const tenantId = agent.tenantId
-  let conversations: ReturnType<typeof mapConversationDoc>[] = []
-  let handoffConversations: ReturnType<typeof mapConversationDoc>[] = []
+  let conversations: VibeAgentConversation[] = []
+  let handoffConversations: VibeAgentConversation[] = []
 
   if (tenantId) {
     conversations = await listAgentConversations(tenantId, agent.id)
-
-    // Fetch conversation refs (conversations handed off to this agent)
-    const refsSnapshot = await adminDb
-      .collection(Collections.conversationRefs(tenantId, agent.id))
-      .orderBy('lastMessageAt', 'desc')
-      .limit(10)
-      .get()
-
-    for (const refDoc of refsSnapshot.docs) {
-      const ref = refDoc.data()
-      try {
-        const srcConvoDoc = await adminDb
-          .collection(Collections.conversations(tenantId, ref.sourceAgentId))
-          .doc(ref.sourceConversationId)
-          .get()
-        if (srcConvoDoc.exists) {
-          handoffConversations.push(mapConversationDoc(srcConvoDoc.data()!))
-        }
-      } catch {
-        // Source conversation may have been deleted
-      }
-    }
+    // Conversations handed off to this agent (derived from handoffChain).
+    handoffConversations = await listHandoffConversationsForAgent(
+      tenantId,
+      agent.id
+    )
   }
 
   const ownerConversations = conversations.filter(

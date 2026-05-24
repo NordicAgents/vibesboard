@@ -1,10 +1,12 @@
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
-import { getConversation } from '@vibesboard/agents/conversations'
+import { type VibeAgentConversation } from '@vibesboard/contracts'
+import { getAgentById } from '@vibesboard/agents/server'
+import {
+  getConversation,
+  getConversationAnyAgent
+} from '@vibesboard/agents/conversations'
 import { AgentChat } from '@/components/agent-chat'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { HandoffConversationPage } from './handoff-page'
@@ -23,19 +25,12 @@ export default async function AgentConversationPage({
     redirect('/sign-in')
   }
 
-  // Find the agent across all tenants using collection group query
-  const agentSnapshot = await adminDb
-    .collectionGroup('agents')
-    .where('id', '==', id)
-    .limit(1)
-    .get()
+  const agent = await getAgentById(id)
 
-  if (agentSnapshot.empty) {
+  if (!agent) {
     notFound()
   }
 
-  const agentData = agentSnapshot.docs[0].data()
-  const agent = mapAgentDoc(agentData)
   const tenantId = agent.tenantId
 
   const canEdit = await canEditAgent({
@@ -46,45 +41,25 @@ export default async function AgentConversationPage({
 
   let conversationId: string | undefined
   let initialMessages
-  let conversation: ReturnType<typeof mapConversationDoc> | undefined
+  let conversation: VibeAgentConversation | undefined
 
   if (cid !== 'new' && tenantId) {
-    const found = await getConversation(tenantId, agent.id, cid)
+    let found = await getConversation(tenantId, agent.id, cid)
 
-    if (found) {
-      conversation = found
-      conversationId = found.id
-      initialMessages = found.messages
-    } else {
-      // If not found directly, check if this agent has a conversation ref for it
-      // (handoff refs remain Firestore-backed until 4b).
-      const refDoc = await adminDb
-        .collection(Collections.conversationRefs(tenantId, agent.id))
-        .doc(cid)
-        .get()
-
-      let convoDoc:
-        | FirebaseFirestore.DocumentSnapshot
-        | undefined
-
-      if (refDoc.exists) {
-        const refData = refDoc.data()!
-        convoDoc = await adminDb
-          .collection(
-            Collections.conversations(tenantId, refData.sourceAgentId)
-          )
-          .doc(refData.sourceConversationId)
-          .get()
-      }
-
-      if (!convoDoc?.exists) {
-        notFound()
-      }
-
-      conversation = mapConversationDoc(convoDoc.data()!)
-      conversationId = conversation.id
-      initialMessages = conversation.messages
+    // Handoff fallback: the conversation may live under another agent but was
+    // handed off to (and is viewable by) this one. With a single conversations
+    // table, look it up cross-agent within the tenant.
+    if (!found) {
+      found = await getConversationAnyAgent(tenantId, cid)
     }
+
+    if (!found) {
+      notFound()
+    }
+
+    conversation = found
+    conversationId = found.id
+    initialMessages = found.messages
   }
 
   // Handed-off Chatwoot conversations get the human reply UI

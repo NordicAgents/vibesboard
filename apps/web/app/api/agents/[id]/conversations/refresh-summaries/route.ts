@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { getAgentById } from '@vibesboard/agents/server'
-import { mapConversationDoc } from '@vibesboard/agents/db'
+import {
+  listUnsummarizedVisitorConversations,
+  updateConversationSummary
+} from '@vibesboard/agents/conversations'
 import { summarizeConversation } from '@vibesboard/ai/summarize'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 
@@ -38,20 +39,11 @@ export async function POST(
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  // Firestore can't easily combine != null with == null in compound queries,
-  // so we query conversations with externalId != null and filter the rest in code.
-  const convCollPath = Collections.conversations(agent.tenantId, agent.id)
-  const snapshot = await adminDb
-    .collection(convCollPath)
-    .where('externalId', '!=', null)
-    .orderBy('updatedAt', 'desc')
-    .get()
-
-  // Filter in memory: no userId (visitor conversations) and no summary yet
-  const convoRows = snapshot.docs
-    .map((doc: any) => ({ ref: doc.ref, data: doc.data() }))
-    .filter(({ data }: any) => !data.userId && !data.summary)
-    .slice(0, MAX_REFRESH)
+  const convoRows = await listUnsummarizedVisitorConversations(
+    agent.tenantId,
+    agent.id,
+    MAX_REFRESH
+  )
 
   if (!convoRows.length) {
     return NextResponse.json({ updated: 0 })
@@ -64,21 +56,20 @@ export async function POST(
     const chunk = convoRows.slice(i, i + CONCURRENCY)
 
     const results = await Promise.all(
-      chunk.map(async ({ ref, data }: any) => {
+      chunk.map(async (conversation) => {
         try {
-          const conversation = mapConversationDoc(data)
           const summary = await summarizeConversation(conversation.messages)
 
           if (!summary) {
             return false
           }
 
-          const now = new Date().toISOString()
-          await ref.update({
-            summary,
-            summaryGeneratedAt: now,
-            updatedAt: now
-          })
+          await updateConversationSummary(
+            agent.tenantId,
+            agent.id,
+            conversation.id,
+            summary
+          )
 
           return true
         } catch (err) {
