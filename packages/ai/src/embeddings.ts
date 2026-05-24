@@ -1,13 +1,17 @@
 import { type Message } from '@vibesboard/contracts'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { FieldValue } from 'firebase-admin/firestore'
-import { Collections } from '@vibesboard/contracts'
+import { and, eq, sql } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { embeddings as embeddingsTable } from '@vibesboard/adapter-postgres/schema'
 import { createEmbedding } from '@vibesboard/adapter-openai'
+
+type Db = PostgresJsDatabase<typeof schema>
 
 const CHUNK_SIZE = 800
 const CHUNK_OVERLAP = 200
-const MAX_BATCH_SIZE = 64
 const EMBEDDING_MODEL = 'text-embedding-3-small'
 
 interface ConversationChunk {
@@ -88,65 +92,75 @@ interface UpsertConversationEmbeddingsArgs {
   messages: Message[]
 }
 
-export async function upsertConversationEmbeddings({
-  tenantId,
-  agentId,
-  conversationId,
-  messages
-}: UpsertConversationEmbeddingsArgs) {
-  const chunks = buildConversationChunks(messages)
+interface UpsertDeps {
+  db?: Db
+  embed?: (texts: string[]) => Promise<number[][]>
+}
 
-  // Delete existing chunks for this conversation
-  const collPath = Collections.conversationChunks(tenantId, agentId)
-  const existingSnapshot = await adminDb
-    .collection(collPath)
-    .where('conversationId', '==', conversationId)
-    .get()
+/**
+ * Replace all conversation_chunk embeddings for a conversation (delete +
+ * insert) in the unified `embeddings` table. One row per non-empty message;
+ * `chunkIndex` = message index (the windowing key used by conversation-rag).
+ */
+export async function upsertConversationEmbeddings(
+  { tenantId, conversationId, messages }: UpsertConversationEmbeddingsArgs,
+  deps: UpsertDeps = {}
+): Promise<void> {
+  const db = deps.db ?? getMigrateDb()
+  const embed = deps.embed ?? embedTexts
+  const indexed = messages
+    .map((m, i) => ({
+      messageIndex: i,
+      content: typeof m.content === 'string' ? m.content.trim() : ''
+    }))
+    .filter(c => c.content)
 
-  if (!existingSnapshot.empty) {
-    const deleteBatch = adminDb.batch()
-    existingSnapshot.docs.forEach((doc: any) => deleteBatch.delete(doc.ref))
-    await deleteBatch.commit()
-  }
-
-  if (!chunks.length) {
-    return
-  }
-
-  let embeddings: number[][] = []
-  try {
-    embeddings = await embedTexts(chunks.map(chunk => chunk.content))
-  } catch (error) {
-    console.error('Failed to embed conversation chunks', error)
-    return
-  }
-
-  // Insert new chunks using batch writes
-  for (let i = 0; i < chunks.length; i += MAX_BATCH_SIZE) {
-    const batchSlice = chunks.slice(i, i + MAX_BATCH_SIZE)
-    const writeBatch = adminDb.batch()
-
-    batchSlice.forEach((chunk, batchIdx) => {
-      const idx = i + batchIdx
-      const ref = adminDb.collection(collPath).doc()
-      writeBatch.set(ref, {
-        id: ref.id,
-        agentId,
-        conversationId,
-        messageIndex: chunk.messageIndex,
-        chunkIndex: chunk.chunkIndex,
-        role: chunk.role,
-        content: chunk.content,
-        embedding: FieldValue.vector(embeddings[idx]),
-        createdAt: new Date().toISOString()
-      })
-    })
-
+  await db.transaction(async tx => {
+    await tx
+      .delete(embeddingsTable)
+      .where(
+        and(
+          eq(embeddingsTable.tenantId, tenantId),
+          eq(embeddingsTable.sourceType, 'conversation_chunk'),
+          eq(embeddingsTable.sourceId, conversationId)
+        )
+      )
+    if (!indexed.length) return
+    let vectors: number[][] = []
     try {
-      await writeBatch.commit()
+      vectors = await embed(indexed.map(c => c.content))
     } catch (error) {
-      console.error('Failed to upsert conversation chunk batch', error)
-      break
+      console.error('Failed to embed conversation chunks', error)
+      return
     }
-  }
+    await tx.insert(embeddingsTable).values(
+      indexed.map((c, i) => ({
+        id: uuidv7(),
+        tenantId,
+        sourceType: 'conversation_chunk' as const,
+        sourceId: conversationId,
+        chunkIndex: c.messageIndex,
+        content: c.content,
+        contentTsv: sql`to_tsvector('english', ${c.content})`,
+        embedding: vectors[i]
+      }))
+    )
+  })
+}
+
+/** Delete all conversation_chunk embeddings for a conversation. */
+export async function deleteConversationEmbeddings(
+  tenantId: string,
+  conversationId: string,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .delete(embeddingsTable)
+    .where(
+      and(
+        eq(embeddingsTable.tenantId, tenantId),
+        eq(embeddingsTable.sourceType, 'conversation_chunk'),
+        eq(embeddingsTable.sourceId, conversationId)
+      )
+    )
 }
