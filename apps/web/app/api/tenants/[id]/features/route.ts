@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { toggleFeature, getTenantFeatures } from '@vibesboard/policy/features'
 import { isSuperAdmin, isTenantAdmin } from '@vibesboard/policy/permissions'
+import { getTenantById } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'
 
@@ -54,17 +53,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   // Fetch tenant and block feature changes for personal workspaces
   // (super admins can still override)
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
-
-  if (!tenantDoc.exists) {
+  const tenant = await getTenantById(tenantId)
+  if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const tenantData = tenantDoc.data()!
-  if (tenantData.isPersonal && !isSuperAdminUser) {
+  if (tenant.isPersonal && !isSuperAdminUser) {
     return NextResponse.json(
       { error: 'Features cannot be changed for personal workspaces' },
       { status: 403 }
