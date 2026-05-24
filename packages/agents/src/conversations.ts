@@ -1,13 +1,79 @@
 import { type Message } from '@vibesboard/contracts'
 import { FieldValue } from 'firebase-admin/firestore'
+import { and, eq, desc, sql, inArray } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import {
   Collections,
   type ConversationRefDocument
 } from '@vibesboard/contracts'
-import { mapConversationDoc } from './db.ts'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import {
+  conversations as conversationsTable,
+  messages as messagesTable,
+  conversationFeedback as conversationFeedbackTable
+} from '@vibesboard/adapter-postgres/schema'
+import { rowToConversation } from './db.ts'
 import { type VibeAgentConversation } from '@vibesboard/contracts'
+
+type Db = PostgresJsDatabase<typeof schema>
+
+const isUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+
+/** Load a conversation row + its ordered messages + latest feedback, mapped. */
+async function loadConversation(
+  db: Db,
+  tenantId: string,
+  agentId: string | null,
+  id: string
+): Promise<VibeAgentConversation | null> {
+  const [row] = await db
+    .select()
+    .from(conversationsTable)
+    .where(
+      and(
+        eq(conversationsTable.tenantId, tenantId),
+        eq(conversationsTable.id, id)
+      )
+    )
+    .limit(1)
+  if (!row) return null
+  if (agentId && row.agentId !== agentId) return null
+  const msgs = await db
+    .select()
+    .from(messagesTable)
+    .where(eq(messagesTable.conversationId, id))
+    .orderBy(messagesTable.createdAt, messagesTable.id)
+  const [fb] = await db
+    .select()
+    .from(conversationFeedbackTable)
+    .where(eq(conversationFeedbackTable.conversationId, id))
+    .orderBy(desc(conversationFeedbackTable.createdAt))
+    .limit(1)
+  return rowToConversation(row, msgs, fb ?? null)
+}
+
+async function insertMessages(
+  db: Db,
+  tenantId: string,
+  conversationId: string,
+  messages: Message[]
+) {
+  if (!messages.length) return
+  await db.insert(messagesTable).values(
+    messages.map((m) => ({
+      id: isUuid(m.id) ? m.id : uuidv7(),
+      tenantId,
+      conversationId,
+      role: m.role as 'user' | 'assistant' | 'system' | 'tool',
+      content: typeof m.content === 'string' ? m.content : String(m.content ?? '')
+    }))
+  )
+}
 
 interface ConversationIdentifier {
   conversationId?: string
@@ -21,71 +87,63 @@ interface EnsureConversationArgs extends ConversationIdentifier {
   initialMessages?: Message[]
 }
 
-export async function ensureConversation({
-  tenantId,
-  agentId,
-  conversationId,
-  userId,
-  externalId,
-  initialMessages = []
-}: EnsureConversationArgs): Promise<VibeAgentConversation> {
-  const collPath = Collections.conversations(tenantId, agentId)
-
+export async function ensureConversation(
+  {
+    tenantId,
+    agentId,
+    conversationId,
+    userId,
+    externalId,
+    initialMessages = []
+  }: EnsureConversationArgs,
+  db: Db = getMigrateDb()
+): Promise<VibeAgentConversation> {
   if (conversationId) {
-    const doc = await adminDb.collection(collPath).doc(conversationId).get()
-
-    if (doc.exists) {
-      const data = doc.data()!
-      if (data.agentId !== agentId) {
+    const existing = await loadConversation(db, tenantId, null, conversationId)
+    if (existing) {
+      if (existing.agentId !== agentId) {
         throw new Error('Conversation does not belong to agent')
       }
-      if (userId && data.userId && data.userId !== userId) {
+      if (userId && existing.userId && existing.userId !== userId) {
         throw new Error('Unauthorized conversation access')
       }
-      if (externalId && data.externalId && data.externalId !== externalId) {
+      if (externalId && existing.externalId && existing.externalId !== externalId) {
         throw new Error('Unauthorized conversation access')
       }
-      return mapConversationDoc(data)
+      return existing
     }
   }
 
-  // Look up by externalId if no conversationId was provided
   if (!conversationId && externalId) {
-    const snapshot = await adminDb
-      .collection(collPath)
-      .where('externalId', '==', externalId)
+    const [row] = await db
+      .select()
+      .from(conversationsTable)
+      .where(
+        and(
+          eq(conversationsTable.tenantId, tenantId),
+          eq(conversationsTable.agentId, agentId),
+          eq(conversationsTable.externalId, externalId)
+        )
+      )
       .limit(1)
-      .get()
-
-    if (!snapshot.empty) {
-      return mapConversationDoc(snapshot.docs[0].data())
-    }
+    if (row) return (await loadConversation(db, tenantId, agentId, row.id))!
   }
 
-  // Create a new conversation
-  const ref = conversationId
-    ? adminDb.collection(collPath).doc(conversationId)
-    : adminDb.collection(collPath).doc()
-
-  const now = new Date().toISOString()
-  const docData = {
-    id: ref.id,
-    agentId,
-    userId: userId ?? null,
-    externalId: externalId ?? null,
-    messages: serializeMessages(initialMessages),
-    summary: null,
-    closedAt: null,
-    summaryGeneratedAt: null,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await ref.set(docData)
-  return mapConversationDoc(docData)
+  const id = conversationId && isUuid(conversationId) ? conversationId : uuidv7()
+  return db.transaction(async (tx) => {
+    await tx.insert(conversationsTable).values({
+      id,
+      tenantId,
+      agentId,
+      userId: userId ?? null,
+      externalId: externalId ?? null
+    })
+    await insertMessages(tx as unknown as Db, tenantId, id, initialMessages)
+    return (await loadConversation(tx as unknown as Db, tenantId, agentId, id))!
+  })
 }
 
-interface UpdateConversationArgs extends ConversationIdentifier {
+interface UpdateConversationArgs {
   tenantId: string
   agentId: string
   conversationId: string
@@ -94,30 +152,56 @@ interface UpdateConversationArgs extends ConversationIdentifier {
   respondingAgentId?: string
 }
 
-export async function updateConversationMessages({
-  tenantId,
-  agentId,
-  conversationId,
-  messages,
-  summary,
-  respondingAgentId
-}: UpdateConversationArgs) {
-  const collPath = Collections.conversations(tenantId, agentId)
+export async function updateConversationMessages(
+  {
+    tenantId,
+    agentId,
+    conversationId,
+    messages,
+    summary,
+    respondingAgentId
+  }: UpdateConversationArgs,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(messagesTable)
+      .where(eq(messagesTable.conversationId, conversationId))
+    await insertMessages(tx as unknown as Db, tenantId, conversationId, messages)
 
-  const updateData: Record<string, any> = {
-    messages: serializeMessages(messages),
-    updatedAt: new Date().toISOString()
-  }
+    const patch: Partial<typeof conversationsTable.$inferInsert> = {
+      updatedAt: new Date()
+    }
+    if (summary !== undefined) patch.summary = summary
+    await tx
+      .update(conversationsTable)
+      .set(patch)
+      .where(
+        and(
+          eq(conversationsTable.tenantId, tenantId),
+          eq(conversationsTable.id, conversationId)
+        )
+      )
 
-  if (summary !== undefined) {
-    updateData.summary = summary
-  }
-
-  if (respondingAgentId) {
-    updateData[`responseCounts.${respondingAgentId}`] = FieldValue.increment(1)
-  }
-
-  await adminDb.collection(collPath).doc(conversationId).update(updateData)
+    if (respondingAgentId) {
+      // Increment responseCounts[respondingAgentId] in jsonb atomically.
+      await tx
+        .update(conversationsTable)
+        .set({
+          responseCounts: sql`jsonb_set(
+            coalesce(${conversationsTable.responseCounts}, '{}'::jsonb),
+            ${`{${respondingAgentId}}`}::text[],
+            to_jsonb(coalesce((${conversationsTable.responseCounts} ->> ${respondingAgentId})::int, 0) + 1)
+          )`
+        })
+        .where(
+          and(
+            eq(conversationsTable.tenantId, tenantId),
+            eq(conversationsTable.id, conversationId)
+          )
+        )
+    }
+  })
 }
 
 export async function listAgentConversations(
@@ -126,33 +210,44 @@ export async function listAgentConversations(
   filter?: {
     userId?: string
     externalId?: string
+  },
+  db: Db = getMigrateDb()
+): Promise<VibeAgentConversation[]> {
+  const conds = [
+    eq(conversationsTable.tenantId, tenantId),
+    eq(conversationsTable.agentId, agentId)
+  ]
+  if (filter?.userId) conds.push(eq(conversationsTable.userId, filter.userId))
+  if (filter?.externalId)
+    conds.push(eq(conversationsTable.externalId, filter.externalId))
+  const rows = await db
+    .select()
+    .from(conversationsTable)
+    .where(and(...conds))
+    .orderBy(desc(conversationsTable.updatedAt))
+  if (!rows.length) return []
+  const ids = rows.map((r) => r.id)
+  const msgs = await db
+    .select()
+    .from(messagesTable)
+    .where(inArray(messagesTable.conversationId, ids))
+    .orderBy(messagesTable.createdAt, messagesTable.id)
+  const byConv = new Map<string, typeof msgs>()
+  for (const m of msgs) {
+    const arr = byConv.get(m.conversationId) ?? []
+    arr.push(m)
+    byConv.set(m.conversationId, arr)
   }
-) {
-  const collPath = Collections.conversations(tenantId, agentId)
-  let query: FirebaseFirestore.Query = adminDb
-    .collection(collPath)
-    .orderBy('updatedAt', 'desc')
-
-  if (filter?.userId) {
-    query = query.where('userId', '==', filter.userId)
-  }
-  if (filter?.externalId) {
-    query = query.where('externalId', '==', filter.externalId)
-  }
-
-  const snapshot = await query.get()
-  return snapshot.docs.map(doc => mapConversationDoc(doc.data()))
+  return rows.map((r) => rowToConversation(r, byConv.get(r.id) ?? [], null))
 }
 
 export async function getConversation(
   tenantId: string,
   agentId: string,
-  id: string
+  id: string,
+  db: Db = getMigrateDb()
 ): Promise<VibeAgentConversation | null> {
-  const collPath = Collections.conversations(tenantId, agentId)
-  const doc = await adminDb.collection(collPath).doc(id).get()
-
-  return doc.exists ? mapConversationDoc(doc.data()!) : null
+  return loadConversation(db, tenantId, agentId, id)
 }
 
 /**
@@ -347,10 +442,3 @@ export async function deleteConversation(
 
   return true
 }
-
-const serializeMessages = (messages: Message[]) =>
-  messages.map(message => ({
-    id: message.id,
-    role: message.role,
-    content: message.content
-  }))

@@ -10,8 +10,8 @@ import {
   type VibeAgent,
   type VibeAgentConversation
 } from '@vibesboard/contracts'
-import { mapConversationDoc } from '@vibesboard/agents/db'
 import { getAgentsForTenant } from '@vibesboard/agents/server'
+import { listAgentConversations } from '@vibesboard/agents/conversations'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export async function getChats(userId?: string | null) {
@@ -101,25 +101,21 @@ export async function getAgentConversations(
     const activeTenantId = await getActiveTenant(userId)
     if (!activeTenantId) return []
 
-    // Get all agents for the tenant
-    const agentsSnapshot = await adminDb
-      .collection(Collections.agents(activeTenantId))
-      .get()
+    // Get all agents for the tenant, then their recent visitor conversations
+    // (externalId set), newest first, capped per agent.
+    const agentsList = await getAgentsForTenant(activeTenantId)
+
+    const perAgent = await Promise.all(
+      agentsList.map(async agent => {
+        const convs = await listAgentConversations(activeTenantId, agent.id)
+        return convs.filter(c => c.externalId != null).slice(0, 10)
+      })
+    )
 
     const conversations: VibeAgentConversation[] = []
-
-    // For each agent, get recent visitor conversations (externalId set)
     const seenIds = new Set<string>()
-    for (const agentDoc of agentsSnapshot.docs) {
-      const convSnapshot = await adminDb
-        .collection(Collections.conversations(activeTenantId, agentDoc.id))
-        .where('externalId', '!=', null)
-        .orderBy('updatedAt', 'desc')
-        .limit(10)
-        .get()
-
-      for (const doc of convSnapshot.docs) {
-        const conv = mapConversationDoc(doc.data())
+    for (const convs of perAgent) {
+      for (const conv of convs) {
         if (!seenIds.has(conv.id)) {
           seenIds.add(conv.id)
           conversations.push(conv)
