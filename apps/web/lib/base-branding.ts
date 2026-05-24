@@ -1,19 +1,11 @@
 import 'server-only'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import type {
-  PlatformBrandingDocument,
   TenantBrandingDocument,
   BrandingField
 } from '@vibesboard/contracts'
-
-// Hardcoded fallback if platform_config/branding doc doesn't exist yet
-const HARDCODED_FALLBACK: BaseBranding = {
-  primaryColor: '#000000',
-  secondaryColor: '#ffffff',
-  logoUrl: undefined
-}
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getPlatformBranding } from '@vibesboard/tenants'
 
 export interface BaseBranding {
   primaryColor: string
@@ -26,8 +18,7 @@ let cachedBase: BaseBranding | null = null
 let cacheExpiry = 0
 
 /**
- * Fetch the platform base branding from Firestore.
- * Falls back to HARDCODED_FALLBACK if the doc doesn't exist.
+ * Fetch the platform base branding from Postgres.
  */
 export async function getBaseBranding(): Promise<BaseBranding> {
   const now = Date.now()
@@ -35,20 +26,11 @@ export async function getBaseBranding(): Promise<BaseBranding> {
     return cachedBase
   }
 
-  const doc = await adminDb
-    .collection(Collections.platformConfig)
-    .doc('branding')
-    .get()
-
-  if (doc.exists) {
-    const data = doc.data() as PlatformBrandingDocument
-    cachedBase = {
-      primaryColor: data.primaryColor,
-      secondaryColor: data.secondaryColor,
-      logoUrl: data.logoUrl || undefined
-    }
-  } else {
-    cachedBase = { ...HARDCODED_FALLBACK }
+  const platform = await getPlatformBranding(getMigrateDb())
+  cachedBase = {
+    primaryColor: platform.primaryColor,
+    secondaryColor: platform.secondaryColor,
+    logoUrl: platform.logoUrl || undefined,
   }
 
   cacheExpiry = now + 60_000
