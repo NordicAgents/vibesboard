@@ -20,6 +20,15 @@ export function getS3Client(): S3Client {
       },
       // MinIO uses path-style. AWS/R2 use virtual-hosted (path-style: false).
       forcePathStyle: (process.env.S3_FORCE_PATH_STYLE ?? 'true') === 'true',
+      // AWS SDK v3 (>= 3.729) defaults to WHEN_SUPPORTED, which bakes an
+      // empty-body CRC32 (x-amz-checksum-crc32 / x-amz-sdk-checksum-algorithm)
+      // into presigned PUT URLs. S3-compatible stores (GCS, R2, some MinIO
+      // builds) then reject the real, non-empty body as a checksum mismatch —
+      // surfacing in the browser as "Failed to fetch" on the PUT. WHEN_REQUIRED
+      // restores the pre-3.729 behavior: no checksum unless the operation needs
+      // one, so presigned browser uploads work across providers.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     })
   }
   return _client
