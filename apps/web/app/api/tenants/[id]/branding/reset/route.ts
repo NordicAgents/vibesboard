@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireTenantAdmin } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { upsertTenantBranding } from '@vibesboard/tenants'
+import { getTenantById } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getBaseBranding } from '@/lib/base-branding'
 
@@ -23,19 +24,12 @@ export async function POST(req: Request, { params }: RouteParams) {
   const auth = await requireTenantAdmin(tenantId)
   if (!auth.ok) return auth.response
 
-  const isSuperAdminUser = auth.role === 'SUPER_ADMIN'
-
   // Block for personal workspaces
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
-
-  if (!tenantDoc.exists) {
+  const tenant = await getTenantById(tenantId)
+  if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
-
-  if (tenantDoc.data()?.isPersonal) {
+  if (tenant.isPersonal) {
     return NextResponse.json(
       { error: 'Branding is not configurable for personal workspaces' },
       { status: 403 }
@@ -43,7 +37,7 @@ export async function POST(req: Request, { params }: RouteParams) {
   }
 
   // Enforce feature flag for non-super admins
-  if (!isSuperAdminUser) {
+  if (auth.role !== 'SUPER_ADMIN') {
     const customBrandingEnabled = await isFeatureEnabled(
       tenantId,
       'CUSTOM_BRANDING'
@@ -58,22 +52,13 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   const baseBranding = await getBaseBranding()
 
-  // Set overrides to empty and update stored values to match base
-  const brandingRef = adminDb
-    .collection(Collections.branding(tenantId))
-    .doc(tenantId)
-
-  await brandingRef.set(
-    {
-      tenantId,
-      primaryColor: baseBranding.primaryColor,
-      secondaryColor: baseBranding.secondaryColor,
-      logoUrl: baseBranding.logoUrl || null,
-      overrides: [],
-      updatedAt: new Date().toISOString()
-    },
-    { merge: true }
-  )
+  // Empty overrides + base values = fully inherited from platform base.
+  await upsertTenantBranding(getMigrateDb(), tenantId, {
+    primaryColor: baseBranding.primaryColor,
+    secondaryColor: baseBranding.secondaryColor,
+    logoUrl: baseBranding.logoUrl || null,
+    overrides: []
+  })
 
   return NextResponse.json({
     branding: baseBranding,
