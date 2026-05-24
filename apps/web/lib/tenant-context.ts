@@ -185,6 +185,26 @@ export async function getTenantById(
   return rowToTenantDocument(rows[0])
 }
 
+export async function getTenantBySlug(slug: string): Promise<TenantDocument | null> {
+  const rows = await getMigrateDb()
+    .select({
+      id: tenantsTable.id,
+      name: tenantsTable.name,
+      slug: tenantsTable.slug,
+      status: tenantsTable.status,
+      createdBy: tenantsTable.createdBy,
+      isPersonal: tenantsTable.isPersonal,
+      googlePlaceId: tenantsTable.googlePlaceId,
+      createdAt: tenantsTable.createdAt,
+      updatedAt: tenantsTable.updatedAt
+    })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.slug, slug))
+    .limit(1)
+  if (rows.length === 0) return null
+  return rowToTenantDocument(rows[0])
+}
+
 export async function getActiveTenantBranding(): Promise<TenantBrandingDocument | null> {
   const tenantId = await getActiveTenantId()
   if (!tenantId) return null
