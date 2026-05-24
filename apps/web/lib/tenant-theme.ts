@@ -1,9 +1,8 @@
 import 'server-only'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import type { TenantBrandingDocument } from '@vibesboard/contracts'
-import { ensureActiveTenant } from '@/lib/tenant-context'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getTenantBranding } from '@vibesboard/tenants'
+import { ensureActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 import {
@@ -21,31 +20,31 @@ export async function getActiveTenantTheme(userId: string): Promise<{
   const tenantId = await ensureActiveTenant(userId)
   if (!tenantId) return null
 
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
-
-  if (!tenantDoc.exists || tenantDoc.data()?.isPersonal) {
+  const tenant = await getTenantById(tenantId)
+  if (!tenant || tenant.isPersonal) {
     return null
   }
 
-  const customBrandingEnabled = await isFeatureEnabled(
-    tenantId,
-    'CUSTOM_BRANDING'
-  )
+  const customBrandingEnabled = await isFeatureEnabled(tenantId, 'CUSTOM_BRANDING')
   if (!customBrandingEnabled) return null
 
-  const [brandingDoc, baseBranding] = await Promise.all([
-    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
-    getBaseBranding()
+  const db = getMigrateDb()
+  const [brandingRow, baseBranding] = await Promise.all([
+    getTenantBranding(db, tenantId),
+    getBaseBranding(),
   ])
 
-  const tenantBranding = brandingDoc.exists
-    ? (brandingDoc.data() as TenantBrandingDocument)
-    : null
-
-  const effective = resolveEffectiveBranding(tenantBranding, baseBranding)
+  const effective = resolveEffectiveBranding(
+    brandingRow
+      ? ({
+          primaryColor: brandingRow.primaryColor,
+          secondaryColor: brandingRow.secondaryColor,
+          logoUrl: brandingRow.logoUrl ?? undefined,
+          overrides: brandingRow.overrides ?? undefined,
+        } as Parameters<typeof resolveEffectiveBranding>[0])
+      : null,
+    baseBranding,
+  )
 
   const primaryHex = normalizeHex(effective.primaryColor) ?? null
   const secondaryHex = normalizeHex(effective.secondaryColor) ?? null
