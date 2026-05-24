@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
@@ -71,6 +71,20 @@ export async function getAgentNamesByTenant(
   const names: Record<string, string> = {}
   for (const r of rows) names[r.id] = r.name
   return names
+}
+
+/** List all agents for a tenant, newest first, in the VibeAgent shape. */
+export async function getAgentsForTenant(
+  tenantId: string,
+  db: Db = getMigrateDb(),
+): Promise<VibeAgent[]> {
+  const rows = await db
+    .select({ agent: agentsTable, tenantSlug: tenantsTable.slug })
+    .from(agentsTable)
+    .innerJoin(tenantsTable, eq(tenantsTable.id, agentsTable.tenantId))
+    .where(eq(agentsTable.tenantId, tenantId))
+    .orderBy(desc(agentsTable.createdAt))
+  return rows.map((r) => agentRowToVibeAgent(r.agent, r.tenantSlug))
 }
 
 /**
