@@ -106,9 +106,9 @@ export async function getAgentConversations(
     const agentsList = await getAgentsForTenant(activeTenantId)
 
     const perAgent = await Promise.all(
-      agentsList.map(async (agent) => {
+      agentsList.map(async agent => {
         const convs = await listAgentConversations(activeTenantId, agent.id)
-        return convs.filter((c) => c.externalId != null).slice(0, 10)
+        return convs.filter(c => c.externalId != null).slice(0, 10)
       })
     )
 
