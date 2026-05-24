@@ -1,78 +1,75 @@
+import { and, eq, inArray } from 'drizzle-orm'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import {
+  agents as agentsTable,
+  tenants as tenantsTable,
+} from '@vibesboard/adapter-postgres/schema'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
-import { mapAgentDoc } from './db.ts'
+import { agentRowToVibeAgent } from './db.ts'
 import { type VibeAgent } from '@vibesboard/contracts'
 
-/**
- * Get agent by ID within a specific tenant
- */
-export async function getAgentForUser(
-  tenantId: string,
-  agentId: string,
-  userId: string
-): Promise<VibeAgent | null> {
-  const doc = await adminDb
-    .collection(Collections.agents(tenantId))
-    .doc(agentId)
-    .get()
+type Db = PostgresJsDatabase<typeof schema>
 
-  if (!doc.exists) return null
-  const data = doc.data()!
-  if (data.userId !== userId) return null
-  return mapAgentDoc(data)
+async function fetchAgent(db: Db, where: any): Promise<VibeAgent | null> {
+  const rows = await db
+    .select({ agent: agentsTable, tenantSlug: tenantsTable.slug })
+    .from(agentsTable)
+    .innerJoin(tenantsTable, eq(tenantsTable.id, agentsTable.tenantId))
+    .where(where)
+    .limit(1)
+  if (rows.length === 0) return null
+  return agentRowToVibeAgent(rows[0].agent, rows[0].tenantSlug)
 }
 
 export async function getAgentForMember(
   tenantId: string,
-  agentId: string
+  agentId: string,
+  db: Db = getMigrateDb(),
 ): Promise<VibeAgent | null> {
-  const doc = await adminDb
-    .collection(Collections.agents(tenantId))
-    .doc(agentId)
-    .get()
-
-  if (!doc.exists) return null
-  return mapAgentDoc(doc.data()!)
+  return fetchAgent(db, and(eq(agentsTable.id, agentId), eq(agentsTable.tenantId, tenantId)))
 }
 
-/**
- * Get agent by ID, searching across all tenants.
- * Used by public API routes where the caller only has the agent ID.
- */
-export async function getAgentById(agentId: string): Promise<VibeAgent | null> {
-  // Use collection group query across all tenant agents subcollections
-  const snapshot = await adminDb
-    .collectionGroup('agents')
-    .where('id', '==', agentId)
-    .limit(1)
-    .get()
-
-  if (snapshot.empty) return null
-  return mapAgentDoc(snapshot.docs[0].data())
+export async function getAgentForUser(
+  tenantId: string,
+  agentId: string,
+  userId: string,
+  db: Db = getMigrateDb(),
+): Promise<VibeAgent | null> {
+  const agent = await getAgentForMember(tenantId, agentId, db)
+  if (!agent || agent.userId !== userId) return null
+  return agent
 }
 
-/**
- * Batch-fetch agent names by IDs within a known tenant.
- * Uses a single Firestore getAll() RPC instead of one query per agent.
- * Prefer this over getAgentNames() whenever the tenant is known (e.g. handoff targets).
- */
+export async function getAgentById(
+  agentId: string,
+  db: Db = getMigrateDb(),
+): Promise<VibeAgent | null> {
+  return fetchAgent(db, eq(agentsTable.id, agentId))
+}
+
+export async function getAgentBySlug(
+  tenantId: string,
+  slug: string,
+  db: Db = getMigrateDb(),
+): Promise<VibeAgent | null> {
+  return fetchAgent(db, and(eq(agentsTable.tenantId, tenantId), eq(agentsTable.slug, slug)))
+}
+
 export async function getAgentNamesByTenant(
   tenantId: string,
-  agentIds: string[]
+  agentIds: string[],
+  db: Db = getMigrateDb(),
 ): Promise<Record<string, string>> {
   if (!agentIds.length) return {}
-
-  const refs = agentIds.map(id =>
-    adminDb.collection(Collections.agents(tenantId)).doc(id)
-  )
-  const snaps = await adminDb.getAll(...refs)
-
+  const rows = await db
+    .select({ id: agentsTable.id, name: agentsTable.name })
+    .from(agentsTable)
+    .where(and(eq(agentsTable.tenantId, tenantId), inArray(agentsTable.id, agentIds)))
   const names: Record<string, string> = {}
-  snaps.forEach((snap: any, i: any) => {
-    if (snap.exists) {
-      names[agentIds[i]] = (snap.data() as Record<string, any>).name
-    }
-  })
+  for (const r of rows) names[r.id] = r.name
   return names
 }
 
@@ -85,22 +82,16 @@ export async function getAgentNamesByTenant(
  */
 export async function disableAgentsForConnection(
   tenantId: string,
-  connectionId: string
+  connectionId: string,
 ): Promise<void> {
   const agentsRef = adminDb.collection(Collections.agents(tenantId))
 
   // Query both config types in parallel — Firestore supports dot-notation on nested fields
   const [availSnap, schedSnap] = await Promise.all([
     agentsRef
-      .where(
-        'calendarAvailabilityConfig.calendarConnectionId',
-        '==',
-        connectionId
-      )
+      .where('calendarAvailabilityConfig.calendarConnectionId', '==', connectionId)
       .get(),
-    agentsRef
-      .where('schedulingConfig.calendarConnectionId', '==', connectionId)
-      .get()
+    agentsRef.where('schedulingConfig.calendarConnectionId', '==', connectionId).get(),
   ])
 
   if (availSnap.size + schedSnap.size === 0) return
@@ -115,21 +106,4 @@ export async function disableAgentsForConnection(
   }
 
   await batch.commit()
-}
-
-/**
- * Get agent by slug within a specific tenant
- */
-export async function getAgentBySlug(
-  tenantId: string,
-  slug: string
-): Promise<VibeAgent | null> {
-  const snapshot = await adminDb
-    .collection(Collections.agents(tenantId))
-    .where('agentUrl', '==', slug)
-    .limit(1)
-    .get()
-
-  if (snapshot.empty) return null
-  return mapAgentDoc(snapshot.docs[0].data())
 }
