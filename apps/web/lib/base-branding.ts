@@ -30,7 +30,7 @@ export async function getBaseBranding(): Promise<BaseBranding> {
   cachedBase = {
     primaryColor: platform.primaryColor,
     secondaryColor: platform.secondaryColor,
-    logoUrl: platform.logoUrl || undefined,
+    logoUrl: platform.logoUrl || undefined
   }
 
   cacheExpiry = now + 60_000
