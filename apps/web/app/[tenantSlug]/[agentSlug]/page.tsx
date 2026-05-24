@@ -1,14 +1,14 @@
 import { notFound } from 'next/navigation'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import { mapAgentDoc } from '@vibesboard/agents/db'
+import { getTenantBySlug } from '@/lib/tenant-context'
+import { getAgentBySlug } from '@vibesboard/agents/server'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getTenantBranding } from '@vibesboard/tenants'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
 import { hasValidAccessCookie } from '@/lib/access-gate'
 import { GatedAgentPage } from './gated-agent-page'
-import type { TenantBrandingDocument } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 
@@ -19,53 +19,39 @@ export default async function PublicAgentPage({
 }) {
   const { tenantSlug, agentSlug } = await params
 
-  // 1. Resolve tenant slug → tenantId
-  const slugDoc = await adminDb
-    .collection(Collections.tenantSlugs)
-    .doc(tenantSlug)
-    .get()
-
-  if (!slugDoc.exists) {
-    notFound()
-  }
-
-  const tenantId = slugDoc.data()!.tenantId as string
+  // 1. Resolve tenant slug → tenant
+  const tenant = await getTenantBySlug(tenantSlug)
+  if (!tenant) notFound()
 
   // 2. Find agent by agentUrl within that tenant
-  const agentSnapshot = await adminDb
-    .collection(Collections.agents(tenantId))
-    .where('agentUrl', '==', agentSlug)
-    .limit(1)
-    .get()
-
-  if (agentSnapshot.empty) {
-    notFound()
-  }
-
-  const agent = mapAgentDoc(agentSnapshot.docs[0].data())
+  const agent = await getAgentBySlug(tenant.id, agentSlug)
+  if (!agent) notFound()
 
   // Read Google Review config: feature flag (tenant gate) + agent-level toggle
-  const [tenantDoc, brandingDoc, baseBranding] = await Promise.all([
-    adminDb.collection(Collections.tenants).doc(tenantId).get(),
-    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
+  const db = getMigrateDb()
+  const [brandingRow, baseBranding] = await Promise.all([
+    getTenantBranding(db, tenant.id),
     getBaseBranding()
   ])
-  const tenantData = tenantDoc.data()
   const googleReviewFeatureEnabled = await isFeatureEnabled(
-    tenantId,
+    tenant.id,
     'GOOGLE_REVIEW'
   )
   const googleReviewPlaceId =
     googleReviewFeatureEnabled && agent.googleReviewEnabled
-      ? agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null
+      ? agent.googlePlaceId || tenant.googlePlaceId || null
       : null
 
   // Resolve branding (tenant → platform → fallback)
-  const tenantBranding = brandingDoc.exists
-    ? (brandingDoc.data() as TenantBrandingDocument)
-    : null
   const effectiveBranding = resolveEffectiveBranding(
-    tenantBranding,
+    brandingRow
+      ? ({
+          primaryColor: brandingRow.primaryColor,
+          secondaryColor: brandingRow.secondaryColor,
+          logoUrl: brandingRow.logoUrl ?? undefined,
+          overrides: brandingRow.overrides ?? undefined
+        } as Parameters<typeof resolveEffectiveBranding>[0])
+      : null,
     baseBranding
   )
   const logoUrl = effectiveBranding.logoUrl || null
