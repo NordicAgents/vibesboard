@@ -218,6 +218,17 @@ on staging.
 - Google RISC (`adapter-google/src/risc.ts`) and the residual `adminAuth`
   import — addressed only on a future full de-Google effort.
 
+### Identity routes still on Firestore after PR 1d (small remaining identity slice = "PR 1e")
+
+The admin + member + branding identity surface is migrated. Remaining identity:
+- `apps/web/app/api/tenants/[id]/invitations/route.ts` — create/list invitations.
+- `apps/web/app/api/invitations/[token]/route.ts` — invitation preview/GET (the
+  `/accept` companion migrated in PR 1a). Needs an `invitations` helper
+  (createInvitation, listInvitations, getInvitationByToken) in `@vibesboard/tenants`.
+- `apps/web/app/api/admin/feature-flags/route.ts` (+`[id]`) and
+  `apps/web/app/api/tenants/[id]/features/route.ts` — vestigial now that
+  `policy/features` is an all-enabled shim; **remove/stub** rather than migrate.
+
 ### Branding consumers still on Firestore after PR 1b (sequence into the admin slice)
 
 PR 1b migrated the branding read/write routes + `tenant-theme` + `base-branding`,
