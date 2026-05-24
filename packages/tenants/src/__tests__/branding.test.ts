@@ -8,7 +8,9 @@ import {
   getPlatformBranding,
   getTenantBranding,
   upsertTenantBranding,
+  upsertPlatformBranding,
   PLATFORM_BRANDING_FALLBACK,
+  PLATFORM_BRANDING_ID,
 } from '../branding.ts'
 
 async function seedTenant(adminDb: any) {
@@ -79,6 +81,24 @@ describe('upsertTenantBranding', () => {
       assert.equal(rows[0].primaryColor, '#000000')
       assert.equal(rows[0].logoUrl, 'https://x/l.png')
       assert.deepEqual(rows[0].overrides, ['logoUrl'])
+    })
+  })
+})
+
+describe('upsertPlatformBranding', () => {
+  test('inserts the singleton then updates it (stays one row)', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      await upsertPlatformBranding(adminDb, { primaryColor: '#111111', secondaryColor: '#222222', logoUrl: null, updatedBy: null })
+      let got = await getPlatformBranding(adminDb)
+      assert.deepEqual(got, { primaryColor: '#111111', secondaryColor: '#222222', logoUrl: undefined })
+
+      await upsertPlatformBranding(adminDb, { primaryColor: '#333333', secondaryColor: '#444444', logoUrl: 'https://x/l.png', updatedBy: null })
+      got = await getPlatformBranding(adminDb)
+      assert.deepEqual(got, { primaryColor: '#333333', secondaryColor: '#444444', logoUrl: 'https://x/l.png' })
+
+      const rows = await adminDb.select().from(platformBranding)
+      assert.equal(rows.length, 1)
+      assert.equal(rows[0].id, PLATFORM_BRANDING_ID)
     })
   })
 })
