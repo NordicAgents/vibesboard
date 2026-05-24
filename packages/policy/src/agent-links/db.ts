@@ -1,9 +1,15 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type AgentLink } from '@vibesboard/contracts'
+import { and, desc, eq, ne } from 'drizzle-orm'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { agentLinks } from '@vibesboard/adapter-postgres/schema'
+import { type AgentLink } from '@vibesboard/contracts'
 
-/**
- * Map a Firestore agent link document to the AgentLink interface
- */
+type Db = PostgresJsDatabase<typeof schema>
+
+// Legacy Firestore-style mapper used by API routes that still read raw
+// Firestore doc.data() objects (a Record<string,any>). Keep until the routes
+// are migrated to Postgres.
 export const mapAgentLinkDoc = (data: Record<string, any>): AgentLink => ({
   id: data.id,
   tenantId: data.tenantId,
@@ -12,63 +18,61 @@ export const mapAgentLinkDoc = (data: Record<string, any>): AgentLink => ({
   name: data.name,
   description: data.description ?? null,
   isActive: data.isActive ?? true,
-  createdBy: data.createdBy,
+  createdBy: data.createdBy ?? '',
   createdAt: data.createdAt,
-  updatedAt: data.updatedAt
+  updatedAt: data.updatedAt,
 })
 
-/**
- * Check if a link slug is available within a tenant
- */
+export const mapAgentLinkRow = (row: typeof agentLinks.$inferSelect): AgentLink => ({
+  id: row.id,
+  tenantId: row.tenantId,
+  slug: row.slug,
+  agentId: row.agentId,
+  name: row.name,
+  description: row.description ?? null,
+  isActive: row.isActive,
+  createdBy: row.createdBy ?? '',
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+})
+
 export async function isLinkSlugAvailable(
   slug: string,
   tenantId: string,
-  excludeId?: string
+  excludeId?: string,
+  db: Db = getMigrateDb()
 ): Promise<boolean> {
-  const snapshot = await adminDb
-    .collection(Collections.agentLinks(tenantId))
-    .where('slug', '==', slug)
+  const conds = [eq(agentLinks.tenantId, tenantId), eq(agentLinks.slug, slug)]
+  if (excludeId) conds.push(ne(agentLinks.id, excludeId))
+  const rows = await db
+    .select({ id: agentLinks.id })
+    .from(agentLinks)
+    .where(and(...conds))
     .limit(1)
-    .get()
-
-  if (snapshot.empty) return true
-
-  // If we're excluding a specific link (for updates), check if the match is that link
-  if (excludeId && snapshot.docs[0].id === excludeId) return true
-
-  return false
+  return rows.length === 0
 }
 
-/**
- * Get an agent link by slug within a tenant (for public resolution)
- */
 export async function getAgentLinkBySlug(
   tenantId: string,
-  slug: string
+  slug: string,
+  db: Db = getMigrateDb()
 ): Promise<AgentLink | null> {
-  const snapshot = await adminDb
-    .collection(Collections.agentLinks(tenantId))
-    .where('slug', '==', slug)
+  const rows = await db
+    .select()
+    .from(agentLinks)
+    .where(and(eq(agentLinks.tenantId, tenantId), eq(agentLinks.slug, slug)))
     .limit(1)
-    .get()
-
-  if (snapshot.empty) return null
-
-  return mapAgentLinkDoc(snapshot.docs[0].data())
+  return rows.length ? mapAgentLinkRow(rows[0]) : null
 }
 
-/**
- * Get all agent links for a tenant
- */
 export async function getAgentLinksForTenant(
-  tenantId: string
+  tenantId: string,
+  db: Db = getMigrateDb()
 ): Promise<AgentLink[]> {
-  const snapshot = await adminDb
-    .collection(Collections.agentLinks(tenantId))
-    .orderBy('createdAt', 'desc')
-    .get()
-
-  return snapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) =>
-    mapAgentLinkDoc(doc.data())
-  )
+  const rows = await db
+    .select()
+    .from(agentLinks)
+    .where(eq(agentLinks.tenantId, tenantId))
+    .orderBy(desc(agentLinks.createdAt))
+  return rows.map(mapAgentLinkRow)
 }
