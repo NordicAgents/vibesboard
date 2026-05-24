@@ -3,7 +3,12 @@ import { type Message } from '@vibesboard/contracts'
 import { eq, and } from 'drizzle-orm'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
-import type { Agent } from '@vibesboard/adapter-postgres/schema'
+import type {
+  Agent,
+  Conversation,
+  Message as MessageRow,
+  ConversationFeedbackRow
+} from '@vibesboard/adapter-postgres/schema'
 import { type AgentDocument } from '@vibesboard/contracts'
 import {
   type AgentToolType,
@@ -155,6 +160,42 @@ export const mapConversationDoc = (
 })
 
 export const mapConversationRow = mapConversationDoc
+
+export const messageRowToMessage = (row: MessageRow): Message => ({
+  id: row.id,
+  role: row.role as Message['role'],
+  content: row.content
+})
+
+export const rowToConversation = (
+  row: Conversation,
+  messageRows: MessageRow[],
+  feedback: ConversationFeedbackRow | null
+): VibeAgentConversation => ({
+  id: row.id,
+  agentId: row.agentId,
+  userId: row.userId,
+  externalId: row.externalId,
+  summary: row.summary ?? null,
+  messages: messageRows.map(messageRowToMessage),
+  closedAt: row.closedAt ? row.closedAt.toISOString() : null,
+  handedOff: row.handedOff ?? false,
+  handoffChain: Array.isArray(row.handoffChain) ? row.handoffChain : undefined,
+  responseCounts: row.responseCounts ?? undefined,
+  summaryGeneratedAt: row.summaryGeneratedAt
+    ? row.summaryGeneratedAt.toISOString()
+    : null,
+  summaryResponseCount: row.summaryResponseCount ?? undefined,
+  feedback: feedback
+    ? {
+        rating: feedback.rating,
+        comment: feedback.comment ?? undefined,
+        createdAt: feedback.createdAt.toISOString()
+      }
+    : undefined,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString()
+})
 
 export const createAgentSlug = (name: string) => {
   const base = slugify(name)

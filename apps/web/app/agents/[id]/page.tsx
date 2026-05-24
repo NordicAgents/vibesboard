@@ -6,6 +6,7 @@ import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import { mapConversationDoc } from '@vibesboard/agents/db'
 import { getAgentById } from '@vibesboard/agents/server'
+import { listAgentConversations } from '@vibesboard/agents/conversations'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
 import { canEditAgent } from '@vibesboard/agents/permissions'
@@ -52,14 +53,7 @@ export default async function AgentPageAsChat({
   let handoffConversations: ReturnType<typeof mapConversationDoc>[] = []
 
   if (tenantId) {
-    const convoSnapshot = await adminDb
-      .collection(Collections.conversations(tenantId, agent.id))
-      .orderBy('updatedAt', 'desc')
-      .get()
-
-    conversations = convoSnapshot.docs.map((doc: any) =>
-      mapConversationDoc(doc.data())
-    )
+    conversations = await listAgentConversations(tenantId, agent.id)
 
     // Fetch conversation refs (conversations handed off to this agent)
     const refsSnapshot = await adminDb
