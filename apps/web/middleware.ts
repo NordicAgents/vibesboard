@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Better Auth sets this cookie name by default (configurable via cookies plugin).
-const SESSION_COOKIE_NAME = 'better-auth.session_token'
+// Better Auth's session cookie. On secure (HTTPS) connections it is prefixed
+// with `__Secure-`; on plain http (local dev) it is not. Check both so the
+// middleware recognizes the session in production as well as locally.
+const SESSION_COOKIE_NAMES = [
+  '__Secure-better-auth.session_token',
+  'better-auth.session_token'
+] as const
 
 // Reserved slugs that cannot be tenant slugs (match app routes)
 const RESERVED_SLUGS = new Set([
@@ -40,8 +45,10 @@ export async function middleware(req: NextRequest) {
     return res
   }
 
-  // Check for session cookie
-  const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value
+  // Check for session cookie (secure-prefixed in prod, plain in local dev)
+  const sessionCookie = SESSION_COOKIE_NAMES.map(
+    (name) => req.cookies.get(name)?.value
+  ).find(Boolean)
 
   // Detect potential /{tenantSlug}/{agentSlug} pattern:
   // Path has exactly 2 segments and the first is not a reserved slug.
