@@ -10,7 +10,8 @@ import {
   type VibeAgent,
   type VibeAgentConversation
 } from '@vibesboard/contracts'
-import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
+import { mapConversationDoc } from '@vibesboard/agents/db'
+import { getAgentsForTenant } from '@vibesboard/agents/server'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export async function getChats(userId?: string | null) {
@@ -84,18 +85,8 @@ export async function getAgents(userId?: string | null): Promise<VibeAgent[]> {
 
   try {
     const activeTenantId = await getActiveTenant(userId)
-
-    if (activeTenantId) {
-      const snapshot = await adminDb
-        .collection(Collections.agents(activeTenantId))
-        .orderBy('createdAt', 'desc')
-        .get()
-
-      return snapshot.docs.map((doc: any) => mapAgentDoc(doc.data()))
-    }
-
-    // No active tenant — shouldn't happen with ensureActiveTenant but handle gracefully
-    return []
+    if (!activeTenantId) return []
+    return await getAgentsForTenant(activeTenantId)
   } catch {
     return []
   }
