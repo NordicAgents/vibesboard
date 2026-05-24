@@ -66,6 +66,43 @@ export async function getTenantBranding(
   }
 }
 
+/** Fixed sentinel id for the platform_branding singleton row. */
+export const PLATFORM_BRANDING_ID = '00000000-0000-0000-0000-000000000001'
+
+export interface UpsertPlatformBrandingInput {
+  primaryColor: string
+  secondaryColor: string
+  logoUrl: string | null
+  updatedBy: string | null
+}
+
+/** Insert or update the platform branding singleton (fixed sentinel id). */
+export async function upsertPlatformBranding(
+  db: Db,
+  input: UpsertPlatformBrandingInput,
+): Promise<void> {
+  await db
+    .insert(platformBranding)
+    .values({
+      id: PLATFORM_BRANDING_ID,
+      primaryColor: input.primaryColor,
+      secondaryColor: input.secondaryColor,
+      logoUrl: input.logoUrl,
+      updatedBy: input.updatedBy,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: platformBranding.id,
+      set: {
+        primaryColor: input.primaryColor,
+        secondaryColor: input.secondaryColor,
+        logoUrl: input.logoUrl,
+        updatedBy: input.updatedBy,
+        updatedAt: new Date(),
+      },
+    })
+}
+
 /** Insert or update a tenant's branding (keyed by tenant_id). */
 export async function upsertTenantBranding(
   db: Db,

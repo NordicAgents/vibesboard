@@ -1,34 +1,22 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getPlatformBranding, upsertPlatformBranding } from '@vibesboard/tenants'
 import { validateBrandingColors, validateUrl } from '@/lib/validations'
 import { invalidateBaseBrandingCache } from '@/lib/base-branding'
 
 export const runtime = 'nodejs'
 
-/**
- * GET /api/admin/platform-branding
- * Get platform base branding (SUPER_ADMIN only)
- */
+/** GET /api/admin/platform-branding — SUPER_ADMIN only */
 export async function GET() {
   const auth = await requireSuperAdmin()
   if (!auth.ok) return auth.response
 
-  const doc = await adminDb
-    .collection(Collections.platformConfig)
-    .doc('branding')
-    .get()
-
-  return NextResponse.json({
-    branding: doc.exists ? doc.data() : null
-  })
+  const branding = await getPlatformBranding(getMigrateDb())
+  return NextResponse.json({ branding })
 }
 
-/**
- * PUT /api/admin/platform-branding
- * Update platform base branding (SUPER_ADMIN only)
- */
+/** PUT /api/admin/platform-branding — SUPER_ADMIN only */
 export async function PUT(req: Request) {
   const auth = await requireSuperAdmin()
   if (!auth.ok) return auth.response
@@ -41,44 +29,29 @@ export async function PUT(req: Request) {
   if (!primaryColor || !secondaryColor) {
     return NextResponse.json(
       { error: 'primaryColor and secondaryColor are required' },
-      { status: 400 }
+      { status: 400 },
     )
   }
-
   if (!validateBrandingColors(primaryColor, secondaryColor)) {
     return NextResponse.json(
       { error: 'Invalid color format. Use hex colors (e.g., #000000)' },
-      { status: 400 }
+      { status: 400 },
     )
   }
-
   const isRelativeLogoPath = logoUrl && logoUrl.startsWith('/api/tenants/')
-  if (
-    logoUrl &&
-    logoUrl !== '' &&
-    !isRelativeLogoPath &&
-    !validateUrl(logoUrl)
-  ) {
-    return NextResponse.json(
-      { error: 'Invalid logo URL format' },
-      { status: 400 }
-    )
+  if (logoUrl && logoUrl !== '' && !isRelativeLogoPath && !validateUrl(logoUrl)) {
+    return NextResponse.json({ error: 'Invalid logo URL format' }, { status: 400 })
   }
 
-  const data = {
+  await upsertPlatformBranding(getMigrateDb(), {
     primaryColor,
     secondaryColor,
     logoUrl: logoUrl || null,
-    updatedAt: new Date().toISOString(),
-    updatedBy: auth.user.id
-  }
-
-  await adminDb
-    .collection(Collections.platformConfig)
-    .doc('branding')
-    .set(data, { merge: true })
-
+    updatedBy: auth.user.id,
+  })
   invalidateBaseBrandingCache()
 
-  return NextResponse.json({ branding: data })
+  return NextResponse.json({
+    branding: { primaryColor, secondaryColor, logoUrl: logoUrl || null },
+  })
 }
