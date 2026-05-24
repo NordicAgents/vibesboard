@@ -4,24 +4,9 @@ import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { agentLinks } from '@vibesboard/adapter-postgres/schema'
 import { type AgentLink } from '@vibesboard/contracts'
+import { uuidv7 } from 'uuidv7'
 
 type Db = PostgresJsDatabase<typeof schema>
-
-// Legacy Firestore-style mapper used by API routes that still read raw
-// Firestore doc.data() objects (a Record<string,any>). Keep until the routes
-// are migrated to Postgres.
-export const mapAgentLinkDoc = (data: Record<string, any>): AgentLink => ({
-  id: data.id,
-  tenantId: data.tenantId,
-  slug: data.slug,
-  agentId: data.agentId,
-  name: data.name,
-  description: data.description ?? null,
-  isActive: data.isActive ?? true,
-  createdBy: data.createdBy ?? '',
-  createdAt: data.createdAt,
-  updatedAt: data.updatedAt,
-})
 
 export const mapAgentLinkRow = (row: typeof agentLinks.$inferSelect): AgentLink => ({
   id: row.id,
@@ -75,4 +60,45 @@ export async function getAgentLinksForTenant(
     .where(eq(agentLinks.tenantId, tenantId))
     .orderBy(desc(agentLinks.createdAt))
   return rows.map(mapAgentLinkRow)
+}
+
+export interface CreateAgentLinkInput {
+  tenantId: string; agentId: string; slug: string; name: string
+  description?: string | null; createdBy: string
+}
+
+/** Insert an agent link. Caller must verify the agent exists + slug availability. */
+export async function createAgentLink(input: CreateAgentLinkInput, db: Db = getMigrateDb()): Promise<AgentLink> {
+  const id = uuidv7()
+  const rows = await db.insert(agentLinks).values({
+    id, tenantId: input.tenantId, agentId: input.agentId, slug: input.slug,
+    name: input.name, description: input.description ?? null, isActive: true, createdBy: input.createdBy,
+  }).returning()
+  return mapAgentLinkRow(rows[0])
+}
+
+export async function getAgentLinkById(tenantId: string, linkId: string, db: Db = getMigrateDb()): Promise<AgentLink | null> {
+  const rows = await db.select().from(agentLinks).where(and(eq(agentLinks.tenantId, tenantId), eq(agentLinks.id, linkId))).limit(1)
+  return rows.length ? mapAgentLinkRow(rows[0]) : null
+}
+
+export interface UpdateAgentLinkInput {
+  agentId?: string; name?: string; description?: string | null; isActive?: boolean
+}
+
+/** Update an agent link; returns the updated link or null if not found. */
+export async function updateAgentLink(tenantId: string, linkId: string, fields: UpdateAgentLinkInput, db: Db = getMigrateDb()): Promise<AgentLink | null> {
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (fields.agentId !== undefined) set.agentId = fields.agentId
+  if (fields.name !== undefined) set.name = fields.name
+  if (fields.description !== undefined) set.description = fields.description
+  if (fields.isActive !== undefined) set.isActive = fields.isActive
+  const rows = await db.update(agentLinks).set(set).where(and(eq(agentLinks.tenantId, tenantId), eq(agentLinks.id, linkId))).returning()
+  return rows.length ? mapAgentLinkRow(rows[0]) : null
+}
+
+/** Delete an agent link; returns true if a row was deleted. */
+export async function deleteAgentLink(tenantId: string, linkId: string, db: Db = getMigrateDb()): Promise<boolean> {
+  const rows = await db.delete(agentLinks).where(and(eq(agentLinks.tenantId, tenantId), eq(agentLinks.id, linkId))).returning({ id: agentLinks.id })
+  return rows.length > 0
 }

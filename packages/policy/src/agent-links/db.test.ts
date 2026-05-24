@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, agents, agentLinks } from '@vibesboard/adapter-postgres/schema'
-import { getAgentLinkBySlug, getAgentLinksForTenant, isLinkSlugAvailable } from './db.ts'
+import { getAgentLinkBySlug, getAgentLinksForTenant, isLinkSlugAvailable, createAgentLink, getAgentLinkById, updateAgentLink, deleteAgentLink } from './db.ts'
 
 async function seed(adminDb: any) {
   const userId = randomUUID(); const tenantId = randomUUID(); const agentId = randomUUID()
@@ -12,7 +12,7 @@ async function seed(adminDb: any) {
   await adminDb.insert(agents).values({ id: agentId, tenantId, userId, name: 'A', slug: 'a', instructions: '' })
   const linkId = randomUUID()
   await adminDb.insert(agentLinks).values({ id: linkId, tenantId, agentId, slug: 'promo', name: 'Promo', isActive: true, createdBy: userId })
-  return { tenantId, agentId, linkId }
+  return { userId, tenantId, agentId, linkId }
 }
 
 describe('agent-links db', () => {
@@ -37,6 +37,29 @@ describe('agent-links db', () => {
       assert.equal(await isLinkSlugAvailable('promo', tenantId, undefined, adminDb), false)
       assert.equal(await isLinkSlugAvailable('promo', tenantId, linkId, adminDb), true) // excludes self
       assert.equal(await isLinkSlugAvailable('free', tenantId, undefined, adminDb), true)
+    })
+  })
+})
+
+describe('agent-links CRUD', () => {
+  test('createAgentLink inserts + getAgentLinkById fetches', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, userId } = await seed(adminDb)
+      const link = await createAgentLink({ tenantId, agentId, slug: 'sale', name: 'Sale', createdBy: userId }, adminDb)
+      assert.equal(link.slug, 'sale'); assert.equal(link.isActive, true)
+      const got = await getAgentLinkById(tenantId, link.id, adminDb)
+      assert.equal(got?.name, 'Sale')
+      assert.equal(await getAgentLinkById(tenantId, randomUUID(), adminDb), null)
+    })
+  })
+  test('updateAgentLink + deleteAgentLink', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, linkId } = await seed(adminDb)
+      const upd = await updateAgentLink(tenantId, linkId, { name: 'Renamed', isActive: false }, adminDb)
+      assert.equal(upd?.name, 'Renamed'); assert.equal(upd?.isActive, false)
+      assert.equal(await updateAgentLink(tenantId, randomUUID(), { name: 'x' }, adminDb), null)
+      assert.equal(await deleteAgentLink(tenantId, linkId, adminDb), true)
+      assert.equal(await deleteAgentLink(tenantId, linkId, adminDb), false)
     })
   })
 })
