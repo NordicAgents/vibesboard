@@ -6,7 +6,7 @@ import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, tenantMembers, invitations } from '@vibesboard/adapter-postgres/schema'
 import {
   listTenants, createTenantAsAdmin, getTenantDetail, updateTenant,
-  deleteTenant, setMemberRole, removeMember,
+  deleteTenant, setMemberRole, removeMember, listTenantMembers,
 } from '../admin.ts'
 
 async function seedUser(adminDb: any, email: string) {
@@ -133,6 +133,26 @@ describe('setMemberRole / removeMember', () => {
       await adminDb.insert(tenantMembers).values({ tenantId: r.tenant.id, userId: guest, role: 'MEMBER' })
       assert.deepEqual(await removeMember(adminDb, r.tenant.id, guest), { ok: true })
       assert.equal((await adminDb.select().from(tenantMembers).where(and(eq(tenantMembers.tenantId, r.tenant.id), eq(tenantMembers.userId, guest)))).length, 0)
+    })
+  })
+})
+
+describe('listTenantMembers', () => {
+  test('lists members joined with user profile (email/name)', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const owner = await seedUser(adminDb, 'owner@acme.com')
+      const guest = await seedUser(adminDb, 'guest@acme.com')
+      const r = await createTenantAsAdmin(adminDb, { name: 'A', slug: 'a', createdBy: owner })
+      if (!r.ok) return
+      await adminDb.insert(tenantMembers).values({ tenantId: r.tenant.id, userId: guest, role: 'MEMBER' })
+
+      const members = await listTenantMembers(adminDb, r.tenant.id)
+      assert.equal(members.length, 2)
+      const byEmail = Object.fromEntries(members.map((m) => [m.email, m]))
+      assert.equal(byEmail['owner@acme.com'].role, 'TENANT_ADMIN')
+      assert.equal(byEmail['guest@acme.com'].role, 'MEMBER')
+      assert.equal(byEmail['guest@acme.com'].tenant_id, r.tenant.id)
+      assert.equal(typeof byEmail['owner@acme.com'].created_at, 'string')
     })
   })
 })
