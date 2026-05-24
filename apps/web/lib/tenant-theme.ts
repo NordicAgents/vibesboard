@@ -25,13 +25,16 @@ export async function getActiveTenantTheme(userId: string): Promise<{
     return null
   }
 
-  const customBrandingEnabled = await isFeatureEnabled(tenantId, 'CUSTOM_BRANDING')
+  const customBrandingEnabled = await isFeatureEnabled(
+    tenantId,
+    'CUSTOM_BRANDING'
+  )
   if (!customBrandingEnabled) return null
 
   const db = getMigrateDb()
   const [brandingRow, baseBranding] = await Promise.all([
     getTenantBranding(db, tenantId),
-    getBaseBranding(),
+    getBaseBranding()
   ])
 
   const effective = resolveEffectiveBranding(
@@ -40,10 +43,10 @@ export async function getActiveTenantTheme(userId: string): Promise<{
           primaryColor: brandingRow.primaryColor,
           secondaryColor: brandingRow.secondaryColor,
           logoUrl: brandingRow.logoUrl ?? undefined,
-          overrides: brandingRow.overrides ?? undefined,
+          overrides: brandingRow.overrides ?? undefined
         } as Parameters<typeof resolveEffectiveBranding>[0])
       : null,
-    baseBranding,
+    baseBranding
   )
 
   const primaryHex = normalizeHex(effective.primaryColor) ?? null

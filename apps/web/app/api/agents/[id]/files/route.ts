@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { eq } from 'drizzle-orm'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { processFile } from '@vibesboard/ai/file-processor'
+import { insertFiles, listFiles } from '@vibesboard/ai/files-store'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { agents } from '@vibesboard/adapter-postgres/schema'
 
 export const runtime = 'nodejs'
 
@@ -21,7 +23,7 @@ export async function GET(
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  // Find agent via collectionGroup query
+  // Find agent via Postgres
   const agent = await getAgentById(id)
 
   if (!agent) {
@@ -43,30 +45,14 @@ export async function GET(
   const status = searchParams.get('status')
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')
-  const from = (page - 1) * limit
 
-  const collPath = Collections.agentFiles(agent.tenantId, id)
-
-  // Build the query
-  let baseQuery: FirebaseFirestore.Query = adminDb
-    .collection(collPath)
-    .orderBy('createdAt', 'desc')
-
-  if (
-    status &&
-    ['pending', 'processing', 'indexed', 'failed'].includes(status)
-  ) {
-    baseQuery = baseQuery.where('status', '==', status)
-  }
-
-  // Get total count
-  const countSnapshot = await baseQuery.count().get()
-  const total = countSnapshot.data().count
-
-  // Apply pagination
-  const snapshot = await baseQuery.offset(from).limit(limit).get()
-
-  const files = snapshot.docs.map(doc => doc.data())
+  const { files, total } = await listFiles({
+    tenantId: agent.tenantId,
+    agentId: id,
+    status: status ?? undefined,
+    page,
+    limit
+  })
 
   return NextResponse.json({
     files,
@@ -93,7 +79,7 @@ export async function POST(
 
   const user = authResult.user
 
-  // Find agent via collectionGroup query
+  // Find agent via Postgres
   const agent = await getAgentById(id)
 
   if (!agent) {
@@ -123,47 +109,36 @@ export async function POST(
     return NextResponse.json({ error: 'No files provided' }, { status: 400 })
   }
 
-  const collPath = Collections.agentFiles(agent.tenantId, id)
-  const batch = adminDb.batch()
-  const now = new Date().toISOString()
-
-  const createdFiles: Array<{
+  let createdFiles: Array<{
     id: string
     fileKey: string
     fileName: string
     mimeType: string
     status: string
     createdAt: string
-  }> = []
-
-  for (const file of files) {
-    const ref = adminDb.collection(collPath).doc()
-    const fileDoc = {
-      id: ref.id,
-      agentId: id,
-      tenantId: agent.tenantId,
-      userId: user.id,
-      fileKey: file.fileKey,
-      fileName: file.fileName,
-      fileSize: file.fileSize,
-      mimeType: file.mimeType,
-      status: 'pending',
-      createdAt: now,
-      updatedAt: now
-    }
-    batch.set(ref, fileDoc)
-    createdFiles.push({
-      id: ref.id,
-      fileKey: file.fileKey,
-      fileName: file.fileName,
-      mimeType: file.mimeType,
-      status: 'pending',
-      createdAt: now
-    })
-  }
+  }>
 
   try {
-    await batch.commit()
+    const records = await insertFiles(
+      files.map(f => ({
+        tenantId: agent.tenantId,
+        agentId: id,
+        userId: user.id,
+        fileKey: f.fileKey,
+        fileName: f.fileName,
+        mimeType: f.mimeType,
+        fileSize: f.fileSize
+      }))
+    )
+
+    createdFiles = records.map(r => ({
+      id: r.id,
+      fileKey: r.fileKey,
+      fileName: r.fileName,
+      mimeType: r.mimeType,
+      status: r.status,
+      createdAt: r.createdAt
+    }))
   } catch (error) {
     return NextResponse.json(
       {
@@ -176,18 +151,18 @@ export async function POST(
     )
   }
 
-  // Update agent fileKeys array
+  // Update agent fileKeys array in Postgres (deduplicated)
   const currentFileKeys = agent.fileKeys ?? []
   const newFileKeys = files.map(f => f.fileKey)
   const updatedFileKeys = Array.from(
     new Set([...currentFileKeys, ...newFileKeys])
   )
 
-  const agentDocRef = adminDb
-    .collection(Collections.agents(agent.tenantId))
-    .doc(id)
-
-  await agentDocRef.update({ fileKeys: updatedFileKeys, updatedAt: now })
+  const db = getMigrateDb()
+  await db
+    .update(agents)
+    .set({ fileKeys: updatedFileKeys, updatedAt: new Date() })
+    .where(eq(agents.id, id))
 
   // Trigger background processing (non-blocking)
   if (createdFiles.length > 0) {

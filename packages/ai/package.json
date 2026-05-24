@@ -14,11 +14,12 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test --experimental-test-isolation=none 'src/**/*.test.ts'"
+    "test": "node --experimental-strip-types --conditions react-server --test --experimental-test-isolation=none 'src/**/*.test.ts'"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.72",
     "@vibesboard/adapter-firebase": "workspace:*",
+    "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/adapter-s3": "workspace:*",
     "@vibesboard/agents": "workspace:*",
@@ -35,8 +36,10 @@
     "jsdom": "^27.2.0",
     "mammoth": "^1.11.0",
     "nanoid": "^4.0.2",
+    "drizzle-orm": "^0.45.2",
     "pdf-parse": "^2.4.5",
     "server-only": "^0.0.1",
+    "uuidv7": "^1.0.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
