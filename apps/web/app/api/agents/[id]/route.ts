@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { eq } from 'drizzle-orm'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { mapAgentDoc } from '@vibesboard/agents/db'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
 import { patchAgentSchema } from '@vibesboard/agents/schema'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getAgentById } from '@vibesboard/agents/server'
@@ -64,7 +65,7 @@ export async function PATCH(
     }
   }
 
-  // Find agent using collectionGroup query
+  // Find agent
   const agent = await getAgentById(id)
 
   if (!agent) {
@@ -94,90 +95,49 @@ export async function PATCH(
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  const updates: Record<string, any> = {
-    ...(payload.name ? { name: payload.name } : {}),
-    ...(payload.instructions ? { instructions: payload.instructions } : {}),
-    ...(payload.fileKeys !== undefined ? { fileKeys: payload.fileKeys } : {}),
-    ...(payload.tools !== undefined ? { tools: payload.tools } : {}),
-    ...(typeof payload.allowAnonymous === 'boolean'
-      ? { allowAnonymous: payload.allowAnonymous }
-      : {}),
-    ...(payload.greetingText !== undefined
-      ? { greetingText: payload.greetingText }
-      : {}),
-    ...(payload.mode !== undefined ? { mode: payload.mode } : {}),
-    ...(payload.collectionFields !== undefined
-      ? { collectionFields: payload.collectionFields }
-      : {}),
-    ...(payload.maxResponses !== undefined
-      ? { maxResponses: payload.maxResponses }
-      : {}),
-    ...(payload.maxAgentResponses !== undefined
-      ? { maxAgentResponses: payload.maxAgentResponses }
-      : {}),
-    ...(payload.quickSuggestionsMode !== undefined
-      ? { quickSuggestionsMode: payload.quickSuggestionsMode }
-      : {}),
-    ...(payload.quickSuggestionsCount !== undefined
-      ? { quickSuggestionsCount: payload.quickSuggestionsCount }
-      : {}),
-    ...(typeof payload.googleReviewEnabled === 'boolean'
-      ? { googleReviewEnabled: payload.googleReviewEnabled }
-      : {}),
-    ...(payload.googlePlaceId !== undefined
-      ? { googlePlaceId: payload.googlePlaceId }
-      : {}),
-    ...(payload.sourceUrls !== undefined
-      ? { sourceUrls: payload.sourceUrls }
-      : {}),
-    ...(payload.domain !== undefined ? { domain: payload.domain } : {}),
-    ...(payload.retrievalStrategy !== undefined
-      ? { retrievalStrategy: payload.retrievalStrategy }
-      : {}),
-    ...(payload.notificationConfig !== undefined
-      ? { notificationConfig: payload.notificationConfig }
-      : {}),
-    ...(payload.handoffTargets !== undefined
-      ? { handoffTargets: payload.handoffTargets }
-      : {}),
-    ...(payload.schedulingConfig !== undefined
-      ? { schedulingConfig: payload.schedulingConfig }
-      : {}),
-    ...(payload.dataConfig !== undefined
-      ? { dataConfig: payload.dataConfig }
-      : {}),
-    ...(payload.calendarAvailabilityConfig !== undefined
-      ? { calendarAvailabilityConfig: payload.calendarAvailabilityConfig }
-      : {}),
-    ...(payload.bookingConfig !== undefined
-      ? { bookingConfig: payload.bookingConfig }
-      : {}),
-    updatedAt: new Date().toISOString()
-  }
-
-  const docRef = adminDb.collection(`tenants/${agent.tenantId}/agents`).doc(id)
+  // Build set object from payload — ONLY real columns.
+  // NOTE: sourceUrls & domain intentionally NOT written — no such columns in agents table.
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (payload.name !== undefined) set.name = payload.name
+  if (payload.instructions !== undefined) set.instructions = payload.instructions
+  if (payload.fileKeys !== undefined) set.fileKeys = payload.fileKeys
+  if (payload.tools !== undefined) set.tools = payload.tools
+  if (typeof payload.allowAnonymous === 'boolean') set.allowAnonymous = payload.allowAnonymous
+  if (payload.greetingText !== undefined) set.greetingText = payload.greetingText
+  if (payload.mode !== undefined) set.mode = payload.mode
+  if (payload.collectionFields !== undefined) set.collectionFields = payload.collectionFields
+  if (payload.maxResponses !== undefined) set.maxResponses = payload.maxResponses
+  if (payload.maxAgentResponses !== undefined) set.maxAgentResponses = payload.maxAgentResponses
+  if (payload.quickSuggestionsMode !== undefined) set.quickSuggestionsMode = payload.quickSuggestionsMode
+  if (payload.quickSuggestionsCount !== undefined) set.quickSuggestionsCount = payload.quickSuggestionsCount
+  if (typeof payload.googleReviewEnabled === 'boolean') set.googleReviewEnabled = payload.googleReviewEnabled
+  if (payload.googlePlaceId !== undefined) set.googlePlaceId = payload.googlePlaceId
+  if (payload.retrievalStrategy !== undefined) set.retrievalStrategy = payload.retrievalStrategy
+  if (payload.notificationConfig !== undefined) set.notificationConfig = payload.notificationConfig
+  if (payload.handoffTargets !== undefined) set.handoffTargets = payload.handoffTargets
+  if (payload.schedulingConfig !== undefined) set.schedulingConfig = payload.schedulingConfig
+  if (payload.dataConfig !== undefined) set.dataConfig = payload.dataConfig
+  if (payload.calendarAvailabilityConfig !== undefined) set.calendarAvailabilityConfig = payload.calendarAvailabilityConfig
+  if (payload.bookingConfig !== undefined) set.bookingConfig = payload.bookingConfig
 
   try {
-    await docRef.update(updates)
+    await getMigrateDb()
+      .update(agentsTable)
+      .set(set as Partial<typeof agentsTable.$inferInsert>)
+      .where(eq(agentsTable.id, id))
   } catch (error) {
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Unable to update agent'
-      },
+      { error: error instanceof Error ? error.message : 'Unable to update agent' },
       { status: 500 }
     )
   }
 
-  // Fetch the updated document
-  const updatedDoc = await docRef.get()
-  if (!updatedDoc.exists) {
-    return NextResponse.json(
-      { error: 'Unable to retrieve updated agent' },
-      { status: 500 }
-    )
+  const updated = await getAgentById(id)
+  if (!updated) {
+    return NextResponse.json({ error: 'Unable to retrieve updated agent' }, { status: 500 })
   }
 
-  return NextResponse.json({ agent: mapAgentDoc(updatedDoc.data()!) })
+  return NextResponse.json({ agent: updated })
 }
 
 export async function DELETE(
@@ -188,7 +148,7 @@ export async function DELETE(
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  // Find agent using collectionGroup query
+  // Find agent
   const agent = await getAgentById(id)
 
   if (!agent) {
@@ -216,14 +176,9 @@ export async function DELETE(
     )
   }
 
-  // Recursively delete the agent document and all subcollections
-  // (conversations, bookings, hooks, etc.). Firestore does not cascade-delete
-  // subcollections automatically — without this, all subcollection data
-  // becomes orphaned and is never cleaned up.
-  const docRef = adminDb.collection(`tenants/${agent.tenantId}/agents`).doc(id)
-
+  // Delete the agent row — FK cascade removes conversations/hooks/links.
   try {
-    await adminDb.recursiveDelete(docRef)
+    await getMigrateDb().delete(agentsTable).where(eq(agentsTable.id, id))
   } catch (error) {
     return new NextResponse(
       error instanceof Error ? error.message : 'Delete failed',
