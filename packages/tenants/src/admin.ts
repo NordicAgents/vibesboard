@@ -162,3 +162,41 @@ export async function removeMember(
     .returning({ userId: tenantMembers.userId })
   return deleted.length > 0 ? { ok: true } : { ok: false, code: 'NOT_MEMBER' }
 }
+
+export interface TenantMemberListItem {
+  user_id: string
+  tenant_id: string
+  role: string
+  created_at: string
+  email: string | null
+  name: string | null
+  image: string | null
+}
+
+/** List a tenant's members joined with their user profile. */
+export async function listTenantMembers(
+  db: Db,
+  tenantId: string,
+): Promise<TenantMemberListItem[]> {
+  const rows = await db
+    .select({
+      userId: tenantMembers.userId,
+      role: tenantMembers.role,
+      joinedAt: tenantMembers.joinedAt,
+      email: users.email,
+      name: users.name,
+      imageUrl: users.imageUrl,
+    })
+    .from(tenantMembers)
+    .leftJoin(users, eq(users.id, tenantMembers.userId))
+    .where(eq(tenantMembers.tenantId, tenantId))
+  return rows.map((r) => ({
+    user_id: r.userId,
+    tenant_id: tenantId,
+    role: r.role,
+    created_at: r.joinedAt.toISOString(),
+    email: r.email ?? null,
+    name: r.name ?? null,
+    image: r.imageUrl ?? null,
+  }))
+}
