@@ -11,7 +11,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test --experimental-test-isolation=none 'src/**/*.test.ts'"
+    "test": "node --experimental-strip-types --conditions react-server --test --experimental-test-isolation=none 'src/**/*.test.ts'"
   },
   "dependencies": {
     "@vibesboard/adapter-firebase": "workspace:*",
