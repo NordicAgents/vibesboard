@@ -1,13 +1,13 @@
 import { notFound } from 'next/navigation'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import { mapAgentDoc } from '@vibesboard/agents/db'
+import { getTenantBySlug } from '@/lib/tenant-context'
+import { getAgentForMember } from '@vibesboard/agents/server'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getTenantBranding } from '@vibesboard/tenants'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getAgentLinkBySlug } from '@vibesboard/policy/agent-links/db'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { getBaseBranding, resolveEffectiveBranding } from '@/lib/base-branding'
-import type { TenantBrandingDocument } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 
@@ -18,64 +18,51 @@ export default async function AgentLinkPage({
 }) {
   const { tenantSlug, linkSlug } = await params
 
-  // 1. Resolve tenant slug → tenantId
-  const slugDoc = await adminDb
-    .collection(Collections.tenantSlugs)
-    .doc(tenantSlug)
-    .get()
-
-  if (!slugDoc.exists) {
-    notFound()
-  }
-
-  const tenantId = slugDoc.data()!.tenantId as string
+  // 1. Resolve tenant slug → tenant
+  const tenant = await getTenantBySlug(tenantSlug)
+  if (!tenant) notFound()
 
   // 2. Check if AGENT_LINKS feature is enabled for this tenant
-  const agentLinksEnabled = await isFeatureEnabled(tenantId, 'AGENT_LINKS')
+  const agentLinksEnabled = await isFeatureEnabled(tenant.id, 'AGENT_LINKS')
   if (!agentLinksEnabled) {
     notFound()
   }
 
   // 3. Find the agent link by slug
-  const link = await getAgentLinkBySlug(tenantId, linkSlug)
+  const link = await getAgentLinkBySlug(tenant.id, linkSlug)
   if (!link || !link.isActive) {
     notFound()
   }
 
   // 4. Fetch the connected agent
-  const agentDoc = await adminDb
-    .collection(Collections.agents(tenantId))
-    .doc(link.agentId)
-    .get()
-
-  if (!agentDoc.exists) {
-    notFound()
-  }
-
-  const agent = mapAgentDoc(agentDoc.data()!)
+  const agent = await getAgentForMember(tenant.id, link.agentId)
+  if (!agent) notFound()
 
   // 5. Read Google Review config + branding
-  const [tenantDoc, brandingDoc, baseBranding] = await Promise.all([
-    adminDb.collection(Collections.tenants).doc(tenantId).get(),
-    adminDb.collection(Collections.branding(tenantId)).doc(tenantId).get(),
+  const db = getMigrateDb()
+  const [brandingRow, baseBranding] = await Promise.all([
+    getTenantBranding(db, tenant.id),
     getBaseBranding()
   ])
-  const tenantData = tenantDoc.data()
   const googleReviewFeatureEnabled = await isFeatureEnabled(
-    tenantId,
+    tenant.id,
     'GOOGLE_REVIEW'
   )
   const googleReviewPlaceId =
     googleReviewFeatureEnabled && agent.googleReviewEnabled
-      ? agent.googlePlaceId || (tenantData?.googlePlaceId as string) || null
+      ? agent.googlePlaceId || tenant.googlePlaceId || null
       : null
 
   // Resolve branding (tenant → platform → fallback)
-  const tenantBranding = brandingDoc.exists
-    ? (brandingDoc.data() as TenantBrandingDocument)
-    : null
   const effectiveBranding = resolveEffectiveBranding(
-    tenantBranding,
+    brandingRow
+      ? ({
+          primaryColor: brandingRow.primaryColor,
+          secondaryColor: brandingRow.secondaryColor,
+          logoUrl: brandingRow.logoUrl ?? undefined,
+          overrides: brandingRow.overrides ?? undefined
+        } as Parameters<typeof resolveEffectiveBranding>[0])
+      : null,
     baseBranding
   )
   const logoUrl = effectiveBranding.logoUrl || null
