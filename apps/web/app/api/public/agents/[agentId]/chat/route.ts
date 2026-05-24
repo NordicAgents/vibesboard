@@ -9,8 +9,7 @@ import {
   ensureConversation,
   updateConversationMessages,
   getConversation,
-  recordConversationHandoff,
-  updateConversationRef
+  recordConversationHandoff
 } from '@vibesboard/agents/conversations'
 import { maybeAutoSummarize } from '@vibesboard/agents/auto-summarize'
 import { runAgentStream } from '@vibesboard/ai/runtime'
@@ -326,15 +325,9 @@ export async function POST(
           outputTokens: usage?.completionTokens
         })
 
-        // Update conversation ref if this is a handoff target agent
-        if (activeAgent.id !== agent.id) {
-          updateConversationRef(tenantId, activeAgent.id, conversation.id, {
-            responseCount: agentResponseCount + 1,
-            lastMessageAt: new Date().toISOString()
-          }).catch(err =>
-            console.error('[chat] Failed to update conversation ref:', err)
-          )
-        }
+        // Response counts for handoff target agents are maintained by
+        // updateConversationMessages(respondingAgentId); derived handoff refs
+        // read them directly, so no separate ref update is needed.
 
         const event = mapCompletionToEvent(reason)
         if (event) {

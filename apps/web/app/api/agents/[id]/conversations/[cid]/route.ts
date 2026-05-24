@@ -10,9 +10,6 @@ import {
   resumeConversation,
   deleteConversation
 } from '@vibesboard/agents/conversations'
-import { mapConversationDoc } from '@vibesboard/agents/db'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import {
   handoffChatwootConversation,
   resumeChatwootConversation
@@ -38,21 +35,12 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const doc = await adminDb
-    .collection(Collections.conversations(agent.tenantId, agent.id))
-    .doc(cid)
-    .get()
-
-  if (!doc.exists) {
+  const conversation = await getConversation(agent.tenantId, agent.id, cid)
+  if (!conversation) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const data = doc.data()!
-  if (data.agentId !== id) {
-    return new NextResponse('Not found', { status: 404 })
-  }
-
-  return NextResponse.json({ conversation: mapConversationDoc(data) })
+  return NextResponse.json({ conversation })
 }
 
 const PatchSchema = z.object({
