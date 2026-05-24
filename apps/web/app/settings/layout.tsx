@@ -12,40 +12,15 @@ import { cn } from '@vibesboard/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
 
 import { auth } from '@/auth'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type TenantDocument } from '@vibesboard/contracts'
 import { TenantSwitcher } from '@/components/tenants'
 import {
   getActiveTenant,
   getTenantById,
+  getManageableTenants,
   enrichTenantsWithMembers
 } from '@/lib/tenant-context'
 import { hasTenantAdminAccess } from '@vibesboard/policy/permissions'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-
-async function getManageableTenants(userId: string): Promise<TenantDocument[]> {
-  const membersSnapshot = await adminDb
-    .collectionGroup('members')
-    .where('userId', '==', userId)
-    .where('role', 'in', ['SUPER_ADMIN', 'TENANT_ADMIN'])
-    .get()
-
-  if (membersSnapshot.empty) return []
-
-  const tenantIds = membersSnapshot.docs.map(
-    (doc: any) => doc.data().tenantId as string
-  )
-
-  const tenantDocs = await Promise.all(
-    tenantIds.map((id: any) =>
-      adminDb.collection(Collections.tenants).doc(id).get()
-    )
-  )
-
-  return tenantDocs
-    .filter(doc => doc.exists)
-    .map(doc => doc.data() as TenantDocument)
-}
 
 export default async function SettingsLayout({
   children
