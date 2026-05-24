@@ -1,12 +1,9 @@
 import { Buffer } from 'node:buffer'
 
-import { FieldValue } from 'firebase-admin/firestore'
-
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { downloadFile } from '@vibesboard/adapter-s3'
-import { Collections } from '@vibesboard/contracts'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createEmbedding, chatCompletionWithVision } from '@vibesboard/adapter-openai'
+import { replaceFileChunks } from '@vibesboard/ai/rag-store'
 
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
@@ -337,42 +334,15 @@ const embedChunks = async (values: string[]) => {
   return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
 }
 
-/**
- * Delete existing file chunks for a given agent + file key.
- * Requires tenantId to resolve the subcollection path.
- */
-const BATCH_LIMIT = 400
-
-const deleteExistingChunks = async (
-  tenantId: string,
-  agentId: string,
-  fileKey: string
-) => {
-  const collPath = Collections.fileChunks(tenantId, agentId)
-  const snapshot = await adminDb
-    .collection(collPath)
-    .where('fileKey', '==', fileKey)
-    .get()
-
-  if (snapshot.empty) return
-
-  for (let i = 0; i < snapshot.docs.length; i += BATCH_LIMIT) {
-    const batch = adminDb.batch()
-    snapshot.docs
-      .slice(i, i + BATCH_LIMIT)
-      .forEach((doc: any) => batch.delete(doc.ref))
-    await batch.commit()
-  }
-}
-
 export const ingestFileForAgent = async (args: {
   tenantId: string
   agentId: string
+  fileId: string
   fileKey: string
   fileName?: string
   mimeType?: string | null
 }) => {
-  const { tenantId, agentId, fileKey } = args
+  const { tenantId, fileId, fileKey } = args
   const fileName = args.fileName || fileKey.split('/').pop() || fileKey
   const mimeType = args.mimeType || guessMimeFromPath(fileName)
 
@@ -398,34 +368,16 @@ export const ingestFileForAgent = async (args: {
     }
   }
 
-  await deleteExistingChunks(tenantId, agentId, fileKey)
-
-  // Write chunks to Firestore with vector embeddings
-  // Firestore batch writes are limited to 500 operations — split into batches of 400
-  const collPath = Collections.fileChunks(tenantId, agentId)
-
-  for (let i = 0; i < chunks.length; i += BATCH_LIMIT) {
-    const batch = adminDb.batch()
-    const slice = chunks.slice(i, i + BATCH_LIMIT)
-
-    slice.forEach((content, sliceIndex) => {
-      const index = i + sliceIndex
-      const ref = adminDb.collection(collPath).doc()
-      batch.set(ref, {
-        id: ref.id,
-        agentId,
-        fileKey,
-        fileName,
-        mimeType,
-        chunkIndex: index,
-        content,
-        embedding: FieldValue.vector(embeddings[index] ?? []),
-        createdAt: new Date().toISOString()
-      })
-    })
-
-    await batch.commit()
-  }
+  // Write chunks to Postgres (replaceFileChunks deletes existing then inserts)
+  await replaceFileChunks({
+    tenantId,
+    fileId,
+    chunks: chunks.map((content, index) => ({
+      chunkIndex: index,
+      content,
+      embedding: embeddings[index] ?? []
+    }))
+  })
 
   const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 

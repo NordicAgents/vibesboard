@@ -5,7 +5,7 @@ import { signToken, verifyToken } from '@vibesboard/ai/access-gate-crypto'
 export {
   hashPassword,
   verifyPassword,
-  generateCode,
+  generateCode
 } from '@vibesboard/ai/access-gate-crypto'
 
 export {
@@ -13,13 +13,13 @@ export {
   listInviteCodes,
   revokeInviteCode,
   redeemInviteCode,
-  type InviteCodeError,
+  type InviteCodeError
 } from '@vibesboard/agents/invite-codes'
 
 // ─── Request schemas ────────────────────────────────────────────────────────
 
 export const setPasswordSchema = z.object({
-  password: z.string().min(1).max(200),
+  password: z.string().min(1).max(200)
 })
 
 // ─── Session cookie (HMAC-signed, session-scoped) ────────────────────────────
@@ -30,7 +30,7 @@ function cookieName(agentId: string) {
 
 export async function setAccessCookie(
   agentId: string,
-  opts?: { crossOrigin?: boolean },
+  opts?: { crossOrigin?: boolean }
 ) {
   const cookieStore = await cookies()
   cookieStore.set({
@@ -39,7 +39,7 @@ export async function setAccessCookie(
     httpOnly: true,
     secure: true,
     sameSite: opts?.crossOrigin ? 'none' : 'lax',
-    path: '/',
+    path: '/'
     // No maxAge = session cookie — dies on browser close
   })
 }
