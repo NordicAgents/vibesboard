@@ -4,7 +4,8 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
-import { mapAgentDoc, mapConversationDoc } from '@vibesboard/agents/db'
+import { mapConversationDoc } from '@vibesboard/agents/db'
+import { getAgentById } from '@vibesboard/agents/server'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentPageShell } from '@/components/agents/agent-page-shell'
 
@@ -24,19 +25,11 @@ export default async function AgentSectionLayout({
     redirect('/sign-in')
   }
 
-  // Find the agent across all tenants using collection group query
-  const agentSnapshot = await adminDb
-    .collectionGroup('agents')
-    .where('id', '==', id)
-    .limit(1)
-    .get()
+  const agent = await getAgentById(id)
 
-  if (agentSnapshot.empty) {
+  if (!agent) {
     notFound()
   }
-
-  const agentData = agentSnapshot.docs[0].data()
-  const agent = mapAgentDoc(agentData)
 
   // Fetch conversations for this agent
   const tenantId = agent.tenantId
