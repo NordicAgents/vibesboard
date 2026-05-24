@@ -490,6 +490,9 @@ importers:
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../adapter-openai
+      '@vibesboard/adapter-postgres':
+        specifier: workspace:*
+        version: link:../adapter-postgres
       '@vibesboard/adapter-s3':
         specifier: workspace:*
         version: link:../adapter-s3
@@ -520,6 +523,9 @@ importers:
       ai:
         specifier: ^3.4.33
         version: 3.4.33(react@19.2.3)(solid-js@1.9.10)(sswr@2.2.0(svelte@4.2.20))(svelte@4.2.20)(vue@3.5.22(typescript@5.9.3))(zod@3.25.76)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
@@ -541,6 +547,9 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      uuidv7:
+        specifier: ^1.0.2
+        version: 1.2.1
       zod:
         specifier: ^3.25.76
         version: 3.25.76
