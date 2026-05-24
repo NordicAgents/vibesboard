@@ -1,10 +1,25 @@
-import { type Message } from '@vibesboard/contracts'
+import { type Message, type VibeAgentConversation } from '@vibesboard/contracts'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { FieldValue } from 'firebase-admin/firestore'
-import { Collections } from '@vibesboard/contracts'
-import { embedTexts } from '@vibesboard/ai/embeddings'
-import { mapConversationRow } from '@vibesboard/agents/db'
+import { and, eq, sql } from 'drizzle-orm'
+import { cosineDistance } from 'drizzle-orm/sql/functions'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import {
+  embeddings,
+  conversations as conversationsTable
+} from '@vibesboard/adapter-postgres/schema'
+import {
+  listAgentConversations,
+  getConversation
+} from '@vibesboard/agents/conversations'
+import { embedTexts } from './embeddings.ts'
+
+type Db = PostgresJsDatabase<typeof schema>
+interface Deps {
+  db?: Db
+  embed?: (texts: string[]) => Promise<number[][]>
+}
 
 const MAX_TOTAL_CONTEXT_CHARS = 12_000
 const MAX_VECTOR_MATCHES = 48
@@ -51,21 +66,27 @@ const renderMessageLines = (messages: Message[]) =>
     .filter(Boolean)
     .join('\n')
 
-export async function buildAskAiConversationContext({
-  tenantId,
-  agentId,
-  question,
-  contextConversationId
-}: {
-  tenantId: string
-  agentId: string
-  question: string
-  contextConversationId?: string
-}): Promise<{
+export async function buildAskAiConversationContext(
+  {
+    tenantId,
+    agentId,
+    question,
+    contextConversationId
+  }: {
+    tenantId: string
+    agentId: string
+    question: string
+    contextConversationId?: string
+  },
+  deps: Deps = {}
+): Promise<{
   context: string
   usedVectorSearch: boolean
   sourceCount: number
 }> {
+  const db = deps.db ?? getMigrateDb()
+  const embed = deps.embed ?? embedTexts
+
   const trimmedQuestion = question.trim()
   if (!trimmedQuestion) {
     return {
@@ -75,22 +96,28 @@ export async function buildAskAiConversationContext({
     }
   }
 
-  const vectorContext = await buildVectorContext({
-    tenantId,
-    agentId,
-    question: trimmedQuestion,
-    contextConversationId
-  })
+  const vectorContext = await buildVectorContext(
+    {
+      tenantId,
+      agentId,
+      question: trimmedQuestion,
+      contextConversationId
+    },
+    { db, embed }
+  )
 
   if (vectorContext.context.trim()) {
     return vectorContext
   }
 
-  const fallbackContext = await buildFallbackContext({
-    tenantId,
-    agentId,
-    contextConversationId
-  })
+  const fallbackContext = await buildFallbackContext(
+    {
+      tenantId,
+      agentId,
+      contextConversationId
+    },
+    { db }
+  )
   return {
     context: fallbackContext,
     usedVectorSearch: false,
@@ -98,25 +125,31 @@ export async function buildAskAiConversationContext({
   }
 }
 
-async function buildVectorContext({
-  tenantId,
-  agentId,
-  question,
-  contextConversationId
-}: {
-  tenantId: string
-  agentId: string
-  question: string
-  contextConversationId?: string
-}): Promise<{
+async function buildVectorContext(
+  {
+    tenantId,
+    agentId,
+    question,
+    contextConversationId
+  }: {
+    tenantId: string
+    agentId: string
+    question: string
+    contextConversationId?: string
+  },
+  {
+    db,
+    embed
+  }: { db: Db; embed: (texts: string[]) => Promise<number[][]> }
+): Promise<{
   context: string
   usedVectorSearch: boolean
   sourceCount: number
 }> {
   let queryEmbedding: number[] | null = null
   try {
-    const embeddings = await embedTexts([question])
-    queryEmbedding = embeddings[0] ?? null
+    const vectors = await embed([question])
+    queryEmbedding = vectors[0] ?? null
   } catch (error) {
     console.warn('Ask AI: failed to embed question', error)
     return { context: '', usedVectorSearch: false, sourceCount: 0 }
@@ -126,31 +159,42 @@ async function buildVectorContext({
     return { context: '', usedVectorSearch: false, sourceCount: 0 }
   }
 
-  const collPath = Collections.conversationChunks(tenantId, agentId)
-
-  let snapshot: FirebaseFirestore.QuerySnapshot
+  const distance = cosineDistance(embeddings.embedding, queryEmbedding)
+  let hits: Array<{ conversationId: string; messageIndex: number }>
   try {
-    snapshot = await adminDb
-      .collection(collPath)
-      .findNearest('embedding', FieldValue.vector(queryEmbedding), {
-        limit: MAX_VECTOR_MATCHES,
-        distanceMeasure: 'COSINE'
+    const rows = await db
+      .select({
+        conversationId: embeddings.sourceId,
+        messageIndex: embeddings.chunkIndex,
+        distance: sql<number>`${distance}`
       })
-      .get()
+      .from(embeddings)
+      .innerJoin(
+        conversationsTable,
+        eq(conversationsTable.id, embeddings.sourceId)
+      )
+      .where(
+        and(
+          eq(embeddings.tenantId, tenantId),
+          eq(embeddings.sourceType, 'conversation_chunk'),
+          eq(conversationsTable.agentId, agentId),
+          ...(contextConversationId
+            ? [eq(embeddings.sourceId, contextConversationId)]
+            : [])
+        )
+      )
+      .orderBy(distance)
+      .limit(MAX_VECTOR_MATCHES)
+    hits = rows.map(r => ({
+      conversationId: r.conversationId,
+      messageIndex: r.messageIndex
+    }))
   } catch (error) {
     console.warn('Ask AI: vector match error', error)
     return { context: '', usedVectorSearch: false, sourceCount: 0 }
   }
 
-  let rows = snapshot.docs.map(doc => doc.data())
-
-  // Post-query filter for contextConversationId since findNearest
-  // does not support compound where clauses easily
-  if (contextConversationId) {
-    rows = rows.filter(row => row.conversationId === contextConversationId)
-  }
-
-  if (!rows.length) {
+  if (!hits.length) {
     return { context: '', usedVectorSearch: true, sourceCount: 0 }
   }
 
@@ -160,13 +204,13 @@ async function buildVectorContext({
   }> = []
   const seen = new Set<string>()
 
-  for (const row of rows) {
-    const key = `${row.conversationId}:${row.messageIndex}`
+  for (const hit of hits) {
+    const key = `${hit.conversationId}:${hit.messageIndex}`
     if (seen.has(key)) continue
     seen.add(key)
     uniqueMessageHits.push({
-      conversationId: row.conversationId,
-      messageIndex: row.messageIndex
+      conversationId: hit.conversationId,
+      messageIndex: hit.messageIndex
     })
     if (uniqueMessageHits.length >= MAX_SOURCES) break
   }
@@ -175,17 +219,13 @@ async function buildVectorContext({
     new Set(uniqueMessageHits.map(hit => hit.conversationId))
   )
 
-  const convCollPath = Collections.conversations(tenantId, agentId)
-  let conversations: ReturnType<typeof mapConversationRow>[]
+  let conversations: VibeAgentConversation[]
   try {
-    const convResults = await Promise.all(
-      conversationIds.map(async cid => {
-        const doc = await adminDb.collection(convCollPath).doc(cid).get()
-        return doc.exists ? mapConversationRow(doc.data()!) : null
-      })
+    const results = await Promise.all(
+      conversationIds.map(cid => getConversation(tenantId, agentId, cid, db))
     )
-    conversations = convResults.filter(
-      (c): c is NonNullable<typeof c> => c !== null && !!c.externalId
+    conversations = results.filter(
+      (c): c is VibeAgentConversation => c !== null && !!c.externalId
     )
   } catch (error) {
     console.warn('Ask AI: failed to fetch conversations for matches', error)
@@ -246,43 +286,39 @@ async function buildVectorContext({
   }
 }
 
-async function buildFallbackContext({
-  tenantId,
-  agentId,
-  contextConversationId
-}: {
-  tenantId: string
-  agentId: string
-  contextConversationId?: string
-}): Promise<string> {
-  const convCollPath = Collections.conversations(tenantId, agentId)
-
-  let snapshot: FirebaseFirestore.QuerySnapshot
+async function buildFallbackContext(
+  {
+    tenantId,
+    agentId,
+    contextConversationId
+  }: {
+    tenantId: string
+    agentId: string
+    contextConversationId?: string
+  },
+  { db }: { db: Db }
+): Promise<string> {
+  let conversations: VibeAgentConversation[]
   try {
     if (contextConversationId) {
-      snapshot = await adminDb
-        .collection(convCollPath)
-        .where('id', '==', contextConversationId)
-        .limit(1)
-        .get()
+      const found = await getConversation(
+        tenantId,
+        agentId,
+        contextConversationId,
+        db
+      )
+      conversations = found ? [found] : []
     } else {
-      // Fetch recent conversations sorted by updatedAt and filter for visitor
-      // conversations (those with externalId) in memory to avoid a composite index.
-      snapshot = await adminDb
-        .collection(convCollPath)
-        .orderBy('updatedAt', 'desc')
-        .limit(FALLBACK_CONVERSATIONS * 3)
-        .get()
+      const all = await listAgentConversations(tenantId, agentId, undefined, db)
+      conversations = all
+        .filter(c => c.externalId)
+        .slice(0, FALLBACK_CONVERSATIONS)
     }
   } catch (error) {
     console.warn('Ask AI: fallback conversation query failed', error)
     return ''
   }
 
-  const conversations = snapshot.docs
-    .map(doc => mapConversationRow(doc.data()!))
-    .filter(c => contextConversationId || c.externalId)
-    .slice(0, FALLBACK_CONVERSATIONS)
   if (!conversations.length) {
     return ''
   }
