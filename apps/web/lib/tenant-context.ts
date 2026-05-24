@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, inArray } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
@@ -121,6 +121,42 @@ export async function getUserTenants(
       eq(tenantsTable.id, tenantMembersTable.tenantId)
     )
     .where(eq(tenantMembersTable.userId, userId))
+    .orderBy(desc(tenantsTable.createdAt))
+
+  return rows.map(rowToTenantDocument)
+}
+
+/**
+ * Tenants the user can administer (member with TENANT_ADMIN or SUPER_ADMIN
+ * role). Mirrors getUserTenants with a role filter — used by the settings
+ * layout to decide which workspaces are manageable.
+ */
+export async function getManageableTenants(
+  userId: string
+): Promise<TenantDocument[]> {
+  const rows = await getMigrateDb()
+    .select({
+      id: tenantsTable.id,
+      name: tenantsTable.name,
+      slug: tenantsTable.slug,
+      status: tenantsTable.status,
+      createdBy: tenantsTable.createdBy,
+      isPersonal: tenantsTable.isPersonal,
+      googlePlaceId: tenantsTable.googlePlaceId,
+      createdAt: tenantsTable.createdAt,
+      updatedAt: tenantsTable.updatedAt
+    })
+    .from(tenantsTable)
+    .innerJoin(
+      tenantMembersTable,
+      eq(tenantsTable.id, tenantMembersTable.tenantId)
+    )
+    .where(
+      and(
+        eq(tenantMembersTable.userId, userId),
+        inArray(tenantMembersTable.role, ['SUPER_ADMIN', 'TENANT_ADMIN'])
+      )
+    )
     .orderBy(desc(tenantsTable.createdAt))
 
   return rows.map(rowToTenantDocument)
