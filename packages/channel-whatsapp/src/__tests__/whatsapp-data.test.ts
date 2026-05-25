@@ -27,6 +27,16 @@ import {
   markAsRead,
   updateConversationAgentSettings,
 } from '../conversations.ts'
+import {
+  listMessages,
+  updateMessageStatus,
+  persistInboundMessage,
+  persistOutboundMessage,
+} from '../messages.ts'
+import {
+  whatsappMessages,
+  whatsappConversations as waConvTbl,
+} from '@vibesboard/adapter-postgres/schema'
 
 async function seedAccount(adminDb: any) {
   const { tenantId, userId } = await seedTenant(adminDb)
@@ -240,6 +250,73 @@ describe('whatsapp conversations (pg)', () => {
       assert.equal(c2?.status, 'resolved')
       assert.equal(c2?.unreadCount, 0)
       assert.equal(c2?.agentPaused, true)
+    })
+  })
+})
+
+describe('whatsapp messages (pg)', () => {
+  test('insert inbound updates conversation; list chronological; status monotonic', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, accountId } = await seedAccount(adminDb)
+      const convo = await getOrCreateConversation(
+        tenantId,
+        accountId,
+        '15551234',
+        'Alice',
+        adminDb,
+      )
+      await persistInboundMessage(
+        {
+          tenantId,
+          accountId,
+          conversationId: convo.id,
+          contactPhone: '15551234',
+          phoneNumberId: 'p',
+          waMessageId: 'wamid.in.1',
+          type: 'text',
+          text: 'hi',
+          timestampOriginal: new Date('2026-05-25T01:00:00Z'),
+          contactName: 'Alice',
+        },
+        adminDb,
+      )
+      const msgs = await listMessages(
+        tenantId,
+        accountId,
+        '15551234',
+        50,
+        undefined,
+        adminDb,
+      )
+      assert.equal(msgs.length, 1)
+      assert.equal(msgs[0].text, 'hi')
+      const [c] = await adminDb
+        .select()
+        .from(waConvTbl)
+        .where(eq(waConvTbl.id, convo.id))
+      assert.equal(c.unreadCount, 1)
+      assert.equal(c.lastMessagePreview, 'hi')
+
+      await persistOutboundMessage(
+        {
+          tenantId,
+          accountId,
+          conversationId: convo.id,
+          contactPhone: '15551234',
+          waMessageId: 'wamid.out.1',
+          from: '+1',
+          text: 'hello',
+          timestampOriginal: new Date(),
+        },
+        adminDb,
+      )
+      await updateMessageStatus('wamid.out.1', 'delivered', undefined, adminDb)
+      await updateMessageStatus('wamid.out.1', 'sent', undefined, adminDb) // ignored (backwards)
+      const [m] = await adminDb
+        .select()
+        .from(whatsappMessages)
+        .where(eq(whatsappMessages.waMessageId, 'wamid.out.1'))
+      assert.equal(m.status, 'delivered')
     })
   })
 })
