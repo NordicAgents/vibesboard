@@ -3,8 +3,11 @@ import {
   requireTenantMember,
   requireTenantAdmin
 } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import {
+  getTenantGooglePlaceId,
+  setTenantGooglePlaceId,
+  getTenantIsPersonal
+} from '@vibesboard/tenants'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 
 export const runtime = 'nodejs'
@@ -25,17 +28,14 @@ export async function GET(req: Request, { params }: RouteParams) {
   const auth = await requireTenantMember(tenantId)
   if (!auth.ok) return auth.response
 
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
-
-  if (!tenantDoc.exists) {
+  // getTenantIsPersonal returns null when the tenant row is missing.
+  const isPersonal = await getTenantIsPersonal(tenantId)
+  if (isPersonal === null) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const data = tenantDoc.data()!
-  return NextResponse.json({ googlePlaceId: data.googlePlaceId ?? null })
+  const googlePlaceId = await getTenantGooglePlaceId(tenantId)
+  return NextResponse.json({ googlePlaceId })
 }
 
 /**
@@ -53,18 +53,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const body = await req.json()
   const { googlePlaceId } = body
 
-  // Block for personal workspaces
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
-
-  if (!tenantDoc.exists) {
+  // Block for personal workspaces (and 404 when the tenant is missing).
+  const isPersonal = await getTenantIsPersonal(tenantId)
+  if (isPersonal === null) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
-
-  const tenantData = tenantDoc.data()!
-  if (tenantData.isPersonal) {
+  if (isPersonal) {
     return NextResponse.json(
       { error: 'Google Review is not configurable for personal workspaces' },
       { status: 403 }
@@ -93,13 +87,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     )
   }
 
-  await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .update({
-      googlePlaceId: googlePlaceId || null,
-      updatedAt: new Date().toISOString()
-    })
+  await setTenantGooglePlaceId(tenantId, googlePlaceId || null)
 
   return NextResponse.json({ googlePlaceId: googlePlaceId || null })
 }
