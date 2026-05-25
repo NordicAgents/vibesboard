@@ -35,6 +35,33 @@ interface ParsedBookingArgs {
  * when the input is invalid, or the parsed booking fields otherwise. Extracted
  * to keep the tool's `execute` body under the CCN budget.
  */
+/** Resolve the derived booking fields (duration, end time, title, description). */
+function deriveBookingFields(
+  args: Record<string, unknown>,
+  ctx: AppointmentsToolContext,
+  startTime: string,
+  attendeeName: string,
+): { durationMinutes: number; endTime: string; title: string; description?: string } | null {
+  const validDuration =
+    typeof args.duration_minutes === 'number' && args.duration_minutes > 0
+  const durationMinutes = validDuration
+    ? (args.duration_minutes as number)
+    : ctx.config.defaultDurationMinutes
+
+  const startMs = new Date(startTime).getTime()
+  if (isNaN(startMs)) return null
+  const endTime = new Date(startMs + durationMinutes * 60 * 1000).toISOString()
+
+  const title = args.title
+    ? String(args.title)
+    : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
+  const description = args.description
+    ? String(args.description)
+    : (ctx.config.meetingDescription ?? undefined)
+
+  return { durationMinutes, endTime, title, description }
+}
+
 function parseBookingArgs(
   args: Record<string, unknown>,
   ctx: AppointmentsToolContext,
@@ -47,34 +74,12 @@ function parseBookingArgs(
     return 'Missing required fields: start_time, attendee_name, and attendee_email are all required.'
   }
 
-  const durationMinutes =
-    typeof args.duration_minutes === 'number' && args.duration_minutes > 0
-      ? args.duration_minutes
-      : ctx.config.defaultDurationMinutes
-
-  const startMs = new Date(startTime).getTime()
-  if (isNaN(startMs)) {
+  const derived = deriveBookingFields(args, ctx, startTime, attendeeName)
+  if (!derived) {
     return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
   }
-  const endTime = new Date(startMs + durationMinutes * 60 * 1000).toISOString()
 
-  const title = args.title
-    ? String(args.title)
-    : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
-
-  const description = args.description
-    ? String(args.description)
-    : (ctx.config.meetingDescription ?? undefined)
-
-  return {
-    startTime,
-    attendeeName,
-    attendeeEmail,
-    durationMinutes,
-    endTime,
-    title,
-    description,
-  }
+  return { startTime, attendeeName, attendeeEmail, ...derived }
 }
 
 function buildCheckAvailabilityTool(ctx: AppointmentsToolContext): RegisteredTool {
