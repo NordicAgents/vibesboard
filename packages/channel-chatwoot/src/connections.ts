@@ -3,20 +3,21 @@ import 'server-only'
 import { createHash, timingSafeEqual } from 'crypto'
 import { customAlphabet } from 'nanoid'
 import CryptoJS from 'crypto-js'
-import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { and, eq, desc, sql } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { chatwootConnections } from '@vibesboard/adapter-postgres/schema'
+import { rowToChatwootConnection } from './db.ts'
 import {
-  Collections,
   type ChatwootConnectionDocument,
-  type ChatwootConnectionStatus
+  type ChatwootConnectionStatus,
 } from '@vibesboard/contracts'
 
-// ─── ID / Secret generators ─────────────────────────────────────────
+type Db = PostgresJsDatabase<typeof schema>
 
-const genId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
+// ─── ID / Secret generators ─────────────────────────────────────────
 
 const genSecret = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
@@ -76,7 +77,7 @@ export interface CreatedChatwootConnection {
 }
 
 export function generateConnectionId(): string {
-  return genId()
+  return uuidv7()
 }
 
 export function generateWebhookSecret(): string {
@@ -88,39 +89,35 @@ export async function createChatwootConnection(
   agentId: string,
   params: CreateChatwootConnectionParams,
   userId: string,
-  connectionId?: string
+  connectionId?: string,
+  db: Db = getMigrateDb()
 ): Promise<CreatedChatwootConnection> {
-  const id = connectionId ?? genId()
-  const now = new Date().toISOString()
+  const id =
+    connectionId && /^[0-9a-f-]{36}$/i.test(connectionId) ? connectionId : uuidv7()
+  const [row] = await db
+    .insert(chatwootConnections)
+    .values({
+      id,
+      tenantId,
+      agentId,
+      userId,
+      chatwootUrl: params.chatwootUrl.replace(/\/+$/, ''),
+      chatwootAccountId: params.accountId,
+      chatwootInboxId: params.inboxId,
+      chatwootInboxName: params.inboxName,
+      apiTokenEncrypted: encryptToken(params.apiToken),
+      chatwootWebhookId: params.chatwootWebhookId ?? null,
+      agentBotId: params.agentBotId ?? null,
+      agentBotName: params.agentBotName ?? null,
+      botTokenEncrypted: params.botToken ? encryptToken(params.botToken) : null,
+      useAgentBot: params.useAgentBot ?? false,
+      webhookSecretHash: hashSecret(params.webhookSecret),
+      status: 'active',
+      totalConversations: 0,
+    })
+    .returning()
 
-  const doc: ChatwootConnectionDocument = {
-    id,
-    agentId,
-    tenantId,
-    userId,
-    chatwootUrl: params.chatwootUrl.replace(/\/+$/, ''),
-    chatwootAccountId: params.accountId,
-    chatwootInboxId: params.inboxId,
-    chatwootInboxName: params.inboxName,
-    encryptedApiToken: encryptToken(params.apiToken),
-    chatwootWebhookId: params.chatwootWebhookId ?? null,
-    agentBotId: params.agentBotId ?? null,
-    agentBotName: params.agentBotName ?? null,
-    encryptedBotToken: params.botToken ? encryptToken(params.botToken) : null,
-    useAgentBot: params.useAgentBot ?? false,
-    webhookSecretHash: hashSecret(params.webhookSecret),
-    status: 'active',
-    totalConversations: 0,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await adminDb
-    .collection(Collections.chatwootConnections(tenantId, agentId))
-    .doc(id)
-    .set(doc)
-
-  return { connection: doc, webhookSecret: params.webhookSecret }
+  return { connection: rowToChatwootConnection(row), webhookSecret: params.webhookSecret }
 }
 
 /**
@@ -128,96 +125,125 @@ export async function createChatwootConnection(
  * Used by the webhook handler which only has the connectionId.
  */
 export async function getChatwootConnectionById(
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<ChatwootConnectionDocument | null> {
-  const snap = await adminDb
-    .collectionGroup('chatwoot_connections')
-    .where('id', '==', connectionId)
-    .where('status', '==', 'active')
+  const [row] = await db
+    .select()
+    .from(chatwootConnections)
+    .where(
+      and(
+        eq(chatwootConnections.id, connectionId),
+        eq(chatwootConnections.status, 'active')
+      )
+    )
     .limit(1)
-    .get()
-
-  if (snap.empty) return null
-  return snap.docs[0].data() as ChatwootConnectionDocument
+  return row ? rowToChatwootConnection(row) : null
 }
 
 export async function getChatwootConnection(
   tenantId: string,
   agentId: string,
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<ChatwootConnectionDocument | null> {
-  const snap = await adminDb
-    .collection(Collections.chatwootConnections(tenantId, agentId))
-    .doc(connectionId)
-    .get()
-
-  if (!snap.exists) return null
-  return snap.data() as ChatwootConnectionDocument
+  const [row] = await db
+    .select()
+    .from(chatwootConnections)
+    .where(
+      and(
+        eq(chatwootConnections.tenantId, tenantId),
+        eq(chatwootConnections.agentId, agentId),
+        eq(chatwootConnections.id, connectionId)
+      )
+    )
+    .limit(1)
+  return row ? rowToChatwootConnection(row) : null
 }
 
 export async function listChatwootConnections(
   tenantId: string,
   agentId: string,
-  status?: ChatwootConnectionStatus
+  status?: ChatwootConnectionStatus,
+  db: Db = getMigrateDb()
 ): Promise<ChatwootConnectionDocument[]> {
-  let query: FirebaseFirestore.Query = adminDb
-    .collection(Collections.chatwootConnections(tenantId, agentId))
-    .orderBy('createdAt', 'desc')
-
-  if (status) {
-    query = query.where('status', '==', status)
-  }
-
-  const snap = await query.get()
-  return snap.docs.map(d => d.data() as ChatwootConnectionDocument)
+  const conds = [
+    eq(chatwootConnections.tenantId, tenantId),
+    eq(chatwootConnections.agentId, agentId),
+  ]
+  if (status) conds.push(eq(chatwootConnections.status, status))
+  const rows = await db
+    .select()
+    .from(chatwootConnections)
+    .where(and(...conds))
+    .orderBy(desc(chatwootConnections.createdAt))
+  return rows.map(rowToChatwootConnection)
 }
 
 export async function disconnectChatwootConnection(
   tenantId: string,
   agentId: string,
   connectionId: string,
-  reason?: string
+  reason?: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  await adminDb
-    .collection(Collections.chatwootConnections(tenantId, agentId))
-    .doc(connectionId)
-    .update({
+  const now = new Date()
+  await db
+    .update(chatwootConnections)
+    .set({
       status: 'disconnected',
-      disconnectedAt: new Date().toISOString(),
+      disconnectedAt: now,
       disconnectionReason: reason ?? null,
-      updatedAt: new Date().toISOString()
+      updatedAt: now,
     })
+    .where(
+      and(
+        eq(chatwootConnections.tenantId, tenantId),
+        eq(chatwootConnections.agentId, agentId),
+        eq(chatwootConnections.id, connectionId)
+      )
+    )
 }
 
 export async function deleteChatwootConnection(
   tenantId: string,
   agentId: string,
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  await adminDb
-    .collection(Collections.chatwootConnections(tenantId, agentId))
-    .doc(connectionId)
-    .delete()
+  await db
+    .delete(chatwootConnections)
+    .where(
+      and(
+        eq(chatwootConnections.tenantId, tenantId),
+        eq(chatwootConnections.agentId, agentId),
+        eq(chatwootConnections.id, connectionId)
+      )
+    )
 }
 
 /**
  * Increment totalConversations and update lastMessageReceivedAt.
  * Fire-and-forget — do not await in the hot path.
  */
-export function updateConnectionStats(
+export async function updateConnectionStats(
   tenantId: string,
   agentId: string,
-  connectionId: string
-): void {
-  adminDb
-    .collection(Collections.chatwootConnections(tenantId, agentId))
-    .doc(connectionId)
-    .update({
-      totalConversations: FieldValue.increment(1),
-      lastMessageReceivedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  connectionId: string,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .update(chatwootConnections)
+    .set({
+      totalConversations: sql`${chatwootConnections.totalConversations} + 1`,
+      lastMessageReceivedAt: new Date(),
+      updatedAt: new Date(),
     })
-    .catch((err: unknown) =>
-      console.error('[chatwoot] Failed to update connection stats:', err)
+    .where(
+      and(
+        eq(chatwootConnections.tenantId, tenantId),
+        eq(chatwootConnections.agentId, agentId),
+        eq(chatwootConnections.id, connectionId)
+      )
     )
 }
