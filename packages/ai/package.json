@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.72",
-    "@vibesboard/adapter-firebase": "workspace:*",
     "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/adapter-s3": "workspace:*",

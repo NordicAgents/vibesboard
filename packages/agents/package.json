@@ -14,7 +14,6 @@
     "test": "node --experimental-strip-types --conditions react-server --test --experimental-test-isolation=none 'src/**/*.test.ts'"
   },
   "dependencies": {
-    "@vibesboard/adapter-firebase": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/ai": "workspace:*",

@@ -429,9 +429,6 @@ importers:
 
   packages/agents:
     dependencies:
-      '@vibesboard/adapter-firebase':
-        specifier: workspace:*
-        version: link:../adapter-firebase
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../adapter-openai
@@ -484,9 +481,6 @@ importers:
       '@ai-sdk/openai':
         specifier: ^0.0.72
         version: 0.0.72(zod@3.25.76)
-      '@vibesboard/adapter-firebase':
-        specifier: workspace:*
-        version: link:../adapter-firebase
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../adapter-openai
@@ -792,9 +786,6 @@ importers:
 
   packages/policy:
     dependencies:
-      '@vibesboard/adapter-firebase':
-        specifier: workspace:*
-        version: link:../adapter-firebase
       '@vibesboard/adapter-postgres':
         specifier: workspace:*
         version: link:../adapter-postgres
@@ -826,9 +817,6 @@ importers:
 
   packages/retrieval:
     dependencies:
-      '@vibesboard/adapter-firebase':
-        specifier: workspace:*
-        version: link:../adapter-firebase
       '@vibesboard/adapter-openai':
         specifier: workspace:*
         version: link:../adapter-openai
