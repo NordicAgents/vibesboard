@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { type Message } from '@vibesboard/contracts'
-import { FieldValue } from 'firebase-admin/firestore'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
 import { publicAgentChatRequestSchema } from '@vibesboard/agents/schema'
 import {
@@ -27,12 +25,43 @@ import {
   mapCompletionToEvent
 } from '@vibesboard/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@vibesboard/ai/handoff'
-import { Collections } from '@vibesboard/contracts'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import {
+  incrementAgentResponseCount,
+  reserveAgentResponseSlot
+} from '@vibesboard/agents/limits'
 import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+/**
+ * Bump the active agent's lifetime response counter (fire-and-forget).
+ * Near the cap, reserve a slot atomically (conditional UPDATE) to avoid
+ * serving over the limit under concurrency; otherwise a plain atomic increment.
+ */
+function bumpActiveAgentResponseCount(activeAgent: {
+  id: string
+  tenantId?: string | null
+  totalResponseCount?: number | null
+  maxAgentResponses?: number | null
+}): void {
+  const tenantId = activeAgent.tenantId!
+  const onError = (e: unknown) =>
+    console.error('[chat] Failed to increment response count:', e)
+  const nearCap =
+    activeAgent.maxAgentResponses &&
+    (activeAgent.totalResponseCount ?? 0) + 5 >= activeAgent.maxAgentResponses
+  if (nearCap) {
+    reserveAgentResponseSlot(
+      tenantId,
+      activeAgent.id,
+      activeAgent.maxAgentResponses!
+    ).catch(onError)
+  } else {
+    incrementAgentResponseCount(tenantId, activeAgent.id).catch(onError)
+  }
+}
 
 export async function POST(
   req: NextRequest,
@@ -279,38 +308,8 @@ export async function POST(
           }
         }
 
-        // Increment active agent's lifetime response counter
-        if (
-          activeAgent.maxAgentResponses &&
-          (activeAgent.totalResponseCount ?? 0) + 5 >=
-            activeAgent.maxAgentResponses
-        ) {
-          const agentRef = adminDb
-            .collection(Collections.agents(activeAgent.tenantId!))
-            .doc(activeAgent.id)
-          adminDb
-            .runTransaction(async (tx: any) => {
-              const snap = await tx.get(agentRef)
-              const current =
-                (snap.data() as Record<string, any> | undefined)
-                  ?.totalResponseCount ?? 0
-              tx.update(agentRef, { totalResponseCount: current + 1 })
-            })
-            .catch((e: unknown) =>
-              console.error(
-                '[chat] Failed to increment response count (tx):',
-                e
-              )
-            )
-        } else {
-          adminDb
-            .collection(Collections.agents(activeAgent.tenantId!))
-            .doc(activeAgent.id)
-            .update({ totalResponseCount: FieldValue.increment(1) })
-            .catch((e: unknown) =>
-              console.error('[chat] Failed to increment response count:', e)
-            )
-        }
+        // Increment active agent's lifetime response counter (fire-and-forget).
+        bumpActiveAgentResponseCount(activeAgent)
 
         // Record usage for metering (fire-and-forget)
         recordUsage({
