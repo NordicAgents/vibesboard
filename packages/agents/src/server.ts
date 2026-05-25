@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
@@ -6,8 +6,6 @@ import {
   agents as agentsTable,
   tenants as tenantsTable,
 } from '@vibesboard/adapter-postgres/schema'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { agentRowToVibeAgent } from './db.ts'
 import { type VibeAgent } from '@vibesboard/contracts'
 
@@ -94,30 +92,44 @@ export async function getAgentsForTenant(
  * Called when a connection is deleted so agents don't silently hold a dead
  * reference — the owner sees the toggle is off and knows to reconnect.
  */
+/**
+ * Flip a single jsonb config column's `enabled` flag to false for agents in a
+ * tenant whose config references the given connection. Uses `jsonb_set` so the
+ * rest of the config object is preserved.
+ */
+async function disableConfigField(
+  db: Db,
+  tenantId: string,
+  connectionId: string,
+  column:
+    | typeof agentsTable.calendarAvailabilityConfig
+    | typeof agentsTable.schedulingConfig,
+): Promise<void> {
+  await db
+    .update(agentsTable)
+    .set({
+      ...(column === agentsTable.calendarAvailabilityConfig
+        ? {
+            calendarAvailabilityConfig: sql`jsonb_set(${agentsTable.calendarAvailabilityConfig}, '{enabled}', 'false'::jsonb)`,
+          }
+        : {
+            schedulingConfig: sql`jsonb_set(${agentsTable.schedulingConfig}, '{enabled}', 'false'::jsonb)`,
+          }),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(agentsTable.tenantId, tenantId),
+        sql`${column} ->> 'calendarConnectionId' = ${connectionId}`,
+      ),
+    )
+}
+
 export async function disableAgentsForConnection(
   tenantId: string,
   connectionId: string,
+  db: Db = getMigrateDb(),
 ): Promise<void> {
-  const agentsRef = adminDb.collection(Collections.agents(tenantId))
-
-  // Query both config types in parallel — Firestore supports dot-notation on nested fields
-  const [availSnap, schedSnap] = await Promise.all([
-    agentsRef
-      .where('calendarAvailabilityConfig.calendarConnectionId', '==', connectionId)
-      .get(),
-    agentsRef.where('schedulingConfig.calendarConnectionId', '==', connectionId).get(),
-  ])
-
-  if (availSnap.size + schedSnap.size === 0) return
-
-  const batch = adminDb.batch()
-
-  for (const doc of availSnap.docs) {
-    batch.update(doc.ref, { 'calendarAvailabilityConfig.enabled': false })
-  }
-  for (const doc of schedSnap.docs) {
-    batch.update(doc.ref, { 'schedulingConfig.enabled': false })
-  }
-
-  await batch.commit()
+  await disableConfigField(db, tenantId, connectionId, agentsTable.calendarAvailabilityConfig)
+  await disableConfigField(db, tenantId, connectionId, agentsTable.schedulingConfig)
 }
