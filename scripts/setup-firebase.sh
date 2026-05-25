@@ -113,10 +113,10 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
   --quiet >/dev/null
 echo "Cloud Run SA configured."
 
-# --- 6. Deploy Firestore indexes and rules ---
-echo "Deploying Firestore rules and indexes..."
-firebase deploy --only firestore:rules,firestore:indexes --project="${PROJECT_ID}"
-echo "Firestore rules and indexes deployed."
+# --- 6. Deploy Firebase Storage rules (Firestore removed in Phase 7d) ---
+echo "Deploying Firebase Storage rules..."
+firebase deploy --only storage --project="${PROJECT_ID}"
+echo "Firebase Storage rules deployed."
 
 # --- Done ---
 echo ""
