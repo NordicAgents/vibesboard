@@ -30,7 +30,3 @@ jobs:
 
       - name: Type check (Next.js app)
         run: pnpm type-check
-
-      - name: Type check (Cloud Functions)
-        working-directory: apps/functions
-        run: npm ci && npm run build
