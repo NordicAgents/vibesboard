@@ -3,8 +3,8 @@ import 'server-only'
 import { nanoid } from 'nanoid'
 import type { Message } from '@vibesboard/contracts'
 import type { VibeAgent } from '@vibesboard/contracts'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import * as wa from '@vibesboard/channel-whatsapp/conversations'
+import * as ig from '@vibesboard/channel-instagram/conversations'
 import { runAgentStream } from '@vibesboard/ai/runtime'
 import {
   detectCompletionMarker,
@@ -92,6 +92,13 @@ async function handleInboxAgentMessage(
   console.log(
     `[inbox-agent] Processing ${channel} message for agent ${agent.name} (contact ${contactId})`
   )
+
+  // Resolve the channel conversation row id once (used for handoff + link write-backs).
+  const channelConvo =
+    channel === 'whatsapp'
+      ? await wa.getConversation(tenantId, accountId, contactId)
+      : await ig.getConversation(tenantId, accountId, contactId)
+  const channelConvoId = channelConvo?.id ?? null
 
   try {
     // 1. Check if already handed off
@@ -216,16 +223,12 @@ async function handleInboxAgentMessage(
       try {
         await markConversationHandedOff(tenantId, agent.id, conversation.id)
 
-        // Update inbox conversation doc to reflect handoff
-        const convoPath =
-          channel === 'whatsapp'
-            ? Collections.whatsappInboxConversations(tenantId, accountId)
-            : Collections.instagramInboxConversations(tenantId, accountId)
-
-        await adminDb.collection(convoPath).doc(contactId).update({
-          agentHandedOff: true,
-          updatedAt: new Date().toISOString()
-        })
+        // Reflect handoff on the channel conversation row
+        if (channelConvoId) {
+          if (channel === 'whatsapp')
+            await wa.setConversationHandoff(tenantId, channelConvoId, true)
+          else await ig.setConversationHandoff(tenantId, channelConvoId, true)
+        }
 
         console.log(
           `[inbox-agent] Handed off ${channel} conversation ${contactId} to human`
@@ -239,17 +242,20 @@ async function handleInboxAgentMessage(
     }
 
     // 10. Link agent conversation to inbox conversation (first time only)
-    if (conversation.messages.length <= 1) {
+    if (conversation.messages.length <= 1 && channelConvoId) {
       try {
-        const convoPath =
-          channel === 'whatsapp'
-            ? Collections.whatsappInboxConversations(tenantId, accountId)
-            : Collections.instagramInboxConversations(tenantId, accountId)
-
-        await adminDb.collection(convoPath).doc(contactId).update({
-          agentConversationId: conversation.id,
-          updatedAt: new Date().toISOString()
-        })
+        if (channel === 'whatsapp')
+          await wa.linkAgentConversation(
+            tenantId,
+            channelConvoId,
+            conversation.id
+          )
+        else
+          await ig.linkAgentConversation(
+            tenantId,
+            channelConvoId,
+            conversation.id
+          )
       } catch {
         // Non-critical — don't fail the message handling
       }

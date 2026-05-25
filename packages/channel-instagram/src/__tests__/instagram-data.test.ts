@@ -31,7 +31,10 @@ import {
   assignConversation,
   markAsRead,
   updateConversationAgentSettings,
+  setConversationHandoff,
+  linkAgentConversation,
 } from '../conversations.ts'
+import { agents, conversations } from '@vibesboard/adapter-postgres/schema'
 import {
   listMessages,
   updateMessageStatus,
@@ -316,6 +319,41 @@ describe('instagram messages (pg)', () => {
         .from(instagramMessages)
         .where(eq(instagramMessages.igMessageId, 'mid.out.1'))
       assert.equal(m.status, 'delivered')
+    })
+  })
+})
+
+describe('instagram handoff + link (pg)', () => {
+  test('setConversationHandoff + linkAgentConversation by id', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, accountId } = await seedAccount(adminDb)
+      const convo = await getOrCreateConversation(
+        tenantId,
+        accountId,
+        '178414',
+        'Bob',
+        'bob',
+        adminDb,
+      )
+      // Seed a real agent + core conversation so agent_conversation_id FK resolves.
+      const agentId = randomUUID()
+      const acid = randomUUID()
+      await adminDb
+        .insert(agents)
+        .values({ id: agentId, tenantId, name: 'A', slug: `a-${agentId.slice(0, 8)}` })
+      await adminDb
+        .insert(conversations)
+        .values({ id: acid, tenantId, agentId })
+
+      await setConversationHandoff(tenantId, convo.id, true, adminDb)
+      await linkAgentConversation(tenantId, convo.id, acid, adminDb)
+
+      const [row] = await adminDb
+        .select()
+        .from(igConvTbl)
+        .where(eq(igConvTbl.id, convo.id))
+      assert.equal(row.agentHandedOff, true)
+      assert.equal(row.agentConversationId, acid)
     })
   })
 })
