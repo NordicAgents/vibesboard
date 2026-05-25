@@ -7,6 +7,7 @@ import {
   jsonb,
   timestamp,
   index,
+  unique,
 } from 'drizzle-orm/pg-core'
 import { tenants } from './tenants.ts'
 import { agents } from './agents.ts'
@@ -98,6 +99,10 @@ export const whatsappConversations = pgTable(
       t.contactPhone,
     ),
     byAgent: index('whatsapp_conversations_agent_idx').on(t.assignedAgentId),
+    uniqAccountContact: unique('whatsapp_conversations_account_contact_uniq').on(
+      t.accountId,
+      t.contactPhone,
+    ),
   }),
 )
 
@@ -214,6 +219,10 @@ export const instagramConversations = pgTable(
   },
   (t) => ({
     byAccountContact: index('instagram_conversations_account_contact_idx').on(
+      t.accountId,
+      t.contactIgsid,
+    ),
+    uniqAccountContact: unique('instagram_conversations_account_contact_uniq').on(
       t.accountId,
       t.contactIgsid,
     ),

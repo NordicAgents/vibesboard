@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/auth/route-handler'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import {
   getConversation,
   updateConversationStatus,
   assignConversation,
-  markAsRead
+  markAsRead,
+  updateConversationAgentSettings
 } from '@vibesboard/channel-whatsapp/conversations'
+import { resumeConversation } from '@vibesboard/agents/conversations'
 import type { InboxConversationStatus } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
@@ -53,6 +53,60 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       { error: error.message || 'Failed to get conversation' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Apply agent-related conversation updates (assignment, pause, handoff).
+ * Extracted from PATCH to keep that handler's complexity manageable.
+ */
+async function applyAgentConversationUpdates(
+  tenantId: string,
+  accountId: string,
+  contactPhone: string,
+  body: {
+    assignedAgentId?: string | null
+    agentPaused?: boolean
+    agentHandedOff?: boolean
+  }
+): Promise<void> {
+  const agentUpdates: {
+    assignedAgentId?: string | null
+    agentPaused?: boolean
+    agentHandedOff?: boolean
+  } = {}
+
+  if (body.assignedAgentId !== undefined) {
+    agentUpdates.assignedAgentId = body.assignedAgentId || null
+  }
+  if (body.agentPaused !== undefined) {
+    agentUpdates.agentPaused = body.agentPaused
+  }
+  if (body.agentHandedOff !== undefined) {
+    agentUpdates.agentHandedOff = body.agentHandedOff
+  }
+
+  if (Object.keys(agentUpdates).length === 0) return
+
+  await updateConversationAgentSettings(
+    tenantId,
+    accountId,
+    contactPhone,
+    agentUpdates
+  )
+
+  // When re-engaging the agent, reset the linked core conversation flag.
+  if (body.agentHandedOff === false) {
+    const convo = await getConversation(tenantId, accountId, contactPhone)
+    const effectiveAgentId = convo?.assignedAgentId || null
+    if (convo?.agentConversationId && effectiveAgentId) {
+      // The agent-side conversation lives in the core (Postgres) table.
+      await resumeConversation(
+        tenantId,
+        effectiveAgentId,
+        convo.agentConversationId
+      ).catch(() => {}) // Non-critical
+    }
   }
 }
 
@@ -109,59 +163,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       await markAsRead(tenantId, accountId, contactPhone)
     }
 
-    // Agent assignment fields
-    const agentUpdates: Record<string, any> = {}
-
-    if (body.assignedAgentId !== undefined) {
-      agentUpdates.assignedAgentId = body.assignedAgentId || null
-    }
-
-    if (body.agentPaused !== undefined) {
-      agentUpdates.agentPaused = body.agentPaused
-    }
-
-    if (body.agentHandedOff !== undefined) {
-      agentUpdates.agentHandedOff = body.agentHandedOff
-      // When re-engaging agent, also reset the agent conversation handoff flag
-      if (body.agentHandedOff === false) {
-        const convo = await getConversation(tenantId, accountId, contactPhone)
-        if (convo?.agentConversationId) {
-          // Find the agent to get the correct collection path
-          // The agentConversationId links to agents/{agentId}/conversations/{conversationId}
-          // We need the agentId — resolve from account or conversation
-          const effectiveAgentId = convo.assignedAgentId || null
-          if (effectiveAgentId) {
-            const agentConvoPath = Collections.conversations(
-              tenantId,
-              effectiveAgentId
-            )
-            await adminDb
-              .collection(agentConvoPath)
-              .doc(convo.agentConversationId)
-              .update({
-                handedOff: false,
-                updatedAt: new Date().toISOString()
-              })
-              .catch(() => {}) // Non-critical
-          }
-        }
-      }
-    }
-
-    if (Object.keys(agentUpdates).length > 0) {
-      const phoneNormalized = contactPhone.replace(/\D/g, '')
-      const convoPath = Collections.whatsappInboxConversations(
-        tenantId,
-        accountId
-      )
-      await adminDb
-        .collection(convoPath)
-        .doc(phoneNormalized)
-        .update({
-          ...agentUpdates,
-          updatedAt: new Date().toISOString()
-        })
-    }
+    await applyAgentConversationUpdates(tenantId, accountId, contactPhone, body)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

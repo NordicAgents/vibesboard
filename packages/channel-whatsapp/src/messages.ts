@@ -1,33 +1,154 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { FieldValue } from 'firebase-admin/firestore'
+import { and, eq, asc, lt, sql } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import {
-  Collections,
-  type WhatsAppInboxMessageDocument,
-  type InboxMessageStatus
-} from '@vibesboard/contracts'
-import { getOrCreateConversation } from './conversations.ts'
+  whatsappMessages,
+  whatsappConversations,
+} from '@vibesboard/adapter-postgres/schema'
+import {
+  getOrCreateConversation,
+  getConversation,
+  isWithinMessageWindow,
+} from './conversations.ts'
 import { getAccountWithToken } from './accounts.ts'
+import { rowToWhatsappMessage } from './db.ts'
+import type {
+  WhatsAppInboxMessageDocument,
+  InboxMessageStatus,
+} from '@vibesboard/contracts'
 import type { StoreInboundParams, SendReplyParams } from './types.ts'
 
+type Db = PostgresJsDatabase<typeof schema>
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0'
+const WINDOW_MS = 24 * 60 * 60 * 1000
+const statusOrder: Record<string, number> = {
+  received: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+  failed: 4,
+}
+
+interface PersistInboundArgs {
+  tenantId: string
+  accountId: string
+  conversationId: string
+  contactPhone: string
+  phoneNumberId: string
+  waMessageId: string
+  type: WhatsAppInboxMessageDocument['type']
+  text?: string
+  mediaUrl?: string
+  caption?: string
+  timestampOriginal: Date
+  contactName?: string
+}
 
 /**
- * Store an inbound message from the webhook.
- * Also updates the conversation's lastMessage, unreadCount, and windowExpiresAt.
+ * Persist an inbound message + bump the conversation metadata (unread, window).
+ */
+export async function persistInboundMessage(
+  a: PersistInboundArgs,
+  db: Db = getMigrateDb()
+): Promise<WhatsAppInboxMessageDocument> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(whatsappMessages)
+      .values({
+        id: uuidv7(),
+        tenantId: a.tenantId,
+        conversationId: a.conversationId,
+        waMessageId: a.waMessageId,
+        fromAddr: a.contactPhone,
+        toAddr: a.phoneNumberId,
+        type: a.type,
+        text: a.text ?? null,
+        mediaUrl: a.mediaUrl ?? null,
+        caption: a.caption ?? null,
+        direction: 'inbound',
+        status: 'received',
+        timestampOriginal: a.timestampOriginal,
+      })
+      .returning()
+    await tx
+      .update(whatsappConversations)
+      .set({
+        lastMessageAt: a.timestampOriginal,
+        lastMessagePreview: (a.text ?? '').slice(0, 100),
+        unreadCount: sql`${whatsappConversations.unreadCount} + 1`,
+        ...(a.contactName ? { contactProfileName: a.contactName } : {}),
+        windowExpiresAt: new Date(Date.now() + WINDOW_MS),
+        status: 'open',
+        updatedAt: new Date(),
+      })
+      .where(eq(whatsappConversations.id, a.conversationId))
+    return rowToWhatsappMessage(row)
+  })
+}
+
+interface PersistOutboundArgs {
+  tenantId: string
+  accountId: string
+  conversationId: string
+  contactPhone: string
+  waMessageId: string
+  from: string
+  text: string
+  timestampOriginal: Date
+  sentBy?: string
+  sentByAgentName?: string
+}
+
+/**
+ * Persist an outbound message + update the conversation preview.
+ */
+export async function persistOutboundMessage(
+  a: PersistOutboundArgs,
+  db: Db = getMigrateDb()
+): Promise<WhatsAppInboxMessageDocument> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(whatsappMessages)
+      .values({
+        id: uuidv7(),
+        tenantId: a.tenantId,
+        conversationId: a.conversationId,
+        waMessageId: a.waMessageId,
+        fromAddr: a.from,
+        toAddr: a.contactPhone,
+        type: 'text',
+        text: a.text,
+        direction: 'outbound',
+        status: 'sent',
+        timestampOriginal: a.timestampOriginal,
+        sentBy: a.sentBy ?? null,
+        sentByAgentName: a.sentByAgentName ?? null,
+      })
+      .returning()
+    await tx
+      .update(whatsappConversations)
+      .set({
+        lastMessageAt: a.timestampOriginal,
+        lastMessagePreview: a.text.slice(0, 100),
+        updatedAt: new Date(),
+      })
+      .where(eq(whatsappConversations.id, a.conversationId))
+    return rowToWhatsappMessage(row)
+  })
+}
+
+/**
+ * Store an inbound message from the webhook (ensures conversation, persists).
  */
 export async function storeInboundMessage(
-  params: StoreInboundParams
+  params: StoreInboundParams,
+  db: Db = getMigrateDb()
 ): Promise<WhatsAppInboxMessageDocument> {
   const { tenantId, accountId, message, contact } = params
-  const contactPhone = message.from
   const contactName = contact?.profile?.name
 
-  // Ensure conversation exists
-  await getOrCreateConversation(tenantId, accountId, contactPhone, contactName)
-
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
-
-  // Determine text preview
   let text: string | undefined
   let mediaUrl: string | undefined
   let caption: string | undefined
@@ -65,106 +186,77 @@ export async function storeInboundMessage(
       text = `[${message.type}]`
   }
 
-  // Store message
-  const messagesPath = Collections.whatsappInboxMessages(
+  const convo = await getOrCreateConversation(
     tenantId,
     accountId,
-    phoneNormalized
+    message.from,
+    contactName,
+    db
   )
-  const docRef = adminDb.collection(messagesPath).doc()
-  const now = new Date().toISOString()
-  const messageTimestamp = message.timestamp
-    ? new Date(parseInt(message.timestamp) * 1000).toISOString()
-    : now
 
-  const msgDoc: WhatsAppInboxMessageDocument = {
-    id: docRef.id,
-    waMessageId: message.id,
-    from: contactPhone,
-    to: params.phoneNumberId,
-    type: message.type as WhatsAppInboxMessageDocument['type'],
-    text,
-    mediaUrl,
-    caption,
-    direction: 'inbound',
-    status: 'received',
-    timestamp: messageTimestamp,
-    createdAt: now
-  }
-
-  // Update conversation metadata in a batch
-  const convoPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const convoRef = adminDb.collection(convoPath).doc(phoneNormalized)
-
-  const batch = adminDb.batch()
-  batch.set(docRef, msgDoc)
-  batch.update(convoRef, {
-    lastMessageAt: messageTimestamp,
-    lastMessagePreview: (text || '').slice(0, 100),
-    unreadCount: FieldValue.increment(1),
-    contactProfileName: contactName || FieldValue.delete(),
-    // Reset 24h window on each inbound message
-    windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    status: 'open',
-    updatedAt: now
-  })
-
-  await batch.commit()
-
-  return msgDoc
+  return persistInboundMessage(
+    {
+      tenantId,
+      accountId,
+      conversationId: convo.id,
+      contactPhone: convo.contactPhone,
+      phoneNumberId: params.phoneNumberId,
+      waMessageId: message.id,
+      type: message.type as WhatsAppInboxMessageDocument['type'],
+      text,
+      mediaUrl,
+      caption,
+      timestampOriginal: message.timestamp
+        ? new Date(parseInt(message.timestamp) * 1000)
+        : new Date(),
+      contactName,
+    },
+    db
+  )
 }
 
 /**
- * Send a text reply to a conversation.
- * Validates the 24h window and sends via Meta Graph API.
+ * Send a text reply to a conversation (validates 24h window, sends via Meta).
  */
 export async function sendReply(
-  params: SendReplyParams
+  params: SendReplyParams,
+  db: Db = getMigrateDb()
 ): Promise<WhatsAppInboxMessageDocument> {
   const { tenantId, accountId, contactPhone, text, userId, sentByAgentName } =
     params
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
+  const phone = contactPhone.replace(/\D/g, '')
 
-  // Check conversation exists and window is open
-  const convoPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const convoSnap = await adminDb
-    .collection(convoPath)
-    .doc(phoneNormalized)
-    .get()
-
-  if (!convoSnap.exists) {
+  const convo = await getConversation(tenantId, accountId, phone, db)
+  if (!convo) {
     throw new Error('Conversation not found')
   }
-
-  const convo = convoSnap.data()!
-  if (convo.windowExpiresAt && new Date(convo.windowExpiresAt) <= new Date()) {
+  if (!isWithinMessageWindow(convo)) {
     throw new Error(
       'The 24-hour messaging window has expired. ' +
         "You can only reply within 24 hours of the customer's last message."
     )
   }
 
-  // Get decrypted access token
   const { account, accessToken } = await getAccountWithToken(
     tenantId,
-    accountId
+    accountId,
+    db
   )
 
-  // Send via Meta Graph API
   const response = await fetch(
     `${META_GRAPH_API}/${account.phoneNumberId}/messages`,
     {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: phoneNormalized,
+        to: phone,
         type: 'text',
-        text: { body: text }
-      })
+        text: { body: text },
+      }),
     }
   )
 
@@ -178,111 +270,77 @@ export async function sendReply(
   const result = await response.json()
   const waMessageId = result.messages?.[0]?.id || ''
 
-  // Store outbound message
-  const messagesPath = Collections.whatsappInboxMessages(
-    tenantId,
-    accountId,
-    phoneNormalized
+  return persistOutboundMessage(
+    {
+      tenantId,
+      accountId,
+      conversationId: convo.id,
+      contactPhone: phone,
+      waMessageId,
+      from: account.displayPhoneNumber,
+      text,
+      timestampOriginal: new Date(),
+      sentBy: userId,
+      sentByAgentName,
+    },
+    db
   )
-  const docRef = adminDb.collection(messagesPath).doc()
-  const now = new Date().toISOString()
-
-  const msgDoc: WhatsAppInboxMessageDocument = {
-    id: docRef.id,
-    waMessageId,
-    from: account.displayPhoneNumber,
-    to: phoneNormalized,
-    type: 'text',
-    text,
-    direction: 'outbound',
-    status: 'sent',
-    timestamp: now,
-    sentBy: userId,
-    ...(sentByAgentName ? { sentByAgentName } : {}),
-    createdAt: now
-  }
-
-  // Update conversation
-  const convoRef = adminDb.collection(convoPath).doc(phoneNormalized)
-  const batch = adminDb.batch()
-  batch.set(docRef, msgDoc)
-  batch.update(convoRef, {
-    lastMessageAt: now,
-    lastMessagePreview: text.slice(0, 100),
-    updatedAt: now
-  })
-
-  await batch.commit()
-
-  return msgDoc
 }
 
 /**
- * List messages for a conversation, paginated.
+ * List messages for a conversation, paginated (chronological asc).
  */
 export async function listMessages(
   tenantId: string,
   accountId: string,
   contactPhone: string,
   limit = 50,
-  before?: string
+  before?: string,
+  db: Db = getMigrateDb()
 ): Promise<WhatsAppInboxMessageDocument[]> {
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
-  const messagesPath = Collections.whatsappInboxMessages(
-    tenantId,
-    accountId,
-    phoneNormalized
-  )
-
-  let query = adminDb.collection(messagesPath).orderBy('timestamp', 'asc')
-
-  if (before) {
-    query = query.where('timestamp', '<', before)
-  }
-
-  const snap = await query.limit(limit).get()
-  return snap.docs.map((d: any) => d.data() as WhatsAppInboxMessageDocument)
+  const convo = await getConversation(tenantId, accountId, contactPhone, db)
+  if (!convo) return []
+  const conds = [eq(whatsappMessages.conversationId, convo.id)]
+  if (before)
+    conds.push(lt(whatsappMessages.timestampOriginal, new Date(before)))
+  const rows = await db
+    .select()
+    .from(whatsappMessages)
+    .where(and(...conds))
+    .orderBy(asc(whatsappMessages.timestampOriginal))
+    .limit(limit)
+  return rows.map(rowToWhatsappMessage)
 }
 
 /**
- * Update message delivery status from webhook.
- * Uses collectionGroup query to find the message across all tenants.
+ * Update message delivery status from webhook (monotonic, outbound only).
  */
 export async function updateMessageStatus(
   waMessageId: string,
   status: InboxMessageStatus,
-  timestamp?: string
+  _timestamp?: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const snap = await adminDb
-    .collectionGroup('messages')
-    .where('waMessageId', '==', waMessageId)
-    .where('direction', '==', 'outbound')
+  const [row] = await db
+    .select({ id: whatsappMessages.id, status: whatsappMessages.status })
+    .from(whatsappMessages)
+    .where(
+      and(
+        eq(whatsappMessages.waMessageId, waMessageId),
+        eq(whatsappMessages.direction, 'outbound')
+      )
+    )
     .limit(1)
-    .get()
-
-  if (snap.empty) return
-
-  const doc = snap.docs[0]!
-  const currentStatus = doc.data().status
-
-  // Only update if the new status is "more advanced" in the lifecycle
-  const statusOrder: Record<string, number> = {
-    sent: 1,
-    delivered: 2,
-    read: 3,
-    failed: 4
-  }
-
+  if (!row) return
   if (
-    statusOrder[status] &&
-    statusOrder[currentStatus] &&
-    statusOrder[status] <= statusOrder[currentStatus]
+    statusOrder[status] !== undefined &&
+    statusOrder[row.status] !== undefined &&
+    statusOrder[status] <= statusOrder[row.status]
   ) {
-    return // Don't go backwards
+    return
   }
-
-  await doc.ref.update({
-    status,
-    ...(timestamp ? { [`${status}At`]: timestamp } : {})
-  })
+  await db
+    .update(whatsappMessages)
+    .set({ status })
+    .where(eq(whatsappMessages.id, row.id))
 }
