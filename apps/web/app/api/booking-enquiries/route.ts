@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type BookingEnquiryDocument } from '@vibesboard/contracts'
 import { getActiveTenant } from '@/lib/tenant-context'
+import { getAgentForMember } from '@vibesboard/agents/server'
+import { listEnquiriesForAgent } from '@vibesboard/booking-enquiries'
 
 export const runtime = 'nodejs'
 
@@ -23,22 +23,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'agentId is required' }, { status: 400 })
 
   // Verify the agent belongs to this tenant to prevent cross-tenant data access
-  const agentDoc = await adminDb
-    .collection(Collections.agents(tenantId))
-    .doc(agentId)
-    .get()
-  if (!agentDoc.exists)
+  const agent = await getAgentForMember(tenantId, agentId)
+  if (!agent)
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
 
-  const snap = await adminDb
-    .collection(Collections.bookingEnquiries(tenantId, agentId))
-    .orderBy('createdAt', 'desc')
-    .limit(100)
-    .get()
-
-  const enquiries = snap.docs.map(
-    (d: any) => d.data() as BookingEnquiryDocument
-  )
+  const enquiries = await listEnquiriesForAgent(tenantId, agentId, 100)
 
   return NextResponse.json({ enquiries })
 }

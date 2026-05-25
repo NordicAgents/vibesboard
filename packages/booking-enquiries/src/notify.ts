@@ -1,6 +1,7 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { eq } from 'drizzle-orm'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { users as usersTable } from '@vibesboard/adapter-postgres/schema'
 import {
-  Collections,
   type BookingEnquiryDocument,
   type VibeAgent
 } from '@vibesboard/contracts'
@@ -25,11 +26,12 @@ export async function notifyAdminOfEnquiry(
     toAddress = notifConfig.email.address
   }
   if (!toAddress && agent.userId) {
-    const userDoc = await adminDb
-      .collection(Collections.users)
-      .doc(agent.userId)
-      .get()
-    toAddress = userDoc.data()?.email ?? null
+    const [u] = await getMigrateDb()
+      .select({ email: usersTable.email })
+      .from(usersTable)
+      .where(eq(usersTable.id, agent.userId))
+      .limit(1)
+    toAddress = u?.email ?? null
   }
   if (!toAddress) {
     console.warn(
