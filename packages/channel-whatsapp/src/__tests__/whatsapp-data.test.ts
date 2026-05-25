@@ -1,10 +1,35 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
+import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
+import { users, tenants } from '@vibesboard/adapter-postgres/schema'
 import {
   rowToWhatsappAccount,
   rowToWhatsappConversation,
   rowToWhatsappMessage,
 } from '../db.ts'
+import {
+  listInboxAccounts,
+  getInboxAccount,
+  disconnectInboxAccount,
+  findAccountByWabaId,
+  updateAccountAssignment,
+  createAccountRow,
+} from '../accounts.ts'
+
+async function seedTenant(adminDb: any) {
+  const u = randomUUID()
+  const t = randomUUID()
+  await adminDb.insert(users).values({ id: u, email: `o${u}@a.com`, name: 'O' })
+  await adminDb.insert(tenants).values({
+    id: t,
+    name: 'Acme',
+    slug: `acme-${t.slice(0, 8)}`,
+    createdBy: u,
+    isPersonal: false,
+  })
+  return { tenantId: t, userId: u }
+}
 
 describe('whatsapp mappers', () => {
   test('rowToWhatsappAccount maps row to legacy doc shape', () => {
@@ -91,5 +116,52 @@ describe('whatsapp mappers', () => {
     assert.equal(m.to, 'p1')
     assert.equal(m.timestamp, '2026-05-25T00:00:00.000Z')
     assert.equal(m.direction, 'inbound')
+  })
+})
+
+describe('whatsapp accounts (pg)', () => {
+  test('create / list / get / disconnect / findByWaba / assignment', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, userId } = await seedTenant(adminDb)
+      const created = await createAccountRow(
+        {
+          tenantId,
+          wabaId: 'waba-1',
+          phoneNumberId: 'pn-1',
+          displayPhoneNumber: '+1',
+          businessName: 'Biz',
+          accessTokenEncrypted: 'enc',
+          connectedBy: userId,
+          connectionMethod: 'api_key',
+          webhookSubscribed: true,
+          scopes: ['whatsapp_business_messaging'],
+        },
+        adminDb,
+      )
+      assert.ok(created.id)
+
+      const list = await listInboxAccounts(tenantId, adminDb)
+      assert.equal(list.length, 1)
+
+      const got = await getInboxAccount(tenantId, created.id, adminDb)
+      assert.equal(got?.wabaId, 'waba-1')
+
+      const found = await findAccountByWabaId('waba-1', adminDb)
+      assert.equal(found?.tenantId, tenantId)
+
+      await updateAccountAssignment(
+        tenantId,
+        created.id,
+        { assignedAgentId: null, agentAutoReply: true },
+        adminDb,
+      )
+      const after = await getInboxAccount(tenantId, created.id, adminDb)
+      assert.equal(after?.agentAutoReply, true)
+
+      await disconnectInboxAccount(tenantId, created.id, adminDb)
+      const disc = await getInboxAccount(tenantId, created.id, adminDb)
+      assert.equal(disc?.status, 'disconnected')
+      assert.equal(await findAccountByWabaId('waba-1', adminDb), null) // only active
+    })
   })
 })
