@@ -1,11 +1,5 @@
 import Link from 'next/link'
-import {
-  Building2,
-  Flag,
-  FileText,
-  Palette,
-  ArrowRight
-} from 'lucide-react'
+import { Building2, FileText, Palette, ArrowRight } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -28,13 +22,6 @@ const adminCards = [
     title: 'Branding',
     description: 'Set platform-wide default branding',
     detail: 'Configure base logo and colors inherited by all tenants'
-  },
-  {
-    href: '/admin/feature-flags',
-    icon: Flag,
-    title: 'Feature Flags',
-    description: 'Control feature rollouts and experiments',
-    detail: 'Enable or disable features globally'
   },
   {
     href: '/admin/files',

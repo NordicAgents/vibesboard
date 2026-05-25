@@ -6,7 +6,6 @@ import { isSuperAdmin } from '@vibesboard/policy/permissions'
 import { cn } from '@vibesboard/utils'
 import {
   Building2,
-  Flag,
   FileText,
   Palette,
   ShieldCheck,
@@ -17,7 +16,6 @@ import { AdminMobileSidebar, type NavItem } from './admin-mobile-sidebar'
 
 const iconMap: Record<string, LucideIcon> = {
   Building2,
-  Flag,
   FileText,
   Palette
 }
@@ -25,7 +23,6 @@ const iconMap: Record<string, LucideIcon> = {
 const navItems: NavItem[] = [
   { href: '/admin/tenants', iconName: 'Building2', label: 'Tenants' },
   { href: '/admin/branding', iconName: 'Palette', label: 'Branding' },
-  { href: '/admin/feature-flags', iconName: 'Flag', label: 'Feature Flags' },
   { href: '/admin/files', iconName: 'FileText', label: 'File Processing' }
 ]
 

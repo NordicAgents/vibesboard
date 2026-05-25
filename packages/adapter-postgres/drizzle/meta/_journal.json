@@ -64,6 +64,13 @@
       "when": 1779900000000,
       "tag": "0008_bookings_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780000000000,
+      "tag": "0009_meta_data_deletion_requests",
+      "breakpoints": true
     }
   ]
 }

@@ -304,6 +304,25 @@ export const chatwootConnections = pgTable(
   }),
 )
 
+// ─── Meta data deletion (GDPR/Facebook data-deletion callback) ──────────
+//
+// Global request log keyed by Meta's confirmation code — NOT tenant-scoped.
+// A Meta user's app-scoped id can span multiple tenants, so the deletion
+// cascade resolves accounts by meta_user_id across tenants. Written only via
+// the BYPASSRLS migrate client from the unauthenticated webhook hot path.
+export const metaDataDeletionRequests = pgTable('meta_data_deletion_requests', {
+  confirmationCode: text('confirmation_code').primaryKey(),
+  metaUserId: text('meta_user_id').notNull(),
+  status: text('status', { enum: ['pending', 'completed', 'failed'] })
+    .notNull()
+    .default('pending'),
+  deletedAccounts: integer('deleted_accounts').notNull().default(0),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+})
+
 export type WhatsappAccount = typeof whatsappAccounts.$inferSelect
 export type WhatsappConversation = typeof whatsappConversations.$inferSelect
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect
@@ -311,3 +330,4 @@ export type InstagramAccount = typeof instagramAccounts.$inferSelect
 export type InstagramConversation = typeof instagramConversations.$inferSelect
 export type InstagramMessage = typeof instagramMessages.$inferSelect
 export type ChatwootConnection = typeof chatwootConnections.$inferSelect
+export type MetaDataDeletionRequest = typeof metaDataDeletionRequests.$inferSelect

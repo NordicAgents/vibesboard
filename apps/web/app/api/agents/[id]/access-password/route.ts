@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
+import {
+  setAgentAccessPasswordHash,
+  clearAgentAccessPasswordHash
+} from '@vibesboard/agents/access-password'
 import { hashPassword, setPasswordSchema } from '@/lib/access-gate'
 
 export const runtime = 'nodejs'
@@ -39,9 +41,8 @@ export async function PUT(
   const agent = await getAgentById(id)
   if (!agent) return new NextResponse('Not found', { status: 404 })
 
-  // Agents must always be tenant-scoped to write to the right Firestore path.
-  // A null tenantId here would silently target tenants/undefined/agents/{id}
-  // and surface as an opaque "no document to update" 500.
+  // Agents must always be tenant-scoped so the update is correctly scoped to
+  // the owning tenant; a null tenantId would target the wrong row.
   if (!agent.tenantId) {
     console.error('access-password PUT: agent missing tenantId', {
       agentId: id,
@@ -72,10 +73,11 @@ export async function PUT(
   }
 
   try {
-    await adminDb
-      .collection(Collections.agents(agent.tenantId))
-      .doc(id)
-      .update({ accessPassword: hashPassword(parsed.data.password) })
+    await setAgentAccessPasswordHash(
+      agent.tenantId,
+      id,
+      hashPassword(parsed.data.password)
+    )
   } catch (err) {
     console.error('access-password PUT failed', {
       agentId: id,
@@ -123,10 +125,7 @@ export async function DELETE(
   if (!allowed) return new NextResponse('Forbidden', { status: 403 })
 
   try {
-    await adminDb
-      .collection(Collections.agents(agent.tenantId))
-      .doc(id)
-      .update({ accessPassword: null })
+    await clearAgentAccessPasswordHash(agent.tenantId, id)
   } catch (err) {
     console.error('access-password DELETE failed', {
       agentId: id,
