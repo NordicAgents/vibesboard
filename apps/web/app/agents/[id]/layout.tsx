@@ -2,9 +2,6 @@ import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import { mapConversationDoc } from '@vibesboard/agents/db'
 import { getAgentById } from '@vibesboard/agents/server'
 import { getQrDataUrl } from '@/lib/qr'
 import { AgentPageShell } from '@/components/agents/agent-page-shell'
@@ -29,21 +26,6 @@ export default async function AgentSectionLayout({
 
   if (!agent) {
     notFound()
-  }
-
-  // Fetch conversations for this agent
-  const tenantId = agent.tenantId
-  let conversations: ReturnType<typeof mapConversationDoc>[] = []
-
-  if (tenantId) {
-    const convoSnapshot = await adminDb
-      .collection(Collections.conversations(tenantId, agent.id))
-      .orderBy('updatedAt', 'desc')
-      .get()
-
-    conversations = convoSnapshot.docs.map((doc: any) =>
-      mapConversationDoc(doc.data())
-    )
   }
 
   const headersList = await headers()

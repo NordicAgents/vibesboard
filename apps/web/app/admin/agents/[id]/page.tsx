@@ -5,8 +5,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CopyButton } from '@/components/ui/copy-button'
 import { getAgentById } from '@vibesboard/agents/server'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type TenantDocument } from '@vibesboard/contracts'
+import { type TenantDocument } from '@vibesboard/contracts'
+import { getTenantById } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'
 
@@ -27,15 +27,8 @@ export default async function AdminAgentPage({
 
   let tenant: Pick<TenantDocument, 'id' | 'name' | 'slug'> | null = null
   if (tenantId) {
-    const tenantDoc = await adminDb
-      .collection(Collections.tenants)
-      .doc(tenantId)
-      .get()
-
-    if (tenantDoc.exists) {
-      const data = tenantDoc.data()!
-      tenant = { id: data.id, name: data.name, slug: data.slug }
-    }
+    const t = await getTenantById(tenantId)
+    if (t) tenant = { id: t.id, name: t.name, slug: t.slug }
   }
 
   const sharePath = agent.allowAnonymous
