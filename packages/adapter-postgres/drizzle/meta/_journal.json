@@ -57,6 +57,13 @@
       "when": 1779800000000,
       "tag": "0007_channel_contact_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779900000000,
+      "tag": "0008_bookings_idempotency",
+      "breakpoints": true
     }
   ]
 }

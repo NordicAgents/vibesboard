@@ -1,9 +1,13 @@
 // lib/agent/actions/appointments/tools.ts
-import { createHash } from 'crypto'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type BookingDocument, type CalendarConnectionDocument } from '@vibesboard/contracts'
+import { type CalendarConnectionDocument } from '@vibesboard/contracts'
 import { createProvider } from '@vibesboard/scheduling/providers'
 import { getCalendarConnection, getValidAccessToken } from '@vibesboard/scheduling/connections'
+import {
+  upsertBooking,
+  findActiveBookingByAttendee,
+  setBookingStatus,
+  listBookingsForDay,
+} from '@vibesboard/scheduling/bookings'
 import { formatSlotDisplay } from '../shared/calendar.ts'
 import type { RegisteredTool } from '@vibesboard/ai/tools/base'
 import type { VibeAgent } from '@vibesboard/contracts'
@@ -16,20 +20,66 @@ interface AppointmentsToolContext {
   config: AppointmentsConfig
 }
 
+interface ParsedBookingArgs {
+  startTime: string
+  attendeeName: string
+  attendeeEmail: string
+  durationMinutes: number
+  endTime: string
+  title: string
+  description?: string
+}
+
 /**
- * Deterministic appointment document ID derived from the booking's natural key.
- * If the Google Calendar request times out and the tool is retried, the same
- * doc ID is generated — the existing booking is returned instead of creating a duplicate.
+ * Validate + normalize the book_appointment tool args. Returns an error string
+ * when the input is invalid, or the parsed booking fields otherwise. Extracted
+ * to keep the tool's `execute` body under the CCN budget.
  */
-function appointmentDocId(agentId: string, startTime: string, attendeeEmail: string): string {
-  // Normalize startTime to canonical ISO form so that equivalent times expressed
-  // differently (e.g. "2026-05-10T14:00:00" vs "2026-05-10T14:00:00.000Z") produce
-  // the same hash and the idempotency check is not bypassed.
-  const normalizedTime = new Date(startTime).toISOString()
-  return createHash('sha256')
-    .update(`${agentId}|${normalizedTime}|${attendeeEmail.toLowerCase()}`)
-    .digest('hex')
-    .slice(0, 32)
+/** Resolve the derived booking fields (duration, end time, title, description). */
+function deriveBookingFields(
+  args: Record<string, unknown>,
+  ctx: AppointmentsToolContext,
+  startTime: string,
+  attendeeName: string,
+): { durationMinutes: number; endTime: string; title: string; description?: string } | null {
+  const validDuration =
+    typeof args.duration_minutes === 'number' && args.duration_minutes > 0
+  const durationMinutes = validDuration
+    ? (args.duration_minutes as number)
+    : ctx.config.defaultDurationMinutes
+
+  const startMs = new Date(startTime).getTime()
+  if (isNaN(startMs)) return null
+  const endTime = new Date(startMs + durationMinutes * 60 * 1000).toISOString()
+
+  const title = args.title
+    ? String(args.title)
+    : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
+  const description = args.description
+    ? String(args.description)
+    : (ctx.config.meetingDescription ?? undefined)
+
+  return { durationMinutes, endTime, title, description }
+}
+
+function parseBookingArgs(
+  args: Record<string, unknown>,
+  ctx: AppointmentsToolContext,
+): string | ParsedBookingArgs {
+  const startTime = String(args.start_time ?? '').trim()
+  const attendeeName = String(args.attendee_name ?? '').trim()
+  const attendeeEmail = String(args.attendee_email ?? '').trim()
+
+  if (!startTime || !attendeeName || !attendeeEmail) {
+    return 'Missing required fields: start_time, attendee_name, and attendee_email are all required.'
+  }
+
+  const derived = deriveBookingFields(args, ctx, startTime, attendeeName)
+  if (!derived) {
+    return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
+  }
+
+  return { startTime, attendeeName, attendeeEmail, ...derived }
 }
 
 function buildCheckAvailabilityTool(ctx: AppointmentsToolContext): RegisteredTool {
@@ -137,107 +187,54 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
       }
     },
     execute: async args => {
-      const startTime = String(args.start_time ?? '').trim()
-      const attendeeName = String(args.attendee_name ?? '').trim()
-      const attendeeEmail = String(args.attendee_email ?? '').trim()
-
-      if (!startTime || !attendeeName || !attendeeEmail) {
-        return 'Missing required fields: start_time, attendee_name, and attendee_email are all required.'
-      }
-
-      const durationMinutes =
-        typeof args.duration_minutes === 'number' && args.duration_minutes > 0
-          ? args.duration_minutes
-          : ctx.config.defaultDurationMinutes
-
-      // Compute end time
-      const startMs = new Date(startTime).getTime()
-      if (isNaN(startMs)) {
-        return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
-      }
-      const endTime = new Date(
-        startMs + durationMinutes * 60 * 1000
-      ).toISOString()
-
-      // Build title from template
-      const title = args.title
-        ? String(args.title)
-        : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
+      const parsed = parseBookingArgs(args, ctx)
+      if (typeof parsed === 'string') return parsed
 
       try {
-        // Use a deterministic doc ID so retries after a timeout return the
-        // existing booking rather than creating a duplicate calendar event.
-        const docId = appointmentDocId(ctx.agent.id, startTime, attendeeEmail)
-        const bookingRef = adminDb
-          .collection(Collections.bookings(ctx.agent.tenantId!, ctx.agent.id))
-          .doc(docId)
-
-        const existingSnap = await bookingRef.get()
-        if (existingSnap.exists) {
-          const existing = existingSnap.data() as BookingDocument
-          const lines = [
-            `Appointment already booked.`,
-            `Title: ${existing.title}`,
-            `Time: ${formatSlotDisplay(existing.startTime, ctx.config.timezone)}`,
-            `Duration: ${Math.round((new Date(existing.endTime).getTime() - new Date(existing.startTime).getTime()) / 60_000)} minutes`,
-            `Attendee: ${existing.attendeeName} (${existing.attendeeEmail})`
-          ]
-          if (existing.meetLink) lines.push(`Google Meet: ${existing.meetLink}`)
-          return lines.join('\n')
-        }
-
         const accessToken = await getValidAccessToken(ctx.connection)
         const provider = createProvider(ctx.connection, accessToken)
 
         const result = await provider.createEvent({
-          title,
-          startTime,
-          endTime,
-          attendeeEmail,
-          attendeeName,
-          description: args.description
-            ? String(args.description)
-            : (ctx.config.meetingDescription ?? undefined),
+          title: parsed.title,
+          startTime: parsed.startTime,
+          endTime: parsed.endTime,
+          attendeeEmail: parsed.attendeeEmail,
+          attendeeName: parsed.attendeeName,
+          description: parsed.description,
           timezone: ctx.config.timezone,
           createMeetLink: ctx.config.createMeetLink
         })
 
-        // Store booking record with deterministic ID for idempotency
-        const now = new Date().toISOString()
-        const booking: BookingDocument = {
-          id: docId,
-          agentId: ctx.agent.id,
+        // Idempotent on (agent, start, email): a timeout-retry returns the
+        // pre-existing active booking instead of creating a duplicate.
+        const booking = await upsertBooking({
           tenantId: ctx.agent.tenantId!,
-          conversationId: '', // populated by caller if available
+          agentId: ctx.agent.id,
           calendarConnectionId: ctx.connection.id,
           provider: ctx.connection.provider,
           externalEventId: result.eventId,
-          title,
-          startTime,
-          endTime,
+          title: parsed.title,
+          startTime: parsed.startTime,
+          endTime: parsed.endTime,
           timezone: ctx.config.timezone,
-          attendeeName,
-          attendeeEmail,
-          description: args.description ? String(args.description) : undefined,
-          meetLink: result.meetLink,
-          status: 'confirmed',
-          createdAt: now,
-          updatedAt: now
-        }
-        await bookingRef.set(booking)
+          attendeeName: parsed.attendeeName,
+          attendeeEmail: parsed.attendeeEmail,
+          description: parsed.description,
+          meetLink: result.meetLink
+        })
 
-        // Format confirmation
+        // Format confirmation from the persisted booking (new or pre-existing).
         const lines = [
           `Appointment booked successfully!`,
-          `Title: ${title}`,
-          `Time: ${formatSlotDisplay(startTime, ctx.config.timezone)}`,
-          `Duration: ${durationMinutes} minutes`,
-          `Attendee: ${attendeeName} (${attendeeEmail})`
+          `Title: ${booking.title}`,
+          `Time: ${formatSlotDisplay(booking.startTime, ctx.config.timezone)}`,
+          `Duration: ${parsed.durationMinutes} minutes`,
+          `Attendee: ${booking.attendeeName} (${booking.attendeeEmail})`
         ]
-        if (result.meetLink) {
-          lines.push(`Google Meet: ${result.meetLink}`)
+        if (booking.meetLink) {
+          lines.push(`Google Meet: ${booking.meetLink}`)
         }
-        lines.push(`A calendar invite has been sent to ${attendeeEmail}.`)
+        lines.push(`A calendar invite has been sent to ${booking.attendeeEmail}.`)
 
         return lines.join('\n')
       } catch (error) {
@@ -288,27 +285,12 @@ function buildRescheduleAppointmentTool(ctx: AppointmentsToolContext): Registere
       }
 
       try {
-        // Find the booking
-        const bookingsPath = Collections.bookings(
+        const booking = await findActiveBookingByAttendee(
           ctx.agent.tenantId!,
-          ctx.agent.id
+          ctx.agent.id,
+          attendeeEmail,
+          originalStartTime
         )
-        const snapshot = await adminDb
-          .collection(bookingsPath)
-          .where('attendeeEmail', '==', attendeeEmail)
-          .where('status', 'in', ['confirmed', 'rescheduled'])
-          .get()
-
-        const booking = snapshot.docs
-          .map(
-            (d: FirebaseFirestore.QueryDocumentSnapshot) =>
-              ({ id: d.id, ...d.data() }) as BookingDocument
-          )
-          .find((b: BookingDocument) => {
-            const bStart = new Date(b.startTime).getTime()
-            const oStart = new Date(originalStartTime).getTime()
-            return Math.abs(bStart - oStart) < 60_000 // within 1 minute tolerance
-          })
 
         if (!booking) {
           return `No active appointment found for ${attendeeEmail} at ${formatSlotDisplay(originalStartTime, ctx.config.timezone)}.`
@@ -336,11 +318,10 @@ function buildRescheduleAppointmentTool(ctx: AppointmentsToolContext): Registere
         })
 
         // Update booking record
-        await adminDb.collection(bookingsPath).doc(booking.id).update({
-          startTime: newStartTime,
-          endTime: newEndTime,
+        await setBookingStatus(ctx.agent.tenantId!, booking.id, {
           status: 'rescheduled',
-          updatedAt: new Date().toISOString()
+          startTime: newStartTime,
+          endTime: newEndTime
         })
 
         return [
@@ -387,27 +368,12 @@ function buildCancelAppointmentTool(ctx: AppointmentsToolContext): RegisteredToo
       }
 
       try {
-        // Find the booking
-        const bookingsPath = Collections.bookings(
+        const booking = await findActiveBookingByAttendee(
           ctx.agent.tenantId!,
-          ctx.agent.id
+          ctx.agent.id,
+          attendeeEmail,
+          startTime
         )
-        const snapshot = await adminDb
-          .collection(bookingsPath)
-          .where('attendeeEmail', '==', attendeeEmail)
-          .where('status', 'in', ['confirmed', 'rescheduled'])
-          .get()
-
-        const booking = snapshot.docs
-          .map(
-            (d: FirebaseFirestore.QueryDocumentSnapshot) =>
-              ({ id: d.id, ...d.data() }) as BookingDocument
-          )
-          .find((b: BookingDocument) => {
-            const bStart = new Date(b.startTime).getTime()
-            const sStart = new Date(startTime).getTime()
-            return Math.abs(bStart - sStart) < 60_000
-          })
 
         if (!booking) {
           return `No active appointment found for ${attendeeEmail} at ${formatSlotDisplay(startTime, ctx.config.timezone)}.`
@@ -419,10 +385,9 @@ function buildCancelAppointmentTool(ctx: AppointmentsToolContext): RegisteredToo
         await provider.deleteEvent(booking.externalEventId)
 
         // Update booking record
-        await adminDb.collection(bookingsPath).doc(booking.id).update({
+        await setBookingStatus(ctx.agent.tenantId!, booking.id, {
           status: 'cancelled',
-          cancelledAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          cancelledAt: new Date().toISOString()
         })
 
         return [
@@ -471,35 +436,12 @@ function buildListAppointmentsTool(ctx: AppointmentsToolContext): RegisteredTool
         : null
 
       try {
-        // Build a time range spanning the full day in the configured timezone.
-        // We query for appointments whose startTime falls within [dayStart, dayEnd).
-        const dayStart = new Date(`${date}T00:00:00Z`).toISOString()
-        const dayEnd = new Date(`${date}T23:59:59.999Z`).toISOString()
-
-        const bookingsPath = Collections.bookings(ctx.agent.tenantId!, ctx.agent.id)
-        let query = adminDb
-          .collection(bookingsPath)
-          .where('startTime', '>=', dayStart)
-          .where('startTime', '<=', dayEnd)
-          .where('status', 'in', ['confirmed', 'rescheduled'])
-
-        const snapshot = await query.get()
-
-        let bookings = snapshot.docs.map(
-          (d: FirebaseFirestore.QueryDocumentSnapshot) => ({ id: d.id, ...d.data() } as BookingDocument)
-        )
-
-        // Apply optional email filter in-memory (avoids a composite index requirement)
-        if (attendeeEmail) {
-          bookings = bookings.filter(
-            (b: BookingDocument) => b.attendeeEmail.toLowerCase() === attendeeEmail
-          )
-        }
-
-        // Sort by start time ascending
-        bookings.sort(
-          (a: BookingDocument, b: BookingDocument) =>
-            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        // Helper queries the day range, filters by attendee, and sorts ascending.
+        const bookings = await listBookingsForDay(
+          ctx.agent.tenantId!,
+          ctx.agent.id,
+          date,
+          attendeeEmail
         )
 
         if (bookings.length === 0) {
@@ -508,7 +450,7 @@ function buildListAppointmentsTool(ctx: AppointmentsToolContext): RegisteredTool
         }
 
         const lines = [`Appointments on ${date}:`]
-        bookings.forEach((b: BookingDocument, i: number) => {
+        bookings.forEach((b, i) => {
           const duration = Math.round(
             (new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 60_000
           )

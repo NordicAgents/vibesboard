@@ -1,5 +1,11 @@
-import type { CalendarConnection } from '@vibesboard/adapter-postgres/schema'
-import type { CalendarConnectionDocument } from '@vibesboard/contracts'
+import type {
+  CalendarConnection,
+  Booking,
+} from '@vibesboard/adapter-postgres/schema'
+import type {
+  CalendarConnectionDocument,
+  BookingDocument,
+} from '@vibesboard/contracts'
 
 export const rowToCalendarConnection = (
   r: CalendarConnection,
@@ -19,6 +25,29 @@ export const rowToCalendarConnection = (
   status: r.status,
   connectedBy: r.connectedBy ?? '',
   connectedAt: r.connectedAt.toISOString(),
+  createdAt: r.createdAt.toISOString(),
+  updatedAt: r.updatedAt.toISOString(),
+})
+
+export const rowToBooking = (r: Booking): BookingDocument => ({
+  id: r.id,
+  agentId: r.agentId,
+  tenantId: r.tenantId,
+  conversationId: r.conversationId ?? '',
+  calendarConnectionId: r.calendarConnectionId,
+  provider: r.provider,
+  externalEventId: r.externalEventId,
+  title: r.title,
+  startTime: r.startTime.toISOString(),
+  endTime: r.endTime.toISOString(),
+  timezone: r.timezone,
+  attendeeName: r.attendeeName,
+  attendeeEmail: r.attendeeEmail,
+  description: r.description ?? undefined,
+  meetLink: r.meetLink ?? undefined,
+  status: r.status,
+  cancelledAt: r.cancelledAt?.toISOString() ?? undefined,
+  rescheduledTo: r.rescheduledTo ?? undefined,
   createdAt: r.createdAt.toISOString(),
   updatedAt: r.updatedAt.toISOString(),
 })
