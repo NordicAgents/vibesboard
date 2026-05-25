@@ -53,6 +53,13 @@ function buildAuth() {
   // Our schema uses uuid columns; Better Auth's default ID generator emits
   // nanoids which would fail the uuid CHECK. Route through uuidv7.
   advanced: { database: { generateId: () => uuidv7() } },
+  user: {
+    additionalFields: {
+      // Surface the RISC `disabled` flag on the session user so the app's
+      // auth() reader can short-circuit without an extra DB round-trip.
+      disabled: { type: 'boolean', input: false, defaultValue: false },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
@@ -84,6 +91,20 @@ function buildAuth() {
     user: {
       create: {
         after: (user) => onUserCreateAfter(user),
+      },
+    },
+    session: {
+      create: {
+        before: async (session) => {
+          // Lazy-import to avoid a module load cycle between config and
+          // risc-effects (which transitively pulls schema/client).
+          const { isUserDisabled } = await import('./risc-effects.ts')
+          if (await isUserDisabled(session.userId)) {
+            // Returning false aborts session creation (blocks disabled re-login).
+            return false
+          }
+          return { data: session }
+        },
       },
     },
   },

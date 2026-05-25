@@ -17,7 +17,6 @@ COPY apps/web/package.json ./apps/web/
 # Every workspace package's manifest must be present before `pnpm install`
 # resolves the workspace:* refs in apps/web/package.json.
 COPY packages/adapter-better-auth/package.json ./packages/adapter-better-auth/
-COPY packages/adapter-firebase/package.json ./packages/adapter-firebase/
 COPY packages/adapter-google/package.json ./packages/adapter-google/
 COPY packages/adapter-openai/package.json ./packages/adapter-openai/
 COPY packages/adapter-postgres/package.json ./packages/adapter-postgres/

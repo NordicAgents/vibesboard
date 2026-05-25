@@ -1,4 +1,8 @@
-import type { FieldValue } from 'firebase-admin/firestore'
+// Vector embedding write sentinel. Historically a vector FieldValue was used
+// for the legacy document store; with that store removed, embeddings are plain
+// number[] at rest. This alias is retained so the legacy chunk-document shapes
+// below still type-check.
+type EmbeddingFieldValue = unknown
 
 // Plan identifier — defined here (rather than in a separate plans module) so
 // contracts has no internal cross-file imports beyond the type re-exports
@@ -544,7 +548,7 @@ export interface FileChunkDocument {
   mimeType?: string
   chunkIndex: number
   content: string
-  embedding: number[] | FieldValue // FieldValue.vector() for writes
+  embedding: number[] | EmbeddingFieldValue // vector value for writes
   createdAt: string
 }
 
@@ -557,7 +561,7 @@ export interface ConversationChunkDocument {
   chunkIndex: number
   role: string
   content: string
-  embedding: number[] | FieldValue
+  embedding: number[] | EmbeddingFieldValue
   createdAt: string
 }
 

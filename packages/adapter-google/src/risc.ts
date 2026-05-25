@@ -1,6 +1,15 @@
 import 'server-only'
 import crypto from 'crypto'
-import { adminAuth } from '@vibesboard/adapter-firebase/admin'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import {
+  resolveUserIdByGoogleSub,
+  revokeUserSessions,
+  setUserDisabled,
+} from '@vibesboard/adapter-better-auth'
+
+type Db = PostgresJsDatabase<typeof schema>
 
 // ---------------------------------------------------------------------------
 // Google RISC (Cross-Account Protection) — Security Event Token handler
@@ -146,27 +155,12 @@ export async function verifyRiscToken(
 }
 
 // ---------------------------------------------------------------------------
-// Resolve a Google subject (sub) to a Firebase UID
-// ---------------------------------------------------------------------------
-
-async function resolveFirebaseUid(googleSub: string): Promise<string | null> {
-  try {
-    const result = await adminAuth.getUsers([
-      { providerId: 'google.com', providerUid: googleSub }
-    ])
-    return result.users[0]?.uid ?? null
-  } catch (err) {
-    console.error('[RISC] Failed to resolve Firebase UID:', err)
-    return null
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Public: process all events in a verified RISC token
 // ---------------------------------------------------------------------------
 
 export async function handleRiscEvents(
-  payload: RiscTokenPayload
+  payload: RiscTokenPayload,
+  db: Db = getMigrateDb()
 ): Promise<void> {
   for (const [eventType, eventData] of Object.entries(payload.events)) {
     console.log(`[RISC] Processing event: ${eventType}`, {
@@ -175,9 +169,7 @@ export async function handleRiscEvents(
     })
 
     if (eventType === RISC_EVENTS.VERIFICATION) {
-      console.log('[RISC] Verification event received', {
-        state: eventData.state
-      })
+      console.log('[RISC] Verification event received', { state: eventData.state })
       continue
     }
 
@@ -187,39 +179,41 @@ export async function handleRiscEvents(
       continue
     }
 
-    const uid = await resolveFirebaseUid(googleSub)
-    if (!uid) {
-      console.warn(
-        `[RISC] No Firebase user found for Google sub ${googleSub} — skipping`
-      )
+    const userId = await resolveUserIdByGoogleSub(googleSub, db)
+    if (!userId) {
+      console.warn(`[RISC] No user for Google sub ${googleSub} — skipping`)
       continue
     }
 
-    switch (eventType) {
-      case RISC_EVENTS.SESSIONS_REVOKED:
-      case RISC_EVENTS.TOKENS_REVOKED:
-      case RISC_EVENTS.TOKEN_REVOKED:
-      case RISC_EVENTS.ACCOUNT_CREDENTIAL_CHANGE_REQUIRED:
-        // Force re-authentication by revoking all Firebase refresh tokens
-        await adminAuth.revokeRefreshTokens(uid)
-        console.log(`[RISC] Revoked refresh tokens for user ${uid}`)
-        break
+    await applyRiscEvent(eventType, eventData, userId, db)
+  }
+}
 
-      case RISC_EVENTS.ACCOUNT_DISABLED:
-        await adminAuth.revokeRefreshTokens(uid)
-        await adminAuth.updateUser(uid, { disabled: true })
-        console.log(
-          `[RISC] Disabled user ${uid} (reason: ${eventData.reason ?? 'unknown'})`
-        )
-        break
-
-      case RISC_EVENTS.ACCOUNT_ENABLED:
-        await adminAuth.updateUser(uid, { disabled: false })
-        console.log(`[RISC] Re-enabled user ${uid}`)
-        break
-
-      default:
-        console.warn(`[RISC] Unknown event type: ${eventType}`)
-    }
+// Extracted so handleRiscEvents stays under the CCN budget.
+async function applyRiscEvent(
+  eventType: string,
+  eventData: RiscEventPayload,
+  userId: string,
+  db: Db
+): Promise<void> {
+  switch (eventType) {
+    case RISC_EVENTS.SESSIONS_REVOKED:
+    case RISC_EVENTS.TOKENS_REVOKED:
+    case RISC_EVENTS.TOKEN_REVOKED:
+    case RISC_EVENTS.ACCOUNT_CREDENTIAL_CHANGE_REQUIRED:
+      await revokeUserSessions(userId, db)
+      console.log(`[RISC] Revoked sessions for user ${userId}`)
+      break
+    case RISC_EVENTS.ACCOUNT_DISABLED:
+      await setUserDisabled(userId, true, db)
+      await revokeUserSessions(userId, db)
+      console.log(`[RISC] Disabled user ${userId} (reason: ${eventData.reason ?? 'unknown'})`)
+      break
+    case RISC_EVENTS.ACCOUNT_ENABLED:
+      await setUserDisabled(userId, false, db)
+      console.log(`[RISC] Re-enabled user ${userId}`)
+      break
+    default:
+      console.warn(`[RISC] Unknown event type: ${eventType}`)
   }
 }
