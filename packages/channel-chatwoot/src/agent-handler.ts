@@ -173,10 +173,12 @@ export async function handleChatwootMessage(
     }
 
     // 5. Update stats (fire-and-forget)
-    updateConnectionStats(
+    void updateConnectionStats(
       connection.tenantId,
       connection.agentId,
       connection.id
+    ).catch((err) =>
+      console.error('[chatwoot] Failed to update connection stats:', err)
     )
 
     console.log(
