@@ -1,15 +1,16 @@
 import 'server-only'
 import { createHash, timingSafeEqual } from 'crypto'
 import { customAlphabet } from 'nanoid'
-import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections, type HookDocument } from '@vibesboard/contracts'
+import { and, desc, eq, sql } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { hooks } from '@vibesboard/adapter-postgres/schema'
+import type { HookDocument } from '@vibesboard/contracts'
+import { rowToHook, rowToHookSafe } from './db.ts'
 
-// 21-char URL-safe alphabet — enough entropy for a public token
-const genId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
+type Db = PostgresJsDatabase<typeof schema>
 
 // 32-char secret — shown once, never stored in plaintext
 const genSecret = customAlphabet(
@@ -32,45 +33,43 @@ export interface CreatedHook {
 export async function createHook(
   tenantId: string,
   agentId: string,
-  name: string
+  name: string,
+  db: Db = getMigrateDb()
 ): Promise<CreatedHook> {
-  const id = genId()
   const secretKey = genSecret()
-  const now = new Date().toISOString()
-
-  const doc: HookDocument = {
-    id,
-    agentId,
-    tenantId,
-    name,
-    secretHash: hashSecret(secretKey),
-    status: 'active',
-    requestCount: 0,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await adminDb
-    .collection(Collections.hooks(tenantId, agentId))
-    .doc(id)
-    .set(doc)
-
-  const { secretHash: _, ...safeDoc } = doc
-  return { hook: safeDoc, secretKey }
+  const [row] = await db
+    .insert(hooks)
+    .values({
+      id: uuidv7(),
+      tenantId,
+      agentId,
+      name,
+      secretHash: hashSecret(secretKey),
+      status: 'active',
+      requestCount: 0
+    })
+    .returning()
+  return { hook: rowToHookSafe(row), secretKey }
 }
 
 export async function getHook(
   tenantId: string,
   agentId: string,
-  hookId: string
+  hookId: string,
+  db: Db = getMigrateDb()
 ): Promise<HookDocument | null> {
-  const snap = await adminDb
-    .collection(Collections.hooks(tenantId, agentId))
-    .doc(hookId)
-    .get()
-
-  if (!snap.exists) return null
-  return snap.data() as HookDocument
+  const [row] = await db
+    .select()
+    .from(hooks)
+    .where(
+      and(
+        eq(hooks.id, hookId),
+        eq(hooks.tenantId, tenantId),
+        eq(hooks.agentId, agentId)
+      )
+    )
+    .limit(1)
+  return row ? rowToHook(row) : null
 }
 
 /**
@@ -78,54 +77,64 @@ export async function getHook(
  * where we only have the hookId, not tenantId/agentId).
  */
 export async function getHookById(
-  hookId: string
+  hookId: string,
+  db: Db = getMigrateDb()
 ): Promise<HookDocument | null> {
-  const snap = await adminDb
-    .collectionGroup('hooks')
-    .where('id', '==', hookId)
+  const [row] = await db
+    .select()
+    .from(hooks)
+    .where(eq(hooks.id, hookId))
     .limit(1)
-    .get()
-
-  if (snap.empty) return null
-  return snap.docs[0].data() as HookDocument
+  return row ? rowToHook(row) : null
 }
 
 export async function listHooks(
   tenantId: string,
-  agentId: string
+  agentId: string,
+  db: Db = getMigrateDb()
 ): Promise<Omit<HookDocument, 'secretHash'>[]> {
-  const snap = await adminDb
-    .collection(Collections.hooks(tenantId, agentId))
-    .orderBy('createdAt', 'desc')
-    .get()
-
-  return snap.docs.map((d: any) => {
-    const { secretHash: _, ...safe } = d.data() as HookDocument
-    return safe
-  })
+  const rows = await db
+    .select()
+    .from(hooks)
+    .where(and(eq(hooks.tenantId, tenantId), eq(hooks.agentId, agentId)))
+    .orderBy(desc(hooks.createdAt))
+  return rows.map(rowToHookSafe)
 }
 
 export async function updateHook(
   tenantId: string,
   agentId: string,
   hookId: string,
-  patch: { name?: string; status?: HookDocument['status'] }
+  patch: { name?: string; status?: HookDocument['status'] },
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  await adminDb
-    .collection(Collections.hooks(tenantId, agentId))
-    .doc(hookId)
-    .update({ ...patch, updatedAt: new Date().toISOString() })
+  await db
+    .update(hooks)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(
+      and(
+        eq(hooks.id, hookId),
+        eq(hooks.tenantId, tenantId),
+        eq(hooks.agentId, agentId)
+      )
+    )
 }
 
 export async function deleteHook(
   tenantId: string,
   agentId: string,
-  hookId: string
+  hookId: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  await adminDb
-    .collection(Collections.hooks(tenantId, agentId))
-    .doc(hookId)
-    .delete()
+  await db
+    .delete(hooks)
+    .where(
+      and(
+        eq(hooks.id, hookId),
+        eq(hooks.tenantId, tenantId),
+        eq(hooks.agentId, agentId)
+      )
+    )
 }
 
 /**
@@ -140,23 +149,28 @@ export function verifySecret(rawSecret: string, storedHash: string): boolean {
 }
 
 /**
- * Increment requestCount and update lastUsedAt. Fire-and-forget — we do not
- * await this in the hot path.
+ * Increment requestCount and update lastUsedAt. The call site treats this as
+ * fire-and-forget (`.catch()`) — it is no longer awaited in the hot path.
  */
-export function recordHookUsage(
+export async function recordHookUsage(
   tenantId: string,
   agentId: string,
-  hookId: string
-): void {
-  adminDb
-    .collection(Collections.hooks(tenantId, agentId))
-    .doc(hookId)
-    .update({
-      requestCount: FieldValue.increment(1),
-      lastUsedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  hookId: string,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  const now = new Date()
+  await db
+    .update(hooks)
+    .set({
+      requestCount: sql`${hooks.requestCount} + 1`,
+      lastUsedAt: now,
+      updatedAt: now
     })
-    .catch((err: unknown) =>
-      console.error('[hooks] Failed to record usage:', err)
+    .where(
+      and(
+        eq(hooks.id, hookId),
+        eq(hooks.tenantId, tenantId),
+        eq(hooks.agentId, agentId)
+      )
     )
 }

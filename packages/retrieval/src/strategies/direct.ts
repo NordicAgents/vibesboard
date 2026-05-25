@@ -10,7 +10,10 @@ const MAX_CONTEXT_CHARS = 30_000
 const FILE_BUDGET_RATIO = 0.6
 
 export class DirectRetriever implements Retriever {
-  constructor(private config: RetrieverConfig) {}
+  private config: RetrieverConfig
+  constructor(config: RetrieverConfig) {
+    this.config = config
+  }
 
   async prepare(): Promise<void> {}
 
