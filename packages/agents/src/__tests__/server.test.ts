@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { eq } from 'drizzle-orm'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, agents } from '@vibesboard/adapter-postgres/schema'
 import {
@@ -10,6 +11,7 @@ import {
   getAgentBySlug,
   getAgentNamesByTenant,
   getAgentsForTenant,
+  disableAgentsForConnection,
 } from '../server.ts'
 
 async function seed(adminDb: any) {
@@ -135,6 +137,84 @@ describe('agent server reads', () => {
         isPersonal: false,
       })
       assert.deepEqual(await getAgentsForTenant(empty, adminDb), [])
+    })
+  })
+})
+
+describe('disableAgentsForConnection', () => {
+  test('disables availability + scheduling configs referencing the connection', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const u = randomUUID()
+      const t = randomUUID()
+      const connId = randomUUID()
+      const otherConn = randomUUID()
+      await adminDb.insert(users).values({ id: u, email: `o${u}@a.com`, name: 'O' })
+      await adminDb.insert(tenants).values({
+        id: t,
+        name: 'Acme',
+        slug: `acme-${t.slice(0, 8)}`,
+        createdBy: u,
+        isPersonal: false,
+      })
+      const a1 = randomUUID()
+      const a2 = randomUUID()
+      const a3 = randomUUID()
+      // a1 references connId via availability config
+      await adminDb.insert(agents).values({
+        id: a1,
+        tenantId: t,
+        userId: u,
+        name: 'A1',
+        slug: 'a1',
+        calendarAvailabilityConfig: { enabled: true, calendarConnectionId: connId },
+      })
+      // a2 references connId via scheduling config
+      await adminDb.insert(agents).values({
+        id: a2,
+        tenantId: t,
+        userId: u,
+        name: 'A2',
+        slug: 'a2',
+        schedulingConfig: {
+          enabled: true,
+          calendarConnectionId: connId,
+          defaultDurationMinutes: 30,
+          bufferMinutes: 0,
+          timezone: 'UTC',
+          availableHours: { start: '09:00', end: '17:00' },
+          availableDays: [1, 2, 3, 4, 5],
+          meetingTitleTemplate: 'x',
+          createMeetLink: false,
+        },
+      })
+      // a3 references a DIFFERENT connection — must stay enabled
+      await adminDb.insert(agents).values({
+        id: a3,
+        tenantId: t,
+        userId: u,
+        name: 'A3',
+        slug: 'a3',
+        schedulingConfig: {
+          enabled: true,
+          calendarConnectionId: otherConn,
+          defaultDurationMinutes: 30,
+          bufferMinutes: 0,
+          timezone: 'UTC',
+          availableHours: { start: '09:00', end: '17:00' },
+          availableDays: [1, 2, 3, 4, 5],
+          meetingTitleTemplate: 'x',
+          createMeetLink: false,
+        },
+      })
+
+      await disableAgentsForConnection(t, connId, adminDb)
+
+      const [r1] = await adminDb.select().from(agents).where(eq(agents.id, a1))
+      const [r2] = await adminDb.select().from(agents).where(eq(agents.id, a2))
+      const [r3] = await adminDb.select().from(agents).where(eq(agents.id, a3))
+      assert.equal(r1.calendarAvailabilityConfig?.enabled, false)
+      assert.equal(r2.schedulingConfig?.enabled, false)
+      assert.equal(r3.schedulingConfig?.enabled, true) // untouched
     })
   })
 })
