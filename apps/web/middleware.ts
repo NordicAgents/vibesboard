@@ -94,9 +94,9 @@ export async function middleware(req: NextRequest) {
   // the auth() helper. In middleware we do a lightweight cookie-presence check
   // and defer to a server-side verification for role-gated routes.
   if (sessionCookie) {
-    // We need the Firebase Admin SDK to verify the session cookie and check roles.
-    // Edge middleware cannot run firebase-admin (Node.js API), so for admin/settings
-    // routes we use a lightweight approach: the session cookie's presence is checked
+    // Verifying the session + roles requires DB/Node APIs that Edge middleware
+    // cannot run, so for admin/settings routes we use a lightweight approach:
+    // the session cookie's presence is checked
     // here, and detailed RBAC is enforced in the server component / API route layer.
     //
     // For admin and settings routes, we still allow the request through to the

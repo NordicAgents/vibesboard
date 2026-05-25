@@ -21,8 +21,7 @@ function readUrl(name: 'DATABASE_URL' | 'DATABASE_MIGRATE_URL'): string {
 
 // True during `next build` when secrets aren't injected. We return a no-op
 // Drizzle proxy so module evaluation of pages that import auth/db doesn't
-// crash before any real query runs. Mirrors the pattern used in
-// packages/adapter-firebase/src/admin.ts.
+// crash before any real query runs.
 const isBuildTime =
   !process.env.DATABASE_URL &&
   (process.env.NEXT_PHASE === 'phase-production-build' ||

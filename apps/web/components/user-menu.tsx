@@ -1,7 +1,6 @@
 'use client'
 
-import { signOut } from 'firebase/auth'
-import { getClientAuth } from '@vibesboard/adapter-firebase/client'
+import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Settings } from 'lucide-react'
@@ -34,13 +33,8 @@ export function UserMenu({
   const router = useRouter()
 
   const handleSignOut = async () => {
-    // Sign out from Firebase client
-    const auth = getClientAuth()
-    await signOut(auth)
-
-    // Clear the server-side session cookie
-    await fetch('/api/auth/session', { method: 'DELETE' })
-
+    // Better Auth clears the server-side session + cookie.
+    await authClient.signOut()
     router.refresh()
   }
 

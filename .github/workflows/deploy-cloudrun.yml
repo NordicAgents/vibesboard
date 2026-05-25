@@ -132,7 +132,6 @@ jobs:
             ${{ github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL) || '' }}
           secrets: |
             OPENAI_API_KEY=openai-api-key:latest
-            FIREBASE_SERVICE_ACCOUNT_KEY=${{ github.ref_name == 'main' && 'firebase-service-account-key' || 'firebase-service-account-key-staging' }}:latest
             WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest
             VERIFY_TOKEN=whatsapp-verify-token:latest
             ENCRYPTION_KEY=encryption-key:latest

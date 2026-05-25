@@ -21,7 +21,6 @@
     "@vibesboard/policy": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "firebase-admin": "^13.7.0",
     "nanoid": "^4.0.2",
     "resend": "^6.9.4",
     "server-only": "^0.0.1",

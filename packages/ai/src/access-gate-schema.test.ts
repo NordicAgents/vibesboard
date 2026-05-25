@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 process.env.ACCESS_GATE_SECRET ??= 'test-secret-for-unit-tests'
 
 // Inline copy of the schema rather than importing from access-gate.ts —
-// access-gate.ts pulls in firebase-admin and next/headers, which the
+// access-gate.ts pulls in next/headers and server-only deps, which the
 // node:test runner cannot resolve without a bundler. The test instead
 // guards the contract by duplicating the schema, matching the pattern
 // used by lib/integration/schema-validation.test.ts.

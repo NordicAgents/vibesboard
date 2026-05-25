@@ -12,6 +12,9 @@ export interface SessionUser {
 export async function auth(): Promise<{ user: SessionUser } | null> {
   const session = await betterAuth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
+  // RISC may flag a user as disabled; treat them as unauthenticated. Cast
+  // narrowly so SessionUser's public shape stays unchanged.
+  if ((session.user as { disabled?: boolean }).disabled === true) return null
   return {
     user: {
       id: session.user.id,
