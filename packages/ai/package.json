@@ -31,7 +31,6 @@
     "@vibesboard/utils": "workspace:*",
     "ai": "^3.4.33",
     "exceljs": "^4.4.0",
-    "firebase-admin": "^13.7.0",
     "jsdom": "^27.2.0",
     "mammoth": "^1.11.0",
     "nanoid": "^4.0.2",
