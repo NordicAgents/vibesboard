@@ -23,9 +23,9 @@ permissions:
 
 jobs:
   migrate:
-    # Staging only — applies Drizzle migrations to the staging Postgres VM over
-    # an IAP TCP tunnel before the service deploys. Prod has no Postgres yet.
-    if: github.ref_name == 'dev'
+    # Applies Drizzle migrations to the target env's Postgres VM over an IAP TCP
+    # tunnel before the service deploys. Runs for both staging (dev) and prod (main).
+    if: github.ref_name == 'dev' || github.ref_name == 'main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,15 +43,18 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-      - name: Open IAP tunnel to staging Postgres
+      - name: Open IAP tunnel to the target Postgres VM
+        env:
+          PG_VM: ${{ github.ref_name == 'main' && 'vibesboard-prod-pg' || 'vibesboard-staging-pg' }}
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          gcloud compute start-iap-tunnel vibesboard-staging-pg 5432 \
+          gcloud compute start-iap-tunnel "$PG_VM" 5432 \
             --local-host-port=localhost:5432 --zone=us-central1-a \
-            --project=${{ secrets.GCP_PROJECT_ID }} &
+            --project="$GCP_PROJECT" &
           for i in $(seq 1 30); do (echo > /dev/tcp/localhost/5432) >/dev/null 2>&1 && break; sleep 1; done
       - name: Run migrations
         env:
-          DATABASE_MIGRATE_URL: ${{ secrets.STAGING_DATABASE_MIGRATE_URL }}
+          DATABASE_MIGRATE_URL: ${{ github.ref_name == 'main' && secrets.PROD_DATABASE_MIGRATE_URL || secrets.STAGING_DATABASE_MIGRATE_URL }}
         run: pnpm db:migrate
 
   deploy:
@@ -110,19 +113,19 @@ jobs:
           service: ${{ env.CLOUD_RUN_SERVICE }}
           region: europe-north1
           image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
-          # Direct VPC egress (staging only) so the service can reach the
-          # private-IP Postgres VM; empty on prod (no-op).
-          flags: ${{ github.ref_name == 'dev' && '--network=default --subnet=default --vpc-egress=private-ranges-only' || '' }}
+          # Direct VPC egress so the service can reach the private-IP Postgres VM
+          # (both staging and prod run a private VM in the default network).
+          flags: ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && '--network=default --subnet=default --vpc-egress=private-ranges-only' || '' }}
           env_vars: |
             OPENAI_MODEL=gpt-4o-mini
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
             NOTIFICATION_EMAIL_FROM=VibeAgent <notifications@vibeagent.com>
-            ${{ github.ref_name == 'dev' && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
-            ${{ github.ref_name == 'dev' && 'S3_REGION=us-east-1' || '' }}
-            ${{ github.ref_name == 'dev' && 'S3_BUCKET=vibeagent-files-staging' || '' }}
-            ${{ github.ref_name == 'dev' && 'S3_FORCE_PATH_STYLE=false' || '' }}
-            ${{ github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL) || '' }}
+            ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
+            ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_REGION=us-east-1' || '' }}
+            S3_BUCKET=${{ github.ref_name == 'main' && 'vibeagent-files' || (github.ref_name == 'dev' && 'vibeagent-files-staging') || '' }}
+            ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_FORCE_PATH_STYLE=false' || '' }}
+            ${{ github.ref_name == 'main' && format('BETTER_AUTH_URL={0}', secrets.PROD_NEXT_PUBLIC_APP_URL) || (github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL)) || '' }}
           secrets: |
             OPENAI_API_KEY=openai-api-key:latest
             WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest
@@ -139,8 +142,8 @@ jobs:
             AUTH_GOOGLE_ID=google-oauth-client-id:latest
             AUTH_GOOGLE_SECRET=google-oauth-client-secret:latest
             ACCESS_GATE_SECRET=access-gate-secret:latest
-            ${{ github.ref_name == 'dev' && 'DATABASE_URL=database-url-staging:latest' || '' }}
-            ${{ github.ref_name == 'dev' && 'DATABASE_MIGRATE_URL=database-migrate-url-staging:latest' || '' }}
-            ${{ github.ref_name == 'dev' && 'BETTER_AUTH_SECRET=better-auth-secret-staging:latest' || '' }}
-            ${{ github.ref_name == 'dev' && 'S3_ACCESS_KEY_ID=s3-access-key-id-staging:latest' || '' }}
-            ${{ github.ref_name == 'dev' && 'S3_SECRET_ACCESS_KEY=s3-secret-access-key-staging:latest' || '' }}
+            DATABASE_URL=${{ github.ref_name == 'main' && 'database-url-prod:latest' || (github.ref_name == 'dev' && 'database-url-staging:latest') || '' }}
+            DATABASE_MIGRATE_URL=${{ github.ref_name == 'main' && 'database-migrate-url-prod:latest' || (github.ref_name == 'dev' && 'database-migrate-url-staging:latest') || '' }}
+            BETTER_AUTH_SECRET=${{ github.ref_name == 'main' && 'better-auth-secret-prod:latest' || (github.ref_name == 'dev' && 'better-auth-secret-staging:latest') || '' }}
+            S3_ACCESS_KEY_ID=${{ github.ref_name == 'main' && 's3-access-key-id-prod:latest' || (github.ref_name == 'dev' && 's3-access-key-id-staging:latest') || '' }}
+            S3_SECRET_ACCESS_KEY=${{ github.ref_name == 'main' && 's3-secret-access-key-prod:latest' || (github.ref_name == 'dev' && 's3-secret-access-key-staging:latest') || '' }}
