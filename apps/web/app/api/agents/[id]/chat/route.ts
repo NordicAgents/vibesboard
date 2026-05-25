@@ -1,9 +1,7 @@
 import { type Message } from '@vibesboard/contracts'
 import { NextRequest, NextResponse } from 'next/server'
-import { FieldValue } from 'firebase-admin/firestore'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
 import { agentChatRequestSchema } from '@vibesboard/agents/schema'
 import {
@@ -26,9 +24,11 @@ import {
   mapCompletionToEvent
 } from '@vibesboard/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@vibesboard/ai/handoff'
-import { Collections } from '@vibesboard/contracts'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-import { reserveAgentResponseSlot } from '@vibesboard/agents/limits'
+import {
+  incrementAgentResponseCount,
+  reserveAgentResponseSlot
+} from '@vibesboard/agents/limits'
 import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
 export const runtime = 'nodejs'
@@ -265,13 +265,12 @@ export async function POST(
         // Uncapped agents increment here; await so the write completes before the
         // function context is reclaimed by the serverless runtime.
         if (!activeAgent.maxAgentResponses) {
-          await adminDb
-            .collection(Collections.agents(activeAgent.tenantId!))
-            .doc(activeAgent.id)
-            .update({ totalResponseCount: FieldValue.increment(1) })
-            .catch((e: unknown) =>
-              console.error('[chat] Failed to increment response count:', e)
-            )
+          await incrementAgentResponseCount(
+            activeAgent.tenantId!,
+            activeAgent.id
+          ).catch((e: unknown) =>
+            console.error('[chat] Failed to increment response count:', e)
+          )
         }
 
         // Record usage for metering (fire-and-forget)
