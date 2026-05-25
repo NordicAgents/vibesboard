@@ -44,10 +44,13 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       - name: Open IAP tunnel to the target Postgres VM
+        env:
+          PG_VM: ${{ github.ref_name == 'main' && 'vibesboard-prod-pg' || 'vibesboard-staging-pg' }}
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          gcloud compute start-iap-tunnel ${{ github.ref_name == 'main' && 'vibesboard-prod-pg' || 'vibesboard-staging-pg' }} 5432 \
+          gcloud compute start-iap-tunnel "$PG_VM" 5432 \
             --local-host-port=localhost:5432 --zone=us-central1-a \
-            --project=${{ secrets.GCP_PROJECT_ID }} &
+            --project="$GCP_PROJECT" &
           for i in $(seq 1 30); do (echo > /dev/tcp/localhost/5432) >/dev/null 2>&1 && break; sleep 1; done
       - name: Run migrations
         env:
