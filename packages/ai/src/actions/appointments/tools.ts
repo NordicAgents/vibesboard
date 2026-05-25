@@ -20,6 +20,63 @@ interface AppointmentsToolContext {
   config: AppointmentsConfig
 }
 
+interface ParsedBookingArgs {
+  startTime: string
+  attendeeName: string
+  attendeeEmail: string
+  durationMinutes: number
+  endTime: string
+  title: string
+  description?: string
+}
+
+/**
+ * Validate + normalize the book_appointment tool args. Returns an error string
+ * when the input is invalid, or the parsed booking fields otherwise. Extracted
+ * to keep the tool's `execute` body under the CCN budget.
+ */
+function parseBookingArgs(
+  args: Record<string, unknown>,
+  ctx: AppointmentsToolContext,
+): string | ParsedBookingArgs {
+  const startTime = String(args.start_time ?? '').trim()
+  const attendeeName = String(args.attendee_name ?? '').trim()
+  const attendeeEmail = String(args.attendee_email ?? '').trim()
+
+  if (!startTime || !attendeeName || !attendeeEmail) {
+    return 'Missing required fields: start_time, attendee_name, and attendee_email are all required.'
+  }
+
+  const durationMinutes =
+    typeof args.duration_minutes === 'number' && args.duration_minutes > 0
+      ? args.duration_minutes
+      : ctx.config.defaultDurationMinutes
+
+  const startMs = new Date(startTime).getTime()
+  if (isNaN(startMs)) {
+    return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
+  }
+  const endTime = new Date(startMs + durationMinutes * 60 * 1000).toISOString()
+
+  const title = args.title
+    ? String(args.title)
+    : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
+
+  const description = args.description
+    ? String(args.description)
+    : (ctx.config.meetingDescription ?? undefined)
+
+  return {
+    startTime,
+    attendeeName,
+    attendeeEmail,
+    durationMinutes,
+    endTime,
+    title,
+    description,
+  }
+}
+
 function buildCheckAvailabilityTool(ctx: AppointmentsToolContext): RegisteredTool {
   return {
     function: {
@@ -125,46 +182,20 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
       }
     },
     execute: async args => {
-      const startTime = String(args.start_time ?? '').trim()
-      const attendeeName = String(args.attendee_name ?? '').trim()
-      const attendeeEmail = String(args.attendee_email ?? '').trim()
-
-      if (!startTime || !attendeeName || !attendeeEmail) {
-        return 'Missing required fields: start_time, attendee_name, and attendee_email are all required.'
-      }
-
-      const durationMinutes =
-        typeof args.duration_minutes === 'number' && args.duration_minutes > 0
-          ? args.duration_minutes
-          : ctx.config.defaultDurationMinutes
-
-      // Compute end time
-      const startMs = new Date(startTime).getTime()
-      if (isNaN(startMs)) {
-        return 'Invalid start_time format. Use ISO 8601 (e.g., 2024-03-15T14:00:00).'
-      }
-      const endTime = new Date(
-        startMs + durationMinutes * 60 * 1000
-      ).toISOString()
-
-      // Build title from template
-      const title = args.title
-        ? String(args.title)
-        : ctx.config.meetingTitleTemplate.replace('{{name}}', attendeeName)
+      const parsed = parseBookingArgs(args, ctx)
+      if (typeof parsed === 'string') return parsed
 
       try {
         const accessToken = await getValidAccessToken(ctx.connection)
         const provider = createProvider(ctx.connection, accessToken)
 
         const result = await provider.createEvent({
-          title,
-          startTime,
-          endTime,
-          attendeeEmail,
-          attendeeName,
-          description: args.description
-            ? String(args.description)
-            : (ctx.config.meetingDescription ?? undefined),
+          title: parsed.title,
+          startTime: parsed.startTime,
+          endTime: parsed.endTime,
+          attendeeEmail: parsed.attendeeEmail,
+          attendeeName: parsed.attendeeName,
+          description: parsed.description,
           timezone: ctx.config.timezone,
           createMeetLink: ctx.config.createMeetLink
         })
@@ -177,15 +208,13 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
           calendarConnectionId: ctx.connection.id,
           provider: ctx.connection.provider,
           externalEventId: result.eventId,
-          title,
-          startTime,
-          endTime,
+          title: parsed.title,
+          startTime: parsed.startTime,
+          endTime: parsed.endTime,
           timezone: ctx.config.timezone,
-          attendeeName,
-          attendeeEmail,
-          description: args.description
-            ? String(args.description)
-            : (ctx.config.meetingDescription ?? undefined),
+          attendeeName: parsed.attendeeName,
+          attendeeEmail: parsed.attendeeEmail,
+          description: parsed.description,
           meetLink: result.meetLink
         })
 
@@ -194,7 +223,7 @@ function buildBookAppointmentTool(ctx: AppointmentsToolContext): RegisteredTool 
           `Appointment booked successfully!`,
           `Title: ${booking.title}`,
           `Time: ${formatSlotDisplay(booking.startTime, ctx.config.timezone)}`,
-          `Duration: ${durationMinutes} minutes`,
+          `Duration: ${parsed.durationMinutes} minutes`,
           `Attendee: ${booking.attendeeName} (${booking.attendeeEmail})`
         ]
         if (booking.meetLink) {
