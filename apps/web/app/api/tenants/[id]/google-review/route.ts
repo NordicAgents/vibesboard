@@ -8,6 +8,7 @@ import {
   setTenantGooglePlaceId,
   getTenantIsPersonal
 } from '@vibesboard/tenants'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 
 export const runtime = 'nodejs'
@@ -29,12 +30,12 @@ export async function GET(req: Request, { params }: RouteParams) {
   if (!auth.ok) return auth.response
 
   // getTenantIsPersonal returns null when the tenant row is missing.
-  const isPersonal = await getTenantIsPersonal(tenantId)
+  const isPersonal = await getTenantIsPersonal(tenantId, getMigrateDb())
   if (isPersonal === null) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const googlePlaceId = await getTenantGooglePlaceId(tenantId)
+  const googlePlaceId = await getTenantGooglePlaceId(tenantId, getMigrateDb())
   return NextResponse.json({ googlePlaceId })
 }
 
@@ -54,7 +55,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
   const { googlePlaceId } = body
 
   // Block for personal workspaces (and 404 when the tenant is missing).
-  const isPersonal = await getTenantIsPersonal(tenantId)
+  const isPersonal = await getTenantIsPersonal(tenantId, getMigrateDb())
   if (isPersonal === null) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
@@ -87,7 +88,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     )
   }
 
-  await setTenantGooglePlaceId(tenantId, googlePlaceId || null)
+  await setTenantGooglePlaceId(tenantId, googlePlaceId || null, getMigrateDb())
 
   return NextResponse.json({ googlePlaceId: googlePlaceId || null })
 }

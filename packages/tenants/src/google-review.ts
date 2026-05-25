@@ -2,14 +2,13 @@ import { eq } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { tenants } from '@vibesboard/adapter-postgres/schema'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 
 type Db = PostgresJsDatabase<typeof schema>
 
 /** Returns the tenant's Google Place ID, or null if unset or the tenant is missing. */
 export async function getTenantGooglePlaceId(
   tenantId: string,
-  db: Db = getMigrateDb(),
+  db: Db,
 ): Promise<string | null> {
   const [row] = await db
     .select({ googlePlaceId: tenants.googlePlaceId })
@@ -23,7 +22,7 @@ export async function getTenantGooglePlaceId(
 export async function setTenantGooglePlaceId(
   tenantId: string,
   googlePlaceId: string | null,
-  db: Db = getMigrateDb(),
+  db: Db,
 ): Promise<void> {
   await db
     .update(tenants)
@@ -34,7 +33,7 @@ export async function setTenantGooglePlaceId(
 /** Returns whether the tenant is a personal workspace, or null if the tenant is missing. */
 export async function getTenantIsPersonal(
   tenantId: string,
-  db: Db = getMigrateDb(),
+  db: Db,
 ): Promise<boolean | null> {
   const [row] = await db
     .select({ isPersonal: tenants.isPersonal })
