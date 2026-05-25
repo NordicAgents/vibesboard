@@ -14,7 +14,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@vibesboard/adapter-firebase": "workspace:*",
     "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/ai": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
