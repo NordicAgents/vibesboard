@@ -4,12 +4,11 @@ import {
   requireTenantAdmin
 } from '@/lib/auth/route-handler'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import { getAgentForMember } from '@vibesboard/agents/server'
 import {
   getInboxAccount,
-  disconnectInboxAccount
+  disconnectInboxAccount,
+  updateAccountAssignment
 } from '@vibesboard/channel-whatsapp/accounts'
 
 export const runtime = 'nodejs'
@@ -99,9 +98,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const updates: Record<string, any> = {
-      updatedAt: new Date().toISOString()
-    }
+    const updates: { assignedAgentId?: string | null; agentAutoReply?: boolean } =
+      {}
 
     if (body.assignedAgentId !== undefined) {
       if (body.assignedAgentId) {
@@ -124,8 +122,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updates.agentAutoReply = body.agentAutoReply
     }
 
-    const accountPath = Collections.whatsappInboxAccounts(tenantId)
-    await adminDb.collection(accountPath).doc(accountId).update(updates)
+    await updateAccountAssignment(tenantId, accountId, updates)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

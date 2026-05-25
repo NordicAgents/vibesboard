@@ -1,47 +1,70 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import {
-  Collections,
-  type WhatsAppInboxConversationDocument,
-  type InboxConversationStatus
+import { and, eq, desc } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { whatsappConversations } from '@vibesboard/adapter-postgres/schema'
+import { rowToWhatsappConversation } from './db.ts'
+import type {
+  WhatsAppInboxConversationDocument,
+  InboxConversationStatus,
 } from '@vibesboard/contracts'
 
+type Db = PostgresJsDatabase<typeof schema>
+const WINDOW_MS = 24 * 60 * 60 * 1000
+
+async function findRow(
+  db: Db,
+  tenantId: string,
+  accountId: string,
+  phone: string
+) {
+  const [row] = await db
+    .select()
+    .from(whatsappConversations)
+    .where(
+      and(
+        eq(whatsappConversations.tenantId, tenantId),
+        eq(whatsappConversations.accountId, accountId),
+        eq(whatsappConversations.contactPhone, phone)
+      )
+    )
+    .limit(1)
+  return row ?? null
+}
+
 /**
- * Get or create a conversation for a contact phone number.
- * The document ID is the normalized contact phone (digits only).
+ * Get or create a conversation for a contact phone (digits-only normalized).
+ * Idempotent via the (account_id, contact_phone) unique constraint.
  */
 export async function getOrCreateConversation(
   tenantId: string,
   accountId: string,
   contactPhone: string,
-  contactName?: string
+  contactName?: string,
+  db: Db = getMigrateDb()
 ): Promise<WhatsAppInboxConversationDocument> {
-  const collPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
-  const docRef = adminDb.collection(collPath).doc(phoneNormalized)
-
-  const snap = await docRef.get()
-  if (snap.exists) {
-    return snap.data() as WhatsAppInboxConversationDocument
-  }
-
-  const now = new Date().toISOString()
-  const conversation: WhatsAppInboxConversationDocument = {
-    id: phoneNormalized,
-    accountId,
-    contactName: contactName || undefined,
-    contactPhone: phoneNormalized,
-    contactProfileName: contactName || undefined,
-    lastMessageAt: now,
-    lastMessagePreview: '',
-    unreadCount: 0,
-    status: 'open',
-    windowExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await docRef.set(conversation)
-  return conversation
+  const phone = contactPhone.replace(/\D/g, '')
+  const [row] = await db
+    .insert(whatsappConversations)
+    .values({
+      id: uuidv7(),
+      tenantId,
+      accountId,
+      contactPhone: phone,
+      contactName: contactName ?? null,
+      contactProfileName: contactName ?? null,
+      windowExpiresAt: new Date(Date.now() + WINDOW_MS),
+    })
+    .onConflictDoUpdate({
+      target: [
+        whatsappConversations.accountId,
+        whatsappConversations.contactPhone,
+      ],
+      set: { updatedAt: new Date() },
+    })
+    .returning()
+  return rowToWhatsappConversation(row)
 }
 
 /**
@@ -50,37 +73,39 @@ export async function getOrCreateConversation(
 export async function listConversations(
   tenantId: string,
   accountId: string,
-  status?: InboxConversationStatus
+  status?: InboxConversationStatus,
+  db: Db = getMigrateDb()
 ): Promise<WhatsAppInboxConversationDocument[]> {
-  const collPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  let query = adminDb.collection(collPath).orderBy('lastMessageAt', 'desc')
-
-  if (status) {
-    query = adminDb
-      .collection(collPath)
-      .where('status', '==', status)
-      .orderBy('lastMessageAt', 'desc')
-  }
-
-  const snap = await query.limit(100).get()
-  return snap.docs.map(
-    (d: any) => d.data() as WhatsAppInboxConversationDocument
-  )
+  const conds = [
+    eq(whatsappConversations.tenantId, tenantId),
+    eq(whatsappConversations.accountId, accountId),
+  ]
+  if (status) conds.push(eq(whatsappConversations.status, status))
+  const rows = await db
+    .select()
+    .from(whatsappConversations)
+    .where(and(...conds))
+    .orderBy(desc(whatsappConversations.lastMessageAt))
+    .limit(100)
+  return rows.map(rowToWhatsappConversation)
 }
 
 /**
- * Get a single conversation.
+ * Get a single conversation by contact phone.
  */
 export async function getConversation(
   tenantId: string,
   accountId: string,
-  contactPhone: string
+  contactPhone: string,
+  db: Db = getMigrateDb()
 ): Promise<WhatsAppInboxConversationDocument | null> {
-  const collPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
-  const snap = await adminDb.collection(collPath).doc(phoneNormalized).get()
-
-  return snap.exists ? (snap.data() as WhatsAppInboxConversationDocument) : null
+  const row = await findRow(
+    db,
+    tenantId,
+    accountId,
+    contactPhone.replace(/\D/g, '')
+  )
+  return row ? rowToWhatsappConversation(row) : null
 }
 
 /**
@@ -90,15 +115,19 @@ export async function updateConversationStatus(
   tenantId: string,
   accountId: string,
   contactPhone: string,
-  status: InboxConversationStatus
+  status: InboxConversationStatus,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
-
-  await adminDb.collection(collPath).doc(phoneNormalized).update({
-    status,
-    updatedAt: new Date().toISOString()
-  })
+  await db
+    .update(whatsappConversations)
+    .set({ status, updatedAt: new Date() })
+    .where(
+      and(
+        eq(whatsappConversations.tenantId, tenantId),
+        eq(whatsappConversations.accountId, accountId),
+        eq(whatsappConversations.contactPhone, contactPhone.replace(/\D/g, ''))
+      )
+    )
 }
 
 /**
@@ -108,18 +137,19 @@ export async function assignConversation(
   tenantId: string,
   accountId: string,
   contactPhone: string,
-  userId: string | null
+  userId: string | null,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
-
-  await adminDb
-    .collection(collPath)
-    .doc(phoneNormalized)
-    .update({
-      assignedTo: userId || null,
-      updatedAt: new Date().toISOString()
-    })
+  await db
+    .update(whatsappConversations)
+    .set({ assignedTo: userId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(whatsappConversations.tenantId, tenantId),
+        eq(whatsappConversations.accountId, accountId),
+        eq(whatsappConversations.contactPhone, contactPhone.replace(/\D/g, ''))
+      )
+    )
 }
 
 /**
@@ -128,15 +158,45 @@ export async function assignConversation(
 export async function markAsRead(
   tenantId: string,
   accountId: string,
-  contactPhone: string
+  contactPhone: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.whatsappInboxConversations(tenantId, accountId)
-  const phoneNormalized = contactPhone.replace(/\D/g, '')
+  await db
+    .update(whatsappConversations)
+    .set({ unreadCount: 0, updatedAt: new Date() })
+    .where(
+      and(
+        eq(whatsappConversations.tenantId, tenantId),
+        eq(whatsappConversations.accountId, accountId),
+        eq(whatsappConversations.contactPhone, contactPhone.replace(/\D/g, ''))
+      )
+    )
+}
 
-  await adminDb.collection(collPath).doc(phoneNormalized).update({
-    unreadCount: 0,
-    updatedAt: new Date().toISOString()
-  })
+/**
+ * Update per-conversation agent override settings.
+ */
+export async function updateConversationAgentSettings(
+  tenantId: string,
+  accountId: string,
+  contactPhone: string,
+  patch: {
+    assignedAgentId?: string | null
+    agentPaused?: boolean
+    agentHandedOff?: boolean
+  },
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .update(whatsappConversations)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(
+      and(
+        eq(whatsappConversations.tenantId, tenantId),
+        eq(whatsappConversations.accountId, accountId),
+        eq(whatsappConversations.contactPhone, contactPhone.replace(/\D/g, ''))
+      )
+    )
 }
 
 /**
