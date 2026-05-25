@@ -625,9 +625,9 @@ importers:
 
   packages/channel-instagram:
     dependencies:
-      '@vibesboard/adapter-firebase':
+      '@vibesboard/adapter-postgres':
         specifier: workspace:*
-        version: link:../adapter-firebase
+        version: link:../adapter-postgres
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -637,12 +637,15 @@ importers:
       crypto-js:
         specifier: ^4.2.0
         version: 4.2.0
-      firebase-admin:
-        specifier: ^13.7.0
-        version: 13.7.0(encoding@0.1.13)
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      uuidv7:
+        specifier: ^1.0.2
+        version: 1.2.1
     devDependencies:
       '@types/crypto-js':
         specifier: ^4.2.2
