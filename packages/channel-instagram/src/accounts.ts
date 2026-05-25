@@ -1,16 +1,21 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import {
-  Collections,
-  type InstagramInboxAccountDocument
-} from '@vibesboard/contracts'
+import { and, eq, desc } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { instagramAccounts } from '@vibesboard/adapter-postgres/schema'
+import { type InstagramInboxAccountDocument } from '@vibesboard/contracts'
 import CryptoJS from 'crypto-js'
+import { rowToInstagramAccount } from './db.ts'
 import type {
   ConnectOAuthParams,
   ConnectApiKeyParams,
   ConnectByoaParams,
   InstagramAccountInfo,
-  MetaTokenResponse
+  MetaTokenResponse,
 } from './types.ts'
+
+type Db = PostgresJsDatabase<typeof schema>
 
 const META_GRAPH_API = 'https://graph.facebook.com/v21.0'
 
@@ -194,21 +199,253 @@ export async function subscribeToWebhooks(
 }
 
 // =====================================================
-// Account Operations
+// Account Operations (Postgres)
+// =====================================================
+
+export interface CreateAccountRowParams {
+  tenantId: string
+  instagramAccountId: string
+  pageId: string
+  pageName: string
+  instagramUsername: string
+  accessTokenEncrypted: string
+  connectedBy: string
+  connectionMethod: 'oauth' | 'api_key' | 'byoa'
+  webhookSubscribed: boolean
+  scopes: string[]
+  id?: string
+  metaUserId?: string
+  metaAppId?: string
+  metaAppSecretEncrypted?: string
+  webhookVerifyTokenEncrypted?: string
+  byoaWebhookUrl?: string
+}
+
+async function existsActiveInstagramAccount(
+  db: Db,
+  tenantId: string,
+  instagramAccountId: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: instagramAccounts.id })
+    .from(instagramAccounts)
+    .where(
+      and(
+        eq(instagramAccounts.tenantId, tenantId),
+        eq(instagramAccounts.instagramAccountId, instagramAccountId),
+        eq(instagramAccounts.status, 'active')
+      )
+    )
+    .limit(1)
+  return !!row
+}
+
+/**
+ * Insert an Instagram inbox account row and return the legacy doc shape.
+ */
+export async function createAccountRow(
+  p: CreateAccountRowParams,
+  db: Db = getMigrateDb()
+): Promise<InstagramInboxAccountDocument> {
+  const id = p.id ?? uuidv7()
+  const [row] = await db
+    .insert(instagramAccounts)
+    .values({
+      id,
+      tenantId: p.tenantId,
+      instagramAccountId: p.instagramAccountId,
+      pageId: p.pageId,
+      pageName: p.pageName,
+      instagramUsername: p.instagramUsername,
+      accessTokenEncrypted: p.accessTokenEncrypted,
+      scopes: p.scopes,
+      status: 'active',
+      connectedBy: p.connectedBy,
+      webhookSubscribed: p.webhookSubscribed,
+      metaUserId: p.metaUserId ?? null,
+      connectionMethod: p.connectionMethod,
+      metaAppId: p.metaAppId ?? null,
+      metaAppSecretEncrypted: p.metaAppSecretEncrypted ?? null,
+      webhookVerifyTokenEncrypted: p.webhookVerifyTokenEncrypted ?? null,
+      byoaWebhookUrl: p.byoaWebhookUrl ?? null
+    })
+    .returning()
+  return rowToInstagramAccount(row)
+}
+
+/**
+ * List inbox accounts for a tenant.
+ */
+export async function listInboxAccounts(
+  tenantId: string,
+  db: Db = getMigrateDb()
+): Promise<InstagramInboxAccountDocument[]> {
+  const rows = await db
+    .select()
+    .from(instagramAccounts)
+    .where(eq(instagramAccounts.tenantId, tenantId))
+    .orderBy(desc(instagramAccounts.createdAt))
+  return rows.map(rowToInstagramAccount)
+}
+
+/**
+ * Get a single inbox account.
+ */
+export async function getInboxAccount(
+  tenantId: string,
+  accountId: string,
+  db: Db = getMigrateDb()
+): Promise<InstagramInboxAccountDocument | null> {
+  const [row] = await db
+    .select()
+    .from(instagramAccounts)
+    .where(
+      and(
+        eq(instagramAccounts.tenantId, tenantId),
+        eq(instagramAccounts.id, accountId)
+      )
+    )
+    .limit(1)
+  return row ? rowToInstagramAccount(row) : null
+}
+
+/**
+ * Disconnect an inbox account (soft delete).
+ */
+export async function disconnectInboxAccount(
+  tenantId: string,
+  accountId: string,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .update(instagramAccounts)
+    .set({ status: 'disconnected', updatedAt: new Date() })
+    .where(
+      and(
+        eq(instagramAccounts.tenantId, tenantId),
+        eq(instagramAccounts.id, accountId)
+      )
+    )
+}
+
+/**
+ * Permanently delete an inbox account. Conversations and messages cascade
+ * via FK onDelete: 'cascade'. Should only be used on disconnected accounts.
+ */
+export async function deleteInboxAccount(
+  tenantId: string,
+  accountId: string,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .delete(instagramAccounts)
+    .where(
+      and(
+        eq(instagramAccounts.tenantId, tenantId),
+        eq(instagramAccounts.id, accountId)
+      )
+    )
+}
+
+/**
+ * Update per-account agent assignment / auto-reply settings.
+ */
+export async function updateAccountAssignment(
+  tenantId: string,
+  accountId: string,
+  patch: { assignedAgentId?: string | null; agentAutoReply?: boolean },
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .update(instagramAccounts)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(
+      and(
+        eq(instagramAccounts.tenantId, tenantId),
+        eq(instagramAccounts.id, accountId)
+      )
+    )
+}
+
+/**
+ * Find an active inbox account by Page ID (for webhook routing, no tenant filter).
+ */
+export async function findAccountByPageId(
+  pageId: string,
+  db: Db = getMigrateDb()
+): Promise<{ account: InstagramInboxAccountDocument; tenantId: string } | null> {
+  const [row] = await db
+    .select()
+    .from(instagramAccounts)
+    .where(
+      and(
+        eq(instagramAccounts.pageId, pageId),
+        eq(instagramAccounts.status, 'active')
+      )
+    )
+    .limit(1)
+  return row
+    ? { account: rowToInstagramAccount(row), tenantId: row.tenantId }
+    : null
+}
+
+/**
+ * Find an active BYOA account by id (for per-account webhook routing).
+ */
+export async function findByoaAccountById(
+  accountId: string,
+  db: Db = getMigrateDb()
+): Promise<{ account: InstagramInboxAccountDocument; tenantId: string } | null> {
+  const [row] = await db
+    .select()
+    .from(instagramAccounts)
+    .where(
+      and(
+        eq(instagramAccounts.id, accountId),
+        eq(instagramAccounts.connectionMethod, 'byoa'),
+        eq(instagramAccounts.status, 'active')
+      )
+    )
+    .limit(1)
+  return row
+    ? { account: rowToInstagramAccount(row), tenantId: row.tenantId }
+    : null
+}
+
+/**
+ * Get account with decrypted token (for sending messages).
+ */
+export async function getAccountWithToken(
+  tenantId: string,
+  accountId: string,
+  db: Db = getMigrateDb()
+): Promise<{ account: InstagramInboxAccountDocument; accessToken: string }> {
+  const account = await getInboxAccount(tenantId, accountId, db)
+  if (!account) {
+    throw new Error('Inbox account not found')
+  }
+  if (account.status !== 'active') {
+    throw new Error('Inbox account is not active')
+  }
+  const accessToken = decryptToken(account.accessToken)
+  return { account, accessToken }
+}
+
+// =====================================================
+// Connect Flows
 // =====================================================
 
 /**
  * Full OAuth account connection flow:
  * 1. Exchange authorization code for short-lived user token
  * 2. Exchange for long-lived user token
- * 3. Get page access token (non-expiring)
- * 4. Get Instagram Business Account info
- * 5. Subscribe page to webhooks
- * 6. Check for duplicates
- * 7. Encrypt page token and store in Firestore
+ * 3. Get page access token + Instagram Business Account info
+ * 4. Subscribe page to webhooks
+ * 5. Encrypt page token and store in Postgres
  */
 export async function connectOAuthAccount(
-  params: ConnectOAuthParams
+  params: ConnectOAuthParams,
+  db: Db = getMigrateDb()
 ): Promise<InstagramInboxAccountDocument> {
   // 1. Exchange code for short-lived user access token
   const { access_token: shortToken } = await exchangeCodeForToken(params.code)
@@ -266,7 +503,7 @@ export async function connectOAuthAccount(
 
   const pageToken = selectedPage.access_token
 
-  // 5. Get the Facebook app-scoped user ID (needed for Meta data deletion callback)
+  // 4. Get the Facebook app-scoped user ID (needed for Meta data deletion callback)
   let metaUserId: string | undefined
   try {
     const meResponse = await fetch(`${META_GRAPH_API}/me?fields=id`, {
@@ -280,55 +517,38 @@ export async function connectOAuthAccount(
     // Non-critical — continue without storing Meta user ID
   }
 
-  // 6. Subscribe page to webhooks
+  // 5. Subscribe page to webhooks
   await subscribeToWebhooks(selectedPage.id, pageToken)
 
-  // 7. Check for duplicate Instagram account
-  const collRef = adminDb.collection(
-    Collections.instagramInboxAccounts(params.tenantId)
-  )
-  const existingSnap = await collRef
-    .where('instagramAccountId', '==', igAccount.id)
-    .where('status', '==', 'active')
-    .limit(1)
-    .get()
-
-  if (!existingSnap.empty) {
+  // 6. Check for duplicate Instagram account
+  if (await existsActiveInstagramAccount(db, params.tenantId, igAccount.id)) {
     throw new Error(
       'This Instagram account is already connected to your workspace.'
     )
   }
 
-  // 8. Encrypt token and store
-  const now = new Date().toISOString()
-  const docRef = collRef.doc()
-  const account: InstagramInboxAccountDocument = {
-    id: docRef.id,
-    tenantId: params.tenantId,
-    instagramAccountId: igAccount.id,
-    pageId: selectedPage.id,
-    pageName: selectedPage.name,
-    instagramUsername: igAccount.username,
-    accessToken: encryptToken(pageToken),
-    scopes: [
-      'instagram_basic',
-      'instagram_manage_messages',
-      'pages_manage_metadata',
-      'pages_messaging'
-    ],
-    status: 'active',
-    connectedBy: params.userId,
-    connectedAt: now,
-    connectionMethod: 'oauth',
-    metaUserId,
-    webhookSubscribed: true,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await docRef.set(account)
-
-  return account
+  // 7. Encrypt token and store
+  return createAccountRow(
+    {
+      tenantId: params.tenantId,
+      instagramAccountId: igAccount.id,
+      pageId: selectedPage.id,
+      pageName: selectedPage.name,
+      instagramUsername: igAccount.username,
+      accessTokenEncrypted: encryptToken(pageToken),
+      scopes: [
+        'instagram_basic',
+        'instagram_manage_messages',
+        'pages_manage_metadata',
+        'pages_messaging'
+      ],
+      connectedBy: params.userId,
+      connectionMethod: 'oauth',
+      metaUserId,
+      webhookSubscribed: true
+    },
+    db
+  )
 }
 
 /**
@@ -337,7 +557,8 @@ export async function connectOAuthAccount(
  * subscribes to webhooks, then encrypts and stores the account.
  */
 export async function connectApiKeyAccount(
-  params: ConnectApiKeyParams
+  params: ConnectApiKeyParams,
+  db: Db = getMigrateDb()
 ): Promise<InstagramInboxAccountDocument> {
   const { tenantId, accessToken, pageId, userId } = params
 
@@ -345,16 +566,7 @@ export async function connectApiKeyAccount(
   const igAccount = await getInstagramAccountForPage(pageId, accessToken)
 
   // 2. Check for duplicate Instagram account
-  const collRef = adminDb.collection(
-    Collections.instagramInboxAccounts(tenantId)
-  )
-  const existingSnap = await collRef
-    .where('instagramAccountId', '==', igAccount.id)
-    .where('status', '==', 'active')
-    .limit(1)
-    .get()
-
-  if (!existingSnap.empty) {
+  if (await existsActiveInstagramAccount(db, tenantId, igAccount.id)) {
     throw new Error(
       'This Instagram account is already connected to your workspace.'
     )
@@ -397,41 +609,34 @@ export async function connectApiKeyAccount(
   }
 
   // 5. Encrypt token and store
-  const now = new Date().toISOString()
-  const docRef = collRef.doc()
-  const account: InstagramInboxAccountDocument = {
-    id: docRef.id,
-    tenantId,
-    instagramAccountId: igAccount.id,
-    pageId,
-    pageName: pageData.name || '',
-    instagramUsername: igAccount.username,
-    accessToken: encryptToken(accessToken),
-    scopes: [
-      'instagram_basic',
-      'instagram_manage_messages',
-      'pages_manage_metadata'
-    ],
-    status: 'active',
-    connectedBy: userId,
-    connectedAt: now,
-    connectionMethod: 'api_key',
-    webhookSubscribed,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await docRef.set(account)
-  return account
+  return createAccountRow(
+    {
+      tenantId,
+      instagramAccountId: igAccount.id,
+      pageId,
+      pageName: pageData.name || '',
+      instagramUsername: igAccount.username,
+      accessTokenEncrypted: encryptToken(accessToken),
+      scopes: [
+        'instagram_basic',
+        'instagram_manage_messages',
+        'pages_manage_metadata'
+      ],
+      connectedBy: userId,
+      connectionMethod: 'api_key',
+      webhookSubscribed
+    },
+    db
+  )
 }
 
 /**
  * Connect an Instagram account using customer's own Meta App (BYOA).
  * Customer provides their own App ID, App Secret, access token, and webhook verify token.
- * Webhook subscription is NOT done — customer configures their own Meta App webhooks.
  */
 export async function connectByoaAccount(
-  params: ConnectByoaParams
+  params: ConnectByoaParams,
+  db: Db = getMigrateDb()
 ): Promise<InstagramInboxAccountDocument> {
   const {
     tenantId,
@@ -447,16 +652,7 @@ export async function connectByoaAccount(
   const igAccount = await getInstagramAccountForPage(pageId, accessToken)
 
   // 2. Check for duplicate Instagram account
-  const collRef = adminDb.collection(
-    Collections.instagramInboxAccounts(tenantId)
-  )
-  const existingSnap = await collRef
-    .where('instagramAccountId', '==', igAccount.id)
-    .where('status', '==', 'active')
-    .limit(1)
-    .get()
-
-  if (!existingSnap.empty) {
+  if (await existsActiveInstagramAccount(db, tenantId, igAccount.id)) {
     throw new Error(
       'This Instagram account is already connected to your workspace.'
     )
@@ -497,8 +693,8 @@ export async function connectByoaAccount(
     }
   }
 
-  // 5. Generate document and webhook URL
-  const docRef = collRef.doc()
+  // 5. Pre-generate id so it can be embedded in the per-account webhook URL.
+  const id = uuidv7()
   let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(
     /^http:/,
     'https:'
@@ -509,197 +705,31 @@ export async function connectByoaAccount(
   ) {
     appUrl = appUrl.replace('://vibesboard.com', '://www.vibesboard.com')
   }
-  const byoaWebhookUrl = `${appUrl}/api/webhooks/instagram-inbox/byoa/${docRef.id}`
+  const byoaWebhookUrl = `${appUrl}/api/webhooks/instagram-inbox/byoa/${id}`
 
   // 6. Encrypt secrets and store
-  const now = new Date().toISOString()
-  const account: InstagramInboxAccountDocument = {
-    id: docRef.id,
-    tenantId,
-    instagramAccountId: igAccount.id,
-    pageId,
-    pageName: pageData.name || '',
-    instagramUsername: igAccount.username,
-    accessToken: encryptToken(accessToken),
-    scopes: [
-      'instagram_basic',
-      'instagram_manage_messages',
-      'pages_manage_metadata'
-    ],
-    status: 'active',
-    connectedBy: userId,
-    connectedAt: now,
-    connectionMethod: 'byoa',
-    metaAppId,
-    metaAppSecret: encryptToken(metaAppSecret),
-    webhookVerifyToken: encryptToken(webhookVerifyToken),
-    byoaWebhookUrl,
-    webhookSubscribed,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await docRef.set(account)
-  return account
-}
-
-/**
- * Find a BYOA account by document ID (for per-account webhook routing).
- * Uses collectionGroup query to search across all tenants.
- */
-export async function findByoaAccountById(
-  accountId: string
-): Promise<{
-  account: InstagramInboxAccountDocument
-  tenantId: string
-} | null> {
-  const snap = await adminDb
-    .collectionGroup('instagram_inbox_accounts')
-    .where('id', '==', accountId)
-    .where('connectionMethod', '==', 'byoa')
-    .where('status', '==', 'active')
-    .limit(1)
-    .get()
-
-  if (snap.empty) return null
-
-  const doc = snap.docs[0]!
-  const account = doc.data() as InstagramInboxAccountDocument
-  const tenantId = doc.ref.path.split('/')[1]
-
-  return { account, tenantId }
-}
-
-/**
- * List inbox accounts for a tenant.
- */
-export async function listInboxAccounts(
-  tenantId: string
-): Promise<InstagramInboxAccountDocument[]> {
-  const snap = await adminDb
-    .collection(Collections.instagramInboxAccounts(tenantId))
-    .orderBy('createdAt', 'desc')
-    .get()
-
-  return snap.docs.map((d: any) => d.data() as InstagramInboxAccountDocument)
-}
-
-/**
- * Get a single inbox account.
- */
-export async function getInboxAccount(
-  tenantId: string,
-  accountId: string
-): Promise<InstagramInboxAccountDocument | null> {
-  const snap = await adminDb
-    .collection(Collections.instagramInboxAccounts(tenantId))
-    .doc(accountId)
-    .get()
-
-  return snap.exists ? (snap.data() as InstagramInboxAccountDocument) : null
-}
-
-/**
- * Disconnect an inbox account (soft delete).
- */
-export async function disconnectInboxAccount(
-  tenantId: string,
-  accountId: string
-): Promise<void> {
-  await adminDb
-    .collection(Collections.instagramInboxAccounts(tenantId))
-    .doc(accountId)
-    .update({
-      status: 'disconnected',
-      updatedAt: new Date().toISOString()
-    })
-}
-
-/**
- * Permanently delete an inbox account and all its subcollections from Firestore.
- * Should only be used on already-disconnected accounts.
- */
-export async function deleteInboxAccount(
-  tenantId: string,
-  accountId: string
-): Promise<void> {
-  const BATCH_SIZE = 500
-
-  // Delete all conversations and their messages
-  const conversationsSnap = await adminDb
-    .collection(
-      `tenants/${tenantId}/instagram_inbox_accounts/${accountId}/conversations`
-    )
-    .get()
-
-  for (const convDoc of conversationsSnap.docs) {
-    const messagesSnap = await adminDb
-      .collection(
-        `tenants/${tenantId}/instagram_inbox_accounts/${accountId}/conversations/${convDoc.id}/messages`
-      )
-      .get()
-
-    for (let i = 0; i < messagesSnap.docs.length; i += BATCH_SIZE) {
-      const chunk = messagesSnap.docs.slice(i, i + BATCH_SIZE)
-      const batch = adminDb.batch()
-      chunk.forEach((msgDoc: any) => batch.delete(msgDoc.ref))
-      await batch.commit()
-    }
-
-    await convDoc.ref.delete()
-  }
-
-  // Delete the account document
-  await adminDb
-    .collection(Collections.instagramInboxAccounts(tenantId))
-    .doc(accountId)
-    .delete()
-}
-
-/**
- * Find an inbox account by Page ID (for webhook routing).
- * Uses collectionGroup query to search across all tenants.
- */
-export async function findAccountByPageId(
-  pageId: string
-): Promise<{
-  account: InstagramInboxAccountDocument
-  tenantId: string
-} | null> {
-  const snap = await adminDb
-    .collectionGroup('instagram_inbox_accounts')
-    .where('pageId', '==', pageId)
-    .where('status', '==', 'active')
-    .limit(1)
-    .get()
-
-  if (snap.empty) return null
-
-  const doc = snap.docs[0]!
-  const account = doc.data() as InstagramInboxAccountDocument
-  // Path: tenants/{tenantId}/instagram_inbox_accounts/{accountId}
-  const tenantId = doc.ref.path.split('/')[1]
-
-  return { account, tenantId }
-}
-
-/**
- * Get account with decrypted token (for sending messages).
- */
-export async function getAccountWithToken(
-  tenantId: string,
-  accountId: string
-): Promise<{ account: InstagramInboxAccountDocument; accessToken: string }> {
-  const account = await getInboxAccount(tenantId, accountId)
-
-  if (!account) {
-    throw new Error('Inbox account not found')
-  }
-
-  if (account.status !== 'active') {
-    throw new Error('Inbox account is not active')
-  }
-
-  const accessToken = decryptToken(account.accessToken)
-  return { account, accessToken }
+  return createAccountRow(
+    {
+      id,
+      tenantId,
+      instagramAccountId: igAccount.id,
+      pageId,
+      pageName: pageData.name || '',
+      instagramUsername: igAccount.username,
+      accessTokenEncrypted: encryptToken(accessToken),
+      scopes: [
+        'instagram_basic',
+        'instagram_manage_messages',
+        'pages_manage_metadata'
+      ],
+      connectedBy: userId,
+      connectionMethod: 'byoa',
+      webhookSubscribed,
+      metaAppId,
+      metaAppSecretEncrypted: encryptToken(metaAppSecret),
+      webhookVerifyTokenEncrypted: encryptToken(webhookVerifyToken),
+      byoaWebhookUrl
+    },
+    db
+  )
 }
