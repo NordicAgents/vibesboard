@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./bookings": "./src/bookings.ts",
     "./connections": "./src/connections.ts",
     "./google-auth": "./src/google-auth.ts",
     "./oauth-return": "./src/oauth-return.ts",
