@@ -360,9 +360,12 @@ importers:
 
   packages/adapter-google:
     dependencies:
-      '@vibesboard/adapter-firebase':
+      '@vibesboard/adapter-better-auth':
         specifier: workspace:*
-        version: link:../adapter-firebase
+        version: link:../adapter-better-auth
+      '@vibesboard/adapter-postgres':
+        specifier: workspace:*
+        version: link:../adapter-postgres
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
@@ -370,6 +373,9 @@ importers:
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

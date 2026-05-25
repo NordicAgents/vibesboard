@@ -9,14 +9,17 @@
     "./risc": "./src/risc.ts"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --conditions react-server --test 'src/__tests__/**/*.test.ts'"
   },
   "dependencies": {
-    "@vibesboard/adapter-firebase": "workspace:*",
+    "@vibesboard/adapter-better-auth": "workspace:*",
+    "@vibesboard/adapter-postgres": "workspace:*",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "drizzle-orm": "^0.45.2",
     "typescript": "^5.9.3"
   }
 }
