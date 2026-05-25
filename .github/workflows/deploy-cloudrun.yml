@@ -139,8 +139,8 @@ jobs:
             GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest
             GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest
             GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
-            AUTH_GOOGLE_ID=google-oauth-client-id:latest
-            AUTH_GOOGLE_SECRET=google-oauth-client-secret:latest
+            AUTH_GOOGLE_ID=${{ github.ref_name == 'main' && 'google-oauth-client-id-prod:latest' || 'google-oauth-client-id:latest' }}
+            AUTH_GOOGLE_SECRET=${{ github.ref_name == 'main' && 'google-oauth-client-secret-prod:latest' || 'google-oauth-client-secret:latest' }}
             ACCESS_GATE_SECRET=access-gate-secret:latest
             DATABASE_URL=${{ github.ref_name == 'main' && 'database-url-prod:latest' || (github.ref_name == 'dev' && 'database-url-staging:latest') || '' }}
             DATABASE_MIGRATE_URL=${{ github.ref_name == 'main' && 'database-migrate-url-prod:latest' || (github.ref_name == 'dev' && 'database-migrate-url-staging:latest') || '' }}
