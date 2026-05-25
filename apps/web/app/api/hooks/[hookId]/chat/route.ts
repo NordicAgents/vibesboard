@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Message } from '@vibesboard/contracts'
-import { FieldValue } from 'firebase-admin/firestore'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import {
   getHookById,
   verifySecret,
   recordHookUsage
 } from '@vibesboard/agents/hooks'
+import { incrementAgentResponseCount } from '@vibesboard/agents/limits'
 import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
 import {
   ensureConversation,
@@ -33,7 +32,6 @@ import {
   buildHandoffContext,
   MAX_HANDOFF_DEPTH
 } from '@vibesboard/ai/handoff'
-import { Collections } from '@vibesboard/contracts'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
@@ -182,13 +180,12 @@ export async function POST(
         )
 
         // Increment current agent's lifetime response counter
-        adminDb
-          .collection(Collections.agents(currentAgent.tenantId!))
-          .doc(currentAgent.id)
-          .update({ totalResponseCount: FieldValue.increment(1) })
-          .catch((e: unknown) =>
-            console.error('[hooks] Failed to increment response count:', e)
-          )
+        incrementAgentResponseCount(
+          currentAgent.tenantId!,
+          currentAgent.id
+        ).catch((e: unknown) =>
+          console.error('[hooks] Failed to increment response count:', e)
+        )
 
         // Record usage for metering (fire-and-forget)
         recordUsage({
@@ -278,7 +275,9 @@ export async function POST(
   }
 
   // ── 7. Record hook usage (fire-and-forget) ──────────────────────────
-  recordHookUsage(agent.tenantId!, agent.id, hookId)
+  recordHookUsage(agent.tenantId!, agent.id, hookId).catch(e =>
+    console.error('[hooks] Failed to record hook usage:', e)
+  )
 
   // ── 8. Return JSON response ──────────────────────────────────────────
   return NextResponse.json({
