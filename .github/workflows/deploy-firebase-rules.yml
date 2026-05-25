@@ -1,12 +1,10 @@
-name: Deploy Firebase Rules & Indexes
+name: Deploy Firebase Storage Rules
 
 on:
   push:
     branches: [dev, main]
     paths:
-      - "firestore.rules"
       - "storage.rules"
-      - "firestore.indexes.json"
       - "firebase.json"
   workflow_dispatch:
 
@@ -42,5 +40,5 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
-      - name: Deploy Rules & Indexes
-        run: npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage --project ${{ env.FIREBASE_PROJECT }} --non-interactive
+      - name: Deploy Storage Rules
+        run: npx firebase-tools deploy --only storage --project ${{ env.FIREBASE_PROJECT }} --non-interactive
