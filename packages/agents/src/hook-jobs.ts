@@ -1,11 +1,15 @@
 import 'server-only'
-import { customAlphabet } from 'nanoid'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { and, eq } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { hookJobs, type HookJob } from '@vibesboard/adapter-postgres/schema'
 import {
-  Collections,
   type HookJobDocument,
   type HookJobStatus
 } from '@vibesboard/contracts'
+import { rowToHookJob } from './db.ts'
 import { getAgentById } from '@vibesboard/agents/server'
 import {
   ensureConversation,
@@ -26,61 +30,95 @@ import {
 import { checkUsageLimit, recordUsage } from '@vibesboard/policy/usage'
 import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
 
-const genJobId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
+type Db = PostgresJsDatabase<typeof schema>
 
 // ─── DB helpers ───────────────────────────────────────────────────────
 
-export async function createJob(params: {
-  hookId: string
-  agentId: string
-  tenantId: string
-  message: string
-  callbackUrl: string
-  externalUserId?: string
-  conversationId?: string
-}): Promise<HookJobDocument> {
-  const id = genJobId()
-  const now = new Date().toISOString()
-
-  const doc: HookJobDocument = {
-    id,
-    hookId: params.hookId,
-    agentId: params.agentId,
-    tenantId: params.tenantId,
-    message: params.message,
-    callbackUrl: params.callbackUrl,
-    externalUserId: params.externalUserId,
-    conversationId: params.conversationId,
-    status: 'pending',
-    callbackAttempts: 0,
-    createdAt: now
-  }
-
-  await adminDb
-    .collection(
-      Collections.hookJobs(params.tenantId, params.agentId, params.hookId)
-    )
-    .doc(id)
-    .set(doc)
-
-  return doc
+export async function createJob(
+  params: {
+    hookId: string
+    agentId: string
+    tenantId: string
+    message: string
+    callbackUrl: string
+    externalUserId?: string
+    conversationId?: string
+  },
+  db: Db = getMigrateDb()
+): Promise<HookJobDocument> {
+  const [row] = await db
+    .insert(hookJobs)
+    .values({
+      id: uuidv7(),
+      hookId: params.hookId,
+      agentId: params.agentId,
+      tenantId: params.tenantId,
+      message: params.message,
+      callbackUrl: params.callbackUrl,
+      externalUserId: params.externalUserId ?? null,
+      conversationId: params.conversationId ?? null,
+      status: 'pending',
+      callbackAttempts: 0
+    })
+    .returning()
+  return rowToHookJob(row)
 }
 
 export async function getJob(
   tenantId: string,
   agentId: string,
   hookId: string,
-  jobId: string
+  jobId: string,
+  db: Db = getMigrateDb()
 ): Promise<HookJobDocument | null> {
-  const snap = await adminDb
-    .collection(Collections.hookJobs(tenantId, agentId, hookId))
-    .doc(jobId)
-    .get()
+  const [row] = await db
+    .select()
+    .from(hookJobs)
+    .where(
+      and(
+        eq(hookJobs.id, jobId),
+        eq(hookJobs.tenantId, tenantId),
+        eq(hookJobs.agentId, agentId),
+        eq(hookJobs.hookId, hookId)
+      )
+    )
+    .limit(1)
+  return row ? rowToHookJob(row) : null
+}
 
-  return snap.exists ? (snap.data() as HookJobDocument) : null
+type JobPatch = Partial<{
+  status: HookJobStatus
+  reply: string
+  error: string
+  conversationId: string
+  callbackStatus: number
+  callbackAttempts: number
+  startedAt: string
+  completedAt: string
+  failedAt: string
+}>
+
+/**
+ * Translate a string-timestamp patch (the shape the runner produces) into the
+ * Drizzle column update object, mapping ISO strings to Date. Pulled out of
+ * updateJob to keep that function's cyclomatic complexity low.
+ */
+function buildJobUpdate(patch: JobPatch): Partial<typeof hookJobs.$inferInsert> {
+  const update: Partial<typeof hookJobs.$inferInsert> = {}
+  if (patch.status !== undefined) update.status = patch.status
+  if (patch.reply !== undefined) update.reply = patch.reply
+  if (patch.error !== undefined) update.error = patch.error
+  if (patch.conversationId !== undefined)
+    update.conversationId = patch.conversationId
+  if (patch.callbackStatus !== undefined)
+    update.callbackStatus = patch.callbackStatus
+  if (patch.callbackAttempts !== undefined)
+    update.callbackAttempts = patch.callbackAttempts
+  if (patch.startedAt !== undefined) update.startedAt = new Date(patch.startedAt)
+  if (patch.completedAt !== undefined)
+    update.completedAt = new Date(patch.completedAt)
+  if (patch.failedAt !== undefined) update.failedAt = new Date(patch.failedAt)
+  return update
 }
 
 async function updateJob(
@@ -88,12 +126,20 @@ async function updateJob(
   agentId: string,
   hookId: string,
   jobId: string,
-  patch: Partial<HookJobDocument>
+  patch: JobPatch,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  await adminDb
-    .collection(Collections.hookJobs(tenantId, agentId, hookId))
-    .doc(jobId)
-    .update(patch)
+  await db
+    .update(hookJobs)
+    .set(buildJobUpdate(patch))
+    .where(
+      and(
+        eq(hookJobs.id, jobId),
+        eq(hookJobs.tenantId, tenantId),
+        eq(hookJobs.agentId, agentId),
+        eq(hookJobs.hookId, hookId)
+      )
+    )
 }
 
 // ─── Callback delivery ────────────────────────────────────────────────

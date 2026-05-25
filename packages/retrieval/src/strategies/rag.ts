@@ -10,7 +10,10 @@ import {
 const MAX_CONTEXT_CHARS = 30_000
 
 export class RagRetriever implements Retriever {
-  constructor(private config: RetrieverConfig) {}
+  private config: RetrieverConfig
+  constructor(config: RetrieverConfig) {
+    this.config = config
+  }
 
   async prepare(): Promise<void> {}
 
