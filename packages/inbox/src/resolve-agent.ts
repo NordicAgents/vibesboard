@@ -3,13 +3,13 @@ import 'server-only'
 import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import { Collections } from '@vibesboard/contracts'
 import type {
-  WhatsAppInboxAccountDocument,
   InstagramInboxAccountDocument,
-  WhatsAppInboxConversationDocument,
   InstagramInboxConversationDocument
 } from '@vibesboard/contracts'
 import { getAgentForMember } from '@vibesboard/agents/server'
 import type { VibeAgent } from '@vibesboard/contracts'
+import * as wa from '@vibesboard/channel-whatsapp/conversations'
+import * as waAcc from '@vibesboard/channel-whatsapp/accounts'
 
 export type InboxChannel = 'whatsapp' | 'instagram'
 
@@ -29,34 +29,39 @@ export async function resolveInboxAgent(
   contactId: string,
   channel: InboxChannel
 ): Promise<{ agentId: string; agent: VibeAgent } | null> {
-  // 1. Fetch conversation doc
-  const convoPath =
-    channel === 'whatsapp'
-      ? Collections.whatsappInboxConversations(tenantId, accountId)
-      : Collections.instagramInboxConversations(tenantId, accountId)
+  if (channel === 'whatsapp') {
+    // WhatsApp data layer is on Postgres (Phase 5a).
+    const convo = await wa.getConversation(tenantId, accountId, contactId)
+    if (convo?.agentPaused || convo?.agentHandedOff) return null
 
+    let agentId = convo?.assignedAgentId ?? undefined
+    if (!agentId) {
+      const account = await waAcc.getInboxAccount(tenantId, accountId)
+      if (!account) return null
+      if (account.agentAutoReply === false) return null
+      agentId = account.assignedAgentId ?? undefined
+    }
+    if (!agentId) return null
+
+    const agent = await getAgentForMember(tenantId, agentId)
+    return agent ? { agentId, agent } : null
+  }
+
+  // Instagram still reads from Firestore until Phase 5b.
+  const convoPath = Collections.instagramInboxConversations(tenantId, accountId)
   const convoSnap = await adminDb.collection(convoPath).doc(contactId).get()
   const convoData = convoSnap.exists
-    ? (convoSnap.data() as
-        | WhatsAppInboxConversationDocument
-        | InstagramInboxConversationDocument)
+    ? (convoSnap.data() as InstagramInboxConversationDocument)
     : null
 
-  // 2. Check conversation-level flags
   if (convoData?.agentPaused || convoData?.agentHandedOff) {
     return null
   }
 
-  // 3. Determine effective agent ID: conversation override > account default
   let agentId = convoData?.assignedAgentId
 
   if (!agentId) {
-    // Fall back to account-level assignment
-    const accountPath =
-      channel === 'whatsapp'
-        ? Collections.whatsappInboxAccounts(tenantId)
-        : Collections.instagramInboxAccounts(tenantId)
-
+    const accountPath = Collections.instagramInboxAccounts(tenantId)
     const accountSnap = await adminDb
       .collection(accountPath)
       .doc(accountId)
@@ -64,11 +69,8 @@ export async function resolveInboxAgent(
 
     if (!accountSnap.exists) return null
 
-    const accountData = accountSnap.data() as
-      | WhatsAppInboxAccountDocument
-      | InstagramInboxAccountDocument
+    const accountData = accountSnap.data() as InstagramInboxAccountDocument
 
-    // Check if auto-reply is enabled (default true when agent assigned)
     if (accountData.agentAutoReply === false) return null
 
     agentId = accountData.assignedAgentId
@@ -76,7 +78,6 @@ export async function resolveInboxAgent(
 
   if (!agentId) return null
 
-  // 4. Load the agent
   const agent = await getAgentForMember(tenantId, agentId)
   if (!agent) return null
 
