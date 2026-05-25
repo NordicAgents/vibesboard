@@ -1,13 +1,31 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { and, eq } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { dataConnections } from '@vibesboard/adapter-postgres/schema'
 import {
-  Collections,
   type DataConnectionDocument,
   type DataConnectionStatus,
-  type DataProvider
 } from '@vibesboard/contracts'
 import { decryptToken } from '@vibesboard/scheduling/connections'
 import { refreshAccessToken } from './google-sheets-auth.ts'
+import { rowToDataConnection } from './db.ts'
 import CryptoJS from 'crypto-js'
+
+type Db = PostgresJsDatabase<typeof schema>
+
+// ─── Startup Validation ─────────────────────────────────────────────
+
+// Fail fast on the server so misconfiguration is caught at boot time,
+// not silently at the first token encrypt/decrypt call.
+if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
+  console.error(
+    '[data/connections] FATAL: ENCRYPTION_KEY environment variable is not set. ' +
+      'Data connection tokens cannot be encrypted or decrypted. ' +
+      'Set ENCRYPTION_KEY before deploying.'
+  )
+}
 
 // ─── Token Encryption ───────────────────────────────────────────────
 
@@ -51,120 +69,119 @@ export interface CreateWebhookConnectionParams {
   name: string
 }
 
+export type CreateDataConnectionParams =
+  | ({ provider: 'google_sheets' } & CreateGoogleSheetsConnectionParams)
+  | ({ provider: 'airtable' } & CreateAirtableConnectionParams)
+  | ({ provider: 'custom_webhook' } & CreateWebhookConnectionParams)
+
 // ─── CRUD ───────────────────────────────────────────────────────────
 
-export async function createDataConnection(
-  params:
-    | ({ provider: 'google_sheets' } & CreateGoogleSheetsConnectionParams)
-    | ({ provider: 'airtable' } & CreateAirtableConnectionParams)
-    | ({ provider: 'custom_webhook' } & CreateWebhookConnectionParams)
-): Promise<DataConnectionDocument> {
-  const collPath = Collections.dataConnections(params.tenantId)
-  const docRef = adminDb.collection(collPath).doc()
-  const now = new Date().toISOString()
-
-  const base: Pick<
-    DataConnectionDocument,
-    | 'id'
-    | 'tenantId'
-    | 'provider'
-    | 'name'
-    | 'status'
-    | 'connectedBy'
-    | 'connectedAt'
-    | 'createdAt'
-    | 'updatedAt'
-  > = {
-    id: docRef.id,
-    tenantId: params.tenantId,
-    provider: params.provider,
-    name: params.name,
-    status: 'active',
-    connectedBy: params.connectedBy,
-    connectedAt: now,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  let doc: DataConnectionDocument
-
+function buildConnectionValues(params: CreateDataConnectionParams) {
   switch (params.provider) {
     case 'google_sheets':
-      doc = {
-        ...base,
-        accessToken: encryptToken(params.accessToken),
-        refreshToken: encryptToken(params.refreshToken),
-        tokenExpiresAt: params.tokenExpiresAt,
-        email: params.email,
+      return {
+        accessTokenEncrypted: encryptToken(params.accessToken),
+        refreshTokenEncrypted: encryptToken(params.refreshToken),
+        tokenExpiresAt: new Date(params.tokenExpiresAt),
+        email: params.email ?? null,
         spreadsheetId: params.spreadsheetId,
         sheetName: params.sheetName ?? 'Sheet1',
-        scopes: params.scopes
+        scopes: params.scopes,
       }
-      break
-
     case 'airtable':
-      doc = {
-        ...base,
-        apiToken: encryptToken(params.apiToken),
+      return {
+        apiTokenEncrypted: encryptToken(params.apiToken),
         baseId: params.baseId,
         tableId: params.tableId,
-        tableName: params.tableName
+        tableName: params.tableName ?? null,
       }
-      break
-
     case 'custom_webhook':
-      doc = {
-        ...base,
+      return {
         webhookUrl: params.webhookUrl,
         webhookMethod: params.webhookMethod ?? 'POST',
-        webhookHeaders: params.webhookHeaders
+        webhookHeaders: params.webhookHeaders ?? null,
       }
-      break
   }
+}
 
-  await docRef.set(doc)
-  return doc
+export async function createDataConnection(
+  params: CreateDataConnectionParams,
+  db: Db = getMigrateDb()
+): Promise<DataConnectionDocument> {
+  const [row] = await db
+    .insert(dataConnections)
+    .values({
+      id: uuidv7(),
+      tenantId: params.tenantId,
+      provider: params.provider,
+      name: params.name,
+      status: 'active',
+      connectedBy: params.connectedBy,
+      ...buildConnectionValues(params),
+    })
+    .returning()
+  return rowToDataConnection(row)
 }
 
 export async function getDataConnections(
-  tenantId: string
+  tenantId: string,
+  db: Db = getMigrateDb()
 ): Promise<DataConnectionDocument[]> {
-  const collPath = Collections.dataConnections(tenantId)
-  const snapshot = await adminDb.collection(collPath).get()
-  return snapshot.docs.map(
-    (d: FirebaseFirestore.QueryDocumentSnapshot) =>
-      ({ id: d.id, ...d.data() }) as DataConnectionDocument
-  )
+  const rows = await db
+    .select()
+    .from(dataConnections)
+    .where(eq(dataConnections.tenantId, tenantId))
+  return rows.map(rowToDataConnection)
 }
 
 export async function getDataConnection(
   tenantId: string,
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<DataConnectionDocument | null> {
-  const collPath = Collections.dataConnections(tenantId)
-  const doc = await adminDb.collection(collPath).doc(connectionId).get()
-  if (!doc.exists) return null
-  return { id: doc.id, ...doc.data() } as DataConnectionDocument
+  const [row] = await db
+    .select()
+    .from(dataConnections)
+    .where(
+      and(
+        eq(dataConnections.tenantId, tenantId),
+        eq(dataConnections.id, connectionId)
+      )
+    )
+    .limit(1)
+  return row ? rowToDataConnection(row) : null
 }
 
 export async function deleteDataConnection(
   tenantId: string,
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.dataConnections(tenantId)
-  await adminDb.collection(collPath).doc(connectionId).delete()
+  await db
+    .delete(dataConnections)
+    .where(
+      and(
+        eq(dataConnections.tenantId, tenantId),
+        eq(dataConnections.id, connectionId)
+      )
+    )
 }
 
 export async function updateDataConnectionStatus(
   tenantId: string,
   connectionId: string,
-  status: DataConnectionStatus
+  status: DataConnectionStatus,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.dataConnections(tenantId)
-  await adminDb.collection(collPath).doc(connectionId).update({
-    status,
-    updatedAt: new Date().toISOString()
-  })
+  await db
+    .update(dataConnections)
+    .set({ status, updatedAt: new Date() })
+    .where(
+      and(
+        eq(dataConnections.tenantId, tenantId),
+        eq(dataConnections.id, connectionId)
+      )
+    )
 }
 
 export async function updateDataConnection(
@@ -182,16 +199,18 @@ export async function updateDataConnection(
       | 'webhookMethod'
       | 'webhookHeaders'
     >
-  >
+  >,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.dataConnections(tenantId)
-  await adminDb
-    .collection(collPath)
-    .doc(connectionId)
-    .update({
-      ...updates,
-      updatedAt: new Date().toISOString()
-    })
+  await db
+    .update(dataConnections)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(
+      and(
+        eq(dataConnections.tenantId, tenantId),
+        eq(dataConnections.id, connectionId)
+      )
+    )
 }
 
 // ─── Token Management ───────────────────────────────────────────────
@@ -203,7 +222,8 @@ export async function updateDataConnection(
  * - Webhook: returns empty string (not token-based)
  */
 export async function getValidDataAccessToken(
-  connection: DataConnectionDocument
+  connection: DataConnectionDocument,
+  db: Db = getMigrateDb()
 ): Promise<string> {
   switch (connection.provider) {
     case 'google_sheets': {
@@ -219,21 +239,26 @@ export async function getValidDataAccessToken(
       const refreshToken = decryptToken(connection.refreshToken!)
       try {
         const refreshed = await refreshAccessToken(refreshToken)
-        const collPath = Collections.dataConnections(connection.tenantId)
-        await adminDb
-          .collection(collPath)
-          .doc(connection.id)
-          .update({
-            accessToken: encryptToken(refreshed.accessToken),
-            tokenExpiresAt: refreshed.expiresAt,
-            updatedAt: new Date().toISOString()
+        await db
+          .update(dataConnections)
+          .set({
+            accessTokenEncrypted: encryptToken(refreshed.accessToken),
+            tokenExpiresAt: new Date(refreshed.expiresAt),
+            updatedAt: new Date(),
           })
+          .where(
+            and(
+              eq(dataConnections.tenantId, connection.tenantId),
+              eq(dataConnections.id, connection.id)
+            )
+          )
         return refreshed.accessToken
       } catch (error) {
         await updateDataConnectionStatus(
           connection.tenantId,
           connection.id,
-          'expired'
+          'expired',
+          db
         )
         throw new Error(
           `Google Sheets token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`
