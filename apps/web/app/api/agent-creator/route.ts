@@ -3,9 +3,11 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { streamText as aiStreamText, tool } from 'ai'
 import { z } from 'zod'
 
+import { uuidv7 } from 'uuidv7'
+
 import { auth } from '@/auth'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
 import {
   BUILTIN_AGENT_TOOLS,
   createAgentSlug,
@@ -15,10 +17,9 @@ import {
   bookingConfigSchema,
   upsertAgentSchema
 } from '@vibesboard/agents/schema'
-import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
+import { getActiveTenant } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
-import { nanoid } from '@vibesboard/utils'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import {
   createDirectBookingDraftConfig,
@@ -28,6 +29,43 @@ import {
 export const runtime = 'nodejs'
 
 const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-5.4-nano'
+
+type AgentCreatorPayload = ReturnType<typeof upsertAgentSchema.parse>
+
+// Mirrors the Postgres insert shape used by `api/agents/route.ts` POST. The
+// `tenantSlug`/`agentUrl`/`sourceUrls` legacy Firestore fields are not columns
+// (slug + tenant join provide them); `totalResponseCount` defaults to 0.
+function buildAgentInsertValues(input: {
+  agentId: string
+  tenantId: string
+  userId: string
+  slug: string
+  payload: AgentCreatorPayload
+  maxResponses: number | null
+  maxAgentResponses: number | null
+}): typeof agentsTable.$inferInsert {
+  const { payload } = input
+  return {
+    id: input.agentId,
+    tenantId: input.tenantId,
+    userId: input.userId,
+    name: payload.name,
+    slug: input.slug,
+    instructions: payload.instructions ?? '',
+    mode: payload.mode ?? 'provider',
+    allowAnonymous: payload.allowAnonymous ?? true,
+    greetingText: payload.greetingText ?? null,
+    quickSuggestionsMode: payload.quickSuggestionsMode ?? 'smart',
+    quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
+    tools: (payload.tools as unknown as string[]) ?? [],
+    fileKeys: payload.fileKeys ?? [],
+    maxResponses: input.maxResponses,
+    maxAgentResponses: input.maxAgentResponses,
+    totalResponseCount: 0,
+    retrievalStrategy: payload.retrievalStrategy ?? 'direct',
+    bookingConfig: payload.bookingConfig ?? null
+  }
+}
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -321,45 +359,26 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
           }
 
-          const tenant = await getTenantById(tenantId)
-          const tenantSlug = tenant?.slug ?? 'unknown'
           const slug = await ensureUniqueSlug(
             createAgentSlug(agentPayload.name),
             tenantId
           )
-          const agentId = nanoid()
-          const now = new Date().toISOString()
+          const agentId = uuidv7()
 
           try {
-            await adminDb
-              .collection(Collections.agents(tenantId))
-              .doc(agentId)
-              .set({
-                id: agentId,
-                userId: session.user.id,
-                tenantId,
-                tenantSlug,
-                name: agentPayload.name,
-                instructions: agentPayload.instructions,
-                fileKeys: agentPayload.fileKeys,
-                tools: agentPayload.tools,
-                allowAnonymous: agentPayload.allowAnonymous,
-                agentUrl: slug,
-                greetingText: agentPayload.greetingText ?? null,
-                mode: agentPayload.mode,
-                maxResponses,
-                maxAgentResponses,
-                totalResponseCount: 0,
-                quickSuggestionsMode: agentPayload.quickSuggestionsMode,
-                quickSuggestionsCount: agentPayload.quickSuggestionsCount,
-                sourceUrls: agentPayload.sourceUrls,
-                retrievalStrategy: agentPayload.retrievalStrategy,
-                ...(agentPayload.bookingConfig !== undefined && {
-                  bookingConfig: agentPayload.bookingConfig
-                }),
-                createdAt: now,
-                updatedAt: now
-              })
+            await getMigrateDb()
+              .insert(agentsTable)
+              .values(
+                buildAgentInsertValues({
+                  agentId,
+                  tenantId,
+                  userId: session.user.id,
+                  slug,
+                  payload: agentPayload,
+                  maxResponses,
+                  maxAgentResponses
+                })
+              )
           } catch (error: any) {
             console.error('Failed to create agent:', error)
             return `I couldn't create the agent automatically (${error?.message ?? 'Unknown error'}). Please click "Create Agent" in the preview panel.`

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { getDeletionRequest } from '@vibesboard/channel-instagram/data-deletion'
 
 export const runtime = 'nodejs'
 
@@ -15,23 +15,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 })
   }
 
-  const doc = await adminDb
-    .collection('meta_data_deletion_requests')
-    .doc(id)
-    .get()
+  const record = await getDeletionRequest(id)
 
-  if (!doc.exists) {
+  if (!record) {
     return NextResponse.json(
       { error: 'Deletion request not found' },
       { status: 404 }
     )
   }
 
-  const data = doc.data()!
   return NextResponse.json({
-    confirmation_code: data.confirmationCode,
-    status: data.status,
-    created_at: data.createdAt?.toDate?.()?.toISOString() ?? null,
-    completed_at: data.completedAt?.toDate?.()?.toISOString() ?? null
+    confirmation_code: record.confirmationCode,
+    status: record.status,
+    created_at: record.createdAt?.toISOString() ?? null,
+    completed_at: record.completedAt?.toISOString() ?? null
   })
 }
