@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants } from '@vibesboard/adapter-postgres/schema'
-import { rowToCalendarConnection } from '../db.ts'
+import { rowToCalendarConnection, rowToBooking } from '../db.ts'
 import {
   createCalendarConnection,
   getCalendarConnections,
@@ -96,5 +96,38 @@ describe('calendar connection CRUD (postgres)', () => {
       await deleteCalendarConnection(tenantId, created.id, adminDb)
       assert.equal(await getCalendarConnection(tenantId, created.id, adminDb), null)
     })
+  })
+})
+
+describe('rowToBooking', () => {
+  test('maps a booking row to BookingDocument', () => {
+    const now = new Date('2026-05-25T10:00:00.000Z')
+    const end = new Date('2026-05-25T10:30:00.000Z')
+    const doc = rowToBooking({
+      id: 'b1',
+      tenantId: 't1',
+      agentId: 'a1',
+      conversationId: null,
+      calendarConnectionId: 'c1',
+      provider: 'google_calendar',
+      externalEventId: 'evt1',
+      title: 'Call',
+      startTime: now,
+      endTime: end,
+      timezone: 'UTC',
+      attendeeName: 'Jane',
+      attendeeEmail: 'jane@x.com',
+      description: null,
+      meetLink: null,
+      status: 'confirmed',
+      cancelledAt: null,
+      rescheduledTo: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    assert.equal(doc.id, 'b1')
+    assert.equal(doc.conversationId, '') // null → '' (contract is non-optional string)
+    assert.equal(doc.startTime, now.toISOString())
+    assert.equal(doc.status, 'confirmed')
   })
 })

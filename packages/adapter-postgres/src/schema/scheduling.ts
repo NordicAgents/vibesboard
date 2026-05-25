@@ -6,7 +6,9 @@ import {
   jsonb,
   timestamp,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { tenants } from './tenants.ts'
 import { agents } from './agents.ts'
 import { conversations } from './conversations.ts'
@@ -85,6 +87,9 @@ export const bookings = pgTable(
   (t) => ({
     byAgent: index('bookings_agent_idx').on(t.agentId, t.startTime),
     byCal: index('bookings_calendar_idx').on(t.calendarConnectionId, t.startTime),
+    activeNaturalKey: uniqueIndex('bookings_active_natural_key')
+      .on(t.agentId, t.startTime, t.attendeeEmail)
+      .where(sql`${t.status} in ('confirmed','rescheduled')`),
   }),
 )
 

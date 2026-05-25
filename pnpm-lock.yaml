@@ -566,18 +566,24 @@ importers:
 
   packages/booking-enquiries:
     dependencies:
-      '@vibesboard/adapter-firebase':
+      '@vibesboard/adapter-postgres':
         specifier: workspace:*
-        version: link:../adapter-firebase
+        version: link:../adapter-postgres
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../contracts
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.0)(gel@2.2.0)(kysely@0.28.17)(postgres@3.4.9)(sql.js@1.14.1)
       resend:
         specifier: ^6.9.4
         version: 6.9.4(@react-email/render@1.1.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      uuidv7:
+        specifier: ^1.0.2
+        version: 1.2.1
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
