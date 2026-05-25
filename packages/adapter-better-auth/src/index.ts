@@ -5,4 +5,5 @@ export {
   resolveUserIdByGoogleSub,
   revokeUserSessions,
   setUserDisabled,
+  isUserDisabled,
 } from './risc-effects.ts'

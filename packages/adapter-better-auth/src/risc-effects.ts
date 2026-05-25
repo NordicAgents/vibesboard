@@ -41,3 +41,16 @@ export async function setUserDisabled(
 ): Promise<void> {
   await db.update(users).set({ disabled, updatedAt: new Date() }).where(eq(users.id, userId))
 }
+
+/** True if the user exists and is disabled. Missing user → false. */
+export async function isUserDisabled(
+  userId: string,
+  db: Db = getMigrateDb(),
+): Promise<boolean> {
+  const rows = await db
+    .select({ disabled: users.disabled })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return rows[0]?.disabled === true
+}
