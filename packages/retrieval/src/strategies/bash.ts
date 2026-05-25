@@ -64,8 +64,11 @@ async function execWithTimeout(
 export class BashRetriever implements Retriever {
   private bash: Bash | null = null
   private fileNames: string[] = []
+  private config: RetrieverConfig
 
-  constructor(private config: RetrieverConfig) {}
+  constructor(config: RetrieverConfig) {
+    this.config = config
+  }
 
   async prepare(): Promise<void> {
     const { fileKeys } = this.config
