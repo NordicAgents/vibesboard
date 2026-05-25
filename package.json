@@ -14,7 +14,6 @@
     "test": "pnpm -r --if-present test",
     "format:write": "pnpm --filter @vibesboard/web format:write",
     "format:check": "pnpm --filter @vibesboard/web format:check",
-    "build:functions": "cd apps/functions && npm run build",
     "db:up": "docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init",
     "db:down": "docker compose -f docker-compose.dev.yml down",
     "db:reset": "docker compose -f docker-compose.dev.yml down -v && pnpm db:up && sleep 2 && pnpm db:migrate && pnpm db:seed",
