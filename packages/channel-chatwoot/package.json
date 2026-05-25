@@ -10,17 +10,19 @@
     "./*.ts": "./src/*.ts"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --conditions react-server --test --experimental-test-isolation=none 'src/**/*.test.ts'"
   },
   "dependencies": {
-    "@vibesboard/adapter-firebase": "workspace:*",
+    "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/agents": "workspace:*",
     "@vibesboard/ai": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "crypto-js": "^4.2.0",
-    "firebase-admin": "^13.7.0",
+    "drizzle-orm": "^0.45.2",
     "nanoid": "^4.0.2",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "uuidv7": "^1.0.2"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",

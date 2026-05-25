@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { getAgentById } from '@vibesboard/agents/server'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   deleteChatwootWebhook,
@@ -23,20 +23,9 @@ type RouteParams = {
 }
 
 async function findAgentWithOwnership(agentId: string, userId: string) {
-  const snap = await adminDb
-    .collectionGroup('agents')
-    .where('id', '==', agentId)
-    .where('userId', '==', userId)
-    .limit(1)
-    .get()
-
-  if (snap.empty) return null
-
-  const doc = snap.docs[0]
-  const pathParts = doc.ref.path.split('/')
-  const tenantId = pathParts[1]
-
-  return { agent: doc.data(), tenantId }
+  const agent = await getAgentById(agentId)
+  if (!agent || agent.userId !== userId) return null
+  return { agent, tenantId: agent.tenantId }
 }
 
 /**
