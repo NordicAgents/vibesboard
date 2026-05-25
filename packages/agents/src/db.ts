@@ -7,8 +7,14 @@ import type {
   Agent,
   Conversation,
   Message as MessageRow,
-  ConversationFeedbackRow
+  ConversationFeedbackRow,
+  Hook,
+  HookJob
 } from '@vibesboard/adapter-postgres/schema'
+import type {
+  HookDocument,
+  HookJobDocument
+} from '@vibesboard/contracts'
 import { type AgentDocument } from '@vibesboard/contracts'
 import {
   type AgentToolType,
@@ -240,6 +246,54 @@ export const ensureUniqueSlug = async (slug: string, tenantId: string) => {
 
   return `${slug}-${nanoid(6).toLowerCase()}`
 }
+
+/** Map a Postgres hooks row to the legacy HookDocument shape. */
+export const rowToHook = (r: Hook): HookDocument => ({
+  id: r.id,
+  agentId: r.agentId,
+  tenantId: r.tenantId,
+  name: r.name,
+  secretHash: r.secretHash,
+  status: r.status,
+  requestCount: r.requestCount,
+  lastUsedAt: r.lastUsedAt?.toISOString() ?? undefined,
+  createdAt: r.createdAt.toISOString(),
+  updatedAt: r.updatedAt.toISOString()
+})
+
+/** Map a hooks row to HookDocument with the secretHash stripped. */
+export const rowToHookSafe = (r: Hook): Omit<HookDocument, 'secretHash'> => {
+  const { secretHash: _secretHash, ...safe } = rowToHook(r)
+  return safe
+}
+
+/** Collapse a nullable value to undefined (null → undefined, value → value). */
+const orUndefined = <T>(value: T | null): T | undefined => value ?? undefined
+
+/** Collapse a nullable timestamp to an ISO string or undefined. */
+const isoOrUndefined = (value: Date | null): string | undefined =>
+  value ? value.toISOString() : undefined
+
+/** Map a Postgres hook_jobs row to the legacy HookJobDocument shape. */
+export const rowToHookJob = (r: HookJob): HookJobDocument => ({
+  id: r.id,
+  hookId: r.hookId,
+  agentId: r.agentId,
+  tenantId: r.tenantId,
+  message: r.message,
+  externalUserId: orUndefined(r.externalUserId),
+  conversationId: orUndefined(r.conversationId),
+  callbackUrl: r.callbackUrl,
+  status: r.status,
+  reply: orUndefined(r.reply),
+  error: orUndefined(r.error),
+  callbackStatus: orUndefined(r.callbackStatus),
+  callbackAttempts: r.callbackAttempts,
+  createdAt: r.createdAt.toISOString(),
+  startedAt: isoOrUndefined(r.startedAt),
+  completedAt: isoOrUndefined(r.completedAt),
+  failedAt: isoOrUndefined(r.failedAt)
+})
 
 /** Map a Postgres agents row (+ the tenant's slug) to the VibeAgent shape. */
 export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): VibeAgent => ({

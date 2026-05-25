@@ -5,7 +5,7 @@ import {
   type ToolExecutionContext,
   type ToolKit
 } from './base.ts'
-import './builtin'
+import './builtin.ts'
 
 export const buildToolKit = (
   agent: VibeAgent,
