@@ -1,12 +1,19 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
+import { and, eq } from 'drizzle-orm'
+import { uuidv7 } from 'uuidv7'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { calendarConnections } from '@vibesboard/adapter-postgres/schema'
 import {
-  Collections,
   type CalendarConnectionDocument,
   type CalendarProvider,
-  type CalendarConnectionStatus
+  type CalendarConnectionStatus,
 } from '@vibesboard/contracts'
 import { refreshAccessToken } from './google-auth.ts'
+import { rowToCalendarConnection } from './db.ts'
 import CryptoJS from 'crypto-js'
+
+type Db = PostgresJsDatabase<typeof schema>
 
 // ─── Startup Validation ─────────────────────────────────────────────
 
@@ -61,83 +68,100 @@ export interface CreateConnectionParams {
 }
 
 export async function createCalendarConnection(
-  params: CreateConnectionParams
+  params: CreateConnectionParams,
+  db: Db = getMigrateDb()
 ): Promise<CalendarConnectionDocument> {
-  const collPath = Collections.calendarConnections(params.tenantId)
-  const docRef = adminDb.collection(collPath).doc()
-  const now = new Date().toISOString()
-
-  const doc: CalendarConnectionDocument = {
-    id: docRef.id,
-    tenantId: params.tenantId,
-    provider: params.provider,
-    name: params.name,
-    calendarId: params.calendarId,
-    accessToken: encryptToken(params.accessToken),
-    refreshToken: encryptToken(params.refreshToken),
-    tokenExpiresAt: params.tokenExpiresAt,
-    email: params.email,
-    scopes: params.scopes,
-    status: 'active',
-    connectedBy: params.connectedBy,
-    connectedAt: now,
-    createdAt: now,
-    updatedAt: now
-  }
-
-  await docRef.set(doc)
-  return doc
+  const id = uuidv7()
+  const [row] = await db
+    .insert(calendarConnections)
+    .values({
+      id,
+      tenantId: params.tenantId,
+      provider: params.provider,
+      name: params.name,
+      calendarId: params.calendarId,
+      accessTokenEncrypted: encryptToken(params.accessToken),
+      refreshTokenEncrypted: encryptToken(params.refreshToken),
+      tokenExpiresAt: new Date(params.tokenExpiresAt),
+      email: params.email ?? null,
+      scopes: params.scopes,
+      status: 'active',
+      connectedBy: params.connectedBy,
+    })
+    .returning()
+  return rowToCalendarConnection(row)
 }
 
 export async function getCalendarConnections(
-  tenantId: string
+  tenantId: string,
+  db: Db = getMigrateDb()
 ): Promise<CalendarConnectionDocument[]> {
-  const collPath = Collections.calendarConnections(tenantId)
-  const snapshot = await adminDb.collection(collPath).get()
-  return snapshot.docs.map(
-    (d: FirebaseFirestore.QueryDocumentSnapshot) =>
-      ({ id: d.id, ...d.data() }) as CalendarConnectionDocument
-  )
+  const rows = await db
+    .select()
+    .from(calendarConnections)
+    .where(eq(calendarConnections.tenantId, tenantId))
+  return rows.map(rowToCalendarConnection)
 }
 
 export async function getCalendarConnection(
   tenantId: string,
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<CalendarConnectionDocument | null> {
-  const collPath = Collections.calendarConnections(tenantId)
-  const doc = await adminDb.collection(collPath).doc(connectionId).get()
-  if (!doc.exists) return null
-  return { id: doc.id, ...doc.data() } as CalendarConnectionDocument
+  const [row] = await db
+    .select()
+    .from(calendarConnections)
+    .where(
+      and(
+        eq(calendarConnections.tenantId, tenantId),
+        eq(calendarConnections.id, connectionId)
+      )
+    )
+    .limit(1)
+  return row ? rowToCalendarConnection(row) : null
 }
 
 export async function deleteCalendarConnection(
   tenantId: string,
-  connectionId: string
+  connectionId: string,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.calendarConnections(tenantId)
-  await adminDb.collection(collPath).doc(connectionId).delete()
+  await db
+    .delete(calendarConnections)
+    .where(
+      and(
+        eq(calendarConnections.tenantId, tenantId),
+        eq(calendarConnections.id, connectionId)
+      )
+    )
 }
 
 export async function updateConnectionStatus(
   tenantId: string,
   connectionId: string,
-  status: CalendarConnectionStatus
+  status: CalendarConnectionStatus,
+  db: Db = getMigrateDb()
 ): Promise<void> {
-  const collPath = Collections.calendarConnections(tenantId)
-  await adminDb.collection(collPath).doc(connectionId).update({
-    status,
-    updatedAt: new Date().toISOString()
-  })
+  await db
+    .update(calendarConnections)
+    .set({ status, updatedAt: new Date() })
+    .where(
+      and(
+        eq(calendarConnections.tenantId, tenantId),
+        eq(calendarConnections.id, connectionId)
+      )
+    )
 }
 
 // ─── Token Management ───────────────────────────────────────────────
 
 /**
  * Get a valid access token for a calendar connection.
- * Automatically refreshes if expired and updates Firestore.
+ * Automatically refreshes if expired and persists the new token to Postgres.
  */
 export async function getValidAccessToken(
-  connection: CalendarConnectionDocument
+  connection: CalendarConnectionDocument,
+  db: Db = getMigrateDb()
 ): Promise<string> {
   const now = Date.now()
   const expiresAt = new Date(connection.tokenExpiresAt).getTime()
@@ -153,21 +177,24 @@ export async function getValidAccessToken(
   try {
     const refreshed = await refreshAccessToken(refreshToken)
 
-    // Update Firestore with new tokens
-    const collPath = Collections.calendarConnections(connection.tenantId)
-    await adminDb
-      .collection(collPath)
-      .doc(connection.id)
-      .update({
-        accessToken: encryptToken(refreshed.accessToken),
-        tokenExpiresAt: refreshed.expiresAt,
-        updatedAt: new Date().toISOString()
+    await db
+      .update(calendarConnections)
+      .set({
+        accessTokenEncrypted: encryptToken(refreshed.accessToken),
+        tokenExpiresAt: new Date(refreshed.expiresAt),
+        updatedAt: new Date(),
       })
+      .where(
+        and(
+          eq(calendarConnections.tenantId, connection.tenantId),
+          eq(calendarConnections.id, connection.id)
+        )
+      )
 
     return refreshed.accessToken
   } catch (error) {
     // Mark connection as expired if refresh fails
-    await updateConnectionStatus(connection.tenantId, connection.id, 'expired')
+    await updateConnectionStatus(connection.tenantId, connection.id, 'expired', db)
     throw new Error(
       `Calendar connection token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
