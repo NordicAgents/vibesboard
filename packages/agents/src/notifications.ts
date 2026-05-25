@@ -1,15 +1,13 @@
 import 'server-only'
 
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import {
-  Collections,
-  type NotificationEvent,
-  type NotificationDocument
-} from '@vibesboard/contracts'
+import { type NotificationEvent } from '@vibesboard/contracts'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import type { VibeAgent } from '@vibesboard/contracts'
 import type { CompletionReason } from '@vibesboard/ai/completion'
-import { nanoid } from '@vibesboard/utils'
+import {
+  createInAppNotification,
+  getUserEmail
+} from './notifications-db.ts'
 import { assertSafeCallbackUrl, signPayload } from './webhook-utils.ts'
 
 // ─── Public API ──────────────────────────────────────────────────────
@@ -119,25 +117,13 @@ async function sendInAppNotification(
   payload: NotificationPayload
 ): Promise<void> {
   const { agent, conversationId, event, summary } = payload
-  const id = nanoid()
-  const now = new Date().toISOString()
-
-  const doc: NotificationDocument = {
-    id,
+  await createInAppNotification({
     tenantId: agent.tenantId!,
     agentId: agent.id,
-    agentName: agent.name,
-    conversationId,
+    conversationId: conversationId || null,
     event,
-    summary: summary ?? null,
-    read: false,
-    createdAt: now
-  }
-
-  await adminDb
-    .collection(Collections.notifications(agent.tenantId!))
-    .doc(id)
-    .set(doc)
+    summary: summary ?? null
+  })
 }
 
 async function sendEmailNotification(
@@ -148,11 +134,7 @@ async function sendEmailNotification(
 
   let toAddress = configuredAddress
   if (!toAddress) {
-    const userDoc = await adminDb
-      .collection(Collections.users)
-      .doc(agent.userId)
-      .get()
-    toAddress = userDoc.data()?.email
+    toAddress = await getUserEmail(agent.userId)
   }
   if (!toAddress) return
 
