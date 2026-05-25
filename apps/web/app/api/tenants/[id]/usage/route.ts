@@ -1,11 +1,5 @@
 import { NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
-import type {
-  TenantSubscription,
-  UsageRollupDocument
-} from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 
@@ -16,6 +10,11 @@ type RouteParams = {
 /**
  * GET /api/tenants/[id]/usage
  * Returns usage data for the current billing cycle.
+ *
+ * The legacy Firestore `usageRollups`/`usageLogs` collections and the tenant
+ * `subscription` field are no longer written (self-host `recordUsage` is a
+ * no-op shim, and Postgres `tenants` has no subscription column). The route
+ * stays alive returning a truthful empty/zero shape so the UI does not 500.
  */
 export async function GET(req: Request, { params }: RouteParams) {
   const { id: tenantId } = await params
@@ -23,58 +22,13 @@ export async function GET(req: Request, { params }: RouteParams) {
   const auth = await requireTenantMember(tenantId)
   if (!auth.ok) return auth.response
 
-  // 1. Read tenant subscription
-  const tenantDoc = await adminDb
-    .collection(Collections.tenants)
-    .doc(tenantId)
-    .get()
-
-  if (!tenantDoc.exists) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
-  }
-
-  const subscription =
-    (tenantDoc.data()?.subscription as TenantSubscription) ?? null
-
-  // 2. Read current cycle rollup
   const now = new Date()
   const billingCycleId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-  const rollupDoc = await adminDb
-    .collection(Collections.usageRollups(tenantId))
-    .doc(billingCycleId)
-    .get()
-
-  const rollup = rollupDoc.exists
-    ? (rollupDoc.data() as UsageRollupDocument)
-    : null
-
-  // 3. Build daily usage from usage_logs (last 30 days)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-  const logsSnapshot = await adminDb
-    .collection(Collections.usageLogs(tenantId))
-    .where('timestamp', '>=', thirtyDaysAgo.toISOString())
-    .orderBy('timestamp', 'asc')
-    .get()
-
-  const dailyMap: Record<string, number> = {}
-  for (const doc of logsSnapshot.docs) {
-    const ts = doc.data().timestamp as string
-    const day = ts.slice(0, 10) // YYYY-MM-DD
-    dailyMap[day] = (dailyMap[day] ?? 0) + 1
-  }
-
-  const dailyUsage = Object.entries(dailyMap).map(([date, count]) => ({
-    date,
-    count
-  }))
-
   return NextResponse.json({
-    subscription,
-    rollup,
-    dailyUsage,
+    subscription: null,
+    rollup: null,
+    dailyUsage: [],
     billingCycleId
   })
 }
