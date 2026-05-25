@@ -31,6 +31,19 @@ export interface ChatwootMessagePayload {
   accountId: number
 }
 
+/** Fire-and-forget connection stats update; errors are logged, not thrown. */
+async function recordConnectionStats(
+  tenantId: string,
+  agentId: string,
+  connectionId: string
+): Promise<void> {
+  try {
+    await updateConnectionStats(tenantId, agentId, connectionId)
+  } catch (err) {
+    console.error('[chatwoot] Failed to update connection stats:', err)
+  }
+}
+
 /**
  * Handle an incoming Chatwoot message:
  * ensure conversation, run agent, send reply back to Chatwoot.
@@ -173,13 +186,7 @@ export async function handleChatwootMessage(
     }
 
     // 5. Update stats (fire-and-forget)
-    void updateConnectionStats(
-      connection.tenantId,
-      connection.agentId,
-      connection.id
-    ).catch((err) =>
-      console.error('[chatwoot] Failed to update connection stats:', err)
-    )
+    void recordConnectionStats(connection.tenantId, connection.agentId, connection.id)
 
     console.log(
       `[chatwoot] Reply sent (${reply.length} chars) to conversation ${conversationId}`
