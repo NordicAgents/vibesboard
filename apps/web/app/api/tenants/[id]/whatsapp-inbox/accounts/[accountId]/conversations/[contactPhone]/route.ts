@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/auth/route-handler'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
 import {
   getConversation,
   updateConversationStatus,
   assignConversation,
-  markAsRead
+  markAsRead,
+  updateConversationAgentSettings
 } from '@vibesboard/channel-whatsapp/conversations'
+import { resumeConversation } from '@vibesboard/agents/conversations'
 import type { InboxConversationStatus } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
@@ -110,7 +110,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Agent assignment fields
-    const agentUpdates: Record<string, any> = {}
+    const agentUpdates: {
+      assignedAgentId?: string | null
+      agentPaused?: boolean
+      agentHandedOff?: boolean
+    } = {}
 
     if (body.assignedAgentId !== undefined) {
       agentUpdates.assignedAgentId = body.assignedAgentId || null
@@ -122,45 +126,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (body.agentHandedOff !== undefined) {
       agentUpdates.agentHandedOff = body.agentHandedOff
-      // When re-engaging agent, also reset the agent conversation handoff flag
+      // When re-engaging the agent, also reset the linked core conversation flag.
       if (body.agentHandedOff === false) {
         const convo = await getConversation(tenantId, accountId, contactPhone)
-        if (convo?.agentConversationId) {
-          // Find the agent to get the correct collection path
-          // The agentConversationId links to agents/{agentId}/conversations/{conversationId}
-          // We need the agentId — resolve from account or conversation
-          const effectiveAgentId = convo.assignedAgentId || null
-          if (effectiveAgentId) {
-            const agentConvoPath = Collections.conversations(
-              tenantId,
-              effectiveAgentId
-            )
-            await adminDb
-              .collection(agentConvoPath)
-              .doc(convo.agentConversationId)
-              .update({
-                handedOff: false,
-                updatedAt: new Date().toISOString()
-              })
-              .catch(() => {}) // Non-critical
-          }
+        const effectiveAgentId = convo?.assignedAgentId || null
+        if (convo?.agentConversationId && effectiveAgentId) {
+          // The agent-side conversation lives in the core (Postgres) table.
+          await resumeConversation(
+            tenantId,
+            effectiveAgentId,
+            convo.agentConversationId
+          ).catch(() => {}) // Non-critical
         }
       }
     }
 
     if (Object.keys(agentUpdates).length > 0) {
-      const phoneNormalized = contactPhone.replace(/\D/g, '')
-      const convoPath = Collections.whatsappInboxConversations(
+      await updateConversationAgentSettings(
         tenantId,
-        accountId
+        accountId,
+        contactPhone,
+        agentUpdates
       )
-      await adminDb
-        .collection(convoPath)
-        .doc(phoneNormalized)
-        .update({
-          ...agentUpdates,
-          updatedAt: new Date().toISOString()
-        })
     }
 
     return NextResponse.json({ success: true })

@@ -180,7 +180,11 @@ export async function updateConversationAgentSettings(
   tenantId: string,
   accountId: string,
   contactPhone: string,
-  patch: { assignedAgentId?: string | null; agentPaused?: boolean },
+  patch: {
+    assignedAgentId?: string | null
+    agentPaused?: boolean
+    agentHandedOff?: boolean
+  },
   db: Db = getMigrateDb()
 ): Promise<void> {
   await db
