@@ -1,11 +1,10 @@
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
 import {
-  Collections,
-  type DataActionLogDocument,
+  type DataActionType,
   type DataConnectionDocument
 } from '@vibesboard/contracts'
 import { createDataProvider } from '@vibesboard/data/providers'
 import { getDataConnection, getValidDataAccessToken } from '@vibesboard/data/connections'
+import { recordDataActionLog } from '@vibesboard/data/action-logs'
 import type { RegisteredTool } from '@vibesboard/ai/tools/base'
 import type { VibeAgent } from '@vibesboard/contracts'
 import type { ActionContext } from '../types.ts'
@@ -59,30 +58,24 @@ function mapDataToColumns(
 
 async function logDataAction(
   ctx: DataToolContext,
-  action: DataActionLogDocument['action'],
+  action: DataActionType,
   status: 'success' | 'failed',
   rowData: Record<string, any>,
   externalRef?: string,
   error?: string
 ): Promise<void> {
   try {
-    const logsPath = Collections.dataLogs(ctx.agent.tenantId!, ctx.agent.id)
-    const docRef = adminDb.collection(logsPath).doc()
-    const log: DataActionLogDocument = {
-      id: docRef.id,
-      agentId: ctx.agent.id,
+    await recordDataActionLog({
       tenantId: ctx.agent.tenantId!,
-      conversationId: '', // populated by caller if available
+      agentId: ctx.agent.id,
       connectionId: ctx.connection.id,
       provider: ctx.connection.provider,
       action,
       status,
       rowData,
       externalRef,
-      error,
-      createdAt: new Date().toISOString()
-    }
-    await docRef.set(log)
+      error
+    })
   } catch {
     // Logging failure should not block the tool response
     console.error('Failed to log data action')
@@ -357,7 +350,7 @@ function buildDeleteRecordTool(ctx: DataToolContext): RegisteredTool {
         if (!result.matched) {
           await logDataAction(
             ctx,
-            'delete_row' as DataActionLogDocument['action'],
+            'delete_row',
             'failed',
             { [keyField]: keyValue },
             undefined,
@@ -368,7 +361,7 @@ function buildDeleteRecordTool(ctx: DataToolContext): RegisteredTool {
 
         await logDataAction(
           ctx,
-          'delete_row' as DataActionLogDocument['action'],
+          'delete_row',
           'success',
           { [keyField]: keyValue }
         )
@@ -378,7 +371,7 @@ function buildDeleteRecordTool(ctx: DataToolContext): RegisteredTool {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error'
         await logDataAction(
           ctx,
-          'delete_row' as DataActionLogDocument['action'],
+          'delete_row',
           'failed',
           { [keyField]: keyValue },
           undefined,
