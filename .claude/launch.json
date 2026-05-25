@@ -6,18 +6,6 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@vibesboard/web", "dev"],
       "port": 3000
-    },
-    {
-      "name": "firebase-emulators",
-      "runtimeExecutable": "firebase",
-      "runtimeArgs": ["emulators:start"],
-      "port": 4000
-    },
-    {
-      "name": "firebase-functions",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/functions", "run", "serve"],
-      "port": 5001
     }
   ]
 }
