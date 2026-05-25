@@ -7,7 +7,6 @@ import {
   type ServiceAccount
 } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 
 // Three modes:
@@ -78,8 +77,8 @@ if (isEmulator) {
 }
 
 // Recursive no-op proxy: any property access or function call returns
-// another no-op proxy, so chains like adminDb.collection('x').doc('y').get()
-// silently resolve to undefined instead of crashing the build.
+// another no-op proxy, so chains like adminAuth.getUser('x') silently
+// resolve to undefined instead of crashing the build.
 function noop(): any {
   return new Proxy(function () {}, {
     get: (_target, prop) => {
@@ -99,10 +98,6 @@ const buildTimeHandler: ProxyHandler<any> = {
 export const adminAuth = isBuildTime
   ? new Proxy({} as ReturnType<typeof getAuth>, buildTimeHandler)
   : getAuth(app())
-
-export const adminDb = isBuildTime
-  ? new Proxy({} as ReturnType<typeof getFirestore>, buildTimeHandler)
-  : getFirestore(app())
 
 export const adminStorage = isBuildTime
   ? new Proxy({} as ReturnType<typeof getStorage>, buildTimeHandler)

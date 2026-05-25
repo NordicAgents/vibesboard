@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Deploy Firestore rules and indexes only
+# Deploy Firebase Storage rules only (Firestore removed in Phase 7d)
 
 set -euo pipefail
 
-echo "Deploying Firestore rules and indexes..."
+echo "Deploying Firebase Storage rules..."
 
-firebase deploy --only firestore:rules,firestore:indexes --project=vibesboard
+firebase deploy --only storage --project=vibesboard
 
-echo "Firestore rules and indexes deployed."
+echo "Firebase Storage rules deployed."

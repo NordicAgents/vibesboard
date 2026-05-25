@@ -22,7 +22,6 @@
     "test": "node --experimental-strip-types --conditions react-server --test --experimental-test-isolation=none 'src/**/*.test.ts'"
   },
   "dependencies": {
-    "@vibesboard/adapter-firebase": "workspace:*",
     "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "drizzle-orm": "^0.45.2",

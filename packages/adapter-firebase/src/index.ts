@@ -1,7 +1,7 @@
 // @vibesboard/adapter-firebase
 //
 // Import via subpath, not via this barrel:
-//   import { adminDb }       from '@vibesboard/adapter-firebase/admin'   // server
+//   import { adminAuth }     from '@vibesboard/adapter-firebase/admin'   // server
 //   import { getClientAuth } from '@vibesboard/adapter-firebase/client'  // browser
 //   import { bucket }        from '@vibesboard/adapter-firebase/storage' // GCS bucket handle
 //
