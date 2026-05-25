@@ -195,6 +195,46 @@ export async function updateConversationAgentSettings(
 }
 
 /**
+ * Set the agent-handoff flag on a conversation by its row id.
+ */
+export async function setConversationHandoff(
+  tenantId: string,
+  conversationId: string,
+  handedOff: boolean,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .update(instagramConversations)
+    .set({ agentHandedOff: handedOff, updatedAt: new Date() })
+    .where(
+      and(
+        eq(instagramConversations.tenantId, tenantId),
+        eq(instagramConversations.id, conversationId)
+      )
+    )
+}
+
+/**
+ * Link a conversation to its core agent conversation id by its row id.
+ */
+export async function linkAgentConversation(
+  tenantId: string,
+  conversationId: string,
+  agentConversationId: string,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  await db
+    .update(instagramConversations)
+    .set({ agentConversationId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(instagramConversations.tenantId, tenantId),
+        eq(instagramConversations.id, conversationId)
+      )
+    )
+}
+
+/**
  * Check if the 24-hour messaging window is still open.
  */
 export function isWithinMessageWindow(
