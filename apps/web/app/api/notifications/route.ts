@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import {
+  listNotifications,
+  markNotificationsRead
+} from '@vibesboard/agents/notifications-db'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'
@@ -25,19 +27,7 @@ export async function GET(req: NextRequest) {
   const unreadOnly = url.searchParams.get('unread') === 'true'
   const limit = Math.min(Number(url.searchParams.get('limit') || '20'), 50)
 
-  let query = adminDb
-    .collection(Collections.notifications(tenantId))
-    .orderBy('createdAt', 'desc')
-    .limit(limit)
-
-  if (unreadOnly) {
-    query = query.where('read', '==', false)
-  }
-
-  const snapshot = await query.get()
-  const notifications = snapshot.docs.map(
-    (doc: FirebaseFirestore.QueryDocumentSnapshot) => doc.data()
-  )
+  const notifications = await listNotifications(tenantId, { limit, unreadOnly })
 
   return NextResponse.json({ notifications })
 }
@@ -68,14 +58,7 @@ export async function PATCH(req: NextRequest) {
     )
   }
 
-  const batch = adminDb.batch()
-  const collRef = adminDb.collection(Collections.notifications(tenantId))
-
-  for (const id of parsed.data.ids) {
-    batch.update(collRef.doc(id), { read: true })
-  }
-
-  await batch.commit()
+  await markNotificationsRead(tenantId, parsed.data.ids)
 
   return NextResponse.json({ ok: true })
 }
