@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { adminDb } from '@vibesboard/adapter-firebase/admin'
-import { Collections } from '@vibesboard/contracts'
+import { countUnreadNotifications } from '@vibesboard/agents/notifications-db'
 import { getActiveTenant } from '@/lib/tenant-context'
 
 export const runtime = 'nodejs'
@@ -20,11 +19,7 @@ export async function GET() {
     return NextResponse.json({ count: 0 })
   }
 
-  const snapshot = await adminDb
-    .collection(Collections.notifications(tenantId))
-    .where('read', '==', false)
-    .count()
-    .get()
+  const count = await countUnreadNotifications(tenantId)
 
-  return NextResponse.json({ count: snapshot.data().count })
+  return NextResponse.json({ count })
 }
