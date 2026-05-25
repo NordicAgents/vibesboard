@@ -57,6 +57,60 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 /**
+ * Apply agent-related conversation updates (assignment, pause, handoff).
+ * Extracted from PATCH to keep that handler's complexity manageable.
+ */
+async function applyAgentConversationUpdates(
+  tenantId: string,
+  accountId: string,
+  contactPhone: string,
+  body: {
+    assignedAgentId?: string | null
+    agentPaused?: boolean
+    agentHandedOff?: boolean
+  }
+): Promise<void> {
+  const agentUpdates: {
+    assignedAgentId?: string | null
+    agentPaused?: boolean
+    agentHandedOff?: boolean
+  } = {}
+
+  if (body.assignedAgentId !== undefined) {
+    agentUpdates.assignedAgentId = body.assignedAgentId || null
+  }
+  if (body.agentPaused !== undefined) {
+    agentUpdates.agentPaused = body.agentPaused
+  }
+  if (body.agentHandedOff !== undefined) {
+    agentUpdates.agentHandedOff = body.agentHandedOff
+  }
+
+  if (Object.keys(agentUpdates).length === 0) return
+
+  await updateConversationAgentSettings(
+    tenantId,
+    accountId,
+    contactPhone,
+    agentUpdates
+  )
+
+  // When re-engaging the agent, reset the linked core conversation flag.
+  if (body.agentHandedOff === false) {
+    const convo = await getConversation(tenantId, accountId, contactPhone)
+    const effectiveAgentId = convo?.assignedAgentId || null
+    if (convo?.agentConversationId && effectiveAgentId) {
+      // The agent-side conversation lives in the core (Postgres) table.
+      await resumeConversation(
+        tenantId,
+        effectiveAgentId,
+        convo.agentConversationId
+      ).catch(() => {}) // Non-critical
+    }
+  }
+}
+
+/**
  * PATCH — Update conversation (status, assignee, mark as read).
  * Body: { status?, assignedTo?, markAsRead? }
  */
@@ -109,46 +163,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       await markAsRead(tenantId, accountId, contactPhone)
     }
 
-    // Agent assignment fields
-    const agentUpdates: {
-      assignedAgentId?: string | null
-      agentPaused?: boolean
-      agentHandedOff?: boolean
-    } = {}
-
-    if (body.assignedAgentId !== undefined) {
-      agentUpdates.assignedAgentId = body.assignedAgentId || null
-    }
-
-    if (body.agentPaused !== undefined) {
-      agentUpdates.agentPaused = body.agentPaused
-    }
-
-    if (body.agentHandedOff !== undefined) {
-      agentUpdates.agentHandedOff = body.agentHandedOff
-      // When re-engaging the agent, also reset the linked core conversation flag.
-      if (body.agentHandedOff === false) {
-        const convo = await getConversation(tenantId, accountId, contactPhone)
-        const effectiveAgentId = convo?.assignedAgentId || null
-        if (convo?.agentConversationId && effectiveAgentId) {
-          // The agent-side conversation lives in the core (Postgres) table.
-          await resumeConversation(
-            tenantId,
-            effectiveAgentId,
-            convo.agentConversationId
-          ).catch(() => {}) // Non-critical
-        }
-      }
-    }
-
-    if (Object.keys(agentUpdates).length > 0) {
-      await updateConversationAgentSettings(
-        tenantId,
-        accountId,
-        contactPhone,
-        agentUpdates
-      )
-    }
+    await applyAgentConversationUpdates(tenantId, accountId, contactPhone, body)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
