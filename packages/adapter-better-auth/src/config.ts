@@ -54,6 +54,14 @@ function buildAuth() {
   // nanoids which would fail the uuid CHECK. Route through uuidv7.
   advanced: { database: { generateId: () => uuidv7() } },
   user: {
+    // Better Auth's core user model uses `image` for the avatar; our Drizzle
+    // schema stores it as `imageUrl` (column image_url). Map it so social
+    // logins (Google returns a profile picture) can write the avatar — without
+    // this, OAuth user creation fails with "unable_to_create_user" since email
+    // /magic-link sign-ups never send an image and so never hit the field.
+    fields: {
+      image: 'imageUrl',
+    },
     additionalFields: {
       // Surface the RISC `disabled` flag on the session user so the app's
       // auth() reader can short-circuit without an extra DB round-trip.
