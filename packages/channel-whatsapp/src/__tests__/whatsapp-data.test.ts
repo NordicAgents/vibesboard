@@ -8,6 +8,8 @@ import {
   rowToWhatsappConversation,
   rowToWhatsappMessage,
 } from '../db.ts'
+import { eq } from 'drizzle-orm'
+import { whatsappAccounts } from '@vibesboard/adapter-postgres/schema'
 import {
   listInboxAccounts,
   getInboxAccount,
@@ -16,6 +18,33 @@ import {
   updateAccountAssignment,
   createAccountRow,
 } from '../accounts.ts'
+import {
+  getOrCreateConversation,
+  listConversations,
+  getConversation as getWaConversation,
+  updateConversationStatus,
+  assignConversation,
+  markAsRead,
+  updateConversationAgentSettings,
+} from '../conversations.ts'
+
+async function seedAccount(adminDb: any) {
+  const { tenantId, userId } = await seedTenant(adminDb)
+  const id = randomUUID()
+  await adminDb.insert(whatsappAccounts).values({
+    id,
+    tenantId,
+    wabaId: 'w',
+    phoneNumberId: 'p',
+    displayPhoneNumber: '+1',
+    businessName: 'B',
+    accessTokenEncrypted: 'e',
+    scopes: [],
+    connectedBy: userId,
+    webhookSubscribed: true,
+  })
+  return { tenantId, accountId: id, userId }
+}
 
 async function seedTenant(adminDb: any) {
   const u = randomUUID()
@@ -162,6 +191,55 @@ describe('whatsapp accounts (pg)', () => {
       const disc = await getInboxAccount(tenantId, created.id, adminDb)
       assert.equal(disc?.status, 'disconnected')
       assert.equal(await findAccountByWabaId('waba-1', adminDb), null) // only active
+    })
+  })
+})
+
+describe('whatsapp conversations (pg)', () => {
+  test('getOrCreate is idempotent on (account, contactPhone)', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, accountId } = await seedAccount(adminDb)
+      const a = await getOrCreateConversation(
+        tenantId,
+        accountId,
+        '+1 (555) 123-4',
+        'Alice',
+        adminDb,
+      )
+      const b = await getOrCreateConversation(
+        tenantId,
+        accountId,
+        '15551234',
+        undefined,
+        adminDb,
+      )
+      assert.equal(a.id, b.id) // same row — phone normalized to digits
+      assert.equal(a.contactPhone, '15551234')
+    })
+  })
+
+  test('list / get / status / assign / markAsRead / agentSettings', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, accountId } = await seedAccount(adminDb)
+      await getOrCreateConversation(tenantId, accountId, '15551234', 'Alice', adminDb)
+      const list = await listConversations(tenantId, accountId, undefined, adminDb)
+      assert.equal(list.length, 1)
+      const c = await getWaConversation(tenantId, accountId, '15551234', adminDb)
+      assert.equal(c?.contactName, 'Alice')
+      await updateConversationStatus(tenantId, accountId, '15551234', 'resolved', adminDb)
+      await assignConversation(tenantId, accountId, '15551234', null, adminDb)
+      await markAsRead(tenantId, accountId, '15551234', adminDb)
+      await updateConversationAgentSettings(
+        tenantId,
+        accountId,
+        '15551234',
+        { agentPaused: true },
+        adminDb,
+      )
+      const c2 = await getWaConversation(tenantId, accountId, '15551234', adminDb)
+      assert.equal(c2?.status, 'resolved')
+      assert.equal(c2?.unreadCount, 0)
+      assert.equal(c2?.agentPaused, true)
     })
   })
 })
