@@ -1,6 +1,9 @@
 import type { ChatwootConnection } from '@vibesboard/adapter-postgres/schema'
 import type { ChatwootConnectionDocument } from '@vibesboard/contracts'
 
+const toIso = (d: Date | null): string | undefined =>
+  d ? d.toISOString() : undefined
+
 export const rowToChatwootConnection = (
   r: ChatwootConnection
 ): ChatwootConnectionDocument => ({
@@ -20,11 +23,9 @@ export const rowToChatwootConnection = (
   useAgentBot: r.useAgentBot,
   webhookSecretHash: r.webhookSecretHash,
   status: r.status,
-  lastMessageReceivedAt: r.lastMessageReceivedAt
-    ? r.lastMessageReceivedAt.toISOString()
-    : undefined,
+  lastMessageReceivedAt: toIso(r.lastMessageReceivedAt),
   totalConversations: r.totalConversations,
-  disconnectedAt: r.disconnectedAt ? r.disconnectedAt.toISOString() : undefined,
+  disconnectedAt: toIso(r.disconnectedAt),
   disconnectionReason: r.disconnectionReason ?? undefined,
   errorMessage: r.errorMessage ?? undefined,
   createdAt: r.createdAt.toISOString(),

@@ -19,11 +19,6 @@ type Db = PostgresJsDatabase<typeof schema>
 
 // ─── ID / Secret generators ─────────────────────────────────────────
 
-const genId = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-  21
-)
-
 const genSecret = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   32
@@ -82,7 +77,7 @@ export interface CreatedChatwootConnection {
 }
 
 export function generateConnectionId(): string {
-  return genId()
+  return uuidv7()
 }
 
 export function generateWebhookSecret(): string {
