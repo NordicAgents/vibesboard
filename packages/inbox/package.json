@@ -11,16 +11,15 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test --experimental-test-isolation=none 'src/**/*.test.ts'"
+    "test": "node --experimental-strip-types --conditions react-server --test --experimental-test-isolation=none 'src/**/*.test.ts'"
   },
   "dependencies": {
-    "@vibesboard/adapter-firebase": "workspace:*",
+    "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/agents": "workspace:*",
     "@vibesboard/ai": "workspace:*",
     "@vibesboard/channel-instagram": "workspace:*",
     "@vibesboard/channel-whatsapp": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
-    "firebase-admin": "^13.7.0",
     "nanoid": "^4.0.2",
     "server-only": "^0.0.1"
   },

@@ -733,9 +733,9 @@ importers:
 
   packages/inbox:
     dependencies:
-      '@vibesboard/adapter-firebase':
+      '@vibesboard/adapter-postgres':
         specifier: workspace:*
-        version: link:../adapter-firebase
+        version: link:../adapter-postgres
       '@vibesboard/agents':
         specifier: workspace:*
         version: link:../agents
@@ -751,9 +751,6 @@ importers:
       '@vibesboard/contracts':
         specifier: workspace:*
         version: link:../contracts
-      firebase-admin:
-        specifier: ^13.7.0
-        version: 13.7.0(encoding@0.1.13)
       nanoid:
         specifier: ^4.0.2
         version: 4.0.2
