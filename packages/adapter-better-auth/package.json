@@ -1,0 +1,27 @@
+{
+  "name": "@vibesboard/adapter-better-auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --conditions react-server --test 'src/__tests__/**/*.test.ts'"
+  },
+  "dependencies": {
+    "@vibesboard/adapter-postgres": "workspace:*",
+    "better-auth": "^1.1.0",
+    "resend": "^4.0.0",
+    "uuidv7": "^1.0.2",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "drizzle-orm": "^0.45.2",
+    "typescript": "^5.9.3"
+  }
+}
