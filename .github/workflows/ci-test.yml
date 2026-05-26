@@ -14,12 +14,20 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # Adapter test envs — match docker-compose.dev.yml and packages/adapter-postgres/docker/init.sql
+      DATABASE_URL: postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev
+      DATABASE_MIGRATE_URL: postgres://vibesboard_migrate:vibesboard_migrate@localhost:5432/vibesboard_dev
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: vibesboard-files
+      S3_ACCESS_KEY_ID: vibesboard
+      S3_SECRET_ACCESS_KEY: vibesboard
+      S3_FORCE_PATH_STYLE: 'true'
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -29,5 +37,39 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Bring up Postgres + MinIO via docker compose
+        run: docker compose -f docker-compose.dev.yml up -d --wait postgres minio
+
+      - name: Bootstrap MinIO bucket
+        run: |
+          # Wait until MinIO answers /minio/health/live (the compose healthcheck
+          # already covers this but we re-check from the runner's perspective
+          # to ensure host networking is reachable).
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO reachable"; break
+            fi
+            echo "Waiting for MinIO... ($i/30)"; sleep 2
+            if [ "$i" = "30" ]; then
+              echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
+            fi
+          done
+          # Create the bucket via the mc client image. The image's ENTRYPOINT
+          # is 'mc'; override to sh so we can chain commands. --network host
+          # so 'localhost:9000' resolves to the runner-bound minio port.
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
+            mc alias set local http://localhost:9000 vibesboard vibesboard &&
+            (mc mb -p local/vibesboard-files || true) &&
+            mc anonymous set none local/vibesboard-files &&
+            mc ls local/
+          "
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
       - name: Run tests
         run: pnpm test
+
+      - name: Capture docker logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml logs
