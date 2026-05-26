@@ -1,17 +1,12 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Next.js 13 and app template Router-ready AI chatbot." src="https://chat.vercel.ai/opengraph-image.png" />
-  <h1 align="center">Next.js AI Chatbot</h1>
-</a>
+<h1 align="center">Vibesboard</h1>
 
 <p align="center">
-  An open-source AI chatbot app template built with Next.js, the Vercel AI SDK, OpenAI, and Firebase (Auth + Firestore).
+  A multi-tenant AI agent platform. Allows businesses to create, configure, and deploy AI agents with features including multi-tenant workspace isolation, RAG, Calendar availability, and WhatsApp integration.
 </p>
 
 <p align="center">
   <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a> ·
-  <a href="#authors"><strong>Authors</strong></a>
+  <a href="#running-locally"><strong>Running locally</strong></a>
 </p>
 <br/>
 
@@ -20,24 +15,19 @@
 - [Next.js](https://nextjs.org) App Router
 - React Server Components (RSCs), Suspense, and Server Actions
 - [Vercel AI SDK](https://sdk.vercel.ai/docs) for streaming chat UI
-- Support for OpenAI (default), Anthropic, Hugging Face, or custom AI chat models and/or LangChain
-- Edge runtime-ready
+- Support for OpenAI, Anthropic, or custom AI chat models
 - [shadcn/ui](https://ui.shadcn.com)
   - Styling with [Tailwind CSS](https://tailwindcss.com)
   - [Radix UI](https://radix-ui.com) for headless component primitives
   - Icons from [Phosphor Icons](https://phosphoricons.com)
-- Chat history persisted in [Firestore](https://firebase.google.com/docs/firestore)
-- [Firebase Auth](https://firebase.google.com/docs/auth) for authentication
-
-## Model Providers
-
-This template ships with OpenAI `gpt-5-nano` as the default (override with `OPENAI_MODEL`). However, thanks to the [Vercel AI SDK](https://sdk.vercel.ai/docs), you can switch LLM providers to [Anthropic](https://anthropic.com), [Hugging Face](https://huggingface.co), or using [LangChain](https://js.langchain.com) with just a few lines of code.
+- Database with [PostgreSQL](https://postgresql.org) and [Drizzle ORM](https://orm.drizzle.team)
+- Authentication via [Better-Auth](https://better-auth.com)
 
 ## Running locally
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+You will need to use the environment variables [defined in `.env.example`](.env.example) to run Vibesboard locally.
 
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various OpenAI and authentication provider accounts.
+> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various API provider accounts.
 
 Copy the `.env.example` file and populate the required env vars:
 
@@ -60,19 +50,9 @@ pnpm dev
 
 Your app template should now be running on [localhost:3000](http://localhost:3000/).
 
-## Authors
-
-This library is created by [Vercel](https://vercel.com) and [Next.js](https://nextjs.org) team members, with contributions from:
-
-- Jared Palmer ([@jaredpalmer](https://twitter.com/jaredpalmer)) - [Vercel](https://vercel.com)
-- Shu Ding ([@shuding\_](https://twitter.com/shuding_)) - [Vercel](https://vercel.com)
-- shadcn ([@shadcn](https://twitter.com/shadcn)) - [Contractor](https://shadcn.com)
-
 ## Self-host quickstart (Postgres data plane)
 
-Vibesboard is migrating to a fully self-hostable stack. Sub-project #1 (this PR)
-ships the Postgres adapter — schema, migrations, RLS, and dev tooling. It does
-not yet replace Firebase in the running app; that's sub-projects #2–#6.
+Vibesboard runs on a fully self-hostable stack based on Postgres, MinIO (S3-compatible storage), and Better-Auth.
 
 Requirements: Docker, pnpm.
 

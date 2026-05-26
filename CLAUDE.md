@@ -14,15 +14,15 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 ## Tech Stack
 
 - **Frontend:** React + TypeScript
-- **Backend:** Firebase (Firestore, Auth, Functions)
+- **Backend:** Postgres (Drizzle ORM), Better-Auth, and S3-compatible storage (MinIO)
 - **AI:** Anthropic Claude API
 - **Integrations:** Google Calendar (OAuth), WhatsApp, MCP servers
 
 ## Key Directories
 
-- `src/` — main application source
-- `functions/` — Firebase Cloud Functions
-- `docs/` — feature documentation organized by area
+- `apps/web/app/` — Next.js frontend application source
+- `packages/` — Shared workspace packages and database adapters
+- `docs/` — Feature documentation organized by area
 - `.claude/plugins/superpowers/` — Superpowers skills framework (git submodule)
 
 ## Superpowers Integration
@@ -47,11 +47,11 @@ To update superpowers: `git submodule update --remote .claude/plugins/superpower
 - Write tests before implementation (TDD)
 - Use systematic debugging for non-obvious bugs — find root causes, don't patch symptoms
 - Security is a priority — this is a multi-tenant SaaS, tenant isolation matters
-- Keep Firebase costs in mind — avoid unnecessary reads/writes
+- Optimize SQL queries and rely on Postgres indexes for performance
 
 ## Branching & Release Strategy
 
-- `dev` — staging environment (Cloud Run + Firebase)
+- `dev` — staging environment (Cloud Run + Postgres)
 - `main` — production environment
 - Feature branches merge to `dev` via PR
 - `dev` merges to `main` for production releases
