@@ -10,8 +10,7 @@ type Db = PostgresJsDatabase<typeof schema>
 /**
  * Atomically increment an agent's lifetime response counter.
  *
- * Fire-and-forget at the call site; replaces the Firestore
- * `FieldValue.increment(1)` update. A single `UPDATE … SET col = col + 1`
+ * Fire-and-forget at the call site. A single `UPDATE … SET col = col + 1`
  * is atomic under MVCC — no read-modify-write race.
  */
 export async function incrementAgentResponseCount(

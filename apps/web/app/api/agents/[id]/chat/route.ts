@@ -170,8 +170,8 @@ export async function POST(
     }
 
     // Resolve handoff target names for the active agent's system prompt.
-    // Handoff targets are always in the same tenant, so use the batched tenant-scoped
-    // lookup (single Firestore getAll RPC) instead of N collectionGroup queries.
+    // Handoff targets are always in the same tenant, so use the batched
+    // tenant-scoped lookup (a single query) instead of N per-agent lookups.
     if (activeAgent.handoffTargets?.length) {
       handoffTargetNames = await getAgentNamesByTenant(
         activeAgent.tenantId!,

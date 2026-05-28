@@ -38,7 +38,7 @@ function buildExternalId(
   return `inbox:${channel}:${accountId}:${contactId}`
 }
 
-// Replicate agent resolution logic (decision tree only, no Firestore)
+// Replicate agent resolution logic (decision tree only, no DB access)
 interface MockConversation {
   assignedAgentId?: string | null
   agentPaused?: boolean
@@ -98,9 +98,9 @@ describe('Agent sentBy sentinel pattern', () => {
     assert.equal(extractAgentIdFromSentBy('user123'), null)
   })
 
-  test('sentinel is never a valid Firebase Auth user ID', () => {
+  test('sentinel is never a valid user ID', () => {
     const sentinel = makeAgentSentBy('someAgentId')
-    // Firebase Auth UIDs are alphanumeric, never contain ':'
+    // User IDs are alphanumeric, never contain ':'
     assert.ok(
       sentinel.includes(':'),
       'Sentinel must contain colon to distinguish from user IDs'
@@ -300,7 +300,7 @@ describe('Message dual-store linking', () => {
 
   test('human message has userId in sentBy, no agent name', () => {
     const msgDoc = {
-      sentBy: 'firebase-uid-123',
+      sentBy: 'user-uid-123',
       direction: 'outbound' as const
     }
 

@@ -76,14 +76,8 @@ get_env_value() {
   return 1
 }
 
-# --- Build-time NEXT_PUBLIC_* args (Firebase) ---
+# --- Build-time NEXT_PUBLIC_* args ---
 for key in \
-  NEXT_PUBLIC_FIREBASE_API_KEY \
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID \
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
-  NEXT_PUBLIC_FIREBASE_APP_ID \
   NEXT_PUBLIC_AUTH_GOOGLE \
   NEXT_PUBLIC_APP_URL \
   NEXT_PUBLIC_META_APP_ID \
@@ -94,16 +88,6 @@ for key in \
 done
 
 echo "Using build-time public env: ${BUILD_ARGS:-<none>}"
-
-# Sanity check
-if [ ! -f .env.production ]; then
-  req=$(get_env_value NEXT_PUBLIC_FIREBASE_API_KEY || true)
-  if [ -z "${req}" ]; then
-    echo "Error: Missing NEXT_PUBLIC_FIREBASE_API_KEY." >&2
-    echo "Provide it via exported env or .env." >&2
-    exit 1
-  fi
-fi
 
 # --- Build and push image (linux/amd64) ---
 ${ENGINE} build --platform linux/amd64 -t "${IMAGE_NAME}" ${BUILD_ARGS} .
@@ -140,7 +124,6 @@ gcloud run deploy "${SERVICE_NAME}" \
   --set-env-vars="${ENV_VARS}" \
   --set-secrets="\
 OPENAI_API_KEY=openai-api-key:latest,\
-FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest,\
 WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest,\
 VERIFY_TOKEN=whatsapp-verify-token:latest,\
 ENCRYPTION_KEY=encryption-key:latest,\
