@@ -103,13 +103,6 @@ fi
 # ── 6. Check optional CLI tools ───────────────────────────────────────
 info "Checking optional tools..."
 
-if command -v firebase >/dev/null 2>&1; then
-  ok "Firebase CLI $(firebase --version 2>/dev/null | head -1)"
-else
-  warn "Firebase CLI not found (needed for emulators & deploy)"
-  warn "  Install: npm i -g firebase-tools"
-fi
-
 if command -v gcloud >/dev/null 2>&1; then
   ok "Google Cloud SDK $(gcloud version 2>/dev/null | head -1 | awk '{print $NF}')"
 else
@@ -144,7 +137,6 @@ fi
 echo -e "${CYAN}───────────────────────────────────────${NC}"
 echo ""
 echo "  Start dev server:       pnpm dev"
-echo "  Start with emulators:   firebase emulators:start"
 echo "  Run tests:              pnpm test"
 echo "  Lint:                   pnpm lint"
 echo ""

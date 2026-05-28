@@ -1,8 +1,6 @@
-// Vector embedding write sentinel. Historically a vector FieldValue was used
-// for the legacy document store; with that store removed, embeddings are plain
-// number[] at rest. This alias is retained so the legacy chunk-document shapes
-// below still type-check.
-type EmbeddingFieldValue = unknown
+// Vector embedding write sentinel. Embeddings are plain number[] at rest;
+// this alias is retained so the chunk shapes below still type-check.
+type EmbeddingWriteValue = unknown
 
 // Plan identifier — defined here (rather than in a separate plans module) so
 // contracts has no internal cross-file imports beyond the type re-exports
@@ -548,7 +546,7 @@ export interface FileChunkDocument {
   mimeType?: string
   chunkIndex: number
   content: string
-  embedding: number[] | EmbeddingFieldValue // vector value for writes
+  embedding: number[] | EmbeddingWriteValue // vector value for writes
   createdAt: string
 }
 
@@ -561,7 +559,7 @@ export interface ConversationChunkDocument {
   chunkIndex: number
   role: string
   content: string
-  embedding: number[] | EmbeddingFieldValue
+  embedding: number[] | EmbeddingWriteValue
   createdAt: string
 }
 

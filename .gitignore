@@ -60,11 +60,8 @@ env.yaml
 # Cloud Functions build output
 apps/functions/lib
 
-# Firebase emulator debug logs
-firebase-debug.log
-firestore-debug.log
+# Debug logs
 *-debug.log
-apps/functions/firebase-debug.log
 
 # test artifacts
 .playwright-mcp/

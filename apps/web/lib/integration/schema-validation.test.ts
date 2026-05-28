@@ -205,10 +205,10 @@ describe('agentAskRequestSchema', () => {
     assert.ok(result.success)
   })
 
-  test('accepts non-UUID sessionId (Firestore auto-IDs)', () => {
+  test('accepts non-UUID sessionId (legacy auto-IDs)', () => {
     const result = agentAskRequestSchema.safeParse({
       question: 'Hello',
-      sessionId: 'abc123firestoreId'
+      sessionId: 'abc123legacyId'
     })
     assert.ok(result.success)
   })
