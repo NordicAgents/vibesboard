@@ -80,7 +80,6 @@ echo ""
 # Core
 echo "--- Core ---"
 upsert_secret "openai-api-key"                "OPENAI_API_KEY"
-upsert_secret "firebase-service-account-key"  "FIREBASE_SERVICE_ACCOUNT_KEY"
 upsert_secret "encryption-key"                "ENCRYPTION_KEY"
 upsert_secret "cron-secret"                   "CRON_SECRET"
 echo ""

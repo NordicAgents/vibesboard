@@ -1,7 +1,7 @@
 /**
  * Self-host shim — usage logging is a no-op; limits are infinite.
  *
- * The previous implementation wrote usage_logs documents to Firestore and
+ * The previous implementation wrote usage_logs records to the database and
  * enforced plan limits before agent invocations. Self-host operators who
  * want metering can re-implement this locally; the table
  * `usage_counters` exists in Postgres for ad-hoc rolling totals.

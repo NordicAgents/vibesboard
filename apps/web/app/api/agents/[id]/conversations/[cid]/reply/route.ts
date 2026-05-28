@@ -115,7 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       validated.text
     )
 
-    // Store in Firestore conversation
+    // Append the assistant message to the stored conversation
     const assistantMessage = {
       id: nanoid(),
       role: 'assistant' as const,

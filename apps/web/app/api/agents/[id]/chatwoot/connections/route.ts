@@ -237,7 +237,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // 6. Store connection in Firestore
+    // 6. Persist the connection
     const { connection } = await createChatwootConnection(
       tenantId,
       agentId,

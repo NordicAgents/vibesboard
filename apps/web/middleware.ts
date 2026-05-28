@@ -100,7 +100,7 @@ export async function middleware(req: NextRequest) {
     // here, and detailed RBAC is enforced in the server component / API route layer.
     //
     // For admin and settings routes, we still allow the request through to the
-    // page/route handler which will do the full RBAC check with Firebase Admin.
+    // page/route handler which will do the full RBAC check server-side.
   }
 
   return res
