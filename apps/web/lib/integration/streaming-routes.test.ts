@@ -5,7 +5,7 @@
  * and verify streaming behavior (multiple chunks, headers, cancellation).
  *
  * Before running, start the dev server:
- *   pnpm dev
+ *   bun run dev
  *
  * Then run:
  *   node --experimental-strip-types --test lib/integration/streaming-routes.test.ts

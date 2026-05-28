@@ -77,8 +77,8 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 ## CI Requirements
 
 All PRs must pass these checks before merge:
-- **Lint** — ESLint + Prettier (`pnpm lint` + `pnpm format:check`)
-- **Type-check** — TypeScript strict mode (`pnpm type-check`)
-- **Tests** — Node test runner (`pnpm test`)
-- **Build** — Next.js production build (`pnpm build`)
+- **Lint** — ESLint + Prettier (`bun run lint` + `bun run format:check`)
+- **Type-check** — TypeScript strict mode (`bun run type-check`)
+- **Tests** — Node test runner (`bun run test`)
+- **Build** — Next.js production build (`bun run build`)
 - **Security** — Semgrep SAST + Trivy vulnerability scan + Lizard complexity

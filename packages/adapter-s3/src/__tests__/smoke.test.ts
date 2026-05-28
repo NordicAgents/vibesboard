@@ -9,7 +9,7 @@ import {
   fileExists,
 } from '../index.ts'
 
-// Tests require MinIO running (pnpm db:up); env: S3_ENDPOINT, S3_BUCKET,
+// Tests require MinIO running (bun run db:up); env: S3_ENDPOINT, S3_BUCKET,
 // S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_FORCE_PATH_STYLE.
 
 // Set sensible local defaults if env isn't loaded (e.g. from a .env file).

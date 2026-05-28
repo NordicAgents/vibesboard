@@ -15,7 +15,7 @@ dist
 coverage
 tests
 *.log
-pnpm-debug.log*
+bun-debug.log*
 
 # Docker
 Dockerfile

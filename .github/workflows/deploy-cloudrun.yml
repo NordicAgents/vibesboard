@@ -7,8 +7,7 @@ on:
       - "apps/web/**"
       - "packages/**"
       - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
+      - "bun.lock"
       - "tsconfig.base.json"
       - "Dockerfile"
   workflow_dispatch:
@@ -32,12 +31,13 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.18
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: bun install --frozen-lockfile
       - name: Authenticate to GCP
         uses: ./.github/actions/gcp-auth
         with:
@@ -55,7 +55,7 @@ jobs:
       - name: Run migrations
         env:
           DATABASE_MIGRATE_URL: ${{ github.ref_name == 'main' && secrets.PROD_DATABASE_MIGRATE_URL || secrets.STAGING_DATABASE_MIGRATE_URL }}
-        run: pnpm db:migrate
+        run: bun run db:migrate
 
   deploy:
     needs: [migrate]
