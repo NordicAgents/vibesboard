@@ -9,11 +9,11 @@
  *      gcloud projects add-iam-policy-binding YOUR_PROJECT \
  *        --member="serviceAccount:YOUR_SA_EMAIL" \
  *        --role="roles/riscconfigs.admin"
- *   3. Set GOOGLE_OAUTH_CLIENT_ID in your .env.local (the Web client ID from
- *      Firebase Console > Authentication > Sign-in method > Google)
+ *   3. Set GOOGLE_OAUTH_CLIENT_ID in your .env.local (the OAuth 2.0 Web client
+ *      ID from Google Cloud Console > APIs & Services > Credentials)
  *
  * Usage:
- *   FIREBASE_SERVICE_ACCOUNT_KEY='{ ... }' \
+ *   GOOGLE_SERVICE_ACCOUNT_KEY='{ ... }' \
  *   NEXT_PUBLIC_APP_URL=https://your-domain.com \
  *   node --experimental-strip-types scripts/register-risc.ts
  */
@@ -82,7 +82,7 @@ const EVENTS_REQUESTED = [
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const saJson = env('FIREBASE_SERVICE_ACCOUNT_KEY')
+  const saJson = env('GOOGLE_SERVICE_ACCOUNT_KEY')
   const appUrl = env('NEXT_PUBLIC_APP_URL')
 
   const sa = JSON.parse(saJson) as {

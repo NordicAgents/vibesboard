@@ -1,7 +1,7 @@
 /**
  * Self-host shim — every feature is always enabled.
- * The previous implementation read Firestore feature-flag + toggle
- * documents. Self-host operators who want per-tenant feature gating
+ * The previous implementation read feature-flag + toggle records from
+ * the database. Self-host operators who want per-tenant feature gating
  * can re-implement this locally.
  */
 
