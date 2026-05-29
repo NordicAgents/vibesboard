@@ -37,5 +37,9 @@
     "node-forge": ">=1.4.0",
     "@xmldom/xmldom": ">=0.8.12",
     "tmp": ">=0.2.6"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.7",
+    "vitest": "^4.1.7"
   }
 }
