@@ -44,8 +44,8 @@ git submodule update --init
 Install the local dependencies and start dev mode:
 
 ```bash
-pnpm install
-pnpm dev
+bun install
+bun run dev
 ```
 
 Your app template should now be running on [localhost:3000](http://localhost:3000/).
@@ -54,20 +54,20 @@ Your app template should now be running on [localhost:3000](http://localhost:300
 
 Vibesboard runs on a fully self-hostable stack based on Postgres, MinIO (S3-compatible storage), and Better-Auth.
 
-Requirements: Docker, pnpm.
+Requirements: Docker, bun.
 
 ```bash
 cp .env.example .env       # already done if you run the full app locally
-pnpm install
-pnpm db:setup              # docker compose up Postgres + MinIO + migrate + seed
-pnpm db:studio             # browse the schema at https://local.drizzle.studio
-pnpm minio:console         # browse the S3 bucket at http://localhost:9001
+bun install
+bun run db:setup           # docker compose up Postgres + MinIO + migrate + seed
+bun run db:studio          # browse the schema at https://local.drizzle.studio
+bun run minio:console      # browse the S3 bucket at http://localhost:9001
 ```
 
 Run the package tests:
 
 ```bash
-pnpm --filter @vibesboard/adapter-postgres test
+bun run --filter @vibesboard/adapter-postgres test
 ```
 
 See [docs/superpowers/specs/2026-05-17-adapter-postgres-foundation-design.md](docs/superpowers/specs/2026-05-17-adapter-postgres-foundation-design.md) for the design.

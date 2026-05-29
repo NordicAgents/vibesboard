@@ -11,8 +11,8 @@ Sub-project #3 of the Firebase → Postgres/S3/Auth migration. See the
 ## Local dev
 
 ```bash
-pnpm db:setup           # also brings up MinIO at localhost:9000 (api) + :9001 (console)
-pnpm minio:console      # open the web console
+bun run db:setup        # also brings up MinIO at localhost:9000 (api) + :9001 (console)
+bun run minio:console   # open the web console
 ```
 
 ## Imports
