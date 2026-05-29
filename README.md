@@ -171,6 +171,14 @@ The script:
 - injects runtime config via `--set-env-vars` (`OPENAI_MODEL`, `GCS_BUCKET_NAME`, `NEXT_PUBLIC_APP_URL`, `NOTIFICATION_EMAIL_FROM`, optional `WHATSAPP_PHONE_NUMBER_ID`) and `--set-secrets` from Google Secret Manager (OpenAI/WhatsApp/Meta/encryption/cron/Resend/Stripe/Google secrets, all `:latest`);
 - creates two Cloud Scheduler jobs (region `europe-west1`): `vibeagent-process-whatsapp-queue` (every 30 min → `GET /api/cron/process-whatsapp-queue`) and `vibeagent-billing-reset` (daily 02:00 UTC → `POST /api/cron/billing-reset`).
 
+> **⚠️ `deploy-cloud-run.sh` is stale for the current Postgres/S3/Better Auth stack — prefer the CI workflow.** It still sets the legacy `GCS_BUCKET_NAME` (unused in code) and does **not** set the runtime configuration the app now requires:
+>
+> - `DATABASE_URL` and `DATABASE_MIGRATE_URL` — `packages/adapter-postgres/src/client.ts` throws if either is unset when a query (or Better Auth's identity layer) runs;
+> - `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` — `packages/adapter-s3/src/client.ts` throws if any is unset on first storage use;
+> - `BETTER_AUTH_SECRET` — `packages/adapter-better-auth/src/config.ts` throws under `NODE_ENV=production` (the Cloud Run runtime) when unset.
+>
+> A service deployed from this script starts but fails as soon as it touches the database, auth, or storage. The GitHub Actions workflow `deploy-cloudrun.yml` is the source of truth — it sets all of the above from per-environment secrets. Use it for real deploys, and update `deploy-cloud-run.sh` to match (add the DB/S3/Better Auth env + secrets, drop `GCS_BUCKET_NAME`) before relying on the manual path.
+
 Populate Secret Manager from a `.env` file with `scripts/setup-secrets.sh` (idempotent upsert; `PROJECT_ID=vibesboard`; `NEXT_PUBLIC_*` are treated as build-time args, not secrets):
 
 ```bash
@@ -202,8 +210,8 @@ Defined in [`.env.example`](.env.example). Generate secrets with `openssl rand -
 | Variable | Notes |
 | --- | --- |
 | `NEXT_PUBLIC_APP_URL` | Canonical site URL for production (fallback for building absolute URLs) |
-| `NEXT_PUBLIC_AUTH_GOOGLE` | Set to `false` to disable Google OAuth |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client credentials |
+| `NEXT_PUBLIC_AUTH_GOOGLE` | Build-time arg only — **not read anywhere in app code**, so it does not enable or disable Google OAuth. The "Continue with Google" button renders unconditionally on `/sign-in` and `/sign-up`; setting this to `false` has no effect. |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client credentials. These are the *actual* OAuth switch: the Better Auth `google` provider is registered only when both are present (`packages/adapter-better-auth/src/config.ts`). Leave them unset to disable Google sign-in. |
 | `BETTER_AUTH_SECRET` | Server-side session signing (`openssl rand -hex 32`) |
 | `ACCESS_GATE_SECRET` | Hashes access passwords + signs cookies for access-gated public agents |
 
