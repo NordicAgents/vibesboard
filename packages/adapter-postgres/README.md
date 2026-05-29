@@ -15,8 +15,8 @@ only — no existing callsite imports this package yet. See the
 From the repo root:
 
 ```bash
-pnpm db:setup   # docker compose up postgres + migrate + seed
-pnpm db:studio  # open Drizzle Studio at https://local.drizzle.studio
+bun run db:setup   # docker compose up postgres + migrate + seed
+bun run db:studio  # open Drizzle Studio at https://local.drizzle.studio
 ```
 
 ## Imports

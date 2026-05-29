@@ -3,7 +3,7 @@
  *
  * These tests make actual HTTP requests to the running Next.js dev server.
  * Before running, start the dev server:
- *   pnpm dev
+ *   bun run dev
  *
  * Then run:
  *   node --experimental-strip-types --test lib/integration/routes.test.ts

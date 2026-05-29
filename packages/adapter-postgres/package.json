@@ -16,7 +16,9 @@
     "type-check": "tsc --noEmit",
     "test": "node --experimental-strip-types --test 'src/__tests__/**/*.test.ts'",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "node --experimental-strip-types src/seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

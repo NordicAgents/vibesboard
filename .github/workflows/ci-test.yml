@@ -27,15 +27,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.18
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Bring up Postgres + MinIO via docker compose
         run: docker compose -f docker-compose.dev.yml up -d --wait postgres minio
@@ -65,10 +66,10 @@ jobs:
           "
 
       - name: Apply database migrations
-        run: pnpm db:migrate
+        run: bun run db:migrate
 
       - name: Run tests
-        run: pnpm test
+        run: bun run test
 
       - name: Capture docker logs on failure
         if: failure()
