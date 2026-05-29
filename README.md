@@ -31,7 +31,7 @@
 
 ## Architecture overview
 
-Vibesboard is a pnpm monorepo (`vibeagent-monorepo`, private) pinned to `pnpm@10.18.1`.
+Vibesboard is a bun monorepo (`vibeagent-monorepo`, private) pinned to `bun@1.2.18`.
 
 ```
 apps/
@@ -60,7 +60,7 @@ Key packages:
 
 ## Setup
 
-Requirements: [Docker](https://www.docker.com), [pnpm](https://pnpm.io), Node 22 (CI uses Node 22 for PR checks).
+Requirements: [Docker](https://www.docker.com), [Bun](https://bun.sh) 1.2.18, Node 22 (CI uses Node 22 for PR checks).
 
 Copy the example env file and populate the required vars (see [Environment variables](#environment-variables)):
 
@@ -73,13 +73,13 @@ cp .env.example .env
 Install dependencies:
 
 ```bash
-pnpm install
+bun install
 ```
 
 Bring up local infra (Postgres + MinIO) and apply schema + seed data:
 
 ```bash
-pnpm db:setup    # docker compose up Postgres + Adminer + MinIO, then migrate + seed
+bun run db:setup    # docker compose up Postgres + Adminer + MinIO, then migrate + seed
 ```
 
 `db:setup` runs `db:up` (starts `postgres`, `adminer`, `minio`, `minio-init` from `docker-compose.dev.yml`), waits, then `db:migrate` and `db:seed`.
@@ -87,7 +87,7 @@ pnpm db:setup    # docker compose up Postgres + Adminer + MinIO, then migrate + 
 ## Development
 
 ```bash
-pnpm dev         # next dev (apps/web)
+bun run dev      # next dev (apps/web)
 ```
 
 The dev server runs on Next.js's default port; `cors.json` whitelists `http://localhost:3000` as a local origin.
@@ -96,51 +96,51 @@ The dev server runs on Next.js's default port; `cors.json` whitelists `http://lo
 Useful local infra commands (all defined in the root `package.json`):
 
 ```bash
-pnpm db:up        # start Postgres + Adminer + MinIO
-pnpm db:down      # stop containers
-pnpm db:reset     # down -v, then db:up + migrate + seed (fresh DB)
-pnpm db:migrate   # drizzle-kit migrate (adapter-postgres)
-pnpm db:generate  # drizzle-kit generate (new migration from schema)
-pnpm db:seed      # run adapter-postgres seed
-pnpm db:studio    # open Drizzle Studio (drizzle-kit studio)
-pnpm minio:console # open http://localhost:9001 (MinIO console)
+bun run db:up         # start Postgres + Adminer + MinIO
+bun run db:down       # stop containers
+bun run db:reset      # down -v, then db:up + migrate + seed (fresh DB)
+bun run db:migrate    # drizzle-kit migrate (adapter-postgres)
+bun run db:generate   # drizzle-kit generate (new migration from schema)
+bun run db:seed       # run adapter-postgres seed
+bun run db:studio     # open Drizzle Studio (drizzle-kit studio)
+bun run minio:console # open http://localhost:9001 (MinIO console)
 ```
 
 Adminer is available at <http://localhost:8888> and the MinIO API at <http://localhost:9000> (console at <http://localhost:9001>).
 
-> `pnpm db:studio` launches `drizzle-kit studio`. Drizzle Studio's hosted UI defaults to <https://local.drizzle.studio>, but that URL is a drizzle-kit default — it is not configured anywhere in this repo.
+> `bun run db:studio` launches `drizzle-kit studio`. Drizzle Studio's hosted UI defaults to <https://local.drizzle.studio>, but that URL is a drizzle-kit default — it is not configured anywhere in this repo.
 
 ### Lint and type-check
 
 ```bash
-pnpm lint          # pnpm -r lint (only apps/web has a lint script)
-pnpm format:check  # prettier --check (apps/web)
-pnpm format:write  # prettier --write (apps/web)
-pnpm type-check    # pnpm -r type-check (tsc --noEmit per package)
+bun run lint          # bun run --filter '*' lint (only apps/web has a lint script)
+bun run format:check  # prettier --check (apps/web)
+bun run format:write  # prettier --write (apps/web)
+bun run type-check    # bun run --filter '*' type-check (tsc --noEmit per package)
 ```
 
-> Only `apps/web` defines `lint`/`format:check`, so `pnpm lint` and `pnpm format:check` effectively cover the web app only. In CI the type-check job runs with `continue-on-error: true`, so a type-check failure does not currently block a merge.
+> Only `apps/web` defines `lint`/`format:check`, so `bun run lint` and `bun run format:check` effectively cover the web app only. In CI the type-check job runs with `continue-on-error: true`, so a type-check failure does not currently block a merge.
 
 ## Testing
 
 ```bash
-pnpm test    # pnpm -r --if-present test (Node built-in test runner)
+bun run test  # bun run --filter '*' --if-present test (Node built-in test runner)
 ```
 
 Tests use the Node test runner (`node --experimental-strip-types --test`). The root `test` script runs recursively with `--if-present`, so packages without a `test` script (e.g. `adapter-openai`, `contracts`, `integrations`, `retrieval`, `utils`) are skipped.
 
-Database-backed tests need Postgres + MinIO running (`pnpm db:up`) and migrations applied (`pnpm db:migrate`) — this is what CI does before `pnpm test`.
+Database-backed tests need Postgres + MinIO running (`bun run db:up`) and migrations applied (`bun run db:migrate`) — this is what CI does before `bun run test`.
 
 Run a single package's tests:
 
 ```bash
-pnpm --filter @vibesboard/adapter-postgres test
+bun run --filter @vibesboard/adapter-postgres test
 ```
 
 ## Build
 
 ```bash
-pnpm build    # pnpm --filter @vibesboard/web build (next build)
+bun run build  # bun run --filter @vibesboard/web build (next build)
 ```
 
 `NEXT_PUBLIC_*` values are baked in at build time. The production container build uses the multi-stage `Dockerfile` (node:20-alpine, Next.js standalone output) and serves on port 8080:
@@ -269,12 +269,12 @@ By default the self-host stack supports three sign-in flows:
 
 ## Troubleshooting
 
-- **`DATABASE_URL`/`DATABASE_MIGRATE_URL` errors on startup** — both are required by `adapter-postgres`; copy `.env.example` to `.env` and ensure `pnpm db:up` is running.
+- **`DATABASE_URL`/`DATABASE_MIGRATE_URL` errors on startup** — both are required by `adapter-postgres`; copy `.env.example` to `.env` and ensure `bun run db:up` is running.
 - **Tenant-scoped queries return zero rows** — RLS fails closed outside a `withTenant` wrapper. Ensure data access goes through `withTenant`/`withDb`.
-- **MinIO bucket missing / upload errors** — `db:up` runs a one-shot `minio-init` job that creates the `vibesboard-files` bucket; if it didn't run, re-run `pnpm db:up`. Check the console at <http://localhost:9001>.
-- **Stale DB after schema changes** — run `pnpm db:reset` for a clean DB (`down -v` + migrate + seed).
-- **Containers won't start / port conflicts** — Postgres (5432), Adminer (8888), MinIO (9000/9001) must be free; stop conflicting services or run `pnpm db:down`.
-- **Build fails on missing `NEXT_PUBLIC_*`** — these are baked at build time; pass them as Docker build args or set them before `pnpm build`.
+- **MinIO bucket missing / upload errors** — `db:up` runs a one-shot `minio-init` job that creates the `vibesboard-files` bucket; if it didn't run, re-run `bun run db:up`. Check the console at <http://localhost:9001>.
+- **Stale DB after schema changes** — run `bun run db:reset` for a clean DB (`down -v` + migrate + seed).
+- **Containers won't start / port conflicts** — Postgres (5432), Adminer (8888), MinIO (9000/9001) must be free; stop conflicting services or run `bun run db:down`.
+- **Build fails on missing `NEXT_PUBLIC_*`** — these are baked at build time; pass them as Docker build args or set them before `bun run build`.
 - **Emails not sending in dev** — without `RESEND_API_KEY`, verification/magic-link URLs are logged to the server console instead of emailed.
 
 ## Project docs and links

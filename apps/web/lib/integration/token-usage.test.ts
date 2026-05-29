@@ -5,7 +5,7 @@
  * the token usage pipeline works end-to-end (requires dev server).
  *
  * Run:
- *   pnpm dev  # in one terminal
+ *   bun run dev  # in one terminal
  *   node --experimental-strip-types --test lib/integration/token-usage.test.ts
  */
 import { test, describe } from 'node:test'

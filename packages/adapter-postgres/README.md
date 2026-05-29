@@ -42,8 +42,8 @@ See `.env.example` at the repo root for sample values.
 This package defines two `db:*` scripts (both run via `drizzle-kit`):
 
 ```bash
-pnpm --filter @vibesboard/adapter-postgres db:generate  # drizzle-kit generate (emit a new migration)
-pnpm --filter @vibesboard/adapter-postgres db:migrate   # drizzle-kit migrate (apply pending migrations)
+bun run --filter @vibesboard/adapter-postgres db:generate  # drizzle-kit generate (emit a new migration)
+bun run --filter @vibesboard/adapter-postgres db:migrate   # drizzle-kit migrate (apply pending migrations)
 ```
 
 The higher-level convenience scripts (`db:up`, `db:down`, `db:reset`,
@@ -55,8 +55,8 @@ The higher-level convenience scripts (`db:up`, `db:down`, `db:reset`,
 From the repo root:
 
 ```bash
-pnpm db:setup   # docker compose up postgres + adminer + minio, then migrate + seed
-pnpm db:studio  # launch drizzle-kit studio
+bun run db:setup   # docker compose up postgres + adminer + minio, then migrate + seed
+bun run db:studio  # launch drizzle-kit studio
 ```
 
 `db:setup` runs `db:up && sleep 3 && db:migrate && db:seed`; `db:up` brings

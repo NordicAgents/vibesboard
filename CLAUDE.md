@@ -75,12 +75,12 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 
 ## CI Requirements
 
-PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Node 22, pnpm via `pnpm/action-setup@v4`):
+PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Bun 1.2.18 via `oven-sh/setup-bun@v2`, Node 22):
 
-- **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `pnpm lint` + `pnpm format:check`. Note: `pnpm lint` is `pnpm -r lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
-- **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `pnpm type-check` (TypeScript strict mode, `tsc --noEmit` per package). **Warning:** this job sets `continue-on-error: true`, so a type-check failure does NOT fail the workflow and cannot block a merge today.
-- **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `pnpm test` (`pnpm -r --if-present test`, Node built-in test runner). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `pnpm db:migrate` before tests. Packages without a `test` script are skipped.
-- **Build** (`.github/workflows/ci-build.yml`, "Build") — `pnpm build` (Next.js production build of `apps/web`) using `NEXT_PUBLIC_*` values from `STAGING_*` secrets.
+- **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
+- **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). **Warning:** this job sets `continue-on-error: true`, so a type-check failure does NOT fail the workflow and cannot block a merge today.
+- **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `bun run test` (`bun run --filter '*' --if-present test`, Node built-in test runner). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `bun run db:migrate` before tests. Packages without a `test` script are skipped.
+- **Build** (`.github/workflows/ci-build.yml`, "Build") — `bun run build` (Next.js production build of `apps/web`) using `NEXT_PUBLIC_*` values from `STAGING_*` secrets.
 - **Security** (`.github/workflows/security.yml`, "Security & Quality", on PR and push to `dev`/`main`) — Semgrep SAST + Trivy filesystem vulnerability scan (CRITICAL,HIGH) + Lizard complexity (CCN 15).
 
 Deployment to Cloud Run is handled separately by `.github/workflows/deploy-cloudrun.yml` on push to `dev`/`main` (migrate then build/push image and deploy via Workload Identity Federation).

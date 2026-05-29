@@ -10,11 +10,11 @@ MinIO is provided by the repo's dev compose stack. Run these from the repo
 root:
 
 ```bash
-pnpm db:setup        # also brings up MinIO at localhost:9000 (API) + :9001 (console)
-pnpm minio:console   # open http://localhost:9001
+bun run db:setup        # also brings up MinIO at localhost:9000 (API) + :9001 (console)
+bun run minio:console   # open http://localhost:9001
 ```
 
-`pnpm db:setup` runs `docker compose -f docker-compose.dev.yml up` (Postgres +
+`bun run db:setup` runs `docker compose -f docker-compose.dev.yml up` (Postgres +
 Adminer + MinIO), then migrates and seeds. The `minio-init` job creates the
 `vibesboard-files` bucket.
 

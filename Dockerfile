@@ -1,21 +1,21 @@
 # syntax=docker/dockerfile:1
 
-# Multi-stage build for Next.js (pnpm) targeting Cloud Run
+# Multi-stage build for Next.js (bun) targeting Cloud Run
 # Uses standalone output for smaller images
 
-FROM node:20-alpine AS base
+FROM oven/bun:1.2.18-alpine AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
-RUN corepack enable
 
 # Install deps (cached layer)
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/
-# Every workspace package's manifest must be present before `pnpm install`
-# resolves the workspace:* refs in apps/web/package.json.
+# Every workspace package's manifest must be present before `bun install`
+# resolves the workspace:* refs in apps/web/package.json. The workspace
+# globs themselves live in the root package.json copied above.
 COPY packages/adapter-better-auth/package.json ./packages/adapter-better-auth/
 COPY packages/adapter-google/package.json ./packages/adapter-google/
 COPY packages/adapter-openai/package.json ./packages/adapter-openai/
@@ -37,17 +37,13 @@ COPY packages/scheduling/package.json ./packages/scheduling/
 COPY packages/tenants/package.json ./packages/tenants/
 COPY packages/utils/package.json ./packages/utils/
 # Install all deps including dev (needed for build)
-RUN pnpm install --no-frozen-lockfile --prod=false
+RUN bun install
 
 # Build application
-FROM base AS builder
+# Start from the deps stage so the installed node_modules + manifests
+# are already present, then layer the source on top.
+FROM deps AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
-# Workspace packages get their pnpm-managed node_modules from the deps
-# stage. The `COPY . .` below would overwrite source, so we layer the
-# deps stage's symlinks first, then the source.
-COPY --from=deps /app/packages ./packages
 COPY . .
 # Inject public runtime configuration at build time for client bundles
 ARG NEXT_PUBLIC_AUTH_GOOGLE
@@ -59,7 +55,7 @@ ENV NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
     NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
     NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
 # Build Next.js (standalone output)
-RUN pnpm --filter @vibesboard/web build
+RUN bun run --filter @vibesboard/web build
 
 # Production runner (standalone — no separate node_modules needed)
 FROM node:20-alpine AS runner
