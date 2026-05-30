@@ -15,10 +15,18 @@ export const sharedResolveAlias: Record<string, string> = {
 }
 
 // Common `test` options. Per-package configs add their own `include`.
+//
+// DB-backed tests use withTestDb(), which opens short-lived Postgres pools.
+// Postgres dev runs with max_connections=100; capping workers keeps total
+// connections comfortably under that even when many DB files run at once.
+// In Vitest 4 worker counts are top-level (the old `poolOptions.forks` shape
+// was removed), so we use maxWorkers/minWorkers directly.
 export const sharedTest = {
   environment: 'node' as const,
   globals: false,
   pool: 'forks' as const,
+  minWorkers: 1,
+  maxWorkers: 4,
   setupFiles: [fromRoot('./test/setup/env.ts')],
   testTimeout: 30_000,
   hookTimeout: 30_000,

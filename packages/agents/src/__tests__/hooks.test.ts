@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, agents } from '@vibesboard/adapter-postgres/schema'
@@ -37,7 +36,7 @@ async function seedAgent(adminDb: any) {
 }
 
 describe('hooks CRUD (postgres)', () => {
-  test('create returns one-time secret, getHook returns hash, verifySecret matches', async () => {
+  it('create returns one-time secret, getHook returns hash, verifySecret matches', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb)
       const { hook, secretKey } = await createHook(
@@ -46,30 +45,36 @@ describe('hooks CRUD (postgres)', () => {
         'Svc',
         adminDb
       )
-      assert.equal('secretHash' in hook, false)
+      expect('secretHash' in hook).toBe(false)
       const stored = await getHook(tenantId, agentId, hook.id, adminDb)
-      assert.ok(stored)
-      assert.equal(verifySecret(secretKey, stored!.secretHash), true)
-      assert.equal(verifySecret('wrong', stored!.secretHash), false)
+      expect(stored).toBeTruthy()
+      expect(verifySecret(secretKey, stored!.secretHash)).toBe(true)
+      expect(verifySecret('wrong', stored!.secretHash)).toBe(false)
     })
   })
 
-  test('getHookById finds the hook across agents', async () => {
+  it('getHookById finds the hook across agents', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb)
       const { hook } = await createHook(tenantId, agentId, 'Svc', adminDb)
       const found = await getHookById(hook.id, adminDb)
-      assert.equal(found?.id, hook.id)
+      expect(found?.id).toBe(hook.id)
     })
   })
 
-  test('listHooks newest-first, strips secretHash; update + delete', async () => {
+  it('getHookById returns null for an unknown id', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      expect(await getHookById(randomUUID(), adminDb)).toBe(null)
+    })
+  })
+
+  it('listHooks newest-first, strips secretHash; update + delete', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb)
       const { hook } = await createHook(tenantId, agentId, 'One', adminDb)
       const list = await listHooks(tenantId, agentId, adminDb)
-      assert.equal(list.length, 1)
-      assert.equal('secretHash' in list[0], false)
+      expect(list.length).toBe(1)
+      expect('secretHash' in list[0]).toBe(false)
       await updateHook(
         tenantId,
         agentId,
@@ -77,23 +82,56 @@ describe('hooks CRUD (postgres)', () => {
         { status: 'inactive' },
         adminDb
       )
-      assert.equal(
-        (await getHook(tenantId, agentId, hook.id, adminDb))!.status,
-        'inactive'
-      )
+      expect(
+        (await getHook(tenantId, agentId, hook.id, adminDb))!.status
+      ).toBe('inactive')
       await deleteHook(tenantId, agentId, hook.id, adminDb)
-      assert.equal(await getHook(tenantId, agentId, hook.id, adminDb), null)
+      expect(await getHook(tenantId, agentId, hook.id, adminDb)).toBe(null)
     })
   })
 
-  test('recordHookUsage increments request_count and sets lastUsedAt', async () => {
+  it('recordHookUsage increments request_count and sets lastUsedAt', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb)
       const { hook } = await createHook(tenantId, agentId, 'Svc', adminDb)
       await recordHookUsage(tenantId, agentId, hook.id, adminDb)
       const after = await getHook(tenantId, agentId, hook.id, adminDb)
-      assert.equal(after!.requestCount, 1)
-      assert.ok(after!.lastUsedAt)
+      expect(after!.requestCount).toBe(1)
+      expect(after!.lastUsedAt).toBeTruthy()
+    })
+  })
+
+  it('verifySecret rejects a malformed (non-hex / wrong-length) hash', () => {
+    expect(verifySecret('anything', 'not-a-valid-hex-hash')).toBe(false)
+  })
+
+  it('getHook is scoped by tenant and agent (cross-tenant isolation)', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const a = await seedAgent(adminDb)
+      const b = await seedAgent(adminDb)
+      const { hook } = await createHook(a.tenantId, a.agentId, 'Svc', adminDb)
+      // tenant B cannot read tenant A's hook through the scoped read
+      expect(await getHook(b.tenantId, b.agentId, hook.id, adminDb)).toBe(null)
+      // correct tenant but wrong agent also fails
+      expect(await getHook(a.tenantId, b.agentId, hook.id, adminDb)).toBe(null)
+    })
+  })
+
+  it('update / delete from another tenant are no-ops', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const a = await seedAgent(adminDb)
+      const b = await seedAgent(adminDb)
+      const { hook } = await createHook(a.tenantId, a.agentId, 'Svc', adminDb)
+      await updateHook(
+        b.tenantId,
+        b.agentId,
+        hook.id,
+        { status: 'inactive' },
+        adminDb
+      )
+      await deleteHook(b.tenantId, b.agentId, hook.id, adminDb)
+      const stillThere = await getHook(a.tenantId, a.agentId, hook.id, adminDb)
+      expect(stillThere?.status).toBe('active')
     })
   })
 })

@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import {
@@ -52,7 +51,7 @@ async function seedConv(adminDb: any) {
 }
 
 describe('upsertConversationEmbeddings (pg)', () => {
-  test('replaces conversation_chunk rows for the conversation', async () => {
+  it('replaces conversation_chunk rows for the conversation', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       const embed = async (texts: string[]) =>
@@ -67,7 +66,7 @@ describe('upsertConversationEmbeddings (pg)', () => {
             { id: '2', role: 'assistant', content: 'hi there' },
           ],
         },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
       let rows = await adminDb
         .select()
@@ -75,10 +74,10 @@ describe('upsertConversationEmbeddings (pg)', () => {
         .where(
           and(
             eq(embeddings.sourceType, 'conversation_chunk'),
-            eq(embeddings.sourceId, conversationId)
-          )
+            eq(embeddings.sourceId, conversationId),
+          ),
         )
-      assert.equal(rows.length, 2)
+      expect(rows.length).toBe(2)
       // re-run with fewer messages -> replaced, not appended
       await upsertConversationEmbeddings(
         {
@@ -87,7 +86,7 @@ describe('upsertConversationEmbeddings (pg)', () => {
           conversationId,
           messages: [{ id: '1', role: 'user', content: 'only one' }],
         },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
       rows = await adminDb
         .select()
@@ -95,16 +94,16 @@ describe('upsertConversationEmbeddings (pg)', () => {
         .where(
           and(
             eq(embeddings.sourceType, 'conversation_chunk'),
-            eq(embeddings.sourceId, conversationId)
-          )
+            eq(embeddings.sourceId, conversationId),
+          ),
         )
-      assert.equal(rows.length, 1)
-      assert.equal(rows[0].chunkIndex, 0)
-      assert.equal(rows[0].content, 'only one')
+      expect(rows.length).toBe(1)
+      expect(rows[0].chunkIndex).toBe(0)
+      expect(rows[0].content).toBe('only one')
     })
   })
 
-  test('stores 1536-dim embedding and content_tsv (keyword-searchable)', async () => {
+  it('stores 1536-dim embedding and content_tsv (keyword-searchable)', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 7))
@@ -118,7 +117,7 @@ describe('upsertConversationEmbeddings (pg)', () => {
             { id: '2', role: 'assistant', content: 'lazy dogs sleeping' },
           ],
         },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
       // tsvector populated: keyword match returns exactly the fox row.
       const matched = await adminDb
@@ -128,15 +127,15 @@ describe('upsertConversationEmbeddings (pg)', () => {
           and(
             eq(embeddings.sourceType, 'conversation_chunk'),
             eq(embeddings.sourceId, conversationId),
-            sql`${embeddings.contentTsv} @@ plainto_tsquery('english', 'fox')`
-          )
+            sql`${embeddings.contentTsv} @@ plainto_tsquery('english', 'fox')`,
+          ),
         )
-      assert.equal(matched.length, 1)
-      assert.equal(matched[0].chunkIndex, 0)
+      expect(matched.length).toBe(1)
+      expect(matched[0].chunkIndex).toBe(0)
     })
   })
 
-  test('deleteConversationEmbeddings removes only that conversation chunks', async () => {
+  it('deleteConversationEmbeddings removes only that conversation chunks', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 1))
@@ -147,20 +146,20 @@ describe('upsertConversationEmbeddings (pg)', () => {
           conversationId,
           messages: [{ id: '1', role: 'user', content: 'keep me then delete' }],
         },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
       await deleteConversationEmbeddings(tenantId, conversationId, adminDb)
       const rows = await adminDb
         .select()
         .from(embeddings)
         .where(eq(embeddings.sourceId, conversationId))
-      assert.equal(rows.length, 0)
+      expect(rows.length).toBe(0)
     })
   })
 })
 
 describe('buildAskAiConversationContext (pg)', () => {
-  test('vector search surfaces the matching conversation window (cosine ordering)', async () => {
+  it('vector search surfaces the matching conversation window (cosine ordering)', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       await updateConversationMessages(
@@ -177,7 +176,7 @@ describe('buildAskAiConversationContext (pg)', () => {
             },
           ],
         },
-        adminDb
+        adminDb,
       )
       const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 5))
       await upsertConversationEmbeddings(
@@ -194,19 +193,19 @@ describe('buildAskAiConversationContext (pg)', () => {
             },
           ],
         },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
       const res = await buildAskAiConversationContext(
         { tenantId, agentId, question: 'password reset?' },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
-      assert.equal(res.usedVectorSearch, true)
-      assert.ok(res.context.includes('settings then security'))
-      assert.ok(res.sourceCount >= 1)
+      expect(res.usedVectorSearch).toBe(true)
+      expect(res.context.includes('settings then security')).toBe(true)
+      expect(res.sourceCount >= 1).toBe(true)
     })
   })
 
-  test('only the nearest conversation ranks first across multiple conversations', async () => {
+  it('only the nearest conversation ranks first across multiple conversations', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedConv(adminDb)
       // Two more visitor conversations under the same agent.
@@ -223,7 +222,7 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cNear,
           messages: [{ id: 'n1', role: 'assistant', content: 'NEAR answer' }],
         },
-        adminDb
+        adminDb,
       )
       await updateConversationMessages(
         {
@@ -232,7 +231,7 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cFar,
           messages: [{ id: 'f1', role: 'assistant', content: 'FAR answer' }],
         },
-        adminDb
+        adminDb,
       )
       await upsertConversationEmbeddings(
         {
@@ -241,7 +240,7 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cNear,
           messages: [{ id: 'n1', role: 'assistant', content: 'NEAR answer' }],
         },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 3)) }
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 3)) },
       )
       await upsertConversationEmbeddings(
         {
@@ -250,22 +249,22 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cFar,
           messages: [{ id: 'f1', role: 'assistant', content: 'FAR answer' }],
         },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 900)) }
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 900)) },
       )
       // Query nearest to cNear (hot index 3).
       const res = await buildAskAiConversationContext(
         { tenantId, agentId, question: 'which?' },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 3)) }
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 3)) },
       )
-      assert.equal(res.usedVectorSearch, true)
+      expect(res.usedVectorSearch).toBe(true)
       const nearPos = res.context.indexOf('NEAR answer')
       const farPos = res.context.indexOf('FAR answer')
-      assert.ok(nearPos !== -1, 'nearest conversation present')
-      if (farPos !== -1) assert.ok(nearPos < farPos, 'nearest ranked first')
+      expect(nearPos !== -1).toBe(true) // nearest conversation present
+      if (farPos !== -1) expect(nearPos < farPos).toBe(true) // nearest ranked first
     })
   })
 
-  test('falls back to recent visitor conversations when no embeddings exist', async () => {
+  it('falls back to recent visitor conversations when no embeddings exist', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       await updateConversationMessages(
@@ -278,21 +277,21 @@ describe('buildAskAiConversationContext (pg)', () => {
             { id: '2', role: 'assistant', content: 'we open at nine am' },
           ],
         },
-        adminDb
+        adminDb,
       )
       const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 5))
       const res = await buildAskAiConversationContext(
         { tenantId, agentId, question: 'when do you open' },
-        { db: adminDb, embed }
+        { db: adminDb, embed },
       )
-      assert.equal(res.usedVectorSearch, false)
-      assert.ok(res.context.includes('we open at nine am'))
+      expect(res.usedVectorSearch).toBe(false)
+      expect(res.context.includes('we open at nine am')).toBe(true)
     })
   })
 })
 
 describe('setAgentEmbeddingsSyncedAt (pg)', () => {
-  test('updates lastEmbeddingsSyncAt', async () => {
+  it('updates lastEmbeddingsSyncAt', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { agentId } = await seedConv(adminDb)
       const when = new Date('2026-05-24T12:00:00.000Z')
@@ -301,9 +300,8 @@ describe('setAgentEmbeddingsSyncedAt (pg)', () => {
         .select()
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(
-        row.lastEmbeddingsSyncAt?.toISOString(),
-        '2026-05-24T12:00:00.000Z'
+      expect(row.lastEmbeddingsSyncAt?.toISOString()).toBe(
+        '2026-05-24T12:00:00.000Z',
       )
     })
   })

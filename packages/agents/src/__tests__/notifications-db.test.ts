@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, agents } from '@vibesboard/adapter-postgres/schema'
@@ -36,7 +35,7 @@ async function seed(adminDb: any) {
 }
 
 describe('notifications (postgres)', () => {
-  test('create → list → count → markRead', async () => {
+  it('create → list → count → markRead', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seed(adminDb)
       const n = await createInAppNotification(
@@ -49,21 +48,21 @@ describe('notifications (postgres)', () => {
         },
         adminDb
       )
-      assert.equal(n.read, false)
-      assert.equal(await countUnreadNotifications(tenantId, adminDb), 1)
+      expect(n.read).toBe(false)
+      expect(await countUnreadNotifications(tenantId, adminDb)).toBe(1)
       const all = await listNotifications(
         tenantId,
         { limit: 20, unreadOnly: false },
         adminDb
       )
-      assert.equal(all.length, 1)
-      assert.equal(all[0].event, 'completed')
+      expect(all.length).toBe(1)
+      expect(all[0].event).toBe('completed')
       await markNotificationsRead(tenantId, [n.id], adminDb)
-      assert.equal(await countUnreadNotifications(tenantId, adminDb), 0)
+      expect(await countUnreadNotifications(tenantId, adminDb)).toBe(0)
     })
   })
 
-  test('listNotifications unreadOnly filters read rows', async () => {
+  it('listNotifications unreadOnly filters read rows', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seed(adminDb)
       const a = await createInAppNotification(
@@ -92,12 +91,12 @@ describe('notifications (postgres)', () => {
         { limit: 20, unreadOnly: true },
         adminDb
       )
-      assert.equal(unread.length, 1)
-      assert.equal(unread[0].event, 'handoff')
+      expect(unread.length).toBe(1)
+      expect(unread[0].event).toBe('handoff')
     })
   })
 
-  test('markNotificationsRead with empty ids is a no-op', async () => {
+  it('markNotificationsRead with empty ids is a no-op', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seed(adminDb)
       await createInAppNotification(
@@ -111,23 +110,99 @@ describe('notifications (postgres)', () => {
         adminDb
       )
       await markNotificationsRead(tenantId, [], adminDb)
-      assert.equal(await countUnreadNotifications(tenantId, adminDb), 1)
+      expect(await countUnreadNotifications(tenantId, adminDb)).toBe(1)
     })
   })
 
-  test('getUserEmail returns the user email', async () => {
+  it('getUserEmail returns the user email', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { userId } = await seed(adminDb)
       const email = await getUserEmail(userId, adminDb)
-      assert.ok(email && email.endsWith('@a.com'))
+      expect(email && email.endsWith('@a.com')).toBeTruthy()
     })
   })
 
-  test('getUserEmail returns null for unknown user', async () => {
+  it('getUserEmail returns null for unknown user', async () => {
     await withTestDb(async ({ adminDb }) => {
       await seed(adminDb)
       const email = await getUserEmail(randomUUID(), adminDb)
-      assert.equal(email, null)
+      expect(email).toBe(null)
+    })
+  })
+
+  it('listNotifications respects the limit and returns newest first', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId } = await seed(adminDb)
+      for (let i = 0; i < 3; i++) {
+        await createInAppNotification(
+          {
+            tenantId,
+            agentId,
+            conversationId: null,
+            event: `event-${i}`,
+            summary: null
+          },
+          adminDb
+        )
+      }
+      const limited = await listNotifications(
+        tenantId,
+        { limit: 2, unreadOnly: false },
+        adminDb
+      )
+      expect(limited.length).toBe(2)
+      // newest-first ordering: the last-created event comes first
+      expect(limited[0].event).toBe('event-2')
+    })
+  })
+
+  it('createInAppNotification maps null conversationId to "" and null summary to null', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId } = await seed(adminDb)
+      const n = await createInAppNotification(
+        {
+          tenantId,
+          agentId,
+          conversationId: null,
+          event: 'completed',
+          summary: null
+        },
+        adminDb
+      )
+      // rowToNotification: conversationId ?? '' and summary ?? null
+      expect(n.conversationId).toBe('')
+      expect(n.summary).toBe(null)
+      expect(n.agentName).toBe('')
+      expect(typeof n.createdAt).toBe('string')
+    })
+  })
+
+  it('notifications + unread counts are isolated per tenant', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const a = await seed(adminDb)
+      const b = await seed(adminDb)
+      await createInAppNotification(
+        {
+          tenantId: a.tenantId,
+          agentId: a.agentId,
+          conversationId: null,
+          event: 'completed',
+          summary: null
+        },
+        adminDb
+      )
+      expect(await countUnreadNotifications(b.tenantId, adminDb)).toBe(0)
+      expect(
+        await listNotifications(b.tenantId, { limit: 20, unreadOnly: false }, adminDb)
+      ).toEqual([])
+      // tenant B cannot mark tenant A's notification read
+      const aList = await listNotifications(
+        a.tenantId,
+        { limit: 20, unreadOnly: false },
+        adminDb
+      )
+      await markNotificationsRead(b.tenantId, [aList[0].id], adminDb)
+      expect(await countUnreadNotifications(a.tenantId, adminDb)).toBe(1)
     })
   })
 })

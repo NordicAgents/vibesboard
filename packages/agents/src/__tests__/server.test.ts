@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
@@ -38,51 +37,51 @@ async function seed(adminDb: any) {
 }
 
 describe('agent server reads', () => {
-  test('getAgentForMember maps row + tenantSlug', async () => {
+  it('getAgentForMember maps row + tenantSlug', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seed(adminDb)
       const a = await getAgentForMember(tenantId, agentId, adminDb)
-      assert.equal(a?.id, agentId)
-      assert.equal(a?.agentUrl, 'support')
-      assert.equal(a?.tenantSlug, 'acme')
+      expect(a?.id).toBe(agentId)
+      expect(a?.agentUrl).toBe('support')
+      expect(a?.tenantSlug).toBe('acme')
     })
   })
 
-  test('getAgentById finds across tenants', async () => {
+  it('getAgentById finds across tenants', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { agentId } = await seed(adminDb)
-      assert.equal((await getAgentById(agentId, adminDb))?.id, agentId)
-      assert.equal(await getAgentById(randomUUID(), adminDb), null)
+      expect((await getAgentById(agentId, adminDb))?.id).toBe(agentId)
+      expect(await getAgentById(randomUUID(), adminDb)).toBe(null)
     })
   })
 
-  test('getAgentBySlug', async () => {
+  it('getAgentBySlug', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId } = await seed(adminDb)
-      assert.equal((await getAgentBySlug(tenantId, 'support', adminDb))?.name, 'Support')
-      assert.equal(await getAgentBySlug(tenantId, 'nope', adminDb), null)
+      expect((await getAgentBySlug(tenantId, 'support', adminDb))?.name).toBe('Support')
+      expect(await getAgentBySlug(tenantId, 'nope', adminDb)).toBe(null)
     })
   })
 
-  test('getAgentForUser respects ownership', async () => {
+  it('getAgentForUser respects ownership', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, userId } = await seed(adminDb)
-      assert.equal((await getAgentForUser(tenantId, agentId, userId, adminDb))?.id, agentId)
-      assert.equal(await getAgentForUser(tenantId, agentId, randomUUID(), adminDb), null)
+      expect((await getAgentForUser(tenantId, agentId, userId, adminDb))?.id).toBe(agentId)
+      expect(await getAgentForUser(tenantId, agentId, randomUUID(), adminDb)).toBe(null)
     })
   })
 
-  test('getAgentNamesByTenant', async () => {
+  it('getAgentNamesByTenant', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seed(adminDb)
-      assert.deepEqual(await getAgentNamesByTenant(tenantId, [agentId], adminDb), {
+      expect(await getAgentNamesByTenant(tenantId, [agentId], adminDb)).toEqual({
         [agentId]: 'Support',
       })
-      assert.deepEqual(await getAgentNamesByTenant(tenantId, [], adminDb), {})
+      expect(await getAgentNamesByTenant(tenantId, [], adminDb)).toEqual({})
     })
   })
 
-  test('getAgentsForTenant lists agents for the tenant, newest first, mapped', async () => {
+  it('getAgentsForTenant lists agents for the tenant, newest first, mapped', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, userId } = await seed(adminDb)
       // a second, newer agent in the same tenant
@@ -115,17 +114,14 @@ describe('agent server reads', () => {
       })
 
       const list = await getAgentsForTenant(tenantId, adminDb)
-      assert.equal(list.length, 2)
-      assert.deepEqual(
-        list.map((a) => a.id),
-        [newerId, agentId],
-      ) // newest first
-      assert.equal(list[0].tenantSlug, 'acme')
-      assert.equal(list[1].agentUrl, 'support')
+      expect(list.length).toBe(2)
+      expect(list.map((a) => a.id)).toEqual([newerId, agentId]) // newest first
+      expect(list[0].tenantSlug).toBe('acme')
+      expect(list[1].agentUrl).toBe('support')
     })
   })
 
-  test('getAgentsForTenant returns [] for a tenant with no agents', async () => {
+  it('getAgentsForTenant returns [] for a tenant with no agents', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { userId } = await seed(adminDb)
       const empty = randomUUID()
@@ -136,13 +132,13 @@ describe('agent server reads', () => {
         createdBy: userId,
         isPersonal: false,
       })
-      assert.deepEqual(await getAgentsForTenant(empty, adminDb), [])
+      expect(await getAgentsForTenant(empty, adminDb)).toEqual([])
     })
   })
 })
 
 describe('disableAgentsForConnection', () => {
-  test('disables availability + scheduling configs referencing the connection', async () => {
+  it('disables availability + scheduling configs referencing the connection', async () => {
     await withTestDb(async ({ adminDb }) => {
       const u = randomUUID()
       const t = randomUUID()
@@ -212,9 +208,61 @@ describe('disableAgentsForConnection', () => {
       const [r1] = await adminDb.select().from(agents).where(eq(agents.id, a1))
       const [r2] = await adminDb.select().from(agents).where(eq(agents.id, a2))
       const [r3] = await adminDb.select().from(agents).where(eq(agents.id, a3))
-      assert.equal(r1.calendarAvailabilityConfig?.enabled, false)
-      assert.equal(r2.schedulingConfig?.enabled, false)
-      assert.equal(r3.schedulingConfig?.enabled, true) // untouched
+      expect(r1.calendarAvailabilityConfig?.enabled).toBe(false)
+      expect(r2.schedulingConfig?.enabled).toBe(false)
+      expect(r3.schedulingConfig?.enabled).toBe(true) // untouched
+    })
+  })
+
+  it('only disables configs for the matching connection in the same tenant', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const u = randomUUID()
+      const tA = randomUUID()
+      const tB = randomUUID()
+      const connId = randomUUID()
+      await adminDb.insert(users).values({ id: u, email: `o${u}@a.com`, name: 'O' })
+      await adminDb.insert(tenants).values({
+        id: tA,
+        name: 'A',
+        slug: `a-${tA.slice(0, 8)}`,
+        createdBy: u,
+        isPersonal: false,
+      })
+      await adminDb.insert(tenants).values({
+        id: tB,
+        name: 'B',
+        slug: `b-${tB.slice(0, 8)}`,
+        createdBy: u,
+        isPersonal: false,
+      })
+      const agentA = randomUUID()
+      const agentB = randomUUID()
+      // Agent in tenant A references connId
+      await adminDb.insert(agents).values({
+        id: agentA,
+        tenantId: tA,
+        userId: u,
+        name: 'A',
+        slug: 'a',
+        calendarAvailabilityConfig: { enabled: true, calendarConnectionId: connId },
+      })
+      // Agent in tenant B references the SAME connId value — must stay enabled
+      // because disable is tenant-scoped (cross-tenant isolation).
+      await adminDb.insert(agents).values({
+        id: agentB,
+        tenantId: tB,
+        userId: u,
+        name: 'B',
+        slug: 'b',
+        calendarAvailabilityConfig: { enabled: true, calendarConnectionId: connId },
+      })
+
+      await disableAgentsForConnection(tA, connId, adminDb)
+
+      const [rA] = await adminDb.select().from(agents).where(eq(agents.id, agentA))
+      const [rB] = await adminDb.select().from(agents).where(eq(agents.id, agentB))
+      expect(rA.calendarAvailabilityConfig?.enabled).toBe(false)
+      expect(rB.calendarAvailabilityConfig?.enabled).toBe(true) // other tenant untouched
     })
   })
 })
