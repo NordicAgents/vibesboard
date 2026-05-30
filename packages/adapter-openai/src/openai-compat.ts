@@ -52,7 +52,7 @@ export async function createEmbedding(params: {
   model: string
   input: string | string[]
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
+  const res = await fetch(OPENAI_EMBEDDINGS, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
