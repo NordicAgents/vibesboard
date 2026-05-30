@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import {
@@ -37,7 +36,7 @@ async function seedHook(adminDb: any) {
 }
 
 describe('hook-jobs storage (postgres)', () => {
-  test('createJob persists pending job; getJob round-trips', async () => {
+  it('createJob persists pending job; getJob round-trips', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, hookId } = await seedHook(adminDb)
       const job = await createJob(
@@ -51,16 +50,16 @@ describe('hook-jobs storage (postgres)', () => {
         },
         adminDb
       )
-      assert.equal(job.status, 'pending')
-      assert.equal(job.callbackAttempts, 0)
+      expect(job.status).toBe('pending')
+      expect(job.callbackAttempts).toBe(0)
       const fetched = await getJob(tenantId, agentId, hookId, job.id, adminDb)
-      assert.equal(fetched?.message, 'hi')
-      assert.equal(fetched?.callbackUrl, 'https://example.com/cb')
-      assert.equal(fetched?.externalUserId, 'ext1')
+      expect(fetched?.message).toBe('hi')
+      expect(fetched?.callbackUrl).toBe('https://example.com/cb')
+      expect(fetched?.externalUserId).toBe('ext1')
     })
   })
 
-  test('getJob returns null for an unknown job id', async () => {
+  it('getJob returns null for an unknown job id', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, hookId } = await seedHook(adminDb)
       const fetched = await getJob(
@@ -70,7 +69,63 @@ describe('hook-jobs storage (postgres)', () => {
         randomUUID(),
         adminDb
       )
-      assert.equal(fetched, null)
+      expect(fetched).toBe(null)
+    })
+  })
+})
+
+describe('hook-jobs storage edge cases (postgres)', () => {
+  it('createJob maps optional fields: omitted externalUserId/conversationId become undefined', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, hookId } = await seedHook(adminDb)
+      const job = await createJob(
+        { hookId, agentId, tenantId, message: 'm', callbackUrl: 'https://example.com/cb' },
+        adminDb
+      )
+      // rowToHookJob collapses null DB columns to undefined
+      expect(job.externalUserId).toBe(undefined)
+      expect(job.conversationId).toBe(undefined)
+      expect(job.reply).toBe(undefined)
+      expect(job.error).toBe(undefined)
+      expect(job.callbackStatus).toBe(undefined)
+      expect(typeof job.createdAt).toBe('string')
+    })
+  })
+
+  it('createJob persists conversationId when provided', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, hookId } = await seedHook(adminDb)
+      const convId = randomUUID()
+      const job = await createJob(
+        {
+          hookId,
+          agentId,
+          tenantId,
+          message: 'm',
+          callbackUrl: 'https://example.com/cb',
+          conversationId: convId
+        },
+        adminDb
+      )
+      const fetched = await getJob(tenantId, agentId, hookId, job.id, adminDb)
+      expect(fetched?.conversationId).toBe(convId)
+    })
+  })
+
+  it('getJob is scoped by tenant + agent + hook (cross-tenant isolation)', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const a = await seedHook(adminDb)
+      const b = await seedHook(adminDb)
+      const job = await createJob(
+        { hookId: a.hookId, agentId: a.agentId, tenantId: a.tenantId, message: 'm', callbackUrl: 'https://example.com/cb' },
+        adminDb
+      )
+      // tenant B cannot read tenant A's job through the scoped lookup
+      expect(await getJob(b.tenantId, b.agentId, b.hookId, job.id, adminDb)).toBe(null)
+      // correct tenant but wrong hook also fails
+      expect(await getJob(a.tenantId, a.agentId, b.hookId, job.id, adminDb)).toBe(null)
+      // fully correct scope succeeds
+      expect((await getJob(a.tenantId, a.agentId, a.hookId, job.id, adminDb))?.id).toBe(job.id)
     })
   })
 })

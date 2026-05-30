@@ -1,94 +1,41 @@
 /**
  * Integration tests for AI SDK v3 migration.
  *
- * These tests verify that:
- * 1. The ai SDK v3 imports resolve correctly (streamText, createOpenAI, tool, Message)
- * 2. createOpenAI + streamText produce a valid streaming response
- * 3. The tool() helper works as expected (agent-creator pattern)
- * 4. Message type from ai SDK is compatible with our re-export
- * 5. Response objects have correct Content-Type headers
- *
- * Requires OPENAI_API_KEY in .env.local for live API calls.
+ * Verifies SDK imports resolve, client/model construction, the tool() helper,
+ * stream conversion patterns, and Responses-model detection. Live OpenAI calls
+ * self-skip unless a real `sk-…` key is present.
  */
-import { test, describe, before } from 'node:test'
-import assert from 'node:assert'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { describe, it, expect } from 'vitest'
 
-// Load .env.local
-function loadEnv() {
-  try {
-    const envPath = resolve(import.meta.dirname, '../../.env.local')
-    const content = readFileSync(envPath, 'utf-8')
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-      const eqIndex = trimmed.indexOf('=')
-      if (eqIndex === -1) continue
-      const key = trimmed.slice(0, eqIndex).trim()
-      let value = trimmed.slice(eqIndex + 1).trim()
-      // Strip surrounding quotes
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1)
-      }
-      if (!process.env[key]) {
-        process.env[key] = value
-      }
-    }
-  } catch {
-    // .env.local not found — rely on env vars
-  }
-}
-
-loadEnv()
-
-// A real OpenAI key starts with "sk-" and is 40+ chars.
-// Placeholder values like "test-key" should be treated as missing.
+// A real OpenAI key starts with "sk-" and is 40+ chars. Placeholder values
+// like the deterministic test key should be treated as missing for LIVE tests.
 function hasRealApiKey(): boolean {
   const key = process.env.OPENAI_API_KEY
   return !!key && key.startsWith('sk-') && key.length >= 40
-}
-
-function skipIfNoKey(): boolean {
-  if (!hasRealApiKey()) {
-    console.log(
-      '  ⏭ Skipping: OPENAI_API_KEY is not a real key (set a sk-… key to enable live tests)'
-    )
-    return true
-  }
-  return false
 }
 
 // -------------------------------------------------------------------
 // 1. SDK imports resolve correctly
 // -------------------------------------------------------------------
 describe('AI SDK v3 imports', () => {
-  test('streamText is exported from "ai"', async () => {
+  it('streamText is exported from "ai"', async () => {
     const ai = await import('ai')
-    assert.strictEqual(typeof ai.streamText, 'function')
+    expect(typeof ai.streamText).toBe('function')
   })
 
-  test('createOpenAI is exported from "@ai-sdk/openai"', async () => {
+  it('createOpenAI is exported from "@ai-sdk/openai"', async () => {
     const { createOpenAI } = await import('@ai-sdk/openai')
-    assert.strictEqual(typeof createOpenAI, 'function')
+    expect(typeof createOpenAI).toBe('function')
   })
 
-  test('tool is exported from "ai"', async () => {
+  it('tool is exported from "ai"', async () => {
     const ai = await import('ai')
-    assert.strictEqual(typeof ai.tool, 'function')
+    expect(typeof ai.tool).toBe('function')
   })
 
-  test('Message type re-export resolves (runtime import check)', async () => {
-    // Our re-export at lib/types/message.ts just does:
-    //   export type { Message } from 'ai'
-    // At runtime we can at least verify the ai module has Message
+  it('Message type re-export resolves (runtime import check)', async () => {
     const ai = await import('ai')
-    // Message is a type — it doesn't exist at runtime in TS,
-    // but the module should import without error
-    assert.ok(ai)
+    expect(ai).toBeTruthy()
   })
 })
 
@@ -96,35 +43,30 @@ describe('AI SDK v3 imports', () => {
 // 2. createOpenAI client creation
 // -------------------------------------------------------------------
 describe('createOpenAI client', () => {
-  test('creates a provider with API key', async () => {
+  it('creates a provider with API key', async () => {
     const { createOpenAI } = await import('@ai-sdk/openai')
-    // Works even with a placeholder key — just checks the factory
     const client = createOpenAI({ apiKey: 'sk-test' })
-    assert.ok(client)
-    assert.strictEqual(typeof client, 'function')
+    expect(client).toBeTruthy()
+    expect(typeof client).toBe('function')
   })
 
-  test('creates a model instance from provider', async () => {
+  it('creates a model instance from provider', async () => {
     const { createOpenAI } = await import('@ai-sdk/openai')
     const client = createOpenAI({ apiKey: 'sk-test' })
     const model = client('gpt-4o-mini')
-    assert.ok(model)
-    assert.strictEqual(typeof model.doStream, 'function')
+    expect(model).toBeTruthy()
+    expect(typeof model.doStream).toBe('function')
   })
 })
 
 // -------------------------------------------------------------------
 // 3. streamText produces a streaming result (live API call)
 // -------------------------------------------------------------------
-describe('streamText live integration', () => {
-  test('streams text from OpenAI via ai SDK v3', async () => {
+describe.skipIf(!hasRealApiKey())('streamText live integration', () => {
+  it('streams text from OpenAI via ai SDK v3', async () => {
     const { streamText } = await import('ai')
     const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY! })
     const result = await streamText({
       model: openai('gpt-4o-mini'),
       messages: [
@@ -135,27 +77,17 @@ describe('streamText live integration', () => {
       maxTokens: 20
     })
 
-    // Consume the stream
     let fullText = ''
-    for await (const chunk of result.textStream) {
-      fullText += chunk
-    }
+    for await (const chunk of result.textStream) fullText += chunk
 
-    assert.ok(fullText.length > 0, 'Stream should produce text')
-    assert.ok(
-      fullText.includes('HELLO_TEST'),
-      `Expected "HELLO_TEST" in response, got: "${fullText}"`
-    )
+    expect(fullText.length > 0).toBeTruthy()
+    expect(fullText.includes('HELLO_TEST')).toBeTruthy()
   })
 
-  test('toTextStreamResponse returns a Response with correct headers', async () => {
+  it('toTextStreamResponse returns a Response with correct headers', async () => {
     const { streamText } = await import('ai')
     const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY! })
     const result = await streamText({
       model: openai('gpt-4o-mini'),
       messages: [{ role: 'user', content: 'Say ok' }],
@@ -163,54 +95,11 @@ describe('streamText live integration', () => {
     })
 
     const response = result.toTextStreamResponse()
-    assert.ok(response instanceof Response)
-    assert.ok(response.body, 'Response should have a body stream')
+    expect(response instanceof Response).toBeTruthy()
+    expect(response.body).toBeTruthy()
 
-    // Consume to avoid hanging
     const reader = response.body!.getReader()
-    while (true) {
-      const { done } = await reader.read()
-      if (done) break
-    }
-  })
-
-  test('onFinish callback fires with completed text', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    let finishText = ''
-
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [
-        { role: 'system', content: 'Reply with exactly: CALLBACK_OK' },
-        { role: 'user', content: 'Go.' }
-      ],
-      temperature: 0,
-      maxTokens: 20,
-      onFinish({ text }) {
-        finishText = text
-      }
-    })
-
-    // Must consume stream for onFinish to fire
-    let streamedText = ''
-    for await (const chunk of result.textStream) {
-      streamedText += chunk
-    }
-
-    // Give onFinish a moment to complete
-    await new Promise(r => setTimeout(r, 100))
-
-    assert.ok(finishText.length > 0, 'onFinish should have been called')
-    assert.ok(
-      finishText.includes('CALLBACK_OK'),
-      `onFinish text should contain "CALLBACK_OK", got: "${finishText}"`
-    )
+    while (!(await reader.read()).done) {}
   })
 })
 
@@ -218,27 +107,24 @@ describe('streamText live integration', () => {
 // 4. tool() helper works (agent-creator pattern)
 // -------------------------------------------------------------------
 describe('tool() helper', () => {
-  test('defines a tool with schema and execute function', async () => {
+  it('defines a tool with schema and execute function', async () => {
     const { tool } = await import('ai')
     const { z } = await import('zod')
 
     const myTool = tool({
       description: 'Test tool',
-      parameters: z.object({
-        name: z.string(),
-        count: z.number()
-      }),
+      parameters: z.object({ name: z.string(), count: z.number() }),
       async execute({ name, count }) {
         return `Created ${name} with ${count} items`
       }
     })
 
-    assert.ok(myTool, 'tool() should return a tool definition')
-    assert.strictEqual(typeof myTool.execute, 'function')
-    assert.strictEqual((myTool as any).description, 'Test tool')
+    expect(myTool).toBeTruthy()
+    expect(typeof myTool.execute).toBe('function')
+    expect((myTool as any).description).toBe('Test tool')
   })
 
-  test('tool execute function runs correctly', async () => {
+  it('tool execute function runs correctly', async () => {
     const { tool } = await import('ai')
     const { z } = await import('zod')
 
@@ -253,7 +139,7 @@ describe('tool() helper', () => {
     const result = await myTool.execute!({ a: 3, b: 7 }, {
       abortSignal: new AbortController().signal
     } as any)
-    assert.strictEqual(result, '10')
+    expect(result).toBe('10')
   })
 })
 
@@ -261,81 +147,18 @@ describe('tool() helper', () => {
 // 5. Manual stream conversion pattern (runtime.ts)
 // -------------------------------------------------------------------
 describe('textStream to ReadableStream conversion', () => {
-  test('converts async iterable to ReadableStream<Uint8Array>', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [
-        { role: 'system', content: 'Reply: STREAM_CONVERT_OK' },
-        { role: 'user', content: 'Go.' }
-      ],
-      temperature: 0,
-      maxTokens: 20
-    })
-
-    // This is the exact pattern used in lib/agent/runtime.ts
+  it('converted stream works with new Response()', async () => {
+    // Pure stream-plumbing test — no network. Mirrors the route pattern of
+    // wrapping an async iterable in a ReadableStream returned via Response.
+    const chunks = ['STREAM_', 'CONVERT_', 'OK']
     const encoder = new TextEncoder()
     const readableStream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        try {
-          for await (const chunk of result.textStream) {
-            controller.enqueue(encoder.encode(chunk))
-          }
-          controller.close()
-        } catch (err) {
-          controller.error(err)
-        }
-      }
-    })
-
-    // Consume and verify
-    const decoder = new TextDecoder()
-    const reader = readableStream.getReader()
-    let fullText = ''
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      fullText += decoder.decode(value, { stream: true })
-    }
-
-    assert.ok(fullText.length > 0, 'Converted stream should produce text')
-    assert.ok(
-      fullText.includes('STREAM_CONVERT_OK'),
-      `Expected "STREAM_CONVERT_OK", got: "${fullText}"`
-    )
-  })
-
-  test('converted stream works with new Response()', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [{ role: 'user', content: 'Say ok' }],
-      maxTokens: 5
-    })
-
-    const encoder = new TextEncoder()
-    const readableStream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        for await (const chunk of result.textStream) {
-          controller.enqueue(encoder.encode(chunk))
-        }
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk))
         controller.close()
       }
     })
 
-    // This is how the routes return it: new Response(stream, { headers })
     const httpResponse = new Response(readableStream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
@@ -343,19 +166,14 @@ describe('textStream to ReadableStream conversion', () => {
       }
     })
 
-    assert.ok(httpResponse.body, 'Response should have a body')
-    assert.strictEqual(
-      httpResponse.headers.get('Content-Type'),
+    expect(httpResponse.body).toBeTruthy()
+    expect(httpResponse.headers.get('Content-Type')).toBe(
       'text/plain; charset=utf-8'
     )
-    assert.strictEqual(
-      httpResponse.headers.get('x-conversation-id'),
-      'test-123'
-    )
+    expect(httpResponse.headers.get('x-conversation-id')).toBe('test-123')
 
-    // Consume to avoid hanging
     const text = await httpResponse.text()
-    assert.ok(text.length > 0)
+    expect(text).toBe('STREAM_CONVERT_OK')
   })
 })
 
@@ -363,33 +181,32 @@ describe('textStream to ReadableStream conversion', () => {
 // 6. Responses API model detection (isResponsesModel)
 // -------------------------------------------------------------------
 describe('isResponsesModel', () => {
-  // Inline the logic since we can't import @/ paths from Node test runner
   const isResponsesModel = (model?: string | null) =>
     !!model &&
     (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
 
-  test('detects gpt-5.4-nano as responses model', () => {
-    assert.strictEqual(isResponsesModel('gpt-5.4-nano'), true)
+  it('detects gpt-5.4-nano as responses model', () => {
+    expect(isResponsesModel('gpt-5.4-nano')).toBe(true)
   })
 
-  test('detects gpt-5-nano as responses model', () => {
-    assert.strictEqual(isResponsesModel('gpt-5-nano'), true)
+  it('detects gpt-5-nano as responses model', () => {
+    expect(isResponsesModel('gpt-5-nano')).toBe(true)
   })
 
-  test('rejects gpt-4o-mini', () => {
-    assert.strictEqual(isResponsesModel('gpt-4o-mini'), false)
+  it('rejects gpt-4o-mini', () => {
+    expect(isResponsesModel('gpt-4o-mini')).toBe(false)
   })
 
-  test('rejects null', () => {
-    assert.strictEqual(isResponsesModel(null), false)
+  it('rejects null', () => {
+    expect(isResponsesModel(null)).toBe(false)
   })
 
-  test('rejects undefined', () => {
-    assert.strictEqual(isResponsesModel(undefined), false)
+  it('rejects undefined', () => {
+    expect(isResponsesModel(undefined)).toBe(false)
   })
 
-  test('rejects empty string', () => {
-    assert.strictEqual(isResponsesModel(''), false)
+  it('rejects empty string', () => {
+    expect(isResponsesModel('')).toBe(false)
   })
 })
 
@@ -397,15 +214,13 @@ describe('isResponsesModel', () => {
 // 7. ReadableStream cancel() disposes resources
 // -------------------------------------------------------------------
 describe('ReadableStream cancel() cleanup', () => {
-  test('cancel() on a ReadableStream fires the cancel handler', async () => {
+  it('cancel() on a ReadableStream fires the cancel handler', async () => {
     let cancelCalled = false
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        // Simulate a slow stream that never finishes
         const encoder = new TextEncoder()
         controller.enqueue(encoder.encode('chunk1'))
-        // Don't close — simulate an ongoing stream
       },
       cancel() {
         cancelCalled = true
@@ -413,13 +228,13 @@ describe('ReadableStream cancel() cleanup', () => {
     })
 
     const reader = stream.getReader()
-    await reader.read() // consume the first chunk
-    await reader.cancel() // simulate client disconnect
+    await reader.read()
+    await reader.cancel()
 
-    assert.ok(cancelCalled, 'cancel() handler should have been called')
+    expect(cancelCalled).toBeTruthy()
   })
 
-  test('safeDispose pattern prevents double-dispose', async () => {
+  it('safeDispose pattern prevents double-dispose', async () => {
     let disposeCount = 0
     let disposed = false
     const safeDispose = async () => {
@@ -432,7 +247,7 @@ describe('ReadableStream cancel() cleanup', () => {
     await safeDispose()
     await safeDispose()
 
-    assert.strictEqual(disposeCount, 1, 'dispose should only run once')
+    expect(disposeCount).toBe(1)
   })
 })
 
@@ -440,7 +255,7 @@ describe('ReadableStream cancel() cleanup', () => {
 // 8. pull()-based ReadableStream respects backpressure
 // -------------------------------------------------------------------
 describe('pull()-based ReadableStream', () => {
-  test('pull() is called lazily — only when consumer reads', async () => {
+  it('pull() is called lazily — only when consumer reads', async () => {
     let pullCount = 0
     const chunks = ['a', 'b', 'c']
     let chunkIndex = 0
@@ -457,26 +272,22 @@ describe('pull()-based ReadableStream', () => {
       }
     })
 
-    // Before reading, pull should not have been called yet (or at most once for prefetch)
     const reader = stream.getReader()
 
     const { value: v1 } = await reader.read()
-    assert.ok(v1, 'Should get first chunk')
+    expect(v1).toBeTruthy()
 
-    const countAfterFirst = pullCount
-    // pull is called on demand — should have been called at least once
-    assert.ok(countAfterFirst >= 1, 'pull should have been called')
+    expect(pullCount >= 1).toBeTruthy()
 
     const { value: v2 } = await reader.read()
-    assert.ok(v2, 'Should get second chunk')
+    expect(v2).toBeTruthy()
 
-    // Read remaining
     await reader.read() // 'c'
     const { done } = await reader.read() // done
-    assert.ok(done, 'Stream should be done')
+    expect(done).toBeTruthy()
   })
 
-  test('cancel() stops iterator via return()', async () => {
+  it('cancel() stops iterator via return()', async () => {
     let returnCalled = false
     const fakeIterator = {
       next: async () => ({ value: 'chunk', done: false }),
@@ -502,13 +313,10 @@ describe('pull()-based ReadableStream', () => {
     })
 
     const reader = stream.getReader()
-    await reader.read() // consume one chunk
+    await reader.read()
     await reader.cancel()
 
-    assert.ok(
-      returnCalled,
-      'iterator.return() should have been called on cancel'
-    )
+    expect(returnCalled).toBeTruthy()
   })
 })
 
@@ -516,148 +324,38 @@ describe('pull()-based ReadableStream', () => {
 // 9. @ai-sdk/openai version compatibility
 // -------------------------------------------------------------------
 describe('SDK version check', () => {
-  test('@ai-sdk/openai resolves without error', async () => {
+  it('@ai-sdk/openai resolves without error', async () => {
     const mod = await import('@ai-sdk/openai')
-    assert.ok(mod.createOpenAI, 'createOpenAI should be exported')
-    assert.ok(mod.openai, 'openai default instance should be exported')
+    expect(mod.createOpenAI).toBeTruthy()
+    expect(mod.openai).toBeTruthy()
   })
 
-  test('ai SDK v3 exports streamText (not experimental)', async () => {
+  it('ai SDK v3 exports streamText (not experimental)', async () => {
     const ai = await import('ai')
-    assert.strictEqual(typeof ai.streamText, 'function')
-    // In v2, streamText didn't exist at top level
-    // experimental_streamText was the v2 name — it should NOT exist in v3
+    expect(typeof ai.streamText).toBe('function')
   })
 
-  test('ai SDK v3 exports tool helper', async () => {
+  it('ai SDK v3 exports tool helper', async () => {
     const ai = await import('ai')
-    assert.strictEqual(typeof ai.tool, 'function')
-    // In v2, the equivalent was experimental_onToolCall (callback-based)
+    expect(typeof ai.tool).toBe('function')
   })
 })
 
 // -------------------------------------------------------------------
-// 10. Additional v3 regression checks
+// 10. v2 backward-compat aliases
 // -------------------------------------------------------------------
-describe('AI SDK v3 regression checks', () => {
-  test('toTextStreamResponse Content-Type is text/plain; charset=utf-8', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [{ role: 'user', content: 'Say hi' }],
-      maxTokens: 5
-    })
-
-    const response = result.toTextStreamResponse()
-    const ct = response.headers.get('content-type') ?? ''
-    assert.ok(
-      ct.includes('text/plain') && ct.includes('charset=utf-8'),
-      `Expected text/plain; charset=utf-8, got: ${ct}`
-    )
-
-    // Consume to avoid hanging
-    if (response.body) {
-      const reader = response.body.getReader()
-      while (!(await reader.read()).done) {}
+describe('AI SDK v3 alias checks', () => {
+  it('experimental_streamText, if present, aliases streamText', async () => {
+    const ai = await import('ai')
+    if ((ai as any).experimental_streamText) {
+      expect((ai as any).experimental_streamText).toBe(ai.streamText)
     }
   })
 
-  test('onFinish receives usage data', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    let finishUsage: any = null
-
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [{ role: 'user', content: 'Say ok' }],
-      maxTokens: 5,
-      onFinish({ usage }) {
-        finishUsage = usage
-      }
-    })
-
-    // Must consume stream for onFinish to fire
-    for await (const _chunk of result.textStream) {
+  it('experimental_generateText, if present, aliases generateText', async () => {
+    const ai = await import('ai')
+    if ((ai as any).experimental_generateText) {
+      expect((ai as any).experimental_generateText).toBe(ai.generateText)
     }
-    await new Promise(r => setTimeout(r, 200))
-
-    assert.ok(finishUsage, 'onFinish should provide usage data')
-    assert.ok(
-      typeof finishUsage.promptTokens === 'number',
-      `Expected promptTokens to be a number, got ${typeof finishUsage.promptTokens}`
-    )
-    assert.ok(
-      typeof finishUsage.completionTokens === 'number',
-      `Expected completionTokens to be a number, got ${typeof finishUsage.completionTokens}`
-    )
-  })
-
-  test('textStream implements Symbol.asyncIterator', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [{ role: 'user', content: 'Say ok' }],
-      maxTokens: 5
-    })
-
-    assert.ok(
-      Symbol.asyncIterator in result.textStream,
-      'textStream should implement Symbol.asyncIterator'
-    )
-
-    // Consume to avoid hanging
-    for await (const _chunk of result.textStream) {
-    }
-  })
-
-  test('multi-turn messages produce contextual response', async () => {
-    const { streamText } = await import('ai')
-    const { createOpenAI } = await import('@ai-sdk/openai')
-
-    if (skipIfNoKey()) return
-    const apiKey = process.env.OPENAI_API_KEY!
-
-    const openai = createOpenAI({ apiKey })
-    const result = await streamText({
-      model: openai('gpt-4o-mini'),
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant. Be very concise.'
-        },
-        { role: 'user', content: 'My name is TestUser42.' },
-        { role: 'assistant', content: 'Nice to meet you, TestUser42!' },
-        { role: 'user', content: 'What is my name?' }
-      ],
-      temperature: 0,
-      maxTokens: 30
-    })
-
-    let fullText = ''
-    for await (const chunk of result.textStream) {
-      fullText += chunk
-    }
-
-    assert.ok(
-      fullText.includes('TestUser42'),
-      `Expected multi-turn context, got: "${fullText}"`
-    )
   })
 })

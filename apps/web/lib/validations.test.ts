@@ -1,100 +1,99 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert'
+import { describe, it, expect } from 'vitest'
 import { validateFeatureFlagName, validateEmail } from './validations.ts'
 
 describe('validateFeatureFlagName', () => {
-  test('should return true for valid UPPER_SNAKE_CASE names', () => {
-    assert.strictEqual(validateFeatureFlagName('FEATURE_FLAG'), true)
-    assert.strictEqual(validateFeatureFlagName('FLAG_1'), true)
-    assert.strictEqual(validateFeatureFlagName('A_B_C'), true)
-    assert.strictEqual(validateFeatureFlagName('MY_NEW_FEATURE_2023'), true)
-    assert.strictEqual(validateFeatureFlagName('ABC'), true)
+  it('should return true for valid UPPER_SNAKE_CASE names', () => {
+    expect(validateFeatureFlagName('FEATURE_FLAG')).toBe(true)
+    expect(validateFeatureFlagName('FLAG_1')).toBe(true)
+    expect(validateFeatureFlagName('A_B_C')).toBe(true)
+    expect(validateFeatureFlagName('MY_NEW_FEATURE_2023')).toBe(true)
+    expect(validateFeatureFlagName('ABC')).toBe(true)
   })
 
-  test('should return false for names shorter than 3 characters', () => {
-    assert.strictEqual(validateFeatureFlagName('FE'), false)
-    assert.strictEqual(validateFeatureFlagName('A'), false)
-    assert.strictEqual(validateFeatureFlagName(''), false)
+  it('should return false for names shorter than 3 characters', () => {
+    expect(validateFeatureFlagName('FE')).toBe(false)
+    expect(validateFeatureFlagName('A')).toBe(false)
+    expect(validateFeatureFlagName('')).toBe(false)
   })
 
-  test('should return false for names longer than 50 characters', () => {
+  it('should return false for names longer than 50 characters', () => {
     const longName = 'A'.repeat(51)
-    assert.strictEqual(validateFeatureFlagName(longName), false)
+    expect(validateFeatureFlagName(longName)).toBe(false)
   })
 
-  test('should return true for names exactly 50 characters', () => {
+  it('should return true for names exactly 50 characters', () => {
     const exactName = 'A'.repeat(50)
-    assert.strictEqual(validateFeatureFlagName(exactName), true)
+    expect(validateFeatureFlagName(exactName)).toBe(true)
   })
 
-  test('should return false for names with lowercase letters', () => {
-    assert.strictEqual(validateFeatureFlagName('feature_flag'), false)
-    assert.strictEqual(validateFeatureFlagName('FeatureFlag'), false)
-    assert.strictEqual(validateFeatureFlagName('FEATURE_fLAG'), false)
+  it('should return false for names with lowercase letters', () => {
+    expect(validateFeatureFlagName('feature_flag')).toBe(false)
+    expect(validateFeatureFlagName('FeatureFlag')).toBe(false)
+    expect(validateFeatureFlagName('FEATURE_fLAG')).toBe(false)
   })
 
-  test('should return false for names starting with a number or underscore', () => {
-    assert.strictEqual(validateFeatureFlagName('1_FEATURE'), false)
-    assert.strictEqual(validateFeatureFlagName('_FEATURE'), false)
+  it('should return false for names starting with a number or underscore', () => {
+    expect(validateFeatureFlagName('1_FEATURE')).toBe(false)
+    expect(validateFeatureFlagName('_FEATURE')).toBe(false)
   })
 
-  test('should return false for names with invalid symbols or spaces', () => {
-    assert.strictEqual(validateFeatureFlagName('FEATURE-FLAG'), false)
-    assert.strictEqual(validateFeatureFlagName('FEATURE FLAG'), false)
-    assert.strictEqual(validateFeatureFlagName('FEATURE.FLAG'), false)
-    assert.strictEqual(validateFeatureFlagName('FEATURE!'), false)
+  it('should return false for names with invalid symbols or spaces', () => {
+    expect(validateFeatureFlagName('FEATURE-FLAG')).toBe(false)
+    expect(validateFeatureFlagName('FEATURE FLAG')).toBe(false)
+    expect(validateFeatureFlagName('FEATURE.FLAG')).toBe(false)
+    expect(validateFeatureFlagName('FEATURE!')).toBe(false)
   })
 
-  test('should return false for null or undefined names', () => {
+  it('should return false for null or undefined names', () => {
     // @ts-ignore
-    assert.strictEqual(validateFeatureFlagName(null), false)
+    expect(validateFeatureFlagName(null)).toBe(false)
     // @ts-ignore
-    assert.strictEqual(validateFeatureFlagName(undefined), false)
+    expect(validateFeatureFlagName(undefined)).toBe(false)
   })
 })
 
 describe('validateEmail', () => {
-  test('should return true for standard valid emails', () => {
-    assert.strictEqual(validateEmail('test@example.com'), true)
-    assert.strictEqual(validateEmail('user.name@domain.co'), true)
-    assert.strictEqual(validateEmail('user_name@domain.org'), true)
+  it('should return true for standard valid emails', () => {
+    expect(validateEmail('test@example.com')).toBe(true)
+    expect(validateEmail('user.name@domain.co')).toBe(true)
+    expect(validateEmail('user_name@domain.org')).toBe(true)
   })
 
-  test('should return true for emails with subdomains', () => {
-    assert.strictEqual(validateEmail('user@mail.example.com'), true)
-    assert.strictEqual(validateEmail('user@sub.domain.co.uk'), true)
+  it('should return true for emails with subdomains', () => {
+    expect(validateEmail('user@mail.example.com')).toBe(true)
+    expect(validateEmail('user@sub.domain.co.uk')).toBe(true)
   })
 
-  test('should return true for emails with special characters', () => {
-    assert.strictEqual(validateEmail('user+tag@example.com'), true)
-    assert.strictEqual(validateEmail('user-name@example.com'), true)
-    assert.strictEqual(validateEmail('123user@example.com'), true)
+  it('should return true for emails with special characters', () => {
+    expect(validateEmail('user+tag@example.com')).toBe(true)
+    expect(validateEmail('user-name@example.com')).toBe(true)
+    expect(validateEmail('123user@example.com')).toBe(true)
   })
 
-  test('should return false for emails without domain extension', () => {
-    assert.strictEqual(validateEmail('user@example'), false)
-    assert.strictEqual(validateEmail('user@localhost'), false)
+  it('should return false for emails without domain extension', () => {
+    expect(validateEmail('user@example')).toBe(false)
+    expect(validateEmail('user@localhost')).toBe(false)
   })
 
-  test('should return false for emails without @ symbol', () => {
-    assert.strictEqual(validateEmail('userexample.com'), false)
-    assert.strictEqual(validateEmail('user.example.com'), false)
+  it('should return false for emails without @ symbol', () => {
+    expect(validateEmail('userexample.com')).toBe(false)
+    expect(validateEmail('user.example.com')).toBe(false)
   })
 
-  test('should return false for emails with spaces', () => {
-    assert.strictEqual(validateEmail('user @example.com'), false)
-    assert.strictEqual(validateEmail('user@ example.com'), false)
-    assert.strictEqual(validateEmail('user@example .com'), false)
+  it('should return false for emails with spaces', () => {
+    expect(validateEmail('user @example.com')).toBe(false)
+    expect(validateEmail('user@ example.com')).toBe(false)
+    expect(validateEmail('user@example .com')).toBe(false)
   })
 
-  test('should return false for empty strings', () => {
-    assert.strictEqual(validateEmail(''), false)
+  it('should return false for empty strings', () => {
+    expect(validateEmail('')).toBe(false)
   })
 
-  test('should return false for null or undefined inputs', () => {
+  it('should return false for null or undefined inputs', () => {
     // @ts-ignore
-    assert.strictEqual(validateEmail(null), false)
+    expect(validateEmail(null)).toBe(false)
     // @ts-ignore
-    assert.strictEqual(validateEmail(undefined), false)
+    expect(validateEmail(undefined)).toBe(false)
   })
 })
