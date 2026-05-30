@@ -19,7 +19,8 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:seed-flags": "node --experimental-strip-types --conditions react-server src/seed-flags.ts"
   },
   "dependencies": {
     "@vibesboard/adapter-postgres": "workspace:*",

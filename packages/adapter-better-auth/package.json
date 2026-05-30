@@ -10,7 +10,8 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:set-password": "node --experimental-strip-types --conditions react-server src/set-password.ts"
   },
   "dependencies": {
     "@vibesboard/adapter-postgres": "workspace:*",

@@ -25,6 +25,25 @@ export const FEATURE_FLAG_NAMES = [
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
 
 /**
+ * Default on/off state for each flag when a tenant has no explicit override
+ * in tenant_feature_toggles. Code — not the database — is the source of truth
+ * for defaults, so gating is correct even before feature_flags is seeded.
+ *
+ * WhatsApp and Instagram inbox channels are OFF by default: they require Meta
+ * Cloud API credentials and business verification that most tenants don't have,
+ * so surfacing them everywhere is noise. A tenant admin enables them per tenant
+ * (tenant_feature_toggles). Every other capability stays ON, preserving prior
+ * always-enabled behavior.
+ */
+export const FEATURE_FLAG_DEFAULTS: Record<FeatureFlagName, boolean> =
+  Object.fromEntries(
+    FEATURE_FLAG_NAMES.map((name) => [
+      name,
+      !(name.startsWith('WHATSAPP_INBOX') || name.startsWith('INSTAGRAM_INBOX')),
+    ]),
+  ) as Record<FeatureFlagName, boolean>
+
+/**
  * Parent-child hierarchy for feature flags.
  * Maps child flag → parent flag.
  * If a parent is disabled, all children are automatically disabled.
