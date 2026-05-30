@@ -12,7 +12,9 @@
     "lint:fix": "bun run --filter '*' lint:fix",
     "preview": "bun run --filter @vibesboard/web preview",
     "type-check": "bun run --filter '*' type-check",
-    "test": "bun run --filter '*' --if-present test",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "bun run --filter @vibesboard/web test:e2e",
     "format:write": "bun run --filter @vibesboard/web format:write",
     "format:check": "bun run --filter @vibesboard/web format:check",
     "db:up": "docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init",
@@ -22,8 +24,14 @@
     "db:generate": "bun run --filter @vibesboard/adapter-postgres db:generate",
     "db:studio": "bun run --filter @vibesboard/adapter-postgres db:studio",
     "db:seed": "bun run --filter @vibesboard/adapter-postgres db:seed",
+    "db:make-admin": "node --experimental-strip-types packages/adapter-postgres/src/make-admin.ts",
+    "db:set-password": "node --experimental-strip-types --conditions react-server packages/adapter-better-auth/src/set-password.ts",
     "db:setup": "bun run db:up && sleep 3 && bun run db:migrate && bun run db:seed",
     "minio:console": "open http://localhost:9001"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7",
+    "@vitest/coverage-v8": "^4.1.7"
   },
   "overrides": {
     "eslint-plugin-react-hooks": "7.0.1",
@@ -37,9 +45,5 @@
     "node-forge": ">=1.4.0",
     "@xmldom/xmldom": ">=0.8.12",
     "tmp": ">=0.2.6"
-  },
-  "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.7",
-    "vitest": "^4.1.7"
   }
 }

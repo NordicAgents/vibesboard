@@ -1,21 +1,21 @@
-name: Tests
+name: E2E
 
 on:
   pull_request:
     branches: [dev, main]
 
 concurrency:
-  group: ci-test-${{ github.head_ref }}
+  group: ci-e2e-${{ github.head_ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  e2e:
     runs-on: ubuntu-latest
     env:
-      # Adapter test envs — match docker-compose.dev.yml and packages/adapter-postgres/docker/init.sql
+      # Match docker-compose.dev.yml + packages/adapter-postgres/docker/init.sql
       DATABASE_URL: postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev
       DATABASE_MIGRATE_URL: postgres://vibesboard_migrate:vibesboard_migrate@localhost:5432/vibesboard_dev
       S3_ENDPOINT: http://localhost:9000
@@ -24,6 +24,10 @@ jobs:
       S3_ACCESS_KEY_ID: vibesboard
       S3_SECRET_ACCESS_KEY: vibesboard
       S3_FORCE_PATH_STYLE: 'true'
+      # better-auth needs a secret to boot; the Playwright config points the app
+      # at a local mock OpenAI server, so no real OpenAI key is required.
+      BETTER_AUTH_SECRET: ci-e2e-better-auth-secret-0123456789
+      NEXT_PUBLIC_APP_URL: http://localhost:3100
     steps:
       - uses: actions/checkout@v4
 
@@ -43,9 +47,6 @@ jobs:
 
       - name: Bootstrap MinIO bucket
         run: |
-          # Wait until MinIO answers /minio/health/live (the compose healthcheck
-          # already covers this but we re-check from the runner's perspective
-          # to ensure host networking is reachable).
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
               echo "MinIO reachable"; break
@@ -55,30 +56,32 @@ jobs:
               echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
             fi
           done
-          # Create the bucket via the mc client image. The image's ENTRYPOINT
-          # is 'mc'; override to sh so we can chain commands. --network host
-          # so 'localhost:9000' resolves to the runner-bound minio port.
           docker run --rm --network host --entrypoint sh minio/mc:latest -c "
             mc alias set local http://localhost:9000 vibesboard vibesboard &&
             (mc mb -p local/vibesboard-files || true) &&
-            mc anonymous set none local/vibesboard-files &&
-            mc ls local/
+            mc anonymous set none local/vibesboard-files
           "
 
       - name: Apply database migrations
         run: bun run db:migrate
 
-      - name: Run tests with coverage
-        # Unified Vitest run across all workspace projects (single process,
-        # worker-capped) + v8 coverage. Reporting only — no failing threshold.
-        run: bun run test:coverage
+      - name: Install Playwright browser (chromium)
+        run: bunx playwright install --with-deps chromium
+        working-directory: apps/web
 
-      - name: Upload coverage report
+      - name: Run Playwright E2E
+        # The Playwright config boots a mock OpenAI server + `next dev`
+        # (OPENAI_BASE_URL pointed at the mock so the model is stubbed at the
+        # network boundary), seeds an E2E user/tenant in globalSetup, then runs.
+        run: bun run test:e2e
+        working-directory: apps/web
+
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
-          path: coverage/
+          name: playwright-report
+          path: apps/web/playwright-report/
           if-no-files-found: ignore
           retention-days: 14
 
