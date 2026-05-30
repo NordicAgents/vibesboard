@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert'
+import { describe, expect, it } from 'vitest'
 
 import { isSuperAdminWithClient } from './permissions-core.ts'
 
@@ -16,21 +15,21 @@ const makeClient = (result: any) => {
 }
 
 describe('isSuperAdminWithClient', () => {
-  test('returns true when count > 0 (multi-row safe)', async () => {
+  it('returns true when count > 0 (multi-row safe)', async () => {
     const client = makeClient({ count: 2, error: null })
     const isAdmin = await isSuperAdminWithClient(client, 'user-1')
-    assert.strictEqual(isAdmin, true)
+    expect(isAdmin).toBe(true)
   })
 
-  test('returns false when count is 0', async () => {
+  it('returns false when count is 0', async () => {
     const client = makeClient({ count: 0, error: null })
     const isAdmin = await isSuperAdminWithClient(client, 'user-1')
-    assert.strictEqual(isAdmin, false)
+    expect(isAdmin).toBe(false)
   })
 
-  test('returns false on error', async () => {
+  it('returns false on error', async () => {
     const client = makeClient({ count: null, error: new Error('fail') })
     const isAdmin = await isSuperAdminWithClient(client, 'user-1')
-    assert.strictEqual(isAdmin, false)
+    expect(isAdmin).toBe(false)
   })
 })

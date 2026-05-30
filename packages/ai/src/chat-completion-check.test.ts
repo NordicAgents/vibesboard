@@ -3,61 +3,49 @@
  *
  * Covers: checkCompletion (race condition ref, isCorrecting guard,
  *         marker detection) and isNewCollectorConversation.
- *
- * Run:
- *   node --experimental-strip-types --test lib/agent/chat-completion-check.test.ts
  */
-import { test, describe } from 'node:test'
-import assert from 'node:assert'
+import { describe, expect, it } from 'vitest'
 import {
   checkCompletion,
-  isNewCollectorConversation
+  isNewCollectorConversation,
 } from './chat-completion-check.ts'
 
 // -------------------------------------------------------------------
 // 1. isNewCollectorConversation
 // -------------------------------------------------------------------
 describe('isNewCollectorConversation', () => {
-  test('returns true for collector mode with no conversationId and no messages', () => {
-    assert.strictEqual(
-      isNewCollectorConversation('collector', undefined, undefined),
-      true
+  it('returns true for collector mode with no conversationId and no messages', () => {
+    expect(isNewCollectorConversation('collector', undefined, undefined)).toBe(
+      true,
     )
   })
 
-  test('returns true for collector mode with empty messages array', () => {
-    assert.strictEqual(
-      isNewCollectorConversation('collector', undefined, []),
-      true
+  it('returns true for collector mode with empty messages array', () => {
+    expect(isNewCollectorConversation('collector', undefined, [])).toBe(true)
+  })
+
+  it('returns false for provider mode', () => {
+    expect(isNewCollectorConversation('provider', undefined, undefined)).toBe(
+      false,
     )
   })
 
-  test('returns false for provider mode', () => {
-    assert.strictEqual(
-      isNewCollectorConversation('provider', undefined, undefined),
-      false
+  it('returns false when initialConversationId exists', () => {
+    expect(isNewCollectorConversation('collector', 'conv-123', undefined)).toBe(
+      false,
     )
   })
 
-  test('returns false when initialConversationId exists', () => {
-    assert.strictEqual(
-      isNewCollectorConversation('collector', 'conv-123', undefined),
-      false
-    )
-  })
-
-  test('returns false when initialMessages has items', () => {
+  it('returns false when initialMessages has items', () => {
     const messages = [{ id: '1', role: 'assistant' as const, content: 'Hi' }]
-    assert.strictEqual(
-      isNewCollectorConversation('collector', undefined, messages),
-      false
+    expect(isNewCollectorConversation('collector', undefined, messages)).toBe(
+      false,
     )
   })
 
-  test('returns false for undefined mode', () => {
-    assert.strictEqual(
-      isNewCollectorConversation(undefined, undefined, undefined),
-      false
+  it('returns false for undefined mode', () => {
+    expect(isNewCollectorConversation(undefined, undefined, undefined)).toBe(
+      false,
     )
   })
 })
@@ -66,14 +54,14 @@ describe('isNewCollectorConversation', () => {
 // 2. checkCompletion — agent disabled
 // -------------------------------------------------------------------
 describe('checkCompletion — agent disabled', () => {
-  test('completes immediately when agent is disabled', () => {
+  it('completes immediately when agent is disabled', () => {
     const result = checkCompletion({
       messages: [],
       isAgentDisabled: true,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, true)
+    expect(result.shouldComplete).toBe(true)
   })
 })
 
@@ -81,44 +69,44 @@ describe('checkCompletion — agent disabled', () => {
 // 3. checkCompletion — remaining responses (ref-based check)
 // -------------------------------------------------------------------
 describe('checkCompletion — remaining responses', () => {
-  test('completes when remainingResponses is 0', () => {
+  it('completes when remainingResponses is 0', () => {
     const result = checkCompletion({
       messages: [{ id: '1', role: 'assistant', content: 'Normal reply' }],
       isAgentDisabled: false,
       remainingResponses: 0,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, true)
+    expect(result.shouldComplete).toBe(true)
   })
 
-  test('completes when remainingResponses is negative', () => {
+  it('completes when remainingResponses is negative', () => {
     const result = checkCompletion({
       messages: [{ id: '1', role: 'assistant', content: 'Normal reply' }],
       isAgentDisabled: false,
       remainingResponses: -1,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, true)
+    expect(result.shouldComplete).toBe(true)
   })
 
-  test('does NOT complete when remainingResponses is null', () => {
+  it('does NOT complete when remainingResponses is null', () => {
     const result = checkCompletion({
       messages: [{ id: '1', role: 'assistant', content: 'Normal reply' }],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(false)
   })
 
-  test('does NOT complete when remainingResponses > 0', () => {
+  it('does NOT complete when remainingResponses > 0', () => {
     const result = checkCompletion({
       messages: [{ id: '1', role: 'assistant', content: 'Normal reply' }],
       isAgentDisabled: false,
       remainingResponses: 3,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(false)
   })
 })
 
@@ -126,38 +114,38 @@ describe('checkCompletion — remaining responses', () => {
 // 4. checkCompletion — isCorrecting guard
 // -------------------------------------------------------------------
 describe('checkCompletion — isCorrecting guard', () => {
-  test('skips remaining-responses check when isCorrecting is true', () => {
+  it('skips remaining-responses check when isCorrecting is true', () => {
     const result = checkCompletion({
       messages: [{ id: '1', role: 'assistant', content: 'Normal reply' }],
       isAgentDisabled: false,
       remainingResponses: 0,
-      isCorrecting: true
+      isCorrecting: true,
     })
     // Should NOT complete — correction flow bypasses remaining-responses
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(false)
   })
 
-  test('isCorrecting does not bypass agent-disabled check', () => {
+  it('isCorrecting does not bypass agent-disabled check', () => {
     const result = checkCompletion({
       messages: [],
       isAgentDisabled: true,
       remainingResponses: 0,
-      isCorrecting: true
+      isCorrecting: true,
     })
-    assert.strictEqual(result.shouldComplete, true)
+    expect(result.shouldComplete).toBe(true)
   })
 
-  test('isCorrecting is cleared when LLM emits a completion marker', () => {
+  it('isCorrecting is cleared when LLM emits a completion marker', () => {
     const result = checkCompletion({
       messages: [
-        { id: '1', role: 'assistant', content: 'Done! [COLLECTION_COMPLETE]' }
+        { id: '1', role: 'assistant', content: 'Done! [COLLECTION_COMPLETE]' },
       ],
       isAgentDisabled: false,
       remainingResponses: 0,
-      isCorrecting: true
+      isCorrecting: true,
     })
-    assert.strictEqual(result.shouldComplete, true)
-    assert.strictEqual(result.shouldClearCorrecting, true)
+    expect(result.shouldComplete).toBe(true)
+    expect(result.shouldClearCorrecting).toBe(true)
   })
 })
 
@@ -165,102 +153,102 @@ describe('checkCompletion — isCorrecting guard', () => {
 // 5. checkCompletion — completion markers
 // -------------------------------------------------------------------
 describe('checkCompletion — completion markers', () => {
-  test('detects [COLLECTION_COMPLETE]', () => {
+  it('detects [COLLECTION_COMPLETE]', () => {
     const result = checkCompletion({
       messages: [
-        { id: '1', role: 'assistant', content: 'Thanks! [COLLECTION_COMPLETE]' }
+        { id: '1', role: 'assistant', content: 'Thanks! [COLLECTION_COMPLETE]' },
       ],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, true)
-    assert.strictEqual(result.shouldClearCorrecting, true)
+    expect(result.shouldComplete).toBe(true)
+    expect(result.shouldClearCorrecting).toBe(true)
   })
 
-  test('detects [INFO_COMPLETE]', () => {
+  it('detects [INFO_COMPLETE]', () => {
     const result = checkCompletion({
       messages: [
-        { id: '1', role: 'assistant', content: 'All done. [INFO_COMPLETE]' }
+        { id: '1', role: 'assistant', content: 'All done. [INFO_COMPLETE]' },
       ],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, true)
-    assert.strictEqual(result.shouldClearCorrecting, true)
+    expect(result.shouldComplete).toBe(true)
+    expect(result.shouldClearCorrecting).toBe(true)
   })
 
-  test('detects CHAT_COMPLETE HTML marker', () => {
-    const result = checkCompletion({
-      messages: [
-        {
-          id: '1',
-          role: 'assistant',
-          content:
-            'Done <!--CHAT_COMPLETE:{"chatComplete":true,"reason":"collection_complete"}-->'
-        }
-      ],
-      isAgentDisabled: false,
-      remainingResponses: null,
-      isCorrecting: false
-    })
-    assert.strictEqual(result.shouldComplete, true)
-    assert.strictEqual(result.shouldClearCorrecting, true)
-  })
-
-  test('does NOT complete for CHAT_COMPLETE with chatComplete:false (handoff)', () => {
+  it('detects CHAT_COMPLETE HTML marker', () => {
     const result = checkCompletion({
       messages: [
         {
           id: '1',
           role: 'assistant',
           content:
-            'Handing off <!--CHAT_COMPLETE:{"chatComplete":false,"reason":"handoff_to_agent"}-->'
-        }
+            'Done <!--CHAT_COMPLETE:{"chatComplete":true,"reason":"collection_complete"}-->',
+        },
       ],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(true)
+    expect(result.shouldClearCorrecting).toBe(true)
   })
 
-  test('checks only the last assistant message', () => {
+  it('does NOT complete for CHAT_COMPLETE with chatComplete:false (handoff)', () => {
+    const result = checkCompletion({
+      messages: [
+        {
+          id: '1',
+          role: 'assistant',
+          content:
+            'Handing off <!--CHAT_COMPLETE:{"chatComplete":false,"reason":"handoff_to_agent"}-->',
+        },
+      ],
+      isAgentDisabled: false,
+      remainingResponses: null,
+      isCorrecting: false,
+    })
+    expect(result.shouldComplete).toBe(false)
+  })
+
+  it('checks only the last assistant message', () => {
     const result = checkCompletion({
       messages: [
         { id: '1', role: 'assistant', content: '[COLLECTION_COMPLETE]' },
         { id: '2', role: 'user', content: 'Thanks' },
-        { id: '3', role: 'assistant', content: 'You are welcome!' }
+        { id: '3', role: 'assistant', content: 'You are welcome!' },
       ],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
     // Last assistant is "You are welcome!" — no marker
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(false)
   })
 
-  test('does not complete when no messages', () => {
+  it('does not complete when no messages', () => {
     const result = checkCompletion({
       messages: [],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(false)
   })
 
-  test('does not complete when last message is from user', () => {
+  it('does not complete when last message is from user', () => {
     const result = checkCompletion({
       messages: [
         { id: '1', role: 'assistant', content: 'Hello' },
-        { id: '2', role: 'user', content: 'Hi back' }
+        { id: '2', role: 'user', content: 'Hi back' },
       ],
       isAgentDisabled: false,
       remainingResponses: null,
-      isCorrecting: false
+      isCorrecting: false,
     })
-    assert.strictEqual(result.shouldComplete, false)
+    expect(result.shouldComplete).toBe(false)
   })
 })

@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import {
@@ -36,7 +35,7 @@ async function seedConv(adminDb: any) {
 }
 
 describe('maybeAutoSummarize (pg)', () => {
-  test('writes summary when threshold met', async () => {
+  it('writes summary when threshold met', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       await maybeAutoSummarize(
@@ -54,13 +53,13 @@ describe('maybeAutoSummarize (pg)', () => {
         { db: adminDb, summarize: async () => 'a summary' }
       )
       const [row] = await adminDb.select().from(conversations)
-      assert.equal(row.summary, 'a summary')
-      assert.equal(row.summaryResponseCount, 3)
-      assert.ok(row.summaryGeneratedAt)
+      expect(row.summary).toBe('a summary')
+      expect(row.summaryResponseCount).toBe(3)
+      expect(row.summaryGeneratedAt).toBeTruthy()
     })
   })
 
-  test('no-op below MIN_RESPONSES_FOR_SUMMARY', async () => {
+  it('no-op below MIN_RESPONSES_FOR_SUMMARY', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       await maybeAutoSummarize(
@@ -73,7 +72,138 @@ describe('maybeAutoSummarize (pg)', () => {
         { db: adminDb, summarize: async () => 'unused' }
       )
       const [row] = await adminDb.select().from(conversations)
-      assert.equal(row.summary, null)
+      expect(row.summary).toBe(null)
+    })
+  })
+
+  it('does not call summarize when below the threshold', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
+      let called = 0
+      await maybeAutoSummarize(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages: [
+            { id: '1', role: 'user', content: 'q' },
+            { id: '2', role: 'assistant', content: 'a1' }
+          ]
+        },
+        {
+          db: adminDb,
+          summarize: async () => {
+            called += 1
+            return 'x'
+          }
+        }
+      )
+      expect(called).toBe(0)
+    })
+  })
+
+  it('passes the conversation messages through to the summarizer', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
+      let received: { id: string; role: string; content: string }[] = []
+      await maybeAutoSummarize(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages: [
+            { id: '1', role: 'assistant', content: 'a1' },
+            { id: '2', role: 'assistant', content: 'a2' },
+            { id: '3', role: 'assistant', content: 'a3' }
+          ]
+        },
+        {
+          db: adminDb,
+          summarize: async (msgs) => {
+            received = msgs as typeof received
+            return 'done'
+          }
+        }
+      )
+      expect(received.map((m) => m.content)).toEqual(['a1', 'a2', 'a3'])
+    })
+  })
+
+  it('counts responses from responseCounts (+1) instead of message roles', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
+      let called = 0
+      // Only one assistant message, but responseCounts already sums to 2,
+      // so totalResponses = 2 + 1 = 3 → at the MIN threshold → summarizes.
+      await maybeAutoSummarize(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages: [{ id: '1', role: 'assistant', content: 'a1' }],
+          responseCounts: { [agentId]: 2 }
+        },
+        {
+          db: adminDb,
+          summarize: async () => {
+            called += 1
+            return 'sum'
+          }
+        }
+      )
+      expect(called).toBe(1)
+      const [row] = await adminDb.select().from(conversations)
+      expect(row.summary).toBe('sum')
+      expect(row.summaryResponseCount).toBe(3)
+    })
+  })
+
+  it('skips re-summarizing until RE_SUMMARIZE_DELTA new responses accrue', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
+      let called = 0
+      // currentSummary present at summaryResponseCount=3; new total = 3+1 = 4.
+      // delta (4-3=1) < RE_SUMMARIZE_DELTA(5) → no re-summarize.
+      await maybeAutoSummarize(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages: [{ id: '1', role: 'assistant', content: 'a1' }],
+          responseCounts: { [agentId]: 3 },
+          currentSummary: 'old summary',
+          summaryResponseCount: 3
+        },
+        {
+          db: adminDb,
+          summarize: async () => {
+            called += 1
+            return 'new'
+          }
+        }
+      )
+      expect(called).toBe(0)
+    })
+  })
+
+  it('does not write when the summarizer returns null', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
+      await maybeAutoSummarize(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages: [
+            { id: '1', role: 'assistant', content: 'a1' },
+            { id: '2', role: 'assistant', content: 'a2' },
+            { id: '3', role: 'assistant', content: 'a3' }
+          ]
+        },
+        { db: adminDb, summarize: async () => null }
+      )
+      const [row] = await adminDb.select().from(conversations)
+      expect(row.summary).toBe(null)
     })
   })
 })

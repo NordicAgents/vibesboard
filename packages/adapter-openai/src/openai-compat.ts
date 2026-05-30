@@ -3,6 +3,13 @@
  * Uses direct fetch — no SDK dependency.
  */
 
+// Honor OPENAI_BASE_URL (E2E mock / proxy / gateway), defaulting to public OpenAI.
+const OPENAI_BASE_URL =
+  process.env.OPENAI_BASE_URL?.trim().replace(/\/+$/, '') ??
+  'https://api.openai.com/v1'
+const OPENAI_CHAT_COMPLETIONS = `${OPENAI_BASE_URL}/chat/completions`
+const OPENAI_EMBEDDINGS = `${OPENAI_BASE_URL}/embeddings`
+
 const getApiKey = () => {
   const key = process.env.OPENAI_API_KEY
   if (!key) throw new Error('OPENAI_API_KEY is not configured')
@@ -24,7 +31,7 @@ export async function chatCompletion(params: {
   temperature?: number
   max_tokens?: number
 }): Promise<{ choices: { message: { content: string } }[] }> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(OPENAI_CHAT_COMPLETIONS, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
@@ -52,7 +59,7 @@ export async function createEmbedding(params: {
   model: string
   input: string | string[]
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
-  const res = await fetch('https://api.openai.com/v1/embeddings', {
+  const res = await fetch(OPENAI_EMBEDDINGS, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
@@ -78,7 +85,7 @@ export async function chatCompletionWithVision(params: {
   messages: any[]
   max_tokens?: number
 }): Promise<{ choices: { message: { content: string } }[] }> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(OPENAI_CHAT_COMPLETIONS, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
