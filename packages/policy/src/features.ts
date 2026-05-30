@@ -11,7 +11,8 @@
  * identity layer uses for non-tenant-scoped tables).
  */
 import "server-only";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { uuidv7 } from "uuidv7";
 import { getMigrateDb } from "@vibesboard/adapter-postgres/client";
 import * as schema from "@vibesboard/adapter-postgres/schema";
 import {
@@ -140,23 +141,77 @@ export async function getTenantFeatures(
 }
 
 /**
- * Set a per-tenant override. Upserts a tenant_feature_toggles row; the row
- * needs both the flag id (FK) and its name, so the flag must exist in the
- * seeded feature_flags registry.
+ * Resolve a flag by id (seeded registry) or by name, creating the registry row
+ * on demand for a known flag name that has none yet.
+ *
+ * Why both: getTenantFeatures falls back to `id: name` when the registry has no
+ * row, so the UI may call toggleFeature with a flag NAME rather than a uuid on a
+ * database that was never seeded with db:seed-flags. Since
+ * tenant_feature_toggles.featureFlagId is an FK into feature_flags, a toggle is
+ * impossible without a registry row — so for a known flag we create it here
+ * idempotently. This makes the toggle path self-healing on deployed databases
+ * (addresses "admins can't enable channels until someone runs seed out-of-band").
+ */
+async function resolveOrCreateFlag(
+  idOrName: string,
+): Promise<{ id: string; name: string } | null> {
+  const db = getMigrateDb();
+  const isKnownName = (FEATURE_FLAG_NAMES as readonly string[]).includes(
+    idOrName,
+  );
+
+  if (!isKnownName) {
+    // Treat as a real feature_flags.id (uuid) from a seeded registry. An
+    // unknown, non-name string simply matches nothing → "Unknown feature flag".
+    const [byId] = await db
+      .select({ id: schema.featureFlags.id, name: schema.featureFlags.name })
+      .from(schema.featureFlags)
+      .where(eq(schema.featureFlags.id, idOrName))
+      .limit(1);
+    return byId ?? null;
+  }
+
+  const name = idOrName as FeatureFlagName;
+  const [existing] = await db
+    .select({ id: schema.featureFlags.id, name: schema.featureFlags.name })
+    .from(schema.featureFlags)
+    .where(eq(schema.featureFlags.name, name))
+    .limit(1);
+  if (existing) return existing;
+
+  // Create on demand; onConflictDoNothing makes this safe under a concurrent
+  // toggle or a later db:seed-flags run (feature_flags.name is unique).
+  await db
+    .insert(schema.featureFlags)
+    .values({
+      id: uuidv7(),
+      name,
+      description: null,
+      defaultValue: FEATURE_FLAG_DEFAULTS[name] ?? true,
+    })
+    .onConflictDoNothing({ target: schema.featureFlags.name });
+
+  const [created] = await db
+    .select({ id: schema.featureFlags.id, name: schema.featureFlags.name })
+    .from(schema.featureFlags)
+    .where(eq(schema.featureFlags.name, name))
+    .limit(1);
+  return created ?? null;
+}
+
+/**
+ * Set a per-tenant override. Accepts the flag's registry id OR its name (see
+ * resolveOrCreateFlag); the registry row is created on demand for a known flag
+ * so this works even on a database that was never seeded with db:seed-flags.
  */
 export async function toggleFeature(
   tenantId: string,
-  featureFlagId: string,
+  featureFlagIdOrName: string,
   isEnabled: boolean,
 ): Promise<{ success: boolean; error?: string }> {
   if (!tenantId) return { success: false, error: "Missing tenant" };
 
-  const [flag] = await getMigrateDb()
-    .select({ id: schema.featureFlags.id, name: schema.featureFlags.name })
-    .from(schema.featureFlags)
-    .where(eq(schema.featureFlags.id, featureFlagId))
-    .limit(1);
-
+  const flag = await resolveOrCreateFlag(featureFlagIdOrName);
   if (!flag) return { success: false, error: "Unknown feature flag" };
 
   await getMigrateDb()

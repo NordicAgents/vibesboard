@@ -56,6 +56,13 @@ jobs:
         env:
           DATABASE_MIGRATE_URL: ${{ github.ref_name == 'main' && secrets.PROD_DATABASE_MIGRATE_URL || secrets.STAGING_DATABASE_MIGRATE_URL }}
         run: bun run db:migrate
+      - name: Seed feature-flag registry
+        # Idempotent — populates feature_flags so the per-tenant toggle UI can
+        # resolve flags by id. Safe to re-run (feature_flags.name is unique).
+        # Tunnel from the previous step is still open in this job.
+        env:
+          DATABASE_MIGRATE_URL: ${{ github.ref_name == 'main' && secrets.PROD_DATABASE_MIGRATE_URL || secrets.STAGING_DATABASE_MIGRATE_URL }}
+        run: bun run db:seed-flags
 
   deploy:
     needs: [migrate]
