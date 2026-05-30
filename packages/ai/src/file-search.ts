@@ -182,7 +182,11 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
     const apiKey = process.env.OPENAI_API_KEY
     if (!apiKey) return ''
 
-    const res = await fetch('https://api.openai.com/v1/responses', {
+    // Honor OPENAI_BASE_URL (E2E mock / proxy), defaulting to public OpenAI.
+    const baseUrl =
+      process.env.OPENAI_BASE_URL?.trim().replace(/\/+$/, '') ??
+      'https://api.openai.com/v1'
+    const res = await fetch(`${baseUrl}/responses`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,

@@ -68,8 +68,19 @@ jobs:
       - name: Apply database migrations
         run: bun run db:migrate
 
-      - name: Run tests
-        run: bun run test
+      - name: Run tests with coverage
+        # Unified Vitest run across all workspace projects (single process,
+        # worker-capped) + v8 coverage. Reporting only — no failing threshold.
+        run: bun run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Capture docker logs on failure
         if: failure()

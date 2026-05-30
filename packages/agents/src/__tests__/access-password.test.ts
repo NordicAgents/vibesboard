@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
@@ -32,7 +31,7 @@ async function seedAgent(adminDb: any) {
 }
 
 describe('agent access password (postgres)', () => {
-  test('set persists the hash, clear nulls it', async () => {
+  it('set persists the hash, clear nulls it', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb)
       await setAgentAccessPasswordHash(tenantId, agentId, 'hashed-value', adminDb)
@@ -40,17 +39,17 @@ describe('agent access password (postgres)', () => {
         .select({ h: agents.accessPasswordHash })
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(row.h, 'hashed-value')
+      expect(row.h).toBe('hashed-value')
       await clearAgentAccessPasswordHash(tenantId, agentId, adminDb)
       ;[row] = await adminDb
         .select({ h: agents.accessPasswordHash })
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(row.h, null)
+      expect(row.h).toBe(null)
     })
   })
 
-  test('update is scoped by tenant (wrong tenant is a no-op)', async () => {
+  it('update is scoped by tenant (wrong tenant is a no-op)', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { agentId } = await seedAgent(adminDb)
       await setAgentAccessPasswordHash(randomUUID(), agentId, 'x', adminDb)
@@ -58,7 +57,7 @@ describe('agent access password (postgres)', () => {
         .select({ h: agents.accessPasswordHash })
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(row.h, null)
+      expect(row.h).toBe(null)
     })
   })
 })

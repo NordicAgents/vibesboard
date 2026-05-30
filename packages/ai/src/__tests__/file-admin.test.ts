@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, expect, it } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { uuidv7 } from 'uuidv7'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
@@ -53,7 +52,7 @@ async function seedFile(
 }
 
 describe('file-admin (postgres)', () => {
-  test('listFilesForAdmin filters by status and agent; countFilesByStatus tallies', async () => {
+  it('listFilesForAdmin filters by status and agent; countFilesByStatus tallies', async () => {
     await withTestDb(async ({ adminDb }) => {
       const ctx = await seedAgent(adminDb)
       const other = await seedAgent(adminDb)
@@ -63,30 +62,24 @@ describe('file-admin (postgres)', () => {
       await seedFile(adminDb, other, 'indexed')
 
       const all = await listFilesForAdmin({ limit: 50 }, adminDb)
-      assert.equal(all.length, 4)
+      expect(all.length).toBe(4)
 
-      const pending = await listFilesForAdmin(
-        { status: 'pending', limit: 50 },
-        adminDb,
-      )
-      assert.equal(pending.length, 2)
+      const pending = await listFilesForAdmin({ status: 'pending', limit: 50 }, adminDb)
+      expect(pending.length).toBe(2)
 
-      const byAgent = await listFilesForAdmin(
-        { agentId: ctx.agentId, limit: 50 },
-        adminDb,
-      )
-      assert.equal(byAgent.length, 3)
+      const byAgent = await listFilesForAdmin({ agentId: ctx.agentId, limit: 50 }, adminDb)
+      expect(byAgent.length).toBe(3)
 
       const counts = await countFilesByStatus(adminDb)
-      assert.equal(counts.total, 4)
-      assert.equal(counts.pending, 2)
-      assert.equal(counts.failed, 1)
-      assert.equal(counts.indexed, 1)
-      assert.equal(counts.processing, 0)
+      expect(counts.total).toBe(4)
+      expect(counts.pending).toBe(2)
+      expect(counts.failed).toBe(1)
+      expect(counts.indexed).toBe(1)
+      expect(counts.processing).toBe(0)
     })
   })
 
-  test('getFilesByIds returns only the requested files', async () => {
+  it('getFilesByIds returns only the requested files', async () => {
     await withTestDb(async ({ adminDb }) => {
       const ctx = await seedAgent(adminDb)
       const a = await seedFile(adminDb, ctx, 'pending')
@@ -94,10 +87,10 @@ describe('file-admin (postgres)', () => {
       await seedFile(adminDb, ctx, 'pending')
 
       const got = await getFilesByIds([a, b], adminDb)
-      assert.equal(got.length, 2)
-      assert.deepEqual(new Set(got.map((f) => f.fileId)), new Set([a, b]))
+      expect(got.length).toBe(2)
+      expect(new Set(got.map((f) => f.fileId))).toEqual(new Set([a, b]))
 
-      assert.equal((await getFilesByIds([], adminDb)).length, 0)
+      expect((await getFilesByIds([], adminDb)).length).toBe(0)
     })
   })
 })

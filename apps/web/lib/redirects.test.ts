@@ -1,20 +1,23 @@
-import test from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 
 import { getSafeRedirectPath } from './redirects.ts'
 
-test('getSafeRedirectPath', () => {
-  assert.equal(getSafeRedirectPath('/invite/abc'), '/invite/abc')
-  assert.equal(getSafeRedirectPath('/agents/new?x=1'), '/agents/new?x=1')
+describe('getSafeRedirectPath', () => {
+  it('allows relative paths', () => {
+    expect(getSafeRedirectPath('/invite/abc')).toBe('/invite/abc')
+    expect(getSafeRedirectPath('/agents/new?x=1')).toBe('/agents/new?x=1')
+  })
 
-  assert.equal(getSafeRedirectPath(null), null)
-  assert.equal(getSafeRedirectPath(''), null)
-  assert.equal(getSafeRedirectPath('   '), null)
-  assert.equal(getSafeRedirectPath('http://evil.com'), null)
-  assert.equal(getSafeRedirectPath('https://evil.com'), null)
-  assert.equal(getSafeRedirectPath('//evil.com'), null)
-  assert.equal(getSafeRedirectPath('javascript:alert(1)'), null)
-  assert.equal(getSafeRedirectPath('/path\nnext'), null)
-  assert.equal(getSafeRedirectPath('/path\rnext'), null)
-  assert.equal(getSafeRedirectPath('/\\\\evil.com'), null)
+  it('rejects unsafe or absolute targets', () => {
+    expect(getSafeRedirectPath(null)).toBe(null)
+    expect(getSafeRedirectPath('')).toBe(null)
+    expect(getSafeRedirectPath('   ')).toBe(null)
+    expect(getSafeRedirectPath('http://evil.com')).toBe(null)
+    expect(getSafeRedirectPath('https://evil.com')).toBe(null)
+    expect(getSafeRedirectPath('//evil.com')).toBe(null)
+    expect(getSafeRedirectPath('javascript:alert(1)')).toBe(null)
+    expect(getSafeRedirectPath('/path\nnext')).toBe(null)
+    expect(getSafeRedirectPath('/path\rnext')).toBe(null)
+    expect(getSafeRedirectPath('/\\\\evil.com')).toBe(null)
+  })
 })

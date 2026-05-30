@@ -9,6 +9,15 @@ export const OPENAI_CHAT_MODEL = baseModel
 export const OPENAI_VISION_MODEL =
   cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-5.4-nano'
 
+// Base URL for the OpenAI-compatible API. Defaults to the public OpenAI API,
+// but can be overridden (e.g. for a local mock in E2E, an Azure/OpenAI proxy,
+// or a self-hosted gateway) via OPENAI_BASE_URL. Trailing slashes are trimmed.
+export const OPENAI_BASE_URL =
+  cleanEnv(process.env.OPENAI_BASE_URL)?.replace(/\/+$/, '') ??
+  'https://api.openai.com/v1'
+
+const responsesUrl = (): string => `${OPENAI_BASE_URL}/responses`
+
 export const isResponsesModel = (model?: string | null) =>
   !!model &&
   (model.startsWith('gpt-5.4-nano') || model.startsWith('gpt-5-nano'))
@@ -71,7 +80,7 @@ export async function completeText({
     body.tools = tools
   }
 
-  const res = await fetch('https://api.openai.com/v1/responses', {
+  const res = await fetch(responsesUrl(), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
@@ -164,7 +173,7 @@ export async function streamText({
     throw new Error('OPENAI_API_KEY is not configured.')
   }
 
-  const res = await fetch('https://api.openai.com/v1/responses', {
+  const res = await fetch(responsesUrl(), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
