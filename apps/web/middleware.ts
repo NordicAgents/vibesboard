@@ -77,6 +77,8 @@ export async function middleware(req: NextRequest) {
   const isProtectedRoute =
     !pathname.includes('/sign-in') &&
     !pathname.includes('/sign-up') &&
+    !pathname.includes('/forgot-password') &&
+    !pathname.includes('/reset-password') &&
     !pathname.includes('/landing') &&
     !pathname.includes('/privacy-policy') &&
     !pathname.includes('/terms-of-service') &&
