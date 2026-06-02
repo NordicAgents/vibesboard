@@ -11,7 +11,9 @@ describe('landing about copy', () => {
       'Built so customers never wait on your inbox.'
     )
     expect(LANDING_ABOUT_HEADING).toMatch(/customers|inbox/i)
-    expect(LANDING_ABOUT_HEADING).not.toMatch(/authentic human connection|vibe/i)
+    expect(LANDING_ABOUT_HEADING).not.toMatch(
+      /authentic human connection|vibe/i
+    )
   })
 
   it('about section copy explains the current VibeAgent business goal', () => {
@@ -19,7 +21,9 @@ describe('landing about copy', () => {
 
     expect(LANDING_ABOUT_PARAGRAPHS.length).toBe(2)
     expect(copy).toMatch(/WhatsApp|Instagram/i)
-    expect(copy).toMatch(/answered questions|qualified leads|booked appointments/i)
+    expect(copy).toMatch(
+      /answered questions|qualified leads|booked appointments/i
+    )
     expect(copy).toMatch(/pricing|availability|handoff rules/i)
     expect(copy).toMatch(
       /conversation stays visible|follow-up status|customers keep asking/i

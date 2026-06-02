@@ -9,6 +9,7 @@ import {
   markNotificationsRead,
   getUserEmail
 } from '../notifications-db.ts'
+import { type NotificationEvent } from '@vibesboard/contracts'
 
 async function seed(adminDb: any) {
   const u = randomUUID(),
@@ -139,7 +140,7 @@ describe('notifications (postgres)', () => {
             tenantId,
             agentId,
             conversationId: null,
-            event: `event-${i}`,
+            event: `event-${i}` as NotificationEvent,
             summary: null
           },
           adminDb

@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { requireTenantMember, requireSuperAdmin } from '@/lib/auth/route-handler'
+import {
+  requireTenantMember,
+  requireSuperAdmin
+} from '@/lib/auth/route-handler'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { getTenantBranding } from '@vibesboard/tenants'
 import { getTenantById } from '@/lib/tenant-context'
@@ -27,7 +30,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const [brandingRow, baseBranding] = await Promise.all([
     getTenantBranding(getMigrateDb(), tenantId),
-    getBaseBranding(),
+    getBaseBranding()
   ])
 
   const effectiveBranding = resolveEffectiveBranding(
@@ -36,10 +39,10 @@ export async function GET(req: Request, { params }: RouteParams) {
           primaryColor: brandingRow.primaryColor,
           secondaryColor: brandingRow.secondaryColor,
           logoUrl: brandingRow.logoUrl ?? undefined,
-          overrides: brandingRow.overrides ?? undefined,
+          overrides: brandingRow.overrides ?? undefined
         } as Parameters<typeof resolveEffectiveBranding>[0])
       : null,
-    baseBranding,
+    baseBranding
   )
 
   const features = await getTenantFeatures(tenantId)
@@ -49,6 +52,6 @@ export async function GET(req: Request, { params }: RouteParams) {
     branding: effectiveBranding,
     baseBranding,
     overrides: brandingRow?.overrides ?? null,
-    features,
+    features
   })
 }

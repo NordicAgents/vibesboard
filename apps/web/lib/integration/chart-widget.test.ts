@@ -144,32 +144,36 @@ describe('parseChartConfig', () => {
   })
 
   it('returns null for valid JSON missing type', () => {
-    expect(parseChartConfig(JSON.stringify({ labels: ['A'], datasets: [] }))).toBe(
-      null
-    )
+    expect(
+      parseChartConfig(JSON.stringify({ labels: ['A'], datasets: [] }))
+    ).toBe(null)
   })
 
   it('returns null for valid JSON missing labels', () => {
-    expect(parseChartConfig(JSON.stringify({ type: 'bar', datasets: [] }))).toBe(
-      null
-    )
+    expect(
+      parseChartConfig(JSON.stringify({ type: 'bar', datasets: [] }))
+    ).toBe(null)
   })
 
   it('returns null for valid JSON missing datasets', () => {
-    expect(parseChartConfig(JSON.stringify({ type: 'bar', labels: ['A'] }))).toBe(
-      null
-    )
+    expect(
+      parseChartConfig(JSON.stringify({ type: 'bar', labels: ['A'] }))
+    ).toBe(null)
   })
 
   it('returns null when labels is not an array', () => {
     expect(
-      parseChartConfig(JSON.stringify({ type: 'bar', labels: 'A', datasets: [] }))
+      parseChartConfig(
+        JSON.stringify({ type: 'bar', labels: 'A', datasets: [] })
+      )
     ).toBe(null)
   })
 
   it('returns null when datasets is not an array', () => {
     expect(
-      parseChartConfig(JSON.stringify({ type: 'bar', labels: ['A'], datasets: {} }))
+      parseChartConfig(
+        JSON.stringify({ type: 'bar', labels: ['A'], datasets: {} })
+      )
     ).toBe(null)
   })
 
@@ -218,7 +222,12 @@ describe('parseChartConfig', () => {
       label: `S${i}`,
       data: [i]
     }))
-    const raw = JSON.stringify({ type: 'bar', title: 'T', labels: ['A'], datasets })
+    const raw = JSON.stringify({
+      type: 'bar',
+      title: 'T',
+      labels: ['A'],
+      datasets
+    })
     const config = parseChartConfig(raw)
     expect(config).toBeTruthy()
     expect(config!.datasets.length).toBe(10)

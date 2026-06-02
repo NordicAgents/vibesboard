@@ -5,8 +5,13 @@
 // stubbed at the network boundary (server-side fetch can't be page.route()'d).
 // global-setup seeds an E2E user + tenant and saves an authenticated cookie jar.
 import { defineConfig, devices } from '@playwright/test'
-import { fileURLToPath } from 'node:url'
-import { APP_PORT, BASE_URL, MOCK_OPENAI_PORT, STORAGE_STATE } from './e2e/constants.ts'
+import path from 'node:path'
+import {
+  APP_PORT,
+  BASE_URL,
+  MOCK_OPENAI_PORT,
+  STORAGE_STATE
+} from './e2e/constants.ts'
 
 const dbUrl =
   process.env.DATABASE_URL ??
@@ -33,8 +38,9 @@ const appEnv: Record<string, string> = {
   S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY ?? 'vibesboard',
   S3_FORCE_PATH_STYLE: 'true',
   // Minimal auth secret so better-auth boots in dev.
-  BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? 'e2e-better-auth-secret-0123456789',
-  BETTER_AUTH_URL: BASE_URL,
+  BETTER_AUTH_SECRET:
+    process.env.BETTER_AUTH_SECRET ?? 'e2e-better-auth-secret-0123456789',
+  BETTER_AUTH_URL: BASE_URL
 }
 
 export default defineConfig({
@@ -47,21 +53,21 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
-  globalSetup: fileURLToPath(new URL('./e2e/global-setup.ts', import.meta.url)),
+  globalSetup: path.join(__dirname, 'e2e/global-setup.ts'),
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: 'only-on-failure'
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
+      use: { ...devices['Desktop Chrome'] }
+    }
   ],
   webServer: [
     {
@@ -69,17 +75,17 @@ export default defineConfig({
       url: `http://localhost:${MOCK_OPENAI_PORT}/healthz`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
-      env: { MOCK_OPENAI_PORT: String(MOCK_OPENAI_PORT) },
+      env: { MOCK_OPENAI_PORT: String(MOCK_OPENAI_PORT) }
     },
     {
       command: 'bun run --filter @vibesboard/web dev',
       url: BASE_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
-      cwd: fileURLToPath(new URL('../../', import.meta.url)),
-      env: appEnv,
-    },
+      cwd: path.resolve(__dirname, '../../'),
+      env: appEnv
+    }
   ],
   // Authenticated specs opt in via test.use({ storageState: STORAGE_STATE }).
-  metadata: { storageState: STORAGE_STATE },
+  metadata: { storageState: STORAGE_STATE }
 })

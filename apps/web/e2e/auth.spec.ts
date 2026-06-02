@@ -10,7 +10,7 @@ import { E2E_USER } from './constants.ts'
 test.use({ storageState: { cookies: [], origins: [] } })
 
 test('visiting /agents while logged out redirects to /sign-in', async ({
-  page,
+  page
 }) => {
   await page.goto('/agents')
   // middleware bounces unauthenticated users to the sign-in page.
@@ -20,7 +20,7 @@ test('visiting /agents while logged out redirects to /sign-in', async ({
 })
 
 test('signing in with valid creds authenticates and reaches the dashboard', async ({
-  page,
+  page
 }) => {
   await page.goto('/sign-in')
 
@@ -31,9 +31,10 @@ test('signing in with valid creds authenticates and reaches the dashboard', asyn
   await page.locator('input[name="password"]').fill(E2E_USER.password)
 
   const signInResponse = page.waitForResponse(
-    (r) =>
-      r.url().includes('/api/auth/sign-in/email') && r.request().method() === 'POST',
-    { timeout: 20_000 },
+    r =>
+      r.url().includes('/api/auth/sign-in/email') &&
+      r.request().method() === 'POST',
+    { timeout: 20_000 }
   )
   await page.locator('button:has-text("Sign In")').click()
   const res = await signInResponse
@@ -48,6 +49,6 @@ test('signing in with valid creds authenticates and reaches the dashboard', asyn
   await expect(page).toHaveURL(/\/agents/, { timeout: 15_000 })
   await expect(page).not.toHaveURL(/\/sign-in/)
   await expect(
-    page.locator('a[href="/agents/create-chat"]'),
+    page.locator('a[href="/agents/create-chat"]').first()
   ).toBeVisible({ timeout: 15_000 })
 })

@@ -65,6 +65,9 @@ apps/functions/lib
 
 # test artifacts
 .playwright-mcp/
+playwright-report/
+test-results/
+apps/web/e2e/.auth/
 
 # Local Postgres volumes (if overriding the default named volume path)
 docker-volumes/

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/auth/route-handler'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { getTenantDetail, updateTenant, deleteTenant, getTenantBranding } from '@vibesboard/tenants'
+import {
+  getTenantDetail,
+  updateTenant,
+  deleteTenant,
+  getTenantBranding
+} from '@vibesboard/tenants'
 
 export const runtime = 'nodejs'
 
@@ -19,7 +24,11 @@ export async function GET(req: Request, { params }: RouteParams) {
   }
   const branding = await getTenantBranding(db, id)
 
-  return NextResponse.json({ tenant: detail.tenant, branding, user_count: detail.user_count })
+  return NextResponse.json({
+    tenant: detail.tenant,
+    branding,
+    user_count: detail.user_count
+  })
 }
 
 export async function PUT(req: Request, { params }: RouteParams) {
@@ -35,7 +44,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
     slug === undefined &&
     !(status !== undefined && ['active', 'trial', 'suspended'].includes(status))
   ) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'No valid fields to update' },
+      { status: 400 }
+    )
   }
 
   const tenant = await updateTenant(getMigrateDb(), id, { name, slug, status })

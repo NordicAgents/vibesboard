@@ -43,6 +43,7 @@ describe('email FROM override (NOTIFICATION_EMAIL_FROM)', () => {
     await sendVerifyEmail({ user: { email: 'verify@example.com' }, url: 'https://app/verify' });
 
     expect(sendMock).toHaveBeenCalledTimes(1);
-    expect(sendMock.mock.calls[0][0].from).toBe('Acme <noreply@acme.test>');
+    const [payload] = sendMock.mock.calls[0] as unknown as [{ from: string }];
+    expect(payload.from).toBe('Acme <noreply@acme.test>');
   });
 });

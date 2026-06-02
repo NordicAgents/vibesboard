@@ -16,7 +16,9 @@ describe('landing hero copy', () => {
   })
 
   it('landing hero conversation shows a real customer booking handled by the agent', () => {
-    const copy = LANDING_HERO_CONVERSATION.map(message => message.text).join(' ')
+    const copy = LANDING_HERO_CONVERSATION.map(message => message.text).join(
+      ' '
+    )
 
     expect(LANDING_HERO_CONVERSATION.length).toBe(4)
     expect(LANDING_HERO_CONVERSATION.map(message => message.role)).toEqual([

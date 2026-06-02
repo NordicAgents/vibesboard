@@ -14,6 +14,7 @@ import {
   getCalendarConnections,
   getValidAccessToken,
   updateConnectionStatus,
+  type CreateConnectionParams,
 } from '../connections.ts'
 
 // ENCRYPTION_KEY is provided by the shared test setup (test/setup/env.ts);
@@ -148,17 +149,20 @@ async function seedTenant(adminDb: any) {
   return { tenantId: t, userId: u }
 }
 
-const connParams = (over: Record<string, unknown> = {}) => ({
-  provider: 'google_calendar' as const,
-  name: 'work',
-  calendarId: 'primary',
-  accessToken: 'plain-access',
-  refreshToken: 'plain-refresh',
-  tokenExpiresAt: '2030-01-01T00:00:00.000Z',
-  email: 'a@b.com',
-  scopes: ['s'],
-  ...over,
-})
+const connParams = (
+  over: Partial<CreateConnectionParams> = {},
+): CreateConnectionParams =>
+  ({
+    provider: 'google_calendar' as const,
+    name: 'work',
+    calendarId: 'primary',
+    accessToken: 'plain-access',
+    refreshToken: 'plain-refresh',
+    tokenExpiresAt: '2030-01-01T00:00:00.000Z',
+    email: 'a@b.com',
+    scopes: ['s'],
+    ...over,
+  }) as CreateConnectionParams
 
 describe('calendar connection CRUD (postgres)', () => {
   it('create -> get -> list -> updateStatus -> delete, tenant-scoped', async () => {

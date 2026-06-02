@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const buffer = Buffer.from(await file.arrayBuffer())
 
     await uploadFile(key, buffer, file.type, {
-      cacheControl: 'public, max-age=3600',
+      cacheControl: 'public, max-age=3600'
     })
 
     // Return our own proxy URL — cache-bust with timestamp
