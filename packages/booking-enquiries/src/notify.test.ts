@@ -39,8 +39,21 @@ function makeEnquiry(
   }
 }
 
+type NotificationConfig = NonNullable<VibeAgent['notificationConfig']>
+
+// The function under test only reads `id`, `userId`, and `notificationConfig`,
+// so these minimal fixtures deliberately omit the other required VibeAgent
+// fields and are cast to the full type.
 function makeAgent(overrides: Partial<VibeAgent> = {}): VibeAgent {
-  return { id: 'agent-1', name: 'Agent', ...overrides }
+  return { id: 'agent-1', name: 'Agent', ...overrides } as VibeAgent
+}
+
+// notifyAdminOfEnquiry only reads `notificationConfig.email`, so the tests pass
+// a partial config exercising just that branch; widen it to the full type.
+function notifConfig(
+  partial: Partial<NotificationConfig>,
+): NotificationConfig {
+  return partial as NotificationConfig
 }
 
 const ORIGINAL_KEY = process.env.RESEND_API_KEY
@@ -64,7 +77,7 @@ describe('notifyAdminOfEnquiry', () => {
     delete process.env.RESEND_API_KEY
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
@@ -81,7 +94,7 @@ describe('notifyAdminOfEnquiry', () => {
   it('skips when notificationConfig email is disabled and there is no userId', async () => {
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: false, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: false, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
@@ -91,35 +104,35 @@ describe('notifyAdminOfEnquiry', () => {
   it('sends to the notificationConfig address when enabled', async () => {
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
     expect(resendCtor).toHaveBeenCalledWith('test-resend-key')
     expect(sendMock).toHaveBeenCalledTimes(1)
-    const arg = sendMock.mock.calls[0][0] as Record<string, unknown>
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, unknown>
     expect(arg.to).toBe('owner@x.com')
   })
 
   it('builds a subject from the resource name', async () => {
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry({ resourceName: 'Lake House' }),
     )
-    const arg = sendMock.mock.calls[0][0] as Record<string, unknown>
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, unknown>
     expect(arg.subject).toBe('New booking enquiry — Lake House')
   })
 
   it('includes guest details and notes in the email body', async () => {
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
-    const arg = sendMock.mock.calls[0][0] as Record<string, string>
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, string>
     expect(arg.text).toContain('Guest: Jane Doe')
     expect(arg.text).toContain('Email: jane@example.com')
     expect(arg.text).toContain('Phone: +46 70 000 00 00')
@@ -131,11 +144,11 @@ describe('notifyAdminOfEnquiry', () => {
   it('omits the optional Guests/Notes lines when absent', async () => {
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry({ guestCount: undefined, notes: undefined }),
     )
-    const arg = sendMock.mock.calls[0][0] as Record<string, string>
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, string>
     expect(arg.text).not.toContain('Guests:')
     expect(arg.text).not.toContain('Notes:')
   })
@@ -143,11 +156,11 @@ describe('notifyAdminOfEnquiry', () => {
   it('attaches a base64 .ics calendar invite', async () => {
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
-    const arg = sendMock.mock.calls[0][0] as {
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as {
       attachments: { filename: string; content: string; contentType: string }[]
     }
     expect(arg.attachments).toHaveLength(1)
@@ -165,11 +178,11 @@ describe('notifyAdminOfEnquiry', () => {
     process.env.NOTIFICATION_EMAIL_FROM = 'Resort <hello@resort.com>'
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
-    const arg = sendMock.mock.calls[0][0] as Record<string, unknown>
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, unknown>
     expect(arg.from).toBe('Resort <hello@resort.com>')
   })
 
@@ -177,11 +190,11 @@ describe('notifyAdminOfEnquiry', () => {
     delete process.env.NOTIFICATION_EMAIL_FROM
     await notifyAdminOfEnquiry(
       makeAgent({
-        notificationConfig: { email: { enabled: true, address: 'owner@x.com' } },
+        notificationConfig: notifConfig({ email: { enabled: true, address: 'owner@x.com' } }),
       }),
       makeEnquiry(),
     )
-    const arg = sendMock.mock.calls[0][0] as Record<string, unknown>
+    const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, unknown>
     expect(arg.from).toBe('VibeAgent <notifications@vibeagent.com>')
   })
 })

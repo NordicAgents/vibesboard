@@ -27,14 +27,12 @@ test('sign-in page shows email and password inputs', async ({ page }) => {
 test('a health endpoint returns ok', async ({ request }) => {
   const res = await request.get('/api/health')
   expect(res.ok(), `GET /api/health -> ${res.status()}`).toBeTruthy()
+  expect(await res.json()).toEqual({ ok: true })
 })
 
 test('mock OpenAI server is reachable', async ({ request }) => {
   const res = await request.get(`http://localhost:${MOCK_OPENAI_PORT}/healthz`)
-  expect(
-    res.ok(),
-    `GET mock /healthz -> ${res.status()}`,
-  ).toBeTruthy()
+  expect(res.ok(), `GET mock /healthz -> ${res.status()}`).toBeTruthy()
 })
 
 test('base url is the configured app port', async () => {

@@ -45,8 +45,18 @@ const updateSpy = vi.fn()
 const deleteSpy = vi.fn()
 vi.mock('@vibesboard/adapter-postgres/client', () => ({
   getMigrateDb: () => ({
-    update: () => ({ set: (v: unknown) => { updateSpy(v); return { where: async () => undefined } } }),
-    delete: () => ({ where: async () => { deleteSpy(); return undefined } })
+    update: () => ({
+      set: (v: unknown) => {
+        updateSpy(v)
+        return { where: async () => undefined }
+      }
+    }),
+    delete: () => ({
+      where: async () => {
+        deleteSpy()
+        return undefined
+      }
+    })
   })
 }))
 vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
@@ -103,7 +113,10 @@ describe('GET /api/agents/[id]', () => {
 
 describe('PATCH /api/agents/[id]', () => {
   it('updates an agent the user can edit', async () => {
-    const res = await PATCH(patchReq({ name: 'Renamed' }) as never, ctx('agent-1'))
+    const res = await PATCH(
+      patchReq({ name: 'Renamed' }) as never,
+      ctx('agent-1')
+    )
     expect(res.status).toBe(200)
     expect(updateSpy).toHaveBeenCalledOnce()
   })
@@ -113,7 +126,10 @@ describe('PATCH /api/agents/[id]', () => {
       ok: false,
       response: new Response('Unauthorized', { status: 401 })
     }
-    const res = await PATCH(patchReq({ name: 'Renamed' }) as never, ctx('agent-1'))
+    const res = await PATCH(
+      patchReq({ name: 'Renamed' }) as never,
+      ctx('agent-1')
+    )
     expect(res.status).toBe(401)
     expect(updateSpy).not.toHaveBeenCalled()
   })
@@ -123,7 +139,10 @@ describe('PATCH /api/agents/[id]', () => {
   // chars) to reach the lookup and exercise the not-found branch.
   it('returns 404 when the agent does not exist', async () => {
     agent = null
-    const res = await PATCH(patchReq({ name: 'Renamed' }) as never, ctx('missing'))
+    const res = await PATCH(
+      patchReq({ name: 'Renamed' }) as never,
+      ctx('missing')
+    )
     expect(res.status).toBe(404)
     expect(updateSpy).not.toHaveBeenCalled()
   })

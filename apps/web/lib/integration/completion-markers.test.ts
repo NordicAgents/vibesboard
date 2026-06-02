@@ -183,9 +183,9 @@ describe('detectCompletionMarker', () => {
   })
 
   it('detects [HANDOFF_TO_HUMAN]', () => {
-    expect(detectCompletionMarker('Let me transfer you. [HANDOFF_TO_HUMAN]')).toBe(
-      'handoff_to_human'
-    )
+    expect(
+      detectCompletionMarker('Let me transfer you. [HANDOFF_TO_HUMAN]')
+    ).toBe('handoff_to_human')
   })
 
   it('detects [HANDOFF_TO_AGENT:id-123]', () => {
@@ -235,7 +235,9 @@ describe('extractHandoffTarget', () => {
 
 describe('stripCompletionMarkers', () => {
   it('removes [COLLECTION_COMPLETE]', () => {
-    expect(stripCompletionMarkers('Thanks! [COLLECTION_COMPLETE]')).toBe('Thanks!')
+    expect(stripCompletionMarkers('Thanks! [COLLECTION_COMPLETE]')).toBe(
+      'Thanks!'
+    )
   })
 
   it('removes [INFO_COMPLETE]', () => {
@@ -313,7 +315,9 @@ describe('createCompletionTransformStream marker handling', () => {
     )
 
     expect(output.includes('[COLLECTION_COMPLETE]')).toBe(false)
-    expect(output.includes('Thank you for providing all the info.')).toBeTruthy()
+    expect(
+      output.includes('Thank you for providing all the info.')
+    ).toBeTruthy()
     expect(output.includes('<!--CHAT_COMPLETE:')).toBeTruthy()
 
     const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
@@ -440,9 +444,14 @@ describe('wrapStreamWithCompletionDetection', () => {
   it('passes through handoff target names', async () => {
     const input = 'Redirecting. [HANDOFF_TO_AGENT:support-bot]'
     const output = await consumeStream(
-      wrapStreamWithCompletionDetection(stringToStream(input), undefined, undefined, {
-        'support-bot': 'Support Team Bot'
-      })
+      wrapStreamWithCompletionDetection(
+        stringToStream(input),
+        undefined,
+        undefined,
+        {
+          'support-bot': 'Support Team Bot'
+        }
+      )
     )
     const meta = JSON.parse(output.match(/<!--AGENT_HANDOFF:(.+?)-->/)![1])
     expect(meta.targetAgentName).toBe('Support Team Bot')

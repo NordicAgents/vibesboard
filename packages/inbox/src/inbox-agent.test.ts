@@ -256,7 +256,8 @@ describe('Handoff instructions injection', () => {
   })
 
   it('works with empty instructions', () => {
-    const injected = ('' || '') + handoffSuffix
+    const emptyInstructions = '' as string
+    const injected = (emptyInstructions || '') + handoffSuffix
     expect(injected.includes('[HANDOFF_TO_HUMAN]')).toBeTruthy()
   })
 })
@@ -364,7 +365,8 @@ describe('Conversation PATCH agent fields', () => {
 
 describe('Edge cases', () => {
   it('empty message text should not trigger agent', () => {
-    expect(!!'').toBe(false)
+    const emptyText = '' as string
+    expect(!!emptyText).toBe(false)
   })
 
   it('media-only WhatsApp message (no text, no caption) should not trigger agent', () => {

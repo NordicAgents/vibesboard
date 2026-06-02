@@ -11,11 +11,15 @@ import {
 
 const SECRET = 'app-secret-xyz'
 const sign = (body: string, secret = SECRET) =>
+  // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- test-only fixture secret
   'sha256=' + crypto.createHmac('sha256', secret).update(body).digest('hex')
 
 describe('verifyWebhookSignature', () => {
   it('accepts a valid signature', () => {
-    const body = JSON.stringify({ object: 'whatsapp_business_account', entry: [] })
+    const body = JSON.stringify({
+      object: 'whatsapp_business_account',
+      entry: []
+    })
     expect(verifyWebhookSignature(body, sign(body), SECRET)).toBe(true)
   })
 
@@ -28,13 +32,14 @@ describe('verifyWebhookSignature', () => {
 
   it('rejects a signature made with the wrong secret', () => {
     const body = JSON.stringify({ entry: [] })
-    expect(verifyWebhookSignature(body, sign(body, 'attacker-secret'), SECRET)).toBe(
-      false
-    )
+    expect(
+      verifyWebhookSignature(body, sign(body, 'attacker-secret'), SECRET)
+    ).toBe(false)
   })
 
   it('rejects a non-sha256 algorithm prefix', () => {
     const body = '{}'
+    // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- test-only fixture secret
     const hash = crypto.createHmac('sha256', SECRET).update(body).digest('hex')
     expect(verifyWebhookSignature(body, `sha1=${hash}`, SECRET)).toBe(false)
   })

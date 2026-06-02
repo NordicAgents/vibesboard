@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/auth/route-handler'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { getPlatformBranding, upsertPlatformBranding } from '@vibesboard/tenants'
+import {
+  getPlatformBranding,
+  upsertPlatformBranding
+} from '@vibesboard/tenants'
 import { validateBrandingColors, validateUrl } from '@/lib/validations'
 import { invalidateBaseBrandingCache } from '@/lib/base-branding'
 
@@ -29,29 +32,37 @@ export async function PUT(req: Request) {
   if (!primaryColor || !secondaryColor) {
     return NextResponse.json(
       { error: 'primaryColor and secondaryColor are required' },
-      { status: 400 },
+      { status: 400 }
     )
   }
   if (!validateBrandingColors(primaryColor, secondaryColor)) {
     return NextResponse.json(
       { error: 'Invalid color format. Use hex colors (e.g., #000000)' },
-      { status: 400 },
+      { status: 400 }
     )
   }
   const isRelativeLogoPath = logoUrl && logoUrl.startsWith('/api/tenants/')
-  if (logoUrl && logoUrl !== '' && !isRelativeLogoPath && !validateUrl(logoUrl)) {
-    return NextResponse.json({ error: 'Invalid logo URL format' }, { status: 400 })
+  if (
+    logoUrl &&
+    logoUrl !== '' &&
+    !isRelativeLogoPath &&
+    !validateUrl(logoUrl)
+  ) {
+    return NextResponse.json(
+      { error: 'Invalid logo URL format' },
+      { status: 400 }
+    )
   }
 
   await upsertPlatformBranding(getMigrateDb(), {
     primaryColor,
     secondaryColor,
     logoUrl: logoUrl || null,
-    updatedBy: auth.user.id,
+    updatedBy: auth.user.id
   })
   invalidateBaseBrandingCache()
 
   return NextResponse.json({
-    branding: { primaryColor, secondaryColor, logoUrl: logoUrl || null },
+    branding: { primaryColor, secondaryColor, logoUrl: logoUrl || null }
   })
 }

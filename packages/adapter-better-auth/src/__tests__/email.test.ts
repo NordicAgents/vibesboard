@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // resend is stubbed so no real email ever goes out. A single shared send spy
 // is asserted across the configured-key cases.
+// Shape of the payload passed to resend `emails.send`; the mock's inferred call
+// type is an empty tuple, so we cast through this for type-safe assertions.
+type EmailPayload = { from: string; to: string; subject: string; html: string };
+
 const sendMock = vi.fn(async () => ({ data: { id: 'mock-message-id' }, error: null }));
 const ctorMock = vi.fn();
 
@@ -46,7 +50,7 @@ describe('sendMagicLinkEmail', () => {
 
     expect(ctorMock).toHaveBeenCalledWith('test-key');
     expect(sendMock).toHaveBeenCalledTimes(1);
-    const payload = sendMock.mock.calls[0][0];
+    const [payload] = sendMock.mock.calls[0] as unknown as [EmailPayload];
     expect(payload.from).toBe('Vibesboard <noreply@example.com>');
     expect(payload.to).toBe('user@example.com');
     expect(payload.subject).toBe('Sign in to Vibesboard');
@@ -87,7 +91,7 @@ describe('sendVerifyEmail', () => {
     await sendVerifyEmail({ user: { email: 'verify@example.com' }, url: 'https://app/verify' });
 
     expect(sendMock).toHaveBeenCalledTimes(1);
-    const payload = sendMock.mock.calls[0][0];
+    const [payload] = sendMock.mock.calls[0] as unknown as [EmailPayload];
     expect(payload.to).toBe('verify@example.com');
     expect(payload.subject).toBe('Verify your email');
     expect(payload.html).toContain('https://app/verify');
@@ -116,7 +120,7 @@ describe('sendResetPasswordEmail', () => {
     await sendResetPasswordEmail({ user: { email: 'reset@example.com' }, url: 'https://app/reset' });
 
     expect(sendMock).toHaveBeenCalledTimes(1);
-    const payload = sendMock.mock.calls[0][0];
+    const [payload] = sendMock.mock.calls[0] as unknown as [EmailPayload];
     expect(payload.to).toBe('reset@example.com');
     expect(payload.subject).toBe('Reset your Vibesboard password');
     expect(payload.html).toContain('https://app/reset');

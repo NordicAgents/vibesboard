@@ -33,8 +33,8 @@ vi.mock('@vibesboard/agents/permissions', () => ({
 }))
 
 // Capture what the route persists so we can assert hashing + isolation.
-const setHashMock = vi.fn(async () => undefined)
-const clearHashMock = vi.fn(async () => undefined)
+const setHashMock = vi.fn(async (..._args: unknown[]) => undefined)
+const clearHashMock = vi.fn(async (..._args: unknown[]) => undefined)
 vi.mock('@vibesboard/agents/access-password', () => ({
   setAgentAccessPasswordHash: (...args: unknown[]) => setHashMock(...args),
   clearAgentAccessPasswordHash: (...args: unknown[]) => clearHashMock(...args)
@@ -82,7 +82,7 @@ describe('PUT /api/agents/[id]/access-password', () => {
     const res = await PUT(putReq({ password: 'hunter2' }) as never, ctx())
     expect(res.status).toBe(200)
     expect(setHashMock).toHaveBeenCalledOnce()
-    const [tenantId, id, hash] = setHashMock.mock.calls[0] as [
+    const [tenantId, id, hash] = setHashMock.mock.calls[0] as unknown as [
       string,
       string,
       string

@@ -56,7 +56,7 @@ export async function POST(
     const chunk = convoRows.slice(i, i + CONCURRENCY)
 
     const results = await Promise.all(
-      chunk.map(async (conversation) => {
+      chunk.map(async conversation => {
         try {
           const summary = await summarizeConversation(conversation.messages)
 

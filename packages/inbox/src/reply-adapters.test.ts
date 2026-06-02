@@ -97,7 +97,10 @@ describe('sendInstagramAgentReply', () => {
 
   it('does not leak a contactPhone field into the Instagram payload', async () => {
     await sendInstagramAgentReply(baseParams)
-    const payload = mockIgSend.mock.calls[0][0] as Record<string, unknown>
+    const payload = mockIgSend.mock.calls[0][0] as unknown as Record<
+      string,
+      unknown
+    >
     expect(payload).not.toHaveProperty('contactPhone')
     expect(payload).toHaveProperty('contactIgsid', 'contact-1')
   })

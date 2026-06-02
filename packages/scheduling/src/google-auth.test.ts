@@ -76,7 +76,7 @@ describe('exchangeCode', () => {
     expect(tokens.refreshToken).toBe('rt')
     expect(tokens.expiresAt).toBe(new Date(fixedNow + 3600 * 1000).toISOString())
 
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://oauth2.googleapis.com/token')
     expect(init.method).toBe('POST')
     expect((init.headers as Record<string, string>)['Content-Type']).toBe(
@@ -114,8 +114,9 @@ describe('refreshAccessToken', () => {
     expect(result.accessToken).toBe('fresh')
     expect(result.expiresAt).toBe(new Date(fixedNow + 1800 * 1000).toISOString())
 
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     const body = new URLSearchParams(
-      ((spy.mock.calls[0][1] as RequestInit).body as URLSearchParams).toString(),
+      (init.body as URLSearchParams).toString(),
     )
     expect(body.get('refresh_token')).toBe('the-refresh-token')
     expect(body.get('grant_type')).toBe('refresh_token')
@@ -140,7 +141,7 @@ describe('getUserEmail', () => {
 
     const email = await getUserEmail('access-tok')
     expect(email).toBe('me@example.com')
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://www.googleapis.com/oauth2/v2/userinfo')
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer access-tok')
   })
@@ -174,7 +175,7 @@ describe('listCalendars', () => {
       { id: 'primary', summary: 'Personal', primary: true },
       { id: 'team@group', summary: 'Team', primary: false },
     ])
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toContain('/users/me/calendarList')
     expect(url).toContain('minAccessRole=writer')
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')

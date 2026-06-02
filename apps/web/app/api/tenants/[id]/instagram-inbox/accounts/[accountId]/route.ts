@@ -111,8 +111,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const updates: { assignedAgentId?: string | null; agentAutoReply?: boolean } =
-      {}
+    const updates: {
+      assignedAgentId?: string | null
+      agentAutoReply?: boolean
+    } = {}
 
     if (body.assignedAgentId !== undefined) {
       if (body.assignedAgentId) {
