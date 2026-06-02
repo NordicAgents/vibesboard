@@ -15,6 +15,7 @@ import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiri
 import { AgentActionsFlow } from '@/components/agents/agent-actions-flow'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
+import { useTenantFeatures } from '@/hooks/use-tenant-features'
 import type { AgentSharePayload, VibeAgent } from '@vibesboard/contracts'
 import { ArrowLeft } from 'lucide-react'
 import type { ActionCapability } from '@vibesboard/agents/action-config'
@@ -61,6 +62,14 @@ export function AgentDashboardTabs({
       : defaultTab === 'scheduling'
         ? 'scheduling'
         : 'booking'
+
+  // Hide tabs whose feature is disabled for the tenant — there's nothing to
+  // configure, so the tab would otherwise render an empty panel.
+  const { isEnabled: isTenantFeatureEnabled } = useTenantFeatures(
+    agent.tenantId ?? null
+  )
+  const actionsEnabled =
+    !!agent.tenantId && isTenantFeatureEnabled('AGENT_ACTIONS')
 
   const form = useAgentForm(agent)
   const {
@@ -114,9 +123,9 @@ export function AgentDashboardTabs({
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="actions">Actions</TabsTrigger>
-          <TabsTrigger value="share">Share</TabsTrigger>
+          {actionsEnabled && <TabsTrigger value="actions">Actions</TabsTrigger>}
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="share">Share</TabsTrigger>
           {agent.bookingConfig?.enabled && (
             <TabsTrigger value="booking-enquiries">Enquiries</TabsTrigger>
           )}
@@ -224,34 +233,28 @@ export function AgentDashboardTabs({
           />
         </TabsContent>
 
-        <TabsContent value="actions">
-          {agent.tenantId ? (
-            <FeatureGate feature="AGENT_ACTIONS" tenantId={agent.tenantId}>
-              <AgentActionsFlow
-                schedulingConfig={fields.schedulingConfig}
-                onSchedulingConfigChange={setters.setSchedulingConfig}
-                dataConfig={fields.dataConfig}
-                onDataConfigChange={setters.setDataConfig}
-                calendarAvailabilityConfig={fields.calendarAvailabilityConfig}
-                onCalendarAvailabilityConfigChange={
-                  setters.setCalendarAvailabilityConfig
-                }
-                bookingConfig={fields.bookingConfig}
-                onBookingConfigChange={setters.setBookingConfig}
-                disabled={saving || !canEdit}
-                tenantId={agent.tenantId}
-                collectionFields={fields.collectionFields}
-                initialCapability={initialActionCapability}
-                allowAnonymous={fields.allowAnonymous}
-                onGoToSetup={() => handleTabChange('setup')}
-              />
-            </FeatureGate>
-          ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Actions require a tenant. Assign this agent to a tenant first.
-            </p>
-          )}
-        </TabsContent>
+        {actionsEnabled && agent.tenantId && (
+          <TabsContent value="actions">
+            <AgentActionsFlow
+              schedulingConfig={fields.schedulingConfig}
+              onSchedulingConfigChange={setters.setSchedulingConfig}
+              dataConfig={fields.dataConfig}
+              onDataConfigChange={setters.setDataConfig}
+              calendarAvailabilityConfig={fields.calendarAvailabilityConfig}
+              onCalendarAvailabilityConfigChange={
+                setters.setCalendarAvailabilityConfig
+              }
+              bookingConfig={fields.bookingConfig}
+              onBookingConfigChange={setters.setBookingConfig}
+              disabled={saving || !canEdit}
+              tenantId={agent.tenantId}
+              collectionFields={fields.collectionFields}
+              initialCapability={initialActionCapability}
+              allowAnonymous={fields.allowAnonymous}
+              onGoToSetup={() => handleTabChange('setup')}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="share">
           <AgentShareTab
