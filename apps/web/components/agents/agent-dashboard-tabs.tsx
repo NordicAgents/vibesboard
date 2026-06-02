@@ -123,9 +123,7 @@ export function AgentDashboardTabs({
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          {actionsEnabled && (
-            <TabsTrigger value="actions">Actions</TabsTrigger>
-          )}
+          {actionsEnabled && <TabsTrigger value="actions">Actions</TabsTrigger>}
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="share">Share</TabsTrigger>
           {agent.bookingConfig?.enabled && (

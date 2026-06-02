@@ -68,9 +68,7 @@ export function TenantSwitcher({
   const personalTenants = showWorkspaceList
     ? tenants.filter(t => t.isPersonal)
     : []
-  const orgTenants = showWorkspaceList
-    ? tenants.filter(t => !t.isPersonal)
-    : []
+  const orgTenants = showWorkspaceList ? tenants.filter(t => !t.isPersonal) : []
 
   const getMemberLabel = (tenant: TenantWithMembers) => {
     if (tenant.isPersonal) {
@@ -122,139 +120,139 @@ export function TenantSwitcher({
 
   return (
     <>
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          role="combobox"
-          aria-expanded={open}
-          aria-label="Switch active workspace"
-          className={cn(
-            'h-auto w-full justify-between rounded-lg px-3 py-2 hover:bg-[#e6ede6] dark:hover:bg-[#344348]',
-            className
-          )}
-          disabled={isSwitching}
-        >
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div
-              className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-md',
-                currentTenant?.isPersonal
-                  ? 'bg-[#e8e6ed] dark:bg-[#3a3448]'
-                  : 'bg-[#e6ede6] dark:bg-[#344348]'
-              )}
-            >
-              <TenantIcon className="size-3.5 text-accent-orange" />
-            </div>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
-                {currentTenant
-                  ? currentTenant.isPersonal
-                    ? 'Personal'
-                    : currentTenant.name
-                  : 'Select workspace'}
-              </span>
-              {currentTenant && (
-                <span className="truncate text-[11px] text-[#6f7f80]">
-                  {currentTenant.isPersonal
-                    ? currentTenant.members[0]?.email || 'Personal workspace'
-                    : `${currentTenant.memberCount} member${currentTenant.memberCount !== 1 ? 's' : ''}`}
-                </span>
-              )}
-            </div>
-          </div>
-          {isSwitching ? (
-            <Loader2
-              className="ml-2 size-3.5 shrink-0 animate-spin text-[#6f7f80]"
-              aria-hidden
-            />
-          ) : (
-            <ChevronsUpDown
-              className="ml-2 size-3.5 shrink-0 text-[#6f7f80]"
-              aria-hidden
-            />
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="w-[280px] rounded-xl border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]"
-      >
-        {/* Personal workspaces */}
-        {personalTenants.length > 0 && (
-          <>
-            <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
-              <User className="size-3 text-[#6f7f80]" />
-              Personal
-            </DropdownMenuLabel>
-            {personalTenants.map(tenant => (
-              <TenantItem
-                key={tenant.id}
-                tenant={tenant}
-                isActive={currentTenantId === tenant.id}
-                memberLabel={getMemberLabel(tenant)}
-                onSelect={() => handleTenantSwitch(tenant.id)}
-                isPersonal
-              />
-            ))}
-          </>
-        )}
-
-        {/* Separator between sections */}
-        {personalTenants.length > 0 && orgTenants.length > 0 && (
-          <DropdownMenuSeparator className="bg-[#e4e3e3] dark:bg-[#344348]" />
-        )}
-
-        {/* Organization workspaces */}
-        {orgTenants.length > 0 && (
-          <>
-            <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
-              <Building2 className="size-3 text-[#6f7f80]" />
-              Teams
-            </DropdownMenuLabel>
-            {orgTenants.map(tenant => (
-              <TenantItem
-                key={tenant.id}
-                tenant={tenant}
-                isActive={currentTenantId === tenant.id}
-                memberLabel={getMemberLabel(tenant)}
-                onSelect={() => handleTenantSwitch(tenant.id)}
-                isPersonal={false}
-              />
-            ))}
-          </>
-        )}
-
-        {/* Create a new team workspace (any authenticated user) */}
-        {canCreate && (
-          <>
-            {(personalTenants.length > 0 || orgTenants.length > 0) && (
-              <DropdownMenuSeparator className="bg-[#e4e3e3] dark:bg-[#344348]" />
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            role="combobox"
+            aria-expanded={open}
+            aria-label="Switch active workspace"
+            className={cn(
+              'h-auto w-full justify-between rounded-lg px-3 py-2 hover:bg-[#e6ede6] dark:hover:bg-[#344348]',
+              className
             )}
-            <DropdownMenuItem
-              onSelect={() => setCreateOpen(true)}
-              className="mx-1 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 hover:bg-[#e6ede6] focus:bg-[#e6ede6] dark:hover:bg-[#344348] dark:focus:bg-[#344348]"
-            >
-              <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#e6ede6] dark:bg-[#344348]">
-                <Plus className="size-3.5 text-accent-orange" />
+            disabled={isSwitching}
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div
+                className={cn(
+                  'flex size-6 shrink-0 items-center justify-center rounded-md',
+                  currentTenant?.isPersonal
+                    ? 'bg-[#e8e6ed] dark:bg-[#3a3448]'
+                    : 'bg-[#e6ede6] dark:bg-[#344348]'
+                )}
+              >
+                <TenantIcon className="size-3.5 text-accent-orange" />
               </div>
-              <span className="text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
-                New workspace
-              </span>
-            </DropdownMenuItem>
-          </>
-        )}
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
+                  {currentTenant
+                    ? currentTenant.isPersonal
+                      ? 'Personal'
+                      : currentTenant.name
+                    : 'Select workspace'}
+                </span>
+                {currentTenant && (
+                  <span className="truncate text-[11px] text-[#6f7f80]">
+                    {currentTenant.isPersonal
+                      ? currentTenant.members[0]?.email || 'Personal workspace'
+                      : `${currentTenant.memberCount} member${currentTenant.memberCount !== 1 ? 's' : ''}`}
+                  </span>
+                )}
+              </div>
+            </div>
+            {isSwitching ? (
+              <Loader2
+                className="ml-2 size-3.5 shrink-0 animate-spin text-[#6f7f80]"
+                aria-hidden
+              />
+            ) : (
+              <ChevronsUpDown
+                className="ml-2 size-3.5 shrink-0 text-[#6f7f80]"
+                aria-hidden
+              />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="w-[280px] rounded-xl border-[#e4e3e3] bg-[#f5f8f7] shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]"
+        >
+          {/* Personal workspaces */}
+          {personalTenants.length > 0 && (
+            <>
+              <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
+                <User className="size-3 text-[#6f7f80]" />
+                Personal
+              </DropdownMenuLabel>
+              {personalTenants.map(tenant => (
+                <TenantItem
+                  key={tenant.id}
+                  tenant={tenant}
+                  isActive={currentTenantId === tenant.id}
+                  memberLabel={getMemberLabel(tenant)}
+                  onSelect={() => handleTenantSwitch(tenant.id)}
+                  isPersonal
+                />
+              ))}
+            </>
+          )}
 
-        {extraContent}
-      </DropdownMenuContent>
-    </DropdownMenu>
-    {canCreate && (
-      <CreateWorkspaceDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSuccess={tenant => handleTenantSwitch(tenant.id)}
-      />
-    )}
+          {/* Separator between sections */}
+          {personalTenants.length > 0 && orgTenants.length > 0 && (
+            <DropdownMenuSeparator className="bg-[#e4e3e3] dark:bg-[#344348]" />
+          )}
+
+          {/* Organization workspaces */}
+          {orgTenants.length > 0 && (
+            <>
+              <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
+                <Building2 className="size-3 text-[#6f7f80]" />
+                Teams
+              </DropdownMenuLabel>
+              {orgTenants.map(tenant => (
+                <TenantItem
+                  key={tenant.id}
+                  tenant={tenant}
+                  isActive={currentTenantId === tenant.id}
+                  memberLabel={getMemberLabel(tenant)}
+                  onSelect={() => handleTenantSwitch(tenant.id)}
+                  isPersonal={false}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Create a new team workspace (any authenticated user) */}
+          {canCreate && (
+            <>
+              {(personalTenants.length > 0 || orgTenants.length > 0) && (
+                <DropdownMenuSeparator className="bg-[#e4e3e3] dark:bg-[#344348]" />
+              )}
+              <DropdownMenuItem
+                onSelect={() => setCreateOpen(true)}
+                className="mx-1 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 hover:bg-[#e6ede6] focus:bg-[#e6ede6] dark:hover:bg-[#344348] dark:focus:bg-[#344348]"
+              >
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#e6ede6] dark:bg-[#344348]">
+                  <Plus className="size-3.5 text-accent-orange" />
+                </div>
+                <span className="text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
+                  New workspace
+                </span>
+              </DropdownMenuItem>
+            </>
+          )}
+
+          {extraContent}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {canCreate && (
+        <CreateWorkspaceDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onSuccess={tenant => handleTenantSwitch(tenant.id)}
+        />
+      )}
     </>
   )
 }

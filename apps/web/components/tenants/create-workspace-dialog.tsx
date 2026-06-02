@@ -59,7 +59,8 @@ export function CreateWorkspaceDialog({
     }
 
     if (!formData.slug || !validateTenantSlug(formData.slug)) {
-      newErrors.slug = 'Slug must be lowercase letters, numbers, and hyphens only'
+      newErrors.slug =
+        'Slug must be lowercase letters, numbers, and hyphens only'
       isValid = false
     }
 

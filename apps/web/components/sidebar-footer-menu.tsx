@@ -63,7 +63,10 @@ export function SidebarFooterMenu({
 
       {canManageTenant && (
         <DropdownMenuItem asChild>
-          <Link href="/settings/tenant" className={`flex items-center gap-2.5 ${itemClass}`}>
+          <Link
+            href="/settings/tenant"
+            className={`flex items-center gap-2.5 ${itemClass}`}
+          >
             <Building2 className="size-4 text-[#6f7f80]" />
             <span className="font-medium">Workspace settings</span>
           </Link>
@@ -72,7 +75,10 @@ export function SidebarFooterMenu({
 
       {isSuperAdmin && (
         <DropdownMenuItem asChild>
-          <Link href="/admin" className={`flex items-center gap-2.5 ${itemClass}`}>
+          <Link
+            href="/admin"
+            className={`flex items-center gap-2.5 ${itemClass}`}
+          >
             <Shield className="size-4 text-[#6f7f80]" />
             <span className="font-medium">Super Admin</span>
           </Link>
