@@ -26,6 +26,7 @@ interface SidebarResizableLayoutProps {
   user?: any // Pass user prop to render UserMenu in the layout if needed
   isSuperAdmin?: boolean
   canManageTenant?: boolean
+  footerSwitcher?: React.ReactNode // Workspace switcher (with theme/settings) for the footer
 }
 
 export function SidebarResizableLayout({
@@ -33,7 +34,8 @@ export function SidebarResizableLayout({
   sidebar,
   user,
   isSuperAdmin,
-  canManageTenant
+  canManageTenant,
+  footerSwitcher
 }: SidebarResizableLayoutProps) {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar()
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
@@ -258,19 +260,6 @@ export function SidebarResizableLayout({
                 !isSidebarOpen && 'hidden'
               )}
             >
-              {isSidebarOpen && (
-                <div className="px-3 pb-2">
-                  <Button
-                    asChild
-                    className="h-10 w-full justify-start border-0 bg-[#222f30] px-4 text-white shadow-none hover:bg-[#344348] dark:bg-[#f5f8f7] dark:text-[#111918] dark:hover:bg-[#e6ede6]"
-                  >
-                    <Link href="/agents/create-chat">
-                      <IconPlus className="mr-2 size-4" />
-                      <span>New Agent</span>
-                    </Link>
-                  </Button>
-                </div>
-              )}
               <div
                 className="flex-1 overflow-y-auto"
                 onClick={handlePrimarySidebarNavigate}
@@ -284,17 +273,27 @@ export function SidebarResizableLayout({
               className={cn(
                 'shrink-0 border-t border-[#e4e3e3] p-2 dark:border-[#344348]',
                 isSidebarOpen
-                  ? 'flex items-center justify-between'
+                  ? 'flex items-center'
                   : 'flex flex-col items-center gap-1'
               )}
             >
-              <ThemeToggle />
-              {user && (
-                <UserMenu
-                  user={user}
-                  isSuperAdmin={isSuperAdmin}
-                  canManageTenant={canManageTenant}
-                />
+              {isSidebarOpen ? (
+                /* Expanded: the workspace switcher hosts the theme + settings
+                   actions inside its dropdown (see SidebarFooterMenu). */
+                <div className="min-w-0 flex-1">{footerSwitcher}</div>
+              ) : (
+                /* Collapsed rail: switcher is hidden, so keep the standalone
+                   controls reachable as stacked icons. */
+                <>
+                  <ThemeToggle />
+                  {user && (
+                    <UserMenu
+                      user={user}
+                      isSuperAdmin={isSuperAdmin}
+                      canManageTenant={canManageTenant}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Check,
@@ -8,7 +8,7 @@ import {
   Loader2,
   Building2,
   User,
-  Users
+  Plus
 } from 'lucide-react'
 import { cn } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
@@ -21,27 +21,56 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import type { TenantWithMembers } from '@/lib/tenant-context'
+import { CreateWorkspaceDialog } from '@/components/tenants/create-workspace-dialog'
 import toast from 'react-hot-toast'
 
 interface TenantSwitcherProps {
   tenants: TenantWithMembers[]
   currentTenantId: string | null
   className?: string
+  /**
+   * When false, the Personal/Organizations workspace rows are not rendered —
+   * the dropdown surfaces only extraContent. Used by the sidebar footer, where
+   * this control hosts the account menu rather than workspace switching.
+   * Defaults to true (the standalone switcher in the sidebar / settings).
+   */
+  showWorkspaceList?: boolean
+  /**
+   * Extra items rendered at the bottom of the dropdown (e.g. theme toggle,
+   * user-settings actions in the sidebar footer). When provided, the switcher
+   * always renders even with fewer than 2 workspaces so those controls stay
+   * reachable.
+   */
+  extraContent?: ReactNode
+  /**
+   * When true (and showWorkspaceList is true), a "New workspace" action is
+   * rendered at the bottom of the dropdown so any user can create a team
+   * workspace. Defaults to true for the standalone switcher.
+   */
+  allowCreate?: boolean
 }
 
 export function TenantSwitcher({
   tenants,
   currentTenantId,
-  className
+  className,
+  showWorkspaceList = true,
+  extraContent,
+  allowCreate = true
 }: TenantSwitcherProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isSwitching, setIsSwitching] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const currentTenant = tenants.find(t => t.id === currentTenantId)
 
-  const personalTenants = tenants.filter(t => t.isPersonal)
-  const orgTenants = tenants.filter(t => !t.isPersonal)
+  const personalTenants = showWorkspaceList
+    ? tenants.filter(t => t.isPersonal)
+    : []
+  const orgTenants = showWorkspaceList
+    ? tenants.filter(t => !t.isPersonal)
+    : []
 
   const getMemberLabel = (tenant: TenantWithMembers) => {
     if (tenant.isPersonal) {
@@ -84,12 +113,15 @@ export function TenantSwitcher({
     }
   }
 
-  if (tenants.length === 0) return null
-  if (tenants.length === 1) return null
+  const canCreate = allowCreate && showWorkspaceList
+  // Keep the switcher reachable for single-workspace users when creation is
+  // available, so they can still open the "New workspace" action.
+  if (tenants.length <= 1 && !extraContent && !canCreate) return null
 
   const TenantIcon = currentTenant?.isPersonal ? User : Building2
 
   return (
+    <>
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
@@ -178,7 +210,7 @@ export function TenantSwitcher({
           <>
             <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
               <Building2 className="size-3 text-[#6f7f80]" />
-              Organizations
+              Teams
             </DropdownMenuLabel>
             {orgTenants.map(tenant => (
               <TenantItem
@@ -193,14 +225,37 @@ export function TenantSwitcher({
           </>
         )}
 
-        {/*
-          "New Team Workspace" entry removed in sub-project #5 — the previous
-          flow opened a paid team-creation dialog in the deleted billing page.
-          Self-host doesn't have paid teams; if a future feature wants
-          ad-hoc workspace creation, wire a fresh dialog here.
-        */}
+        {/* Create a new team workspace (any authenticated user) */}
+        {canCreate && (
+          <>
+            {(personalTenants.length > 0 || orgTenants.length > 0) && (
+              <DropdownMenuSeparator className="bg-[#e4e3e3] dark:bg-[#344348]" />
+            )}
+            <DropdownMenuItem
+              onSelect={() => setCreateOpen(true)}
+              className="mx-1 flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 hover:bg-[#e6ede6] focus:bg-[#e6ede6] dark:hover:bg-[#344348] dark:focus:bg-[#344348]"
+            >
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#e6ede6] dark:bg-[#344348]">
+                <Plus className="size-3.5 text-accent-orange" />
+              </div>
+              <span className="text-sm font-medium text-[#222f30] dark:text-[#f5f8f7]">
+                New workspace
+              </span>
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {extraContent}
       </DropdownMenuContent>
     </DropdownMenu>
+    {canCreate && (
+      <CreateWorkspaceDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={tenant => handleTenantSwitch(tenant.id)}
+      />
+    )}
+    </>
   )
 }
 
@@ -247,12 +302,6 @@ function TenantItem({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        {!isPersonal && tenant.memberCount > 0 && (
-          <span className="flex items-center gap-0.5 rounded-full bg-[#e6ede6] px-1.5 py-0.5 text-[10px] font-medium text-[#445e5f] dark:bg-[#344348] dark:text-[#6f7f80]">
-            <Users className="size-2.5" />
-            {tenant.memberCount}
-          </span>
-        )}
         {isActive && <Check className="size-3.5 text-accent-orange" />}
       </div>
     </DropdownMenuItem>
