@@ -31,6 +31,7 @@ const { GET, POST } = await import('./route.ts')
 const SECRET = 'meta-app-secret'
 const VERIFY_TOKEN = 'wa-inbox-verify'
 const sign = (body: string) =>
+  // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- test-only fixture secret
   'sha256=' + crypto.createHmac('sha256', SECRET).update(body).digest('hex')
 
 // A signed inbound-message payload that drives processInboundMessages.
