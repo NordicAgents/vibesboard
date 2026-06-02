@@ -32,6 +32,8 @@ describe('landing showcase copy', () => {
     expect(copy).toMatch(/WhatsApp|Instagram/i)
     expect(copy).toMatch(/qualifies leads|books slots|follows up/i)
     expect(copy).toMatch(/drop off|better answer/i)
-    expect(copy).not.toMatch(/Record Vibes|Share & Vibe|authentic interactions/i)
+    expect(copy).not.toMatch(
+      /Record Vibes|Share & Vibe|authentic interactions/i
+    )
   })
 })

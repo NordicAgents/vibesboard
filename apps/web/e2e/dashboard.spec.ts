@@ -7,15 +7,19 @@ import { STORAGE_STATE } from './constants.ts'
 
 test.use({ storageState: STORAGE_STATE })
 
-test('/agents loads and shows the Create Agent affordance', async ({ page }) => {
+test('/agents loads and shows the Create Agent affordance', async ({
+  page
+}) => {
   await page.goto('/agents')
   // Should NOT be redirected to sign-in.
   await expect(page).toHaveURL(/\/agents/, { timeout: 15_000 })
 
-  // "Create Agent" is a link wrapping a button on the agents dashboard.
-  const createLink = page.locator('a[href="/agents/create-chat"]')
+  // Target the "Create Agent" affordance by accessible name: the sidebar also
+  // links to /agents/create-chat (labelled "New Agent"), and the page renders
+  // "Create Agent" in two spots (header + empty-state CTA), so match by name
+  // and take the first to avoid strict-mode on the duplicate.
+  const createLink = page.getByRole('link', { name: 'Create Agent' }).first()
   await expect(createLink).toBeVisible()
-  await expect(createLink).toContainText('Create Agent')
 })
 
 test('/settings loads without redirecting to sign-in', async ({ page }) => {

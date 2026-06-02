@@ -15,6 +15,7 @@ import {
   listBookingsForDay,
   setBookingStatus,
   upsertBooking,
+  type UpsertBookingParams,
 } from '../bookings.ts'
 
 // Seed a tenant + owner + agent + calendar connection using the BYPASSRLS
@@ -53,17 +54,20 @@ async function seed(adminDb: any) {
   return { tenantId: t, agentId: a, connId: c }
 }
 
-const baseBooking = (over: Record<string, unknown> = {}) => ({
-  provider: 'google_calendar' as const,
-  externalEventId: 'evt1',
-  title: 'Call',
-  startTime: '2026-05-25T10:00:00.000Z',
-  endTime: '2026-05-25T10:30:00.000Z',
-  timezone: 'UTC',
-  attendeeName: 'Jane',
-  attendeeEmail: 'jane@x.com',
-  ...over,
-})
+const baseBooking = (
+  over: Partial<UpsertBookingParams> = {},
+): UpsertBookingParams =>
+  ({
+    provider: 'google_calendar' as const,
+    externalEventId: 'evt1',
+    title: 'Call',
+    startTime: '2026-05-25T10:00:00.000Z',
+    endTime: '2026-05-25T10:30:00.000Z',
+    timezone: 'UTC',
+    attendeeName: 'Jane',
+    attendeeEmail: 'jane@x.com',
+    ...over,
+  }) as UpsertBookingParams
 
 describe('booking persistence', () => {
   it('upsertBooking persists a confirmed booking and maps the row', async () => {

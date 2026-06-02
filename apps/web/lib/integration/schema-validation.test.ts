@@ -28,14 +28,17 @@ const agentAskRequestSchema = z.object({
 describe('agentChatMessageSchema', () => {
   it('accepts valid user message', () => {
     expect(
-      agentChatMessageSchema.safeParse({ role: 'user', content: 'Hello' }).success
+      agentChatMessageSchema.safeParse({ role: 'user', content: 'Hello' })
+        .success
     ).toBeTruthy()
   })
 
   it('accepts valid assistant message', () => {
     expect(
-      agentChatMessageSchema.safeParse({ role: 'assistant', content: 'Hi there' })
-        .success
+      agentChatMessageSchema.safeParse({
+        role: 'assistant',
+        content: 'Hi there'
+      }).success
     ).toBeTruthy()
   })
 
@@ -78,12 +81,15 @@ describe('agentChatMessageSchema', () => {
 
   it('rejects invalid role', () => {
     expect(
-      agentChatMessageSchema.safeParse({ role: 'tool', content: 'Hello' }).success
+      agentChatMessageSchema.safeParse({ role: 'tool', content: 'Hello' })
+        .success
     ).toBe(false)
   })
 
   it('rejects missing content', () => {
-    expect(agentChatMessageSchema.safeParse({ role: 'user' }).success).toBe(false)
+    expect(agentChatMessageSchema.safeParse({ role: 'user' }).success).toBe(
+      false
+    )
   })
 })
 
@@ -113,7 +119,9 @@ describe('agentChatRequestSchema', () => {
   })
 
   it('allows an empty messages array (no min set)', () => {
-    expect(agentChatRequestSchema.safeParse({ messages: [] }).success).toBeTruthy()
+    expect(
+      agentChatRequestSchema.safeParse({ messages: [] }).success
+    ).toBeTruthy()
   })
 
   it('accepts optional conversationId', () => {
@@ -153,7 +161,9 @@ describe('agentAskRequestSchema', () => {
   })
 
   it('rejects empty question', () => {
-    expect(agentAskRequestSchema.safeParse({ question: '' }).success).toBe(false)
+    expect(agentAskRequestSchema.safeParse({ question: '' }).success).toBe(
+      false
+    )
   })
 
   it('rejects question longer than 2000 chars', () => {
@@ -197,7 +207,8 @@ describe('agentAskRequestSchema', () => {
 
   it('rejects empty sessionId', () => {
     expect(
-      agentAskRequestSchema.safeParse({ question: 'Hello', sessionId: '' }).success
+      agentAskRequestSchema.safeParse({ question: 'Hello', sessionId: '' })
+        .success
     ).toBe(false)
   })
 })

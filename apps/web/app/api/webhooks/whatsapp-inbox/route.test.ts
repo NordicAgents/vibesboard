@@ -17,12 +17,15 @@ vi.mock('@/lib/webhooks/verification', async () =>
 )
 
 // Stub the channel webhook handlers so no real processing / network happens.
-const processInboundMessagesMock = vi.fn(async () => undefined)
-const processStatusUpdatesMock = vi.fn(async () => undefined)
+const processInboundMessagesMock = vi.fn(
+  async (..._args: unknown[]) => undefined
+)
+const processStatusUpdatesMock = vi.fn(async (..._args: unknown[]) => undefined)
 vi.mock('@vibesboard/channel-whatsapp/webhook-handlers', () => ({
   processInboundMessages: (...args: unknown[]) =>
     processInboundMessagesMock(...args),
-  processStatusUpdates: (...args: unknown[]) => processStatusUpdatesMock(...args)
+  processStatusUpdates: (...args: unknown[]) =>
+    processStatusUpdatesMock(...args)
 }))
 
 const { GET, POST } = await import('./route.ts')
@@ -30,6 +33,7 @@ const { GET, POST } = await import('./route.ts')
 const SECRET = 'meta-app-secret'
 const VERIFY_TOKEN = 'wa-inbox-verify'
 const sign = (body: string) =>
+  // nosemgrep: javascript.lang.security.audit.hardcoded-hmac-key.hardcoded-hmac-key -- test-only fixture secret
   'sha256=' + crypto.createHmac('sha256', SECRET).update(body).digest('hex')
 
 // A signed inbound-message payload that drives processInboundMessages.
