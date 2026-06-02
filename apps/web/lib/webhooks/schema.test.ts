@@ -2,10 +2,7 @@
 // Meta webhook routes — malformed payloads/verification queries must be
 // rejected before any handler runs.
 import { describe, it, expect } from 'vitest'
-import {
-  WebhookPayloadSchema,
-  WebhookVerificationSchema
-} from './schema.ts'
+import { WebhookPayloadSchema, WebhookVerificationSchema } from './schema.ts'
 
 describe('WebhookVerificationSchema', () => {
   it('accepts a complete verification query', () => {

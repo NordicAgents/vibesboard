@@ -102,7 +102,10 @@ describe.skipIf(!canRunIntegration || !TEST_AGENT_ID)(
 
       const usageRes = await fetch(
         `${BASE_URL}/api/admin/tenants/${TEST_TENANT_ID}/usage`,
-        { headers: { Cookie: AUTH_COOKIE }, signal: AbortSignal.timeout(10_000) }
+        {
+          headers: { Cookie: AUTH_COOKIE },
+          signal: AbortSignal.timeout(10_000)
+        }
       )
       expect(usageRes.status).toBe(200)
       const usage = await usageRes.json()

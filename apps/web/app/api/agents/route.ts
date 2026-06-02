@@ -6,12 +6,12 @@ import { requireAuth } from '@/lib/auth/route-handler'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import {
   agents as agentsTable,
-  tenants as tenantsTable,
+  tenants as tenantsTable
 } from '@vibesboard/adapter-postgres/schema'
 import {
   mapAgentDoc,
   createAgentSlug,
-  ensureUniqueSlug,
+  ensureUniqueSlug
 } from '@vibesboard/agents/db'
 import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
@@ -25,7 +25,7 @@ export const runtime = 'nodejs'
 // dates as ISO strings).
 function toAgentRecord(
   row: typeof agentsTable.$inferSelect,
-  tenantSlug: string,
+  tenantSlug: string
 ): Record<string, unknown> {
   return {
     id: row.id,
@@ -58,7 +58,7 @@ function toAgentRecord(
     bookingConfig: row.bookingConfig ?? undefined,
     lastEmbeddingsSyncAt: row.lastEmbeddingsSyncAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString()
   }
 }
 
@@ -99,7 +99,7 @@ export async function GET(req: Request) {
   const rows = await db
     .select({
       agent: agentsTable,
-      tenantSlug: tenantsTable.slug,
+      tenantSlug: tenantsTable.slug
     })
     .from(agentsTable)
     .innerJoin(tenantsTable, eq(agentsTable.tenantId, tenantsTable.id))
@@ -108,7 +108,9 @@ export async function GET(req: Request) {
     .offset(from)
     .limit(limit)
 
-  const agents = rows.map((r) => mapAgentDoc(toAgentRecord(r.agent, r.tenantSlug)))
+  const agents = rows.map(r =>
+    mapAgentDoc(toAgentRecord(r.agent, r.tenantSlug))
+  )
 
   return NextResponse.json({
     agents,
@@ -116,8 +118,8 @@ export async function GET(req: Request) {
       page,
       limit,
       total,
-      totalPages: Math.ceil(total / limit),
-    },
+      totalPages: Math.ceil(total / limit)
+    }
   })
 }
 
@@ -135,9 +137,9 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          'No tenant available for this user; ensure tenant membership exists.',
+          'No tenant available for this user; ensure tenant membership exists.'
       },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
@@ -175,7 +177,7 @@ export async function POST(req: Request) {
     // generations of the integration. Stored verbatim as JSONB; downstream
     // readers normalize.
     dataConfig: (payload.dataConfig ?? null) as never,
-    calendarAvailabilityConfig: payload.calendarAvailabilityConfig ?? null,
+    calendarAvailabilityConfig: payload.calendarAvailabilityConfig ?? null
   }
 
   let inserted: typeof agentsTable.$inferSelect
@@ -188,9 +190,9 @@ export async function POST(req: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Unable to create agent',
+        error: error instanceof Error ? error.message : 'Unable to create agent'
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 
@@ -201,7 +203,7 @@ export async function POST(req: Request) {
       agentId: agent.id,
       tenantId,
       userId: user.id,
-      fileKeys: payload.fileKeys,
+      fileKeys: payload.fileKeys
     })
   }
 

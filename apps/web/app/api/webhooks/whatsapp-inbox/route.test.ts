@@ -22,7 +22,8 @@ const processStatusUpdatesMock = vi.fn(async () => undefined)
 vi.mock('@vibesboard/channel-whatsapp/webhook-handlers', () => ({
   processInboundMessages: (...args: unknown[]) =>
     processInboundMessagesMock(...args),
-  processStatusUpdates: (...args: unknown[]) => processStatusUpdatesMock(...args)
+  processStatusUpdates: (...args: unknown[]) =>
+    processStatusUpdatesMock(...args)
 }))
 
 const { GET, POST } = await import('./route.ts')
