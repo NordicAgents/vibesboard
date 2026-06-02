@@ -17,8 +17,10 @@ vi.mock('@/lib/webhooks/verification', async () =>
 )
 
 // Stub the channel webhook handlers so no real processing / network happens.
-const processInboundMessagesMock = vi.fn(async () => undefined)
-const processStatusUpdatesMock = vi.fn(async () => undefined)
+const processInboundMessagesMock = vi.fn(
+  async (..._args: unknown[]) => undefined
+)
+const processStatusUpdatesMock = vi.fn(async (..._args: unknown[]) => undefined)
 vi.mock('@vibesboard/channel-whatsapp/webhook-handlers', () => ({
   processInboundMessages: (...args: unknown[]) =>
     processInboundMessagesMock(...args),

@@ -70,7 +70,7 @@ describe('GoogleCalendarProvider.checkAvailability', () => {
     // 09:00-12:00 in 60-min slots with no busy and zero buffer -> 3 slots
     expect(slots.length).toBe(3)
 
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://www.googleapis.com/calendar/v3/freeBusy')
     expect(init.method).toBe('POST')
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
@@ -153,7 +153,7 @@ describe('GoogleCalendarProvider.createEvent', () => {
     expect(result.htmlLink).toBe('https://cal/evt-1')
     expect(result.meetLink).toBe(undefined)
 
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toContain('/calendars/primary/events')
     expect(url).toContain('sendUpdates=all')
     expect(url).not.toContain('conferenceDataVersion')
@@ -185,7 +185,7 @@ describe('GoogleCalendarProvider.createEvent', () => {
     const result = await provider.createEvent(eventParams({ createMeetLink: true }))
     expect(result.meetLink).toBe('https://meet.google.com/abc')
 
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toContain('conferenceDataVersion=1')
     const body = JSON.parse(init.body as string)
     expect(body.conferenceData.createRequest.conferenceSolutionKey.type).toBe('hangoutsMeet')
@@ -213,7 +213,7 @@ describe('GoogleCalendarProvider.updateEvent / deleteEvent', () => {
     globalThis.fetch = spy as unknown as typeof fetch
 
     await provider.updateEvent('evt-1', { title: 'New title', timezone: 'UTC' })
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(init.method).toBe('PATCH')
     expect(url).toContain('/events/evt-1')
     const body = JSON.parse(init.body as string)
@@ -226,7 +226,7 @@ describe('GoogleCalendarProvider.updateEvent / deleteEvent', () => {
     const spy = vi.fn(async () => new Response(null, { status: 204 }))
     globalThis.fetch = spy as unknown as typeof fetch
     await expect(provider.deleteEvent('evt-1')).resolves.toBeUndefined()
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(init.method).toBe('DELETE')
     expect(url).toContain('/events/evt-1')
   })
@@ -287,7 +287,7 @@ describe('standalone calendar event helpers', () => {
     expect(events[1].summary).toBe('(no title)')
     expect(events[1].start).toBe('2030-01-03') // falls back to date
 
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toContain('/calendars/primary/events')
     expect(url).toContain('singleEvents=true')
     expect(url).toContain('orderBy=startTime')
@@ -328,7 +328,7 @@ describe('standalone calendar event helpers', () => {
       end: { dateTime: 'e' },
     })
     expect(ev.id).toBe('new')
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toContain('/calendars/team%40group.calendar.google.com/events')
     expect(init.method).toBe('POST')
   })
@@ -344,7 +344,8 @@ describe('standalone calendar event helpers', () => {
     globalThis.fetch = spy as unknown as typeof fetch
     const ev = await getCalendarEvent('tok', 'primary', 'e1')
     expect(ev.id).toBe('e1')
-    expect((spy.mock.calls[0][0] as string)).toContain('/events/e1')
+    const [url] = spy.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toContain('/events/e1')
   })
 
   it('updateCalendarEvent PATCHes the updates', async () => {
@@ -358,7 +359,8 @@ describe('standalone calendar event helpers', () => {
     globalThis.fetch = spy as unknown as typeof fetch
     const ev = await updateCalendarEvent('tok', 'primary', 'e1', { summary: 'Y' })
     expect(ev.summary).toBe('Y')
-    expect((spy.mock.calls[0][1] as RequestInit).method).toBe('PATCH')
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.method).toBe('PATCH')
   })
 
   it('deleteCalendarEvent tolerates a 410 Gone response (already deleted)', async () => {

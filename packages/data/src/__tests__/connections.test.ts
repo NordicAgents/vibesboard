@@ -462,7 +462,7 @@ describe('data connection CRUD (postgres)', () => {
       )
 
       // Attempt to flip status using the wrong tenant id → no-op.
-      await updateDataConnectionStatus(b.t, created.id, 'revoked', adminDb)
+      await updateDataConnectionStatus(b.t, created.id, 'expired', adminDb)
       expect((await getDataConnection(a.t, created.id, adminDb))?.status).toBe(
         'active',
       )
