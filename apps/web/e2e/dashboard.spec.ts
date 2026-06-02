@@ -7,13 +7,17 @@ import { STORAGE_STATE } from './constants.ts'
 
 test.use({ storageState: STORAGE_STATE })
 
-test('/agents loads and shows the Create Agent affordance', async ({ page }) => {
+test('/agents loads and shows the Create Agent affordance', async ({
+  page
+}) => {
   await page.goto('/agents')
   // Should NOT be redirected to sign-in.
   await expect(page).toHaveURL(/\/agents/, { timeout: 15_000 })
 
-  // "Create Agent" is a link wrapping a button on the agents dashboard.
-  const createLink = page.locator('a[href="/agents/create-chat"]')
+  // "Create Agent" is a link wrapping a button on the agents dashboard. The
+  // page renders it twice (header + empty-state CTA), so scope to the first
+  // match rather than tripping strict-mode on the duplicate.
+  const createLink = page.locator('a[href="/agents/create-chat"]').first()
   await expect(createLink).toBeVisible()
   await expect(createLink).toContainText('Create Agent')
 })
