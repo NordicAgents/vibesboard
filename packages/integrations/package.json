@@ -11,7 +11,8 @@
     "./types": "./src/types.ts"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@vibesboard/policy": "workspace:*"
