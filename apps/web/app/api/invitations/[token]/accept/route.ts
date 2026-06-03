@@ -22,7 +22,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   const result = await acceptInvitation(getMigrateDb(), {
     token,
-    userId: auth.user.id,
+    userId: auth.user.id
   })
 
   // Success path first so TypeScript narrows `result` to the ok variant.
@@ -33,22 +33,34 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   switch (result.code) {
     case 'NOT_FOUND':
-      return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Invitation not found' },
+        { status: 404 }
+      )
     case 'EXPIRED':
-      return NextResponse.json({ error: 'Invitation has expired' }, { status: 410 })
+      return NextResponse.json(
+        { error: 'Invitation has expired' },
+        { status: 410 }
+      )
     case 'ALREADY_ACCEPTED':
       return NextResponse.json(
         { error: 'Invitation has already been accepted' },
-        { status: 410 },
+        { status: 410 }
       )
     case 'INVALID':
-      return NextResponse.json({ error: 'Invitation is no longer valid' }, { status: 410 })
+      return NextResponse.json(
+        { error: 'Invitation is no longer valid' },
+        { status: 410 }
+      )
     case 'ALREADY_MEMBER':
       return NextResponse.json(
         { error: 'You are already a member of this tenant' },
-        { status: 409 },
+        { status: 409 }
       )
     default:
-      return NextResponse.json({ error: 'Invitation is no longer valid' }, { status: 410 })
+      return NextResponse.json(
+        { error: 'Invitation is no longer valid' },
+        { status: 410 }
+      )
   }
 }

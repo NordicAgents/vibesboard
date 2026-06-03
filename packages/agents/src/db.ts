@@ -98,7 +98,7 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
 }
 
 /**
- * Map a Firestore agent document to the VibeAgent interface
+ * Map a raw agent record to the VibeAgent interface
  */
 export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   id: data.id,

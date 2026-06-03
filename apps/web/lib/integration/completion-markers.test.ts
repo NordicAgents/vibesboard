@@ -1,17 +1,11 @@
 /**
  * Tests for completion marker detection and TransformStream logic.
  *
- * These are pure-logic tests — no external dependencies.
- * Source module: lib/agent/completion.ts
- *
- * Run:
- *   node --experimental-strip-types --test lib/integration/completion-markers.test.ts
+ * Pure-logic tests — no external dependencies. Constants and functions are
+ * replicated inline to match @vibesboard/ai/completion (the source module
+ * pulls in server-only deps not importable in a node test environment).
  */
-import { test, describe } from 'node:test'
-import assert from 'node:assert'
-
-// Replicate constants and functions inline since @/ path aliases
-// don't resolve in the Node test runner. Must match lib/agent/completion.ts.
+import { describe, it, expect } from 'vitest'
 
 const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
@@ -123,8 +117,6 @@ function createCompletionTransformStream(
         }
       }
 
-      // Emit completion metadata — at most ONE CHAT_COMPLETE block.
-      // LLM completion reason takes priority over max_responses.
       const effectiveReason =
         completionReason || (maxResponsesReached ? 'max_responses' : null)
       if (effectiveReason) {
@@ -153,7 +145,6 @@ function wrapStreamWithCompletionDetection(
   return stream.pipeThrough(transformStream)
 }
 
-// Helper: create a ReadableStream from a string
 function stringToStream(text: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   return new ReadableStream({
@@ -164,7 +155,6 @@ function stringToStream(text: string): ReadableStream<Uint8Array> {
   })
 }
 
-// Helper: consume a stream to string
 async function consumeStream(
   stream: ReadableStream<Uint8Array>
 ): Promise<string> {
@@ -179,383 +169,300 @@ async function consumeStream(
   return result
 }
 
-// -------------------------------------------------------------------
-// 1. detectCompletionMarker
-// -------------------------------------------------------------------
 describe('detectCompletionMarker', () => {
-  test('detects [COLLECTION_COMPLETE]', () => {
-    const result = detectCompletionMarker(
-      'Thank you for the info. [COLLECTION_COMPLETE]'
+  it('detects [COLLECTION_COMPLETE]', () => {
+    expect(
+      detectCompletionMarker('Thank you for the info. [COLLECTION_COMPLETE]')
+    ).toBe('collection_complete')
+  })
+
+  it('detects [INFO_COMPLETE]', () => {
+    expect(detectCompletionMarker('All done! [INFO_COMPLETE]')).toBe(
+      'info_complete'
     )
-    assert.strictEqual(result, 'collection_complete')
   })
 
-  test('detects [INFO_COMPLETE]', () => {
-    const result = detectCompletionMarker('All done! [INFO_COMPLETE]')
-    assert.strictEqual(result, 'info_complete')
+  it('detects [HANDOFF_TO_HUMAN]', () => {
+    expect(
+      detectCompletionMarker('Let me transfer you. [HANDOFF_TO_HUMAN]')
+    ).toBe('handoff_to_human')
   })
 
-  test('detects [HANDOFF_TO_HUMAN]', () => {
-    const result = detectCompletionMarker(
-      'Let me transfer you. [HANDOFF_TO_HUMAN]'
-    )
-    assert.strictEqual(result, 'handoff_to_human')
+  it('detects [HANDOFF_TO_AGENT:id-123]', () => {
+    expect(
+      detectCompletionMarker('Transferring... [HANDOFF_TO_AGENT:id-123]')
+    ).toBe('handoff_to_agent')
   })
 
-  test('detects [HANDOFF_TO_AGENT:id-123]', () => {
-    const result = detectCompletionMarker(
-      'Transferring... [HANDOFF_TO_AGENT:id-123]'
-    )
-    assert.strictEqual(result, 'handoff_to_agent')
+  it('returns null for plain text', () => {
+    expect(
+      detectCompletionMarker('Just a regular response with no markers.')
+    ).toBe(null)
   })
 
-  test('returns null for plain text', () => {
-    const result = detectCompletionMarker(
-      'Just a regular response with no markers.'
-    )
-    assert.strictEqual(result, null)
+  it('returns null for empty string', () => {
+    expect(detectCompletionMarker('')).toBe(null)
   })
 
-  test('returns null for empty string', () => {
-    assert.strictEqual(detectCompletionMarker(''), null)
-  })
-
-  test('returns first matching marker when multiple present', () => {
-    // COLLECTION_COMPLETE is checked first
-    const result = detectCompletionMarker(
-      '[COLLECTION_COMPLETE] [INFO_COMPLETE]'
-    )
-    assert.strictEqual(result, 'collection_complete')
+  it('returns first matching marker when multiple present', () => {
+    expect(
+      detectCompletionMarker('[COLLECTION_COMPLETE] [INFO_COMPLETE]')
+    ).toBe('collection_complete')
   })
 })
 
-// -------------------------------------------------------------------
-// 2. extractHandoffTarget
-// -------------------------------------------------------------------
 describe('extractHandoffTarget', () => {
-  test('extracts agent ID from marker', () => {
-    const result = extractHandoffTarget(
-      'Transferring... [HANDOFF_TO_AGENT:abc-123]'
+  it('extracts agent ID from marker', () => {
+    expect(
+      extractHandoffTarget('Transferring... [HANDOFF_TO_AGENT:abc-123]')
+    ).toBe('abc-123')
+  })
+
+  it('extracts agent ID with underscores', () => {
+    expect(extractHandoffTarget('[HANDOFF_TO_AGENT:my_agent_42]')).toBe(
+      'my_agent_42'
     )
-    assert.strictEqual(result, 'abc-123')
   })
 
-  test('extracts agent ID with underscores', () => {
-    const result = extractHandoffTarget('[HANDOFF_TO_AGENT:my_agent_42]')
-    assert.strictEqual(result, 'my_agent_42')
+  it('returns null when no marker present', () => {
+    expect(extractHandoffTarget('No marker here')).toBe(null)
   })
 
-  test('returns null when no marker present', () => {
-    assert.strictEqual(extractHandoffTarget('No marker here'), null)
-  })
-
-  test('returns null for empty string', () => {
-    assert.strictEqual(extractHandoffTarget(''), null)
+  it('returns null for empty string', () => {
+    expect(extractHandoffTarget('')).toBe(null)
   })
 })
 
-// -------------------------------------------------------------------
-// 3. stripCompletionMarkers
-// -------------------------------------------------------------------
 describe('stripCompletionMarkers', () => {
-  test('removes [COLLECTION_COMPLETE]', () => {
-    const result = stripCompletionMarkers('Thanks! [COLLECTION_COMPLETE]')
-    assert.strictEqual(result, 'Thanks!')
-  })
-
-  test('removes [INFO_COMPLETE]', () => {
-    const result = stripCompletionMarkers('Done. [INFO_COMPLETE]')
-    assert.strictEqual(result, 'Done.')
-  })
-
-  test('removes [HANDOFF_TO_HUMAN]', () => {
-    const result = stripCompletionMarkers('Transferring. [HANDOFF_TO_HUMAN]')
-    assert.strictEqual(result, 'Transferring.')
-  })
-
-  test('removes [HANDOFF_TO_AGENT:id]', () => {
-    const result = stripCompletionMarkers(
-      'Going to agent. [HANDOFF_TO_AGENT:agent-x]'
+  it('removes [COLLECTION_COMPLETE]', () => {
+    expect(stripCompletionMarkers('Thanks! [COLLECTION_COMPLETE]')).toBe(
+      'Thanks!'
     )
-    assert.strictEqual(result, 'Going to agent.')
   })
 
-  test('removes <!--SUGGESTIONS:...-->', () => {
-    const result = stripCompletionMarkers(
-      'Hello <!--SUGGESTIONS:{"items":["a","b"]}-->'
+  it('removes [INFO_COMPLETE]', () => {
+    expect(stripCompletionMarkers('Done. [INFO_COMPLETE]')).toBe('Done.')
+  })
+
+  it('removes [HANDOFF_TO_HUMAN]', () => {
+    expect(stripCompletionMarkers('Transferring. [HANDOFF_TO_HUMAN]')).toBe(
+      'Transferring.'
     )
-    assert.strictEqual(result, 'Hello')
   })
 
-  test('removes <!--SUGGESTIONS: ...-> with space after colon (LLM often adds space)', () => {
-    const result = stripCompletionMarkers(
-      'Hello <!--SUGGESTIONS: {"suggestions":["Check availability","Make a new booking"]}-->'
-    )
-    assert.strictEqual(result, 'Hello')
+  it('removes [HANDOFF_TO_AGENT:id]', () => {
+    expect(
+      stripCompletionMarkers('Going to agent. [HANDOFF_TO_AGENT:agent-x]')
+    ).toBe('Going to agent.')
   })
 
-  test('removes all marker types at once', () => {
+  it('removes <!--SUGGESTIONS:...-->', () => {
+    expect(
+      stripCompletionMarkers('Hello <!--SUGGESTIONS:{"items":["a","b"]}-->')
+    ).toBe('Hello')
+  })
+
+  it('removes <!--SUGGESTIONS: ...-> with space after colon (LLM often adds space)', () => {
+    expect(
+      stripCompletionMarkers(
+        'Hello <!--SUGGESTIONS: {"suggestions":["Check availability","Make a new booking"]}-->'
+      )
+    ).toBe('Hello')
+  })
+
+  it('removes all marker types at once', () => {
     const input =
       'Text [COLLECTION_COMPLETE] [INFO_COMPLETE] [HANDOFF_TO_HUMAN] <!--SUGGESTIONS:{"a":1}-->'
-    const result = stripCompletionMarkers(input)
-    assert.strictEqual(result, 'Text')
+    expect(stripCompletionMarkers(input)).toBe('Text')
   })
 
-  test('trims whitespace', () => {
-    const result = stripCompletionMarkers('  Hello  [COLLECTION_COMPLETE]  ')
-    assert.strictEqual(result, 'Hello')
+  it('trims whitespace', () => {
+    expect(stripCompletionMarkers('  Hello  [COLLECTION_COMPLETE]  ')).toBe(
+      'Hello'
+    )
   })
 
-  test('returns empty string when text is only markers', () => {
-    const result = stripCompletionMarkers('[COLLECTION_COMPLETE]')
-    assert.strictEqual(result, '')
+  it('returns empty string when text is only markers', () => {
+    expect(stripCompletionMarkers('[COLLECTION_COMPLETE]')).toBe('')
   })
 })
 
-// -------------------------------------------------------------------
-// 4. createCompletionTransformStream — hold-back buffer
-// -------------------------------------------------------------------
 describe('createCompletionTransformStream hold-back buffer', () => {
-  test('holds back last 30 chars until flush', async () => {
+  it('holds back last 30 chars until flush', async () => {
     const input = 'Hello, world! This is a test message.'
     const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    // No markers → output should match input exactly
-    assert.strictEqual(output, input)
+    const output = await consumeStream(
+      stream.pipeThrough(createCompletionTransformStream())
+    )
+    expect(output).toBe(input)
   })
 
-  test('handles text shorter than 30 chars', async () => {
+  it('handles text shorter than 30 chars', async () => {
     const input = 'Short text'
     const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    assert.strictEqual(output, input)
+    const output = await consumeStream(
+      stream.pipeThrough(createCompletionTransformStream())
+    )
+    expect(output).toBe(input)
   })
 })
 
-// -------------------------------------------------------------------
-// 5. createCompletionTransformStream — marker stripping
-// -------------------------------------------------------------------
 describe('createCompletionTransformStream marker handling', () => {
-  test('strips [COLLECTION_COMPLETE] and appends CHAT_COMPLETE metadata', async () => {
+  it('strips [COLLECTION_COMPLETE] and appends CHAT_COMPLETE metadata', async () => {
     const input = 'Thank you for providing all the info. [COLLECTION_COMPLETE]'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream())
+    )
 
-    assert.ok(
-      !output.includes('[COLLECTION_COMPLETE]'),
-      'Marker should be stripped'
-    )
-    assert.ok(
-      output.includes('Thank you for providing all the info.'),
-      'Text should be preserved'
-    )
-    assert.ok(
-      output.includes('<!--CHAT_COMPLETE:'),
-      'Should have completion metadata'
-    )
+    expect(output.includes('[COLLECTION_COMPLETE]')).toBe(false)
+    expect(
+      output.includes('Thank you for providing all the info.')
+    ).toBeTruthy()
+    expect(output.includes('<!--CHAT_COMPLETE:')).toBeTruthy()
 
     const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
-    assert.ok(metaMatch, 'Metadata should be parseable')
+    expect(metaMatch).toBeTruthy()
     const meta = JSON.parse(metaMatch![1])
-    assert.strictEqual(meta.chatComplete, true)
-    assert.strictEqual(meta.reason, 'collection_complete')
+    expect(meta.chatComplete).toBe(true)
+    expect(meta.reason).toBe('collection_complete')
   })
 
-  test('strips [INFO_COMPLETE] and appends metadata', async () => {
+  it('strips [INFO_COMPLETE] and appends metadata', async () => {
     const input = 'Here is the information. [INFO_COMPLETE]'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream())
+    )
 
-    assert.ok(!output.includes('[INFO_COMPLETE]'))
-    assert.ok(output.includes('<!--CHAT_COMPLETE:'))
+    expect(output.includes('[INFO_COMPLETE]')).toBe(false)
+    expect(output.includes('<!--CHAT_COMPLETE:')).toBeTruthy()
 
-    const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
-    const meta = JSON.parse(metaMatch![1])
-    assert.strictEqual(meta.reason, 'info_complete')
+    const meta = JSON.parse(output.match(/<!--CHAT_COMPLETE:(.+?)-->/)![1])
+    expect(meta.reason).toBe('info_complete')
   })
 
-  test('emits AGENT_HANDOFF metadata for handoff markers', async () => {
+  it('emits AGENT_HANDOFF metadata for handoff markers', async () => {
     const input =
       'Let me transfer you to our sales team. [HANDOFF_TO_AGENT:sales-bot-1]'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream(
-      undefined,
-      undefined,
-      { 'sales-bot-1': 'Sales Bot' }
-    )
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    assert.ok(
-      !output.includes('[HANDOFF_TO_AGENT:'),
-      'Handoff marker should be stripped'
-    )
-    assert.ok(
-      output.includes('<!--AGENT_HANDOFF:'),
-      'Should have handoff metadata'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(
+        createCompletionTransformStream(undefined, undefined, {
+          'sales-bot-1': 'Sales Bot'
+        })
+      )
     )
 
-    const handoffMatch = output.match(/<!--AGENT_HANDOFF:(.+?)-->/)
-    assert.ok(handoffMatch)
-    const handoffMeta = JSON.parse(handoffMatch![1])
-    assert.strictEqual(handoffMeta.targetAgentId, 'sales-bot-1')
-    assert.strictEqual(handoffMeta.targetAgentName, 'Sales Bot')
+    expect(output.includes('[HANDOFF_TO_AGENT:')).toBe(false)
+    expect(output.includes('<!--AGENT_HANDOFF:')).toBeTruthy()
+
+    const handoffMeta = JSON.parse(
+      output.match(/<!--AGENT_HANDOFF:(.+?)-->/)![1]
+    )
+    expect(handoffMeta.targetAgentId).toBe('sales-bot-1')
+    expect(handoffMeta.targetAgentName).toBe('Sales Bot')
   })
 
-  test('sets chatComplete: false for handoff_to_agent', async () => {
+  it('sets chatComplete: false for handoff_to_agent', async () => {
     const input = 'Transferring. [HANDOFF_TO_AGENT:other-agent]'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
-    assert.ok(metaMatch)
-    const meta = JSON.parse(metaMatch![1])
-    assert.strictEqual(
-      meta.chatComplete,
-      false,
-      'Handoffs should not mark chat as complete'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream())
     )
-    assert.strictEqual(meta.reason, 'handoff_to_agent')
+    const meta = JSON.parse(output.match(/<!--CHAT_COMPLETE:(.+?)-->/)![1])
+    expect(meta.chatComplete).toBe(false)
+    expect(meta.reason).toBe('handoff_to_agent')
   })
 
-  test('handles maxResponses threshold without marker', async () => {
+  it('handles maxResponses threshold without marker', async () => {
     const input = 'Just a normal response.'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream(5, 5) // at limit
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    assert.ok(output.includes('Just a normal response.'))
-    assert.ok(
-      output.includes('<!--CHAT_COMPLETE:'),
-      'Should emit completion at max responses'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream(5, 5))
     )
 
-    const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
-    const meta = JSON.parse(metaMatch![1])
-    assert.strictEqual(meta.reason, 'max_responses')
-    assert.strictEqual(meta.chatComplete, true)
+    expect(output.includes('Just a normal response.')).toBeTruthy()
+    expect(output.includes('<!--CHAT_COMPLETE:')).toBeTruthy()
+
+    const meta = JSON.parse(output.match(/<!--CHAT_COMPLETE:(.+?)-->/)![1])
+    expect(meta.reason).toBe('max_responses')
+    expect(meta.chatComplete).toBe(true)
   })
 
-  test('no metadata appended for plain text without markers or limits', async () => {
+  it('no metadata appended for plain text without markers or limits', async () => {
     const input = 'Just a regular reply with no special markers at all.'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    assert.strictEqual(output, input)
-    assert.ok(
-      !output.includes('<!--CHAT_COMPLETE:'),
-      'Should not have completion metadata'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream())
     )
-    assert.ok(
-      !output.includes('<!--AGENT_HANDOFF:'),
-      'Should not have handoff metadata'
-    )
+    expect(output).toBe(input)
+    expect(output.includes('<!--CHAT_COMPLETE:')).toBe(false)
+    expect(output.includes('<!--AGENT_HANDOFF:')).toBe(false)
   })
 
-  test('strips <!--SUGGESTIONS:...-> without leaking it during streaming', async () => {
+  it('strips <!--SUGGESTIONS:...-> without leaking it during streaming', async () => {
     const input =
       'Here is my response. <!--SUGGESTIONS:{"suggestions":["Option A","Option B"]}-->'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    assert.ok(
-      !output.includes('<!--SUGGESTIONS:'),
-      'SUGGESTIONS marker should not appear in output'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream())
     )
-    assert.ok(
-      output.includes('Here is my response.'),
-      'Main text should be preserved'
-    )
+    expect(output.includes('<!--SUGGESTIONS:')).toBe(false)
+    expect(output.includes('Here is my response.')).toBeTruthy()
   })
 
-  test('strips <!--SUGGESTIONS: ...-> with space after colon without leaking', async () => {
+  it('strips <!--SUGGESTIONS: ...-> with space after colon without leaking', async () => {
     const input =
       'Here is my response. <!--SUGGESTIONS: {"suggestions":["Check availability","Make a new booking","Edit an existing booking","Contact support"]}-->'
-    const stream = stringToStream(input)
-    const transformStream = createCompletionTransformStream()
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    assert.ok(
-      !output.includes('<!--SUGGESTIONS:'),
-      'Spaced SUGGESTIONS marker should not appear in output'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream())
     )
-    assert.ok(
-      output.includes('Here is my response.'),
-      'Main text should be preserved'
-    )
+    expect(output.includes('<!--SUGGESTIONS:')).toBe(false)
+    expect(output.includes('Here is my response.')).toBeTruthy()
   })
 
-  test('emits only ONE CHAT_COMPLETE when LLM marker and maxResponses collide', async () => {
+  it('emits only ONE CHAT_COMPLETE when LLM marker and maxResponses collide', async () => {
     const input = 'Thanks for the info! [COLLECTION_COMPLETE]'
-    const stream = stringToStream(input)
-    // currentResponseCount (5) >= maxResponses (5) AND LLM emitted marker
-    const transformStream = createCompletionTransformStream(5, 5)
-    const output = await consumeStream(stream.pipeThrough(transformStream))
-
-    const matches = output.match(/<!--CHAT_COMPLETE:/g)
-    assert.strictEqual(
-      matches?.length,
-      1,
-      'Should emit exactly one CHAT_COMPLETE marker'
+    const output = await consumeStream(
+      stringToStream(input).pipeThrough(createCompletionTransformStream(5, 5))
     )
 
-    const metaMatch = output.match(/<!--CHAT_COMPLETE:(.+?)-->/)
-    const meta = JSON.parse(metaMatch![1])
-    // The LLM completion reason should take priority over max_responses
-    assert.strictEqual(meta.reason, 'collection_complete')
-    assert.strictEqual(meta.chatComplete, true)
+    const matches = output.match(/<!--CHAT_COMPLETE:/g)
+    expect(matches?.length).toBe(1)
+
+    const meta = JSON.parse(output.match(/<!--CHAT_COMPLETE:(.+?)-->/)![1])
+    expect(meta.reason).toBe('collection_complete')
+    expect(meta.chatComplete).toBe(true)
   })
 })
 
-// -------------------------------------------------------------------
-// 6. wrapStreamWithCompletionDetection — end-to-end
-// -------------------------------------------------------------------
 describe('wrapStreamWithCompletionDetection', () => {
-  test('pipes stream through transform correctly', async () => {
+  it('pipes stream through transform correctly', async () => {
     const input = 'Great, all info collected! [COLLECTION_COMPLETE]'
-    const stream = stringToStream(input)
-    const wrapped = wrapStreamWithCompletionDetection(stream)
-    const output = await consumeStream(wrapped)
-
-    assert.ok(!output.includes('[COLLECTION_COMPLETE]'))
-    assert.ok(output.includes('Great, all info collected!'))
-    assert.ok(output.includes('<!--CHAT_COMPLETE:'))
-  })
-
-  test('passes through handoff target names', async () => {
-    const input = 'Redirecting. [HANDOFF_TO_AGENT:support-bot]'
-    const stream = stringToStream(input)
-    const wrapped = wrapStreamWithCompletionDetection(
-      stream,
-      undefined,
-      undefined,
-      { 'support-bot': 'Support Team Bot' }
+    const output = await consumeStream(
+      wrapStreamWithCompletionDetection(stringToStream(input))
     )
-    const output = await consumeStream(wrapped)
-
-    const handoffMatch = output.match(/<!--AGENT_HANDOFF:(.+?)-->/)
-    assert.ok(handoffMatch)
-    const meta = JSON.parse(handoffMatch![1])
-    assert.strictEqual(meta.targetAgentName, 'Support Team Bot')
+    expect(output.includes('[COLLECTION_COMPLETE]')).toBe(false)
+    expect(output.includes('Great, all info collected!')).toBeTruthy()
+    expect(output.includes('<!--CHAT_COMPLETE:')).toBeTruthy()
   })
 
-  test('uses agent ID as fallback name when not in map', async () => {
-    const input = 'Going. [HANDOFF_TO_AGENT:unknown-bot]'
-    const stream = stringToStream(input)
-    const wrapped = wrapStreamWithCompletionDetection(stream)
-    const output = await consumeStream(wrapped)
+  it('passes through handoff target names', async () => {
+    const input = 'Redirecting. [HANDOFF_TO_AGENT:support-bot]'
+    const output = await consumeStream(
+      wrapStreamWithCompletionDetection(
+        stringToStream(input),
+        undefined,
+        undefined,
+        {
+          'support-bot': 'Support Team Bot'
+        }
+      )
+    )
+    const meta = JSON.parse(output.match(/<!--AGENT_HANDOFF:(.+?)-->/)![1])
+    expect(meta.targetAgentName).toBe('Support Team Bot')
+  })
 
-    const handoffMatch = output.match(/<!--AGENT_HANDOFF:(.+?)-->/)
-    assert.ok(handoffMatch)
-    const meta = JSON.parse(handoffMatch![1])
-    assert.strictEqual(meta.targetAgentName, 'unknown-bot')
+  it('uses agent ID as fallback name when not in map', async () => {
+    const input = 'Going. [HANDOFF_TO_AGENT:unknown-bot]'
+    const output = await consumeStream(
+      wrapStreamWithCompletionDetection(stringToStream(input))
+    )
+    const meta = JSON.parse(output.match(/<!--AGENT_HANDOFF:(.+?)-->/)![1])
+    expect(meta.targetAgentName).toBe('unknown-bot')
   })
 })

@@ -5,7 +5,7 @@ import { createTeamWorkspace, MAX_TEAM_WORKSPACES } from '@vibesboard/tenants'
 import {
   validateTenantSlug,
   validateTenantName,
-  generateSlug,
+  generateSlug
 } from '@/lib/validations'
 
 export const runtime = 'nodejs'
@@ -25,33 +25,40 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          'Invalid workspace name. Use 2-100 characters with letters, numbers, spaces, hyphens, or underscores.',
+          'Invalid workspace name. Use 2-100 characters with letters, numbers, spaces, hyphens, or underscores.'
       },
-      { status: 400 },
+      { status: 400 }
     )
   }
 
   const slug = providedSlug || generateSlug(name)
   if (!validateTenantSlug(slug)) {
-    return NextResponse.json({ error: 'Invalid workspace slug' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid workspace slug' },
+      { status: 400 }
+    )
   }
 
   const result = await createTeamWorkspace(getMigrateDb(), {
     userId: auth.user.id,
     name,
-    slug,
+    slug
   })
 
   if (!result.ok) {
     if (result.code === 'LIMIT') {
       return NextResponse.json(
-        { error: `You can create a maximum of ${MAX_TEAM_WORKSPACES} team workspaces` },
-        { status: 429 },
+        {
+          error: `You can create a maximum of ${MAX_TEAM_WORKSPACES} team workspaces`
+        },
+        { status: 429 }
       )
     }
     return NextResponse.json(
-      { error: 'Workspace slug already exists. Please choose a different name.' },
-      { status: 409 },
+      {
+        error: 'Workspace slug already exists. Please choose a different name.'
+      },
+      { status: 409 }
     )
   }
 

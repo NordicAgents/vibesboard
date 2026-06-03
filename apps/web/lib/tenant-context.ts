@@ -67,7 +67,7 @@ const UUID_RE =
 export async function getActiveTenantId(): Promise<string | null> {
   const cookieStore = await cookies()
   const value = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value || null
-  // Ignore a stale/invalid active-tenant cookie (e.g. a legacy Firestore ID
+  // Ignore a stale/invalid active-tenant cookie (e.g. a legacy non-UUID ID
   // left over from a pre-Postgres session). tenant_id is a uuid column, so a
   // non-uuid value would otherwise throw on every query and 500 every page
   // with no way to recover. Treat it as absent and let callers re-resolve.

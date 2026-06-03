@@ -1,13 +1,10 @@
 /**
  * Integration tests for chart-widget parseChartConfig and buildChartData.
- * These are pure-logic tests — no external dependencies.
+ * These are pure-logic tests — no external dependencies. The pure functions
+ * are duplicated here to match the source behaviour (the actual component is in
+ * components/ui/chart-widget.tsx and cannot be imported in a node environment).
  */
-import { test, describe } from 'node:test'
-import assert from 'node:assert'
-
-// We can't import TSX directly in Node, so we duplicate the pure-logic
-// functions here and verify they match the source behaviour.
-// The actual component is in components/ui/chart-widget.tsx
+import { describe, it, expect } from 'vitest'
 
 interface ChartConfig {
   type: 'bar' | 'line' | 'pie' | 'doughnut'
@@ -77,11 +74,8 @@ function buildChartData(config: ChartConfig) {
   }
 }
 
-// -------------------------------------------------------------------
-// parseChartConfig
-// -------------------------------------------------------------------
 describe('parseChartConfig', () => {
-  test('parses valid bar chart JSON', () => {
+  it('parses valid bar chart JSON', () => {
     const raw = JSON.stringify({
       type: 'bar',
       title: 'Conversations per day',
@@ -89,15 +83,15 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'Count', data: [5, 3, 8] }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.type, 'bar')
-    assert.strictEqual(config.title, 'Conversations per day')
-    assert.deepStrictEqual(config.labels, ['Mon', 'Tue', 'Wed'])
-    assert.strictEqual(config.datasets.length, 1)
-    assert.deepStrictEqual(config.datasets[0].data, [5, 3, 8])
+    expect(config).toBeTruthy()
+    expect(config!.type).toBe('bar')
+    expect(config!.title).toBe('Conversations per day')
+    expect(config!.labels).toEqual(['Mon', 'Tue', 'Wed'])
+    expect(config!.datasets.length).toBe(1)
+    expect(config!.datasets[0].data).toEqual([5, 3, 8])
   })
 
-  test('parses valid line chart', () => {
+  it('parses valid line chart', () => {
     const raw = JSON.stringify({
       type: 'line',
       title: 'Trend',
@@ -105,76 +99,85 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'Users', data: [10, 20] }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.type, 'line')
+    expect(config).toBeTruthy()
+    expect(config!.type).toBe('line')
   })
 
-  test('parses valid pie chart', () => {
+  it('parses valid pie chart', () => {
     const raw = JSON.stringify({
       type: 'pie',
       title: 'Distribution',
       labels: ['A', 'B'],
       datasets: [{ label: 'Share', data: [60, 40] }]
     })
-    assert.ok(parseChartConfig(raw))
+    expect(parseChartConfig(raw)).toBeTruthy()
   })
 
-  test('parses valid doughnut chart', () => {
+  it('parses valid doughnut chart', () => {
     const raw = JSON.stringify({
       type: 'doughnut',
       title: '',
       labels: ['X'],
       datasets: [{ label: 'Y', data: [100] }]
     })
-    assert.ok(parseChartConfig(raw))
+    expect(parseChartConfig(raw)).toBeTruthy()
   })
 
-  test('handles trailing newline (code fence strips it)', () => {
+  it('handles trailing newline (code fence strips it)', () => {
     const raw =
       '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]}]}\n'
-    assert.ok(parseChartConfig(raw))
+    expect(parseChartConfig(raw)).toBeTruthy()
   })
 
-  test('handles whitespace padding', () => {
+  it('handles whitespace padding', () => {
     const raw =
       '  {"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]}]}  '
-    assert.ok(parseChartConfig(raw))
+    expect(parseChartConfig(raw)).toBeTruthy()
   })
 
-  test('returns null for invalid JSON', () => {
-    assert.strictEqual(parseChartConfig('{not json}'), null)
+  it('returns null for invalid JSON', () => {
+    expect(parseChartConfig('{not json}')).toBe(null)
   })
 
-  test('returns null for empty string', () => {
-    assert.strictEqual(parseChartConfig(''), null)
+  it('returns null for empty string', () => {
+    expect(parseChartConfig('')).toBe(null)
   })
 
-  test('returns null for valid JSON missing type', () => {
-    const raw = JSON.stringify({ labels: ['A'], datasets: [] })
-    assert.strictEqual(parseChartConfig(raw), null)
+  it('returns null for valid JSON missing type', () => {
+    expect(
+      parseChartConfig(JSON.stringify({ labels: ['A'], datasets: [] }))
+    ).toBe(null)
   })
 
-  test('returns null for valid JSON missing labels', () => {
-    const raw = JSON.stringify({ type: 'bar', datasets: [] })
-    assert.strictEqual(parseChartConfig(raw), null)
+  it('returns null for valid JSON missing labels', () => {
+    expect(
+      parseChartConfig(JSON.stringify({ type: 'bar', datasets: [] }))
+    ).toBe(null)
   })
 
-  test('returns null for valid JSON missing datasets', () => {
-    const raw = JSON.stringify({ type: 'bar', labels: ['A'] })
-    assert.strictEqual(parseChartConfig(raw), null)
+  it('returns null for valid JSON missing datasets', () => {
+    expect(
+      parseChartConfig(JSON.stringify({ type: 'bar', labels: ['A'] }))
+    ).toBe(null)
   })
 
-  test('returns null when labels is not an array', () => {
-    const raw = JSON.stringify({ type: 'bar', labels: 'A', datasets: [] })
-    assert.strictEqual(parseChartConfig(raw), null)
+  it('returns null when labels is not an array', () => {
+    expect(
+      parseChartConfig(
+        JSON.stringify({ type: 'bar', labels: 'A', datasets: [] })
+      )
+    ).toBe(null)
   })
 
-  test('returns null when datasets is not an array', () => {
-    const raw = JSON.stringify({ type: 'bar', labels: ['A'], datasets: {} })
-    assert.strictEqual(parseChartConfig(raw), null)
+  it('returns null when datasets is not an array', () => {
+    expect(
+      parseChartConfig(
+        JSON.stringify({ type: 'bar', labels: ['A'], datasets: {} })
+      )
+    ).toBe(null)
   })
 
-  test('preserves custom color in dataset', () => {
+  it('preserves custom color in dataset', () => {
     const raw = JSON.stringify({
       type: 'bar',
       title: 'T',
@@ -182,11 +185,11 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: [1], color: '#ff0000' }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.datasets[0].color, '#ff0000')
+    expect(config).toBeTruthy()
+    expect(config!.datasets[0].color).toBe('#ff0000')
   })
 
-  test('handles multiple datasets', () => {
+  it('handles multiple datasets', () => {
     const raw = JSON.stringify({
       type: 'line',
       title: 'Multi',
@@ -197,11 +200,11 @@ describe('parseChartConfig', () => {
       ]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.datasets.length, 2)
+    expect(config).toBeTruthy()
+    expect(config!.datasets.length).toBe(2)
   })
 
-  test('caps labels at 100', () => {
+  it('caps labels at 100', () => {
     const labels = Array.from({ length: 150 }, (_, i) => `L${i}`)
     const raw = JSON.stringify({
       type: 'bar',
@@ -210,11 +213,11 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: Array(150).fill(1) }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.labels.length, 100)
+    expect(config).toBeTruthy()
+    expect(config!.labels.length).toBe(100)
   })
 
-  test('caps datasets at 10', () => {
+  it('caps datasets at 10', () => {
     const datasets = Array.from({ length: 15 }, (_, i) => ({
       label: `S${i}`,
       data: [i]
@@ -226,11 +229,11 @@ describe('parseChartConfig', () => {
       datasets
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.datasets.length, 10)
+    expect(config).toBeTruthy()
+    expect(config!.datasets.length).toBe(10)
   })
 
-  test('caps data points per dataset at 100', () => {
+  it('caps data points per dataset at 100', () => {
     const raw = JSON.stringify({
       type: 'line',
       title: 'T',
@@ -238,11 +241,11 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: Array(200).fill(1) }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.datasets[0].data.length, 100)
+    expect(config).toBeTruthy()
+    expect(config!.datasets[0].data.length).toBe(100)
   })
 
-  test('does not truncate data within limits', () => {
+  it('does not truncate data within limits', () => {
     const raw = JSON.stringify({
       type: 'bar',
       title: 'T',
@@ -250,12 +253,12 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: [1, 2, 3] }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.strictEqual(config.labels.length, 3)
-    assert.strictEqual(config.datasets[0].data.length, 3)
+    expect(config).toBeTruthy()
+    expect(config!.labels.length).toBe(3)
+    expect(config!.datasets[0].data.length).toBe(3)
   })
 
-  test('parses empty data arrays as valid', () => {
+  it('parses empty data arrays as valid', () => {
     const raw = JSON.stringify({
       type: 'bar',
       title: 'Empty',
@@ -263,12 +266,12 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: [] }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config, 'Empty arrays should be valid')
-    assert.strictEqual(config.labels.length, 0)
-    assert.strictEqual(config.datasets[0].data.length, 0)
+    expect(config).toBeTruthy()
+    expect(config!.labels.length).toBe(0)
+    expect(config!.datasets[0].data.length).toBe(0)
   })
 
-  test('parses negative numbers in data', () => {
+  it('parses negative numbers in data', () => {
     const raw = JSON.stringify({
       type: 'bar',
       title: 'T',
@@ -276,11 +279,11 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: [-5, -10] }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.deepStrictEqual(config.datasets[0].data, [-5, -10])
+    expect(config).toBeTruthy()
+    expect(config!.datasets[0].data).toEqual([-5, -10])
   })
 
-  test('parses float numbers in data', () => {
+  it('parses float numbers in data', () => {
     const raw = JSON.stringify({
       type: 'line',
       title: 'Floats',
@@ -288,28 +291,25 @@ describe('parseChartConfig', () => {
       datasets: [{ label: 'D', data: [1.5, 2.7, 3.14] }]
     })
     const config = parseChartConfig(raw)
-    assert.ok(config)
-    assert.deepStrictEqual(config.datasets[0].data, [1.5, 2.7, 3.14])
+    expect(config).toBeTruthy()
+    expect(config!.datasets[0].data).toEqual([1.5, 2.7, 3.14])
   })
 
-  test('returns null for malformed JSON with trailing comma', () => {
+  it('returns null for malformed JSON with trailing comma', () => {
     const raw =
       '{"type":"bar","title":"T","labels":["A"],"datasets":[{"label":"D","data":[1]},]}'
-    assert.strictEqual(parseChartConfig(raw), null)
+    expect(parseChartConfig(raw)).toBe(null)
   })
 
-  test('returns null for JSON with single quotes', () => {
+  it('returns null for JSON with single quotes', () => {
     const raw =
       "{'type':'bar','title':'T','labels':['A'],'datasets':[{'label':'D','data':[1]}]}"
-    assert.strictEqual(parseChartConfig(raw), null)
+    expect(parseChartConfig(raw)).toBe(null)
   })
 })
 
-// -------------------------------------------------------------------
-// buildChartData
-// -------------------------------------------------------------------
 describe('buildChartData', () => {
-  test('maps config to chart.js data format', () => {
+  it('maps config to chart.js data format', () => {
     const config: ChartConfig = {
       type: 'bar',
       title: 'Test',
@@ -317,16 +317,16 @@ describe('buildChartData', () => {
       datasets: [{ label: 'Series', data: [10, 20] }]
     }
     const result = buildChartData(config)
-    assert.deepStrictEqual(result.labels, ['A', 'B'])
-    assert.strictEqual(result.datasets.length, 1)
-    assert.strictEqual(result.datasets[0].label, 'Series')
-    assert.deepStrictEqual(result.datasets[0].data, [10, 20])
-    assert.strictEqual(result.datasets[0].borderWidth, 2)
-    assert.strictEqual(result.datasets[0].fill, false)
-    assert.strictEqual(result.datasets[0].tension, 0.3)
+    expect(result.labels).toEqual(['A', 'B'])
+    expect(result.datasets.length).toBe(1)
+    expect(result.datasets[0].label).toBe('Series')
+    expect(result.datasets[0].data).toEqual([10, 20])
+    expect(result.datasets[0].borderWidth).toBe(2)
+    expect(result.datasets[0].fill).toBe(false)
+    expect(result.datasets[0].tension).toBe(0.3)
   })
 
-  test('uses default COLORS palette when no custom color', () => {
+  it('uses default COLORS palette when no custom color', () => {
     const config: ChartConfig = {
       type: 'bar',
       title: '',
@@ -334,11 +334,11 @@ describe('buildChartData', () => {
       datasets: [{ label: 'D', data: [1] }]
     }
     const result = buildChartData(config)
-    assert.strictEqual(result.datasets[0].backgroundColor, COLORS[0])
-    assert.strictEqual(result.datasets[0].borderColor, COLORS[0])
+    expect(result.datasets[0].backgroundColor).toBe(COLORS[0])
+    expect(result.datasets[0].borderColor).toBe(COLORS[0])
   })
 
-  test('uses custom color when provided', () => {
+  it('uses custom color when provided', () => {
     const config: ChartConfig = {
       type: 'bar',
       title: '',
@@ -346,11 +346,11 @@ describe('buildChartData', () => {
       datasets: [{ label: 'D', data: [1], color: '#123456' }]
     }
     const result = buildChartData(config)
-    assert.strictEqual(result.datasets[0].backgroundColor, '#123456')
-    assert.strictEqual(result.datasets[0].borderColor, '#123456')
+    expect(result.datasets[0].backgroundColor).toBe('#123456')
+    expect(result.datasets[0].borderColor).toBe('#123456')
   })
 
-  test('cycles through COLORS for multiple datasets', () => {
+  it('cycles through COLORS for multiple datasets', () => {
     const datasets = Array.from({ length: 10 }, (_, i) => ({
       label: `S${i}`,
       data: [i]
@@ -362,9 +362,7 @@ describe('buildChartData', () => {
       datasets
     }
     const result = buildChartData(config)
-    // 9th dataset (index 8) should wrap to COLORS[0]
-    assert.strictEqual(result.datasets[8].backgroundColor, COLORS[0])
-    // 10th dataset (index 9) should wrap to COLORS[1]
-    assert.strictEqual(result.datasets[9].backgroundColor, COLORS[1])
+    expect(result.datasets[8].backgroundColor).toBe(COLORS[0])
+    expect(result.datasets[9].backgroundColor).toBe(COLORS[1])
   })
 })

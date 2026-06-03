@@ -16,7 +16,7 @@ export async function GET(
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  // Find agent via collectionGroup query
+  // Look up the agent by id
   const agent = await getAgentById(id)
 
   if (!agent) {

@@ -1,15 +1,11 @@
 /**
- * Integration tests for schema validation changes in the PR.
+ * Integration tests for schema validation changes.
  *
- * Tests agentChatMessageSchema (content max 2000), agentChatRequestSchema (max 100 messages),
- * and agentAskRequestSchema (question max 2000).
+ * Schemas are replicated inline to match @vibesboard/agents/schema exactly
+ * (the source module is not importable in a node test environment).
  */
-import { test, describe } from 'node:test'
-import assert from 'node:assert'
+import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
-
-// Replicate schemas inline since we can't use @/ path aliases in Node test runner.
-// These must match lib/agents/schema.ts exactly.
 
 const agentChatMessageSchema = z.object({
   id: z.string().optional(),
@@ -29,195 +25,190 @@ const agentAskRequestSchema = z.object({
   sessionId: z.string().min(1).optional()
 })
 
-// -------------------------------------------------------------------
-// agentChatMessageSchema
-// -------------------------------------------------------------------
 describe('agentChatMessageSchema', () => {
-  test('accepts valid user message', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'user',
-      content: 'Hello'
-    })
-    assert.ok(result.success)
+  it('accepts valid user message', () => {
+    expect(
+      agentChatMessageSchema.safeParse({ role: 'user', content: 'Hello' })
+        .success
+    ).toBeTruthy()
   })
 
-  test('accepts valid assistant message', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'assistant',
-      content: 'Hi there'
-    })
-    assert.ok(result.success)
+  it('accepts valid assistant message', () => {
+    expect(
+      agentChatMessageSchema.safeParse({
+        role: 'assistant',
+        content: 'Hi there'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('accepts valid system message', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'system',
-      content: 'You are helpful.'
-    })
-    assert.ok(result.success)
+  it('accepts valid system message', () => {
+    expect(
+      agentChatMessageSchema.safeParse({
+        role: 'system',
+        content: 'You are helpful.'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('accepts message with optional id', () => {
-    const result = agentChatMessageSchema.safeParse({
-      id: 'msg-123',
-      role: 'user',
-      content: 'Hello'
-    })
-    assert.ok(result.success)
+  it('accepts message with optional id', () => {
+    expect(
+      agentChatMessageSchema.safeParse({
+        id: 'msg-123',
+        role: 'user',
+        content: 'Hello'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('rejects content longer than 2000 chars', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'user',
-      content: 'x'.repeat(2001)
-    })
-    assert.ok(!result.success)
+  it('rejects content longer than 2000 chars', () => {
+    expect(
+      agentChatMessageSchema.safeParse({
+        role: 'user',
+        content: 'x'.repeat(2001)
+      }).success
+    ).toBe(false)
   })
 
-  test('accepts content at exactly 2000 chars', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'user',
-      content: 'x'.repeat(2000)
-    })
-    assert.ok(result.success)
+  it('accepts content at exactly 2000 chars', () => {
+    expect(
+      agentChatMessageSchema.safeParse({
+        role: 'user',
+        content: 'x'.repeat(2000)
+      }).success
+    ).toBeTruthy()
   })
 
-  test('rejects invalid role', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'tool',
-      content: 'Hello'
-    })
-    assert.ok(!result.success)
+  it('rejects invalid role', () => {
+    expect(
+      agentChatMessageSchema.safeParse({ role: 'tool', content: 'Hello' })
+        .success
+    ).toBe(false)
   })
 
-  test('rejects missing content', () => {
-    const result = agentChatMessageSchema.safeParse({
-      role: 'user'
-    })
-    assert.ok(!result.success)
+  it('rejects missing content', () => {
+    expect(agentChatMessageSchema.safeParse({ role: 'user' }).success).toBe(
+      false
+    )
   })
 })
 
-// -------------------------------------------------------------------
-// agentChatRequestSchema
-// -------------------------------------------------------------------
 describe('agentChatRequestSchema', () => {
-  test('accepts valid request with one message', () => {
-    const result = agentChatRequestSchema.safeParse({
-      messages: [{ role: 'user', content: 'Hello' }]
-    })
-    assert.ok(result.success)
+  it('accepts valid request with one message', () => {
+    expect(
+      agentChatRequestSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hello' }]
+      }).success
+    ).toBeTruthy()
   })
 
-  test('accepts request with 100 messages', () => {
+  it('accepts request with 100 messages', () => {
     const messages = Array.from({ length: 100 }, (_, i) => ({
       role: i % 2 === 0 ? 'user' : 'assistant',
       content: `Message ${i}`
     }))
-    const result = agentChatRequestSchema.safeParse({ messages })
-    assert.ok(result.success)
+    expect(agentChatRequestSchema.safeParse({ messages }).success).toBeTruthy()
   })
 
-  test('rejects request with 101 messages', () => {
+  it('rejects request with 101 messages', () => {
     const messages = Array.from({ length: 101 }, (_, i) => ({
       role: 'user',
       content: `Message ${i}`
     }))
-    const result = agentChatRequestSchema.safeParse({ messages })
-    assert.ok(!result.success)
+    expect(agentChatRequestSchema.safeParse({ messages }).success).toBe(false)
   })
 
-  test('rejects empty messages array', () => {
-    // min is not set, but an empty array is technically valid per schema
-    const result = agentChatRequestSchema.safeParse({ messages: [] })
-    assert.ok(result.success) // empty is allowed by schema
+  it('allows an empty messages array (no min set)', () => {
+    expect(
+      agentChatRequestSchema.safeParse({ messages: [] }).success
+    ).toBeTruthy()
   })
 
-  test('accepts optional conversationId', () => {
-    const result = agentChatRequestSchema.safeParse({
-      messages: [{ role: 'user', content: 'Hi' }],
-      conversationId: 'conv-abc'
-    })
-    assert.ok(result.success)
+  it('accepts optional conversationId', () => {
+    expect(
+      agentChatRequestSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        conversationId: 'conv-abc'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('rejects empty conversationId', () => {
-    const result = agentChatRequestSchema.safeParse({
-      messages: [{ role: 'user', content: 'Hi' }],
-      conversationId: ''
-    })
-    assert.ok(!result.success)
+  it('rejects empty conversationId', () => {
+    expect(
+      agentChatRequestSchema.safeParse({
+        messages: [{ role: 'user', content: 'Hi' }],
+        conversationId: ''
+      }).success
+    ).toBe(false)
   })
 
-  test('propagates message content length validation', () => {
-    const result = agentChatRequestSchema.safeParse({
-      messages: [{ role: 'user', content: 'a'.repeat(2001) }]
-    })
-    assert.ok(!result.success)
+  it('propagates message content length validation', () => {
+    expect(
+      agentChatRequestSchema.safeParse({
+        messages: [{ role: 'user', content: 'a'.repeat(2001) }]
+      }).success
+    ).toBe(false)
   })
 })
 
-// -------------------------------------------------------------------
-// agentAskRequestSchema
-// -------------------------------------------------------------------
 describe('agentAskRequestSchema', () => {
-  test('accepts valid question', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'How many conversations this week?'
-    })
-    assert.ok(result.success)
+  it('accepts valid question', () => {
+    expect(
+      agentAskRequestSchema.safeParse({
+        question: 'How many conversations this week?'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('rejects empty question', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: ''
-    })
-    assert.ok(!result.success)
+  it('rejects empty question', () => {
+    expect(agentAskRequestSchema.safeParse({ question: '' }).success).toBe(
+      false
+    )
   })
 
-  test('rejects question longer than 2000 chars', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'q'.repeat(2001)
-    })
-    assert.ok(!result.success)
+  it('rejects question longer than 2000 chars', () => {
+    expect(
+      agentAskRequestSchema.safeParse({ question: 'q'.repeat(2001) }).success
+    ).toBe(false)
   })
 
-  test('accepts question at exactly 2000 chars', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'q'.repeat(2000)
-    })
-    assert.ok(result.success)
+  it('accepts question at exactly 2000 chars', () => {
+    expect(
+      agentAskRequestSchema.safeParse({ question: 'q'.repeat(2000) }).success
+    ).toBeTruthy()
   })
 
-  test('accepts optional contextConversationId', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'Hello',
-      contextConversationId: 'cid-123'
-    })
-    assert.ok(result.success)
+  it('accepts optional contextConversationId', () => {
+    expect(
+      agentAskRequestSchema.safeParse({
+        question: 'Hello',
+        contextConversationId: 'cid-123'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('accepts optional UUID sessionId', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'Hello',
-      sessionId: '550e8400-e29b-41d4-a716-446655440000'
-    })
-    assert.ok(result.success)
+  it('accepts optional UUID sessionId', () => {
+    expect(
+      agentAskRequestSchema.safeParse({
+        question: 'Hello',
+        sessionId: '550e8400-e29b-41d4-a716-446655440000'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('accepts non-UUID sessionId (Firestore auto-IDs)', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'Hello',
-      sessionId: 'abc123firestoreId'
-    })
-    assert.ok(result.success)
+  it('accepts non-UUID sessionId (legacy auto-IDs)', () => {
+    expect(
+      agentAskRequestSchema.safeParse({
+        question: 'Hello',
+        sessionId: 'abc123legacyId'
+      }).success
+    ).toBeTruthy()
   })
 
-  test('rejects empty sessionId', () => {
-    const result = agentAskRequestSchema.safeParse({
-      question: 'Hello',
-      sessionId: ''
-    })
-    assert.ok(!result.success)
+  it('rejects empty sessionId', () => {
+    expect(
+      agentAskRequestSchema.safeParse({ question: 'Hello', sessionId: '' })
+        .success
+    ).toBe(false)
   })
 })

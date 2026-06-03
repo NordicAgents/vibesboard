@@ -1,8 +1,8 @@
 import type { Message } from './message'
 // AgentMode and QuickSuggestionsMode have canonical definitions in
-// firestore-types — types.ts originally duplicated them. Import here so
+// domain-types — types.ts originally duplicated them. Import here so
 // the barrel in index.ts can re-export the contracts namespace cleanly.
-import type { AgentMode, QuickSuggestionsMode } from './firestore-types'
+import type { AgentMode, QuickSuggestionsMode } from './domain-types'
 
 // TODO refactor and remove unneccessary duplicate data.
 export interface Chat extends Record<string, any> {
@@ -40,7 +40,7 @@ export type AgentToolType = BuiltinToolType | ActionToolType
 
 export type RetrievalStrategy = 'direct' | 'rag' | 'bash'
 
-// AgentMode and QuickSuggestionsMode are imported from firestore-types
+// AgentMode and QuickSuggestionsMode are imported from domain-types
 // (single source of truth — see the import block above).
 
 export type CollectionFieldType =

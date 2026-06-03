@@ -11,7 +11,7 @@ type RouteParams = {
  * GET /api/tenants/[id]/usage
  * Returns usage data for the current billing cycle.
  *
- * The legacy Firestore `usageRollups`/`usageLogs` collections and the tenant
+ * The legacy `usageRollups`/`usageLogs` rollups and the tenant
  * `subscription` field are no longer written (self-host `recordUsage` is a
  * no-op shim, and Postgres `tenants` has no subscription column). The route
  * stays alive returning a truthful empty/zero shape so the UI does not 500.

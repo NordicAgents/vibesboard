@@ -56,6 +56,17 @@ export async function SidebarList({ userId }: SidebarListProps) {
           className="w-full"
         />
       </div>
+      <div className="px-3">
+        <Button
+          asChild
+          className="h-10 w-full justify-start border-0 bg-[#222f30] px-4 text-white shadow-none hover:bg-[#344348] dark:bg-[#f5f8f7] dark:text-[#111918] dark:hover:bg-[#e6ede6]"
+        >
+          <Link href="/agents/create-chat">
+            <IconPlus className="mr-2 size-4" />
+            <span>New Agent</span>
+          </Link>
+        </Button>
+      </div>
       <div className="space-y-2 pb-4">
         <div className="flex items-center justify-between px-4">
           <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6f7f80]">

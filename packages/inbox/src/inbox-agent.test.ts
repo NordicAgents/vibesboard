@@ -1,21 +1,20 @@
 /**
  * Tests for inbox-agent feature: agent resolution, handler flow, reply adapters.
  *
- * These are pure-logic tests — they validate the resolution logic,
- * sentinel patterns, message flow, and edge cases without hitting
- * external services.
+ * These are pure-logic tests - they validate the resolution logic, sentinel
+ * patterns, message flow, and edge cases without hitting external services.
  *
- * Run:
- *   node --experimental-strip-types --test lib/inbox-agent/inbox-agent.test.ts
+ * Migrated from node:test to Vitest (intent preserved). The replicated helpers
+ * mirror behaviour in the real modules (sentinel = reply-adapters.ts;
+ * externalId = handler.ts; resolution decision tree = resolve-agent.ts; window
+ * check = handler.ts step 2). The full real-module behaviour is covered by
+ * resolve-agent.test.ts / handler.test.ts / reply-adapters.test.ts.
  */
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
-
-// ─── Replicated types & logic (path aliases don't resolve in node test runner) ──
+import { describe, it, expect } from 'vitest'
 
 type InboxChannel = 'whatsapp' | 'instagram'
 
-// Replicate the sentinel pattern used for agent-sent messages
+// Replicate the sentinel pattern used for agent-sent messages.
 function makeAgentSentBy(agentId: string): string {
   return `agent:${agentId}`
 }
@@ -29,7 +28,7 @@ function extractAgentIdFromSentBy(sentBy: string): string | null {
   return sentBy.slice('agent:'.length)
 }
 
-// Replicate externalId construction
+// Replicate externalId construction.
 function buildExternalId(
   channel: InboxChannel,
   accountId: string,
@@ -38,7 +37,7 @@ function buildExternalId(
   return `inbox:${channel}:${accountId}:${contactId}`
 }
 
-// Replicate agent resolution logic (decision tree only, no Firestore)
+// Replicate agent resolution logic (decision tree only, no DB access).
 interface MockConversation {
   assignedAgentId?: string | null
   agentPaused?: boolean
@@ -54,346 +53,264 @@ function resolveEffectiveAgentId(
   conversation: MockConversation | null,
   account: MockAccount | null
 ): string | null {
-  // Check conversation-level flags
   if (conversation?.agentPaused || conversation?.agentHandedOff) {
     return null
   }
-
-  // Per-conversation override
   if (conversation?.assignedAgentId) {
     return conversation.assignedAgentId
   }
-
-  // Account-level default
   if (account?.agentAutoReply === false) {
     return null
   }
-
   return account?.assignedAgentId || null
 }
 
-// Replicate 24h window check
+// Replicate 24h window check.
 function isWindowExpired(windowExpiresAt: string): boolean {
   return new Date(windowExpiresAt) <= new Date()
 }
 
-// ─── Tests ──────────────────────────────────────────────────────────────
-
 describe('Agent sentBy sentinel pattern', () => {
-  test('creates correct sentinel value', () => {
-    assert.equal(makeAgentSentBy('abc123'), 'agent:abc123')
+  it('creates correct sentinel value', () => {
+    expect(makeAgentSentBy('abc123')).toBe('agent:abc123')
   })
 
-  test('detects agent-sent messages', () => {
-    assert.equal(isAgentSentMessage('agent:abc123'), true)
-    assert.equal(isAgentSentMessage('agent:'), true)
-    assert.equal(isAgentSentMessage('user123'), false)
-    assert.equal(isAgentSentMessage(undefined), false)
-    assert.equal(isAgentSentMessage(''), false)
+  it('detects agent-sent messages', () => {
+    expect(isAgentSentMessage('agent:abc123')).toBe(true)
+    expect(isAgentSentMessage('agent:')).toBe(true)
+    expect(isAgentSentMessage('user123')).toBe(false)
+    expect(isAgentSentMessage(undefined)).toBe(false)
+    expect(isAgentSentMessage('')).toBe(false)
   })
 
-  test('extracts agent ID from sentinel', () => {
-    assert.equal(extractAgentIdFromSentBy('agent:abc123'), 'abc123')
-    assert.equal(extractAgentIdFromSentBy('agent:a-b_c'), 'a-b_c')
-    assert.equal(extractAgentIdFromSentBy('user123'), null)
+  it('extracts agent ID from sentinel', () => {
+    expect(extractAgentIdFromSentBy('agent:abc123')).toBe('abc123')
+    expect(extractAgentIdFromSentBy('agent:a-b_c')).toBe('a-b_c')
+    expect(extractAgentIdFromSentBy('user123')).toBe(null)
   })
 
-  test('sentinel is never a valid Firebase Auth user ID', () => {
+  it('sentinel is never a valid user ID', () => {
     const sentinel = makeAgentSentBy('someAgentId')
-    // Firebase Auth UIDs are alphanumeric, never contain ':'
-    assert.ok(
-      sentinel.includes(':'),
-      'Sentinel must contain colon to distinguish from user IDs'
-    )
+    expect(sentinel.includes(':')).toBeTruthy()
   })
 })
 
 describe('External ID construction', () => {
-  test('WhatsApp format', () => {
-    assert.equal(
-      buildExternalId('whatsapp', 'acc123', '5511999'),
+  it('WhatsApp format', () => {
+    expect(buildExternalId('whatsapp', 'acc123', '5511999')).toBe(
       'inbox:whatsapp:acc123:5511999'
     )
   })
 
-  test('Instagram format', () => {
-    assert.equal(
-      buildExternalId('instagram', 'acc456', 'igsid789'),
+  it('Instagram format', () => {
+    expect(buildExternalId('instagram', 'acc456', 'igsid789')).toBe(
       'inbox:instagram:acc456:igsid789'
     )
   })
 
-  test('different contacts produce different IDs', () => {
-    const id1 = buildExternalId('whatsapp', 'acc1', 'phone1')
-    const id2 = buildExternalId('whatsapp', 'acc1', 'phone2')
-    assert.notEqual(id1, id2)
+  it('different contacts produce different IDs', () => {
+    expect(buildExternalId('whatsapp', 'acc1', 'phone1')).not.toBe(
+      buildExternalId('whatsapp', 'acc1', 'phone2')
+    )
   })
 
-  test('different channels produce different IDs', () => {
-    const wa = buildExternalId('whatsapp', 'acc1', 'contact1')
-    const ig = buildExternalId('instagram', 'acc1', 'contact1')
-    assert.notEqual(wa, ig)
+  it('different channels produce different IDs', () => {
+    expect(buildExternalId('whatsapp', 'acc1', 'contact1')).not.toBe(
+      buildExternalId('instagram', 'acc1', 'contact1')
+    )
   })
 })
 
 describe('Agent resolution logic', () => {
-  test('returns conversation-level agent override', () => {
-    const convo: MockConversation = { assignedAgentId: 'convo-agent' }
-    const account: MockAccount = { assignedAgentId: 'account-agent' }
-    assert.equal(resolveEffectiveAgentId(convo, account), 'convo-agent')
+  it('returns conversation-level agent override', () => {
+    expect(
+      resolveEffectiveAgentId({ assignedAgentId: 'convo-agent' }, { assignedAgentId: 'account-agent' })
+    ).toBe('convo-agent')
   })
 
-  test('falls back to account-level agent when no conversation override', () => {
-    const convo: MockConversation = { assignedAgentId: null }
-    const account: MockAccount = { assignedAgentId: 'account-agent' }
-    assert.equal(resolveEffectiveAgentId(convo, account), 'account-agent')
+  it('falls back to account-level agent when no conversation override', () => {
+    expect(
+      resolveEffectiveAgentId({ assignedAgentId: null }, { assignedAgentId: 'account-agent' })
+    ).toBe('account-agent')
   })
 
-  test('returns null when no agent assigned anywhere', () => {
-    const convo: MockConversation = {}
-    const account: MockAccount = {}
-    assert.equal(resolveEffectiveAgentId(convo, account), null)
+  it('returns null when no agent assigned anywhere', () => {
+    expect(resolveEffectiveAgentId({}, {})).toBe(null)
   })
 
-  test('returns null when agent is paused on conversation', () => {
-    const convo: MockConversation = {
-      assignedAgentId: 'agent1',
-      agentPaused: true
-    }
-    const account: MockAccount = { assignedAgentId: 'agent1' }
-    assert.equal(resolveEffectiveAgentId(convo, account), null)
+  it('returns null when agent is paused on conversation', () => {
+    expect(
+      resolveEffectiveAgentId({ assignedAgentId: 'agent1', agentPaused: true }, { assignedAgentId: 'agent1' })
+    ).toBe(null)
   })
 
-  test('returns null when conversation is handed off', () => {
-    const convo: MockConversation = {
-      assignedAgentId: 'agent1',
-      agentHandedOff: true
-    }
-    const account: MockAccount = { assignedAgentId: 'agent1' }
-    assert.equal(resolveEffectiveAgentId(convo, account), null)
+  it('returns null when conversation is handed off', () => {
+    expect(
+      resolveEffectiveAgentId({ assignedAgentId: 'agent1', agentHandedOff: true }, { assignedAgentId: 'agent1' })
+    ).toBe(null)
   })
 
-  test('returns null when agentAutoReply is false on account', () => {
-    const convo: MockConversation = {}
-    const account: MockAccount = {
-      assignedAgentId: 'agent1',
-      agentAutoReply: false
-    }
-    assert.equal(resolveEffectiveAgentId(convo, account), null)
+  it('returns null when agentAutoReply is false on account', () => {
+    expect(
+      resolveEffectiveAgentId({}, { assignedAgentId: 'agent1', agentAutoReply: false })
+    ).toBe(null)
   })
 
-  test('agentAutoReply defaults to true (undefined means auto-reply enabled)', () => {
-    const convo: MockConversation = {}
-    const account: MockAccount = {
-      assignedAgentId: 'agent1'
-      // agentAutoReply not set — should default to enabled
-    }
-    assert.equal(resolveEffectiveAgentId(convo, account), 'agent1')
+  it('agentAutoReply defaults to true (undefined means auto-reply enabled)', () => {
+    expect(resolveEffectiveAgentId({}, { assignedAgentId: 'agent1' })).toBe('agent1')
   })
 
-  test('conversation override bypasses account agentAutoReply=false', () => {
-    const convo: MockConversation = { assignedAgentId: 'convo-agent' }
-    const account: MockAccount = {
-      assignedAgentId: 'account-agent',
-      agentAutoReply: false
-    }
-    // Per-conversation override is checked before account autoReply
-    assert.equal(resolveEffectiveAgentId(convo, account), 'convo-agent')
+  it('conversation override bypasses account agentAutoReply=false', () => {
+    expect(
+      resolveEffectiveAgentId(
+        { assignedAgentId: 'convo-agent' },
+        { assignedAgentId: 'account-agent', agentAutoReply: false }
+      )
+    ).toBe('convo-agent')
   })
 
-  test('handles null conversation (new contact, no doc yet)', () => {
-    const account: MockAccount = { assignedAgentId: 'agent1' }
-    assert.equal(resolveEffectiveAgentId(null, account), 'agent1')
+  it('handles null conversation (new contact, no doc yet)', () => {
+    expect(resolveEffectiveAgentId(null, { assignedAgentId: 'agent1' })).toBe('agent1')
   })
 
-  test('handles null account', () => {
-    const convo: MockConversation = {}
-    assert.equal(resolveEffectiveAgentId(convo, null), null)
+  it('handles null account', () => {
+    expect(resolveEffectiveAgentId({}, null)).toBe(null)
   })
 })
 
 describe('24h messaging window', () => {
-  test('window is open when expiry is in the future', () => {
-    const future = new Date(Date.now() + 60_000).toISOString()
-    assert.equal(isWindowExpired(future), false)
+  it('window is open when expiry is in the future', () => {
+    expect(isWindowExpired(new Date(Date.now() + 60_000).toISOString())).toBe(false)
   })
 
-  test('window is expired when expiry is in the past', () => {
-    const past = new Date(Date.now() - 60_000).toISOString()
-    assert.equal(isWindowExpired(past), true)
+  it('window is expired when expiry is in the past', () => {
+    expect(isWindowExpired(new Date(Date.now() - 60_000).toISOString())).toBe(true)
   })
 
-  test('window is expired at exact expiry time', () => {
-    // Edge case: exactly at expiry (<=) should be expired
-    const now = new Date().toISOString()
-    // Tiny race window, but the logic uses <= so this should be expired
-    assert.equal(isWindowExpired(now), true)
+  it('window is expired at exact expiry time', () => {
+    // The logic uses <= so "now" should be expired.
+    expect(isWindowExpired(new Date().toISOString())).toBe(true)
   })
 })
 
 describe('Handoff flow', () => {
-  test('handoff marker detection (replicated from completion.ts)', () => {
+  it('handoff marker detection (replicated from completion.ts)', () => {
     const HANDOFF_MARKER = '[HANDOFF_TO_HUMAN]'
-
-    // Detect handoff
     const text1 = 'Let me connect you with a human agent. [HANDOFF_TO_HUMAN]'
-    assert.ok(text1.includes(HANDOFF_MARKER))
-
-    // No handoff
+    expect(text1.includes(HANDOFF_MARKER)).toBeTruthy()
     const text2 = 'Here is the answer to your question.'
-    assert.ok(!text2.includes(HANDOFF_MARKER))
-
-    // Strip marker
-    const stripped = text1.replace(HANDOFF_MARKER, '').trim()
-    assert.equal(stripped, 'Let me connect you with a human agent.')
+    expect(text2.includes(HANDOFF_MARKER)).toBe(false)
+    expect(text1.replace(HANDOFF_MARKER, '').trim()).toBe(
+      'Let me connect you with a human agent.'
+    )
   })
 
-  test('re-engage flow resets flags', () => {
+  it('re-engage flow resets flags', () => {
     const convo: MockConversation = {
       assignedAgentId: 'agent1',
       agentHandedOff: true,
       agentPaused: false
     }
-
-    // Before re-engage: agent should not be resolved
-    assert.equal(resolveEffectiveAgentId(convo, null), null)
-
-    // Simulate re-engage: clear handoff
+    expect(resolveEffectiveAgentId(convo, null)).toBe(null)
     convo.agentHandedOff = false
-    assert.equal(resolveEffectiveAgentId(convo, null), 'agent1')
+    expect(resolveEffectiveAgentId(convo, null)).toBe('agent1')
   })
 
-  test('pause + resume cycle', () => {
-    const convo: MockConversation = {
-      assignedAgentId: 'agent1'
-    }
-
-    // Active
-    assert.equal(resolveEffectiveAgentId(convo, null), 'agent1')
-
-    // Pause
+  it('pause + resume cycle', () => {
+    const convo: MockConversation = { assignedAgentId: 'agent1' }
+    expect(resolveEffectiveAgentId(convo, null)).toBe('agent1')
     convo.agentPaused = true
-    assert.equal(resolveEffectiveAgentId(convo, null), null)
-
-    // Resume
+    expect(resolveEffectiveAgentId(convo, null)).toBe(null)
     convo.agentPaused = false
-    assert.equal(resolveEffectiveAgentId(convo, null), 'agent1')
+    expect(resolveEffectiveAgentId(convo, null)).toBe('agent1')
   })
 })
 
 describe('Message dual-store linking', () => {
-  test('inbox message stores agent sentinel in sentBy', () => {
-    const agentId = 'abc123'
-    const agentName = 'Support Bot'
-
-    // Simulating what sendReply() stores
+  it('inbox message stores agent sentinel in sentBy', () => {
     const msgDoc = {
-      sentBy: makeAgentSentBy(agentId),
-      sentByAgentName: agentName,
+      sentBy: makeAgentSentBy('abc123'),
+      sentByAgentName: 'Support Bot',
       direction: 'outbound' as const
     }
-
-    assert.equal(msgDoc.sentBy, 'agent:abc123')
-    assert.equal(msgDoc.sentByAgentName, 'Support Bot')
-    assert.equal(isAgentSentMessage(msgDoc.sentBy), true)
+    expect(msgDoc.sentBy).toBe('agent:abc123')
+    expect(msgDoc.sentByAgentName).toBe('Support Bot')
+    expect(isAgentSentMessage(msgDoc.sentBy)).toBe(true)
   })
 
-  test('human message has userId in sentBy, no agent name', () => {
-    const msgDoc = {
-      sentBy: 'firebase-uid-123',
-      direction: 'outbound' as const
-    }
-
-    assert.equal(isAgentSentMessage(msgDoc.sentBy), false)
+  it('human message has userId in sentBy, no agent name', () => {
+    expect(isAgentSentMessage('user-uid-123')).toBe(false)
   })
 })
 
 describe('Handoff instructions injection', () => {
-  test('instructions are appended, not replaced', () => {
+  const handoffSuffix =
+    '\n\nIMPORTANT: If the customer asks to speak to a human agent, requests escalation, or you cannot resolve their issue, let them know you are connecting them with a human agent and end your response with [HANDOFF_TO_HUMAN].'
+
+  it('instructions are appended, not replaced', () => {
     const original = 'You are a helpful support agent.'
-    const handoffSuffix =
-      '\n\nIMPORTANT: If the customer asks to speak to a human agent, requests escalation, or you cannot resolve their issue, let them know you are connecting them with a human agent and end your response with [HANDOFF_TO_HUMAN].'
-
     const injected = original + handoffSuffix
-
-    assert.ok(injected.startsWith(original))
-    assert.ok(injected.includes('[HANDOFF_TO_HUMAN]'))
-    assert.ok(injected.length > original.length)
+    expect(injected.startsWith(original)).toBeTruthy()
+    expect(injected.includes('[HANDOFF_TO_HUMAN]')).toBeTruthy()
+    expect(injected.length > original.length).toBeTruthy()
   })
 
-  test('works with empty instructions', () => {
-    const original = ''
-    const handoffSuffix =
-      '\n\nIMPORTANT: If the customer asks to speak to a human agent, requests escalation, or you cannot resolve their issue, let them know you are connecting them with a human agent and end your response with [HANDOFF_TO_HUMAN].'
-
-    const injected = (original || '') + handoffSuffix
-    assert.ok(injected.includes('[HANDOFF_TO_HUMAN]'))
+  it('works with empty instructions', () => {
+    const emptyInstructions = '' as string
+    const injected = (emptyInstructions || '') + handoffSuffix
+    expect(injected.includes('[HANDOFF_TO_HUMAN]')).toBeTruthy()
   })
 })
 
 describe('Message deduplication', () => {
-  test('new user message is appended when not in history', () => {
+  it('new user message is appended when not in history', () => {
     const prior = [
       { id: 'msg1', role: 'user' as const, content: 'Hello' },
       { id: 'msg2', role: 'assistant' as const, content: 'Hi there!' }
     ]
-    const userMessage = {
-      id: 'msg3',
-      role: 'user' as const,
-      content: 'Help me'
-    }
-
+    const userMessage = { id: 'msg3', role: 'user' as const, content: 'Help me' }
     const hasDuplicate = prior.some(m => m.id === userMessage.id)
     const allMessages = hasDuplicate ? prior : [...prior, userMessage]
-
-    assert.equal(allMessages.length, 3)
-    assert.equal(allMessages[2].content, 'Help me')
+    expect(allMessages.length).toBe(3)
+    expect(allMessages[2].content).toBe('Help me')
   })
 
-  test('duplicate user message is not re-added', () => {
+  it('duplicate user message is not re-added', () => {
     const userMessage = { id: 'msg1', role: 'user' as const, content: 'Hello' }
     const prior = [userMessage]
-
     const hasDuplicate = prior.some(m => m.id === userMessage.id)
     const allMessages = hasDuplicate ? prior : [...prior, userMessage]
-
-    assert.equal(allMessages.length, 1)
+    expect(allMessages.length).toBe(1)
   })
 })
 
 describe('Account PATCH validation logic', () => {
-  test('assigning agent sets agentAutoReply to true by default', () => {
+  it('assigning agent sets agentAutoReply to true by default', () => {
     const body = { assignedAgentId: 'agent1' }
     const updates: Record<string, any> = {}
-
     if (body.assignedAgentId !== undefined) {
       updates.assignedAgentId = body.assignedAgentId || null
-      // Default agentAutoReply to true when assigning
       if ((body as any).agentAutoReply === undefined && body.assignedAgentId) {
         updates.agentAutoReply = true
       }
     }
-
-    assert.equal(updates.assignedAgentId, 'agent1')
-    assert.equal(updates.agentAutoReply, true)
+    expect(updates.assignedAgentId).toBe('agent1')
+    expect(updates.agentAutoReply).toBe(true)
   })
 
-  test('unassigning agent sets assignedAgentId to null', () => {
+  it('unassigning agent sets assignedAgentId to null', () => {
     const body = { assignedAgentId: null }
     const updates: Record<string, any> = {}
-
     if (body.assignedAgentId !== undefined) {
       updates.assignedAgentId = body.assignedAgentId || null
     }
-
-    assert.equal(updates.assignedAgentId, null)
-    assert.equal(updates.agentAutoReply, undefined) // not set
+    expect(updates.assignedAgentId).toBe(null)
+    expect(updates.agentAutoReply).toBe(undefined)
   })
 
-  test('explicit agentAutoReply=false is respected', () => {
+  it('explicit agentAutoReply=false is respected', () => {
     const body = { assignedAgentId: 'agent1', agentAutoReply: false }
     const updates: Record<string, any> = {}
-
     if (body.assignedAgentId !== undefined) {
       updates.assignedAgentId = body.assignedAgentId || null
       if (body.agentAutoReply === undefined && body.assignedAgentId) {
@@ -403,84 +320,65 @@ describe('Account PATCH validation logic', () => {
     if (body.agentAutoReply !== undefined) {
       updates.agentAutoReply = body.agentAutoReply
     }
-
-    assert.equal(updates.assignedAgentId, 'agent1')
-    assert.equal(updates.agentAutoReply, false) // explicit false wins
+    expect(updates.assignedAgentId).toBe('agent1')
+    expect(updates.agentAutoReply).toBe(false)
   })
 })
 
 describe('Conversation PATCH agent fields', () => {
-  test('setting assignedAgentId as override', () => {
+  it('setting assignedAgentId as override', () => {
     const body = { assignedAgentId: 'override-agent' }
     const agentUpdates: Record<string, any> = {}
-
     if (body.assignedAgentId !== undefined) {
       agentUpdates.assignedAgentId = body.assignedAgentId || null
     }
-
-    assert.equal(agentUpdates.assignedAgentId, 'override-agent')
+    expect(agentUpdates.assignedAgentId).toBe('override-agent')
   })
 
-  test('clearing assignedAgentId removes override', () => {
+  it('clearing assignedAgentId removes override', () => {
     const body = { assignedAgentId: null }
     const agentUpdates: Record<string, any> = {}
-
     if (body.assignedAgentId !== undefined) {
       agentUpdates.assignedAgentId = body.assignedAgentId || null
     }
-
-    assert.equal(agentUpdates.assignedAgentId, null)
+    expect(agentUpdates.assignedAgentId).toBe(null)
   })
 
-  test('agentPaused toggle', () => {
-    const body1 = { agentPaused: true }
-    const body2 = { agentPaused: false }
-
+  it('agentPaused toggle', () => {
     const u1: Record<string, any> = {}
     const u2: Record<string, any> = {}
-
-    if (body1.agentPaused !== undefined) u1.agentPaused = body1.agentPaused
-    if (body2.agentPaused !== undefined) u2.agentPaused = body2.agentPaused
-
-    assert.equal(u1.agentPaused, true)
-    assert.equal(u2.agentPaused, false)
+    if (({ agentPaused: true }).agentPaused !== undefined) u1.agentPaused = true
+    if (({ agentPaused: false }).agentPaused !== undefined) u2.agentPaused = false
+    expect(u1.agentPaused).toBe(true)
+    expect(u2.agentPaused).toBe(false)
   })
 
-  test('agentHandedOff re-engage', () => {
+  it('agentHandedOff re-engage', () => {
     const body = { agentHandedOff: false }
     const agentUpdates: Record<string, any> = {}
-
     if (body.agentHandedOff !== undefined) {
       agentUpdates.agentHandedOff = body.agentHandedOff
     }
-
-    assert.equal(agentUpdates.agentHandedOff, false)
+    expect(agentUpdates.agentHandedOff).toBe(false)
   })
 })
 
 describe('Edge cases', () => {
-  test('empty message text should not trigger agent', () => {
-    const messageText = ''
-    const shouldTrigger = !!messageText
-    assert.equal(shouldTrigger, false)
+  it('empty message text should not trigger agent', () => {
+    const emptyText = '' as string
+    expect(!!emptyText).toBe(false)
   })
 
-  test('media-only WhatsApp message (no text, no caption) should not trigger agent', () => {
-    // In webhook handler, messageText is extracted as:
-    // message.type === 'text' ? message.text?.body : caption
-    const message = {
-      type: 'image',
-      image: { id: 'img1', mime_type: 'image/jpeg' }
-    }
+  it('media-only WhatsApp message (no text, no caption) should not trigger agent', () => {
+    const message = { type: 'image', image: { id: 'img1', mime_type: 'image/jpeg' } }
     const messageText =
       message.type === 'text'
         ? undefined
         : (message as any).image?.caption || (message as any).video?.caption
-    const shouldTrigger = !!messageText
-    assert.equal(shouldTrigger, false)
+    expect(!!messageText).toBe(false)
   })
 
-  test('WhatsApp message with caption triggers agent', () => {
+  it('WhatsApp message with caption triggers agent', () => {
     const message = {
       type: 'image',
       image: { id: 'img1', mime_type: 'image/jpeg', caption: 'Check this out' }
@@ -489,15 +387,12 @@ describe('Edge cases', () => {
       message.type === 'text'
         ? undefined
         : (message as any).image?.caption || (message as any).video?.caption
-    const shouldTrigger = !!messageText
-    assert.equal(shouldTrigger, true)
-    assert.equal(messageText, 'Check this out')
+    expect(!!messageText).toBe(true)
+    expect(messageText).toBe('Check this out')
   })
 
-  test('Instagram text message triggers agent', () => {
+  it('Instagram text message triggers agent', () => {
     const message = { text: 'Hello', mid: 'mid123' }
-    const messageText = message.text || ''
-    const shouldTrigger = !!messageText
-    assert.equal(shouldTrigger, true)
+    expect(!!(message.text || '')).toBe(true)
   })
 })

@@ -3,7 +3,7 @@ const path = require('path')
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  // pnpm workspace lives two levels up — tell Next to trace deps from there.
+  // bun workspace lives two levels up — tell Next to trace deps from there.
   outputFileTracingRoot: path.join(__dirname, '../..'),
   reactStrictMode: true,
   images: {
@@ -18,10 +18,6 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com'
-      },
-      {
-        protocol: 'https',
         hostname: 'storage.googleapis.com'
       }
     ]
@@ -29,7 +25,7 @@ const nextConfig = {
   // Ensure pdf-parse and its native canvas dependency are available
   // to the Node.js runtime (and serverless targets) without bundling
   // their worker files incorrectly.
-  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas', 'firebase-admin', '@google-cloud/storage', '@google-cloud/firestore', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', 'crypto-js', 'csv-parse', 'just-bash'],
+  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas', '@google-cloud/storage', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', 'crypto-js', 'csv-parse', 'just-bash'],
   async headers() {
     return [
       {
