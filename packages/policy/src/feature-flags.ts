@@ -25,6 +25,34 @@ export const FEATURE_FLAG_NAMES = [
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
 
 /**
+ * Human-readable descriptions shown next to each toggle in the tenant
+ * settings "Features" tab. Keyed by flag name.
+ */
+export const FEATURE_FLAG_DESCRIPTIONS: Record<FeatureFlagName, string> = {
+  CUSTOM_BRANDING: 'Customize the logo, colors, and branding of your workspace.',
+  TEAM_COLLABORATION: 'Invite team members and collaborate in this workspace.',
+  GOOGLE_REVIEW: 'Collect and respond to Google reviews.',
+  EMBED_WIDGET: 'Embed an agent as a chat widget on your website.',
+  AGENT_LINKS: 'Share public links to your agents.',
+  INBOX: 'Unified inbox for messaging channels (WhatsApp, Instagram).',
+  WHATSAPP_INBOX: 'Receive and reply to WhatsApp conversations.',
+  WHATSAPP_INBOX_OAUTH: 'Connect WhatsApp via Meta OAuth.',
+  WHATSAPP_INBOX_API_KEY: 'Connect WhatsApp using an API key.',
+  WHATSAPP_INBOX_BYOA: 'Bring your own WhatsApp Business account.',
+  INSTAGRAM_INBOX: 'Receive and reply to Instagram direct messages.',
+  INSTAGRAM_INBOX_OAUTH: 'Connect Instagram via Meta OAuth.',
+  INSTAGRAM_INBOX_API_KEY: 'Connect Instagram using an API key.',
+  INSTAGRAM_INBOX_BYOA: 'Bring your own Instagram account.',
+  CHATWOOT: 'Sync conversations with Chatwoot.',
+  AGENT_NOTIFICATIONS: 'Send notifications for agent events.',
+  AGENT_NOTIFICATIONS_INAPP: 'Show agent notifications in the app.',
+  AGENT_NOTIFICATIONS_EMAIL: 'Send agent notifications by email.',
+  AGENT_NOTIFICATIONS_WEBHOOK: 'Send agent notifications to a webhook.',
+  AGENT_HANDOFF: 'Hand off conversations from an agent to a human.',
+  AGENT_ACTIONS: 'Allow agents to run actions and tools.'
+}
+
+/**
  * Parent-child hierarchy for feature flags.
  * Maps child flag → parent flag.
  * If a parent is disabled, all children are automatically disabled.

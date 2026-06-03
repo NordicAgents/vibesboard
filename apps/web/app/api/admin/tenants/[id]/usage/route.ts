@@ -11,7 +11,7 @@ type RouteParams = {
  * GET /api/admin/tenants/[id]/usage
  * Returns usage data for any tenant (SUPER_ADMIN only).
  *
- * The legacy Firestore `usageRollups`/`usageLogs` collections and the tenant
+ * The legacy `usageRollups`/`usageLogs` rollups and the tenant
  * `subscription` field are no longer written (self-host `recordUsage` is a
  * no-op shim, and Postgres `tenants` has no subscription column). The route
  * stays alive returning a truthful empty/zero shape so the admin UI does not

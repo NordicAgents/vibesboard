@@ -118,6 +118,14 @@ export function LoginForm({
               required
               minLength={action === 'sign-up' ? 8 : undefined}
             />
+            {action === 'sign-in' && (
+              <Link
+                href="/forgot-password"
+                className="self-end text-sm font-medium text-accent-orange transition-colors hover:text-accent-warm"
+              >
+                Forgot password?
+              </Link>
+            )}
           </div>
         </fieldset>
 

@@ -1,0 +1,90 @@
+name: E2E
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-e2e-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      # Match docker-compose.dev.yml + packages/adapter-postgres/docker/init.sql
+      DATABASE_URL: postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev
+      DATABASE_MIGRATE_URL: postgres://vibesboard_migrate:vibesboard_migrate@localhost:5432/vibesboard_dev
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: vibesboard-files
+      S3_ACCESS_KEY_ID: vibesboard
+      S3_SECRET_ACCESS_KEY: vibesboard
+      S3_FORCE_PATH_STYLE: 'true'
+      # better-auth needs a secret to boot; the Playwright config points the app
+      # at a local mock OpenAI server, so no real OpenAI key is required.
+      BETTER_AUTH_SECRET: ci-e2e-better-auth-secret-0123456789
+      NEXT_PUBLIC_APP_URL: http://localhost:3100
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.18
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Bring up Postgres + MinIO via docker compose
+        run: docker compose -f docker-compose.dev.yml up -d --wait postgres minio
+
+      - name: Bootstrap MinIO bucket
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO reachable"; break
+            fi
+            echo "Waiting for MinIO... ($i/30)"; sleep 2
+            if [ "$i" = "30" ]; then
+              echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
+            fi
+          done
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
+            mc alias set local http://localhost:9000 vibesboard vibesboard &&
+            (mc mb -p local/vibesboard-files || true) &&
+            mc anonymous set none local/vibesboard-files
+          "
+
+      - name: Apply database migrations
+        run: bun run db:migrate
+
+      - name: Install Playwright browser (chromium)
+        run: bunx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Run Playwright E2E
+        # The Playwright config boots a mock OpenAI server + `next dev`
+        # (OPENAI_BASE_URL pointed at the mock so the model is stubbed at the
+        # network boundary), seeds an E2E user/tenant in globalSetup, then runs.
+        run: bun run test:e2e
+        working-directory: apps/web
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Capture docker logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml logs
