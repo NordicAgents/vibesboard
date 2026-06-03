@@ -3,10 +3,13 @@
 # Multi-stage build for Next.js (bun) targeting Cloud Run
 # Uses standalone output for smaller images
 
-FROM oven/bun:1.2.18-alpine AS base
+# Debian (glibc) Bun image — NOT alpine/musl. Bun 1.2.18 segfaults (SIGILL)
+# running Next's build under musl on larger builds; on glibc it's stable, which
+# is exactly the environment ci-build uses. Keep the whole image on glibc so the
+# standalone output and the Node runtime stay libc-consistent.
+FROM oven/bun:1.2.18 AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
 
 # Install deps (cached layer)
 FROM base AS deps
@@ -44,10 +47,6 @@ RUN bun install
 # are already present, then layer the source on top.
 FROM deps AS builder
 WORKDIR /app
-# Bun 1.2.18 segfaults (SIGILL) running Next's build under musl/alpine on
-# larger builds (Bun-on-glibc is fine — that's what CI uses). Deps are still
-# installed with Bun above; only the build step's JS runtime switches to Node.
-RUN apk add --no-cache nodejs
 ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY . .
 # Inject public runtime configuration at build time for client bundles
@@ -59,17 +58,19 @@ ENV NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
     NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
-# Build Next.js (standalone output) with Node — see the Bun/musl note above.
-RUN cd apps/web && node /app/node_modules/next/dist/bin/next build
+# Build Next.js (standalone output) with Bun on glibc — matches ci-build.
+RUN bun run --filter @vibesboard/web build
 
-# Production runner (standalone — no separate node_modules needed)
-FROM node:20-alpine AS runner
+# Production runner (standalone — no separate node_modules needed).
+# Debian (glibc) slim to match the glibc build image above.
+FROM node:20-slim AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=8080 \
     HOSTNAME=0.0.0.0
 WORKDIR /app
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+RUN groupadd --gid 1001 nodejs \
+    && useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin nextjs
 
 # Copy standalone build (includes server + minimal node_modules)
 # Next.js standalone in a monorepo places the server under apps/web/
