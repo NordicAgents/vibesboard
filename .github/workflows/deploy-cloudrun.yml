@@ -123,7 +123,7 @@ jobs:
             NOTIFICATION_EMAIL_FROM=VibeAgent <notifications@vibeagent.com>
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_REGION=us-east-1' || '' }}
-            S3_BUCKET=${{ github.ref_name == 'main' && 'vibeagent-files' || (github.ref_name == 'dev' && 'vibeagent-files-staging') || '' }}
+            S3_BUCKET=${{ github.ref_name == 'main' && 'vibeagent-files' || (github.ref_name == 'dev' && 'vibesboard-staging-files') || '' }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_FORCE_PATH_STYLE=false' || '' }}
             ${{ github.ref_name == 'main' && format('BETTER_AUTH_URL={0}', secrets.PROD_NEXT_PUBLIC_APP_URL) || (github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL)) || '' }}
           secrets: |
