@@ -44,6 +44,11 @@ RUN bun install
 # are already present, then layer the source on top.
 FROM deps AS builder
 WORKDIR /app
+# Bun 1.2.18 segfaults (SIGILL) running Next's build under musl/alpine on
+# larger builds (Bun-on-glibc is fine — that's what CI uses). Deps are still
+# installed with Bun above; only the build step's JS runtime switches to Node.
+RUN apk add --no-cache nodejs
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY . .
 # Inject public runtime configuration at build time for client bundles
 ARG NEXT_PUBLIC_AUTH_GOOGLE
@@ -54,8 +59,8 @@ ENV NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
     NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
-# Build Next.js (standalone output)
-RUN bun run --filter @vibesboard/web build
+# Build Next.js (standalone output) with Node — see the Bun/musl note above.
+RUN cd apps/web && node /app/node_modules/next/dist/bin/next build
 
 # Production runner (standalone — no separate node_modules needed)
 FROM node:20-alpine AS runner
