@@ -65,9 +65,8 @@ export function AgentDashboardTabs({
 
   // Hide tabs whose feature is disabled for the tenant — there's nothing to
   // configure, so the tab would otherwise render an empty panel.
-  const { isEnabled: isTenantFeatureEnabled } = useTenantFeatures(
-    agent.tenantId ?? null
-  )
+  const { isEnabled: isTenantFeatureEnabled, loading: featuresLoading } =
+    useTenantFeatures(agent.tenantId ?? null)
   const actionsEnabled =
     !!agent.tenantId && isTenantFeatureEnabled('AGENT_ACTIONS')
 
@@ -90,7 +89,25 @@ export function AgentDashboardTabs({
     router.push(`/agents/${agent.id}?${params.toString()}`)
   }
 
-  const showSaveBar = SAVEABLE_TABS.includes(activeTab)
+  // A tab is only renderable if its content exists. The Actions tab depends on
+  // the async AGENT_ACTIONS feature (off by default now); Enquiries depends on
+  // bookingConfig. If the active tab has no content — e.g. a deep-linked
+  // ?tab=actions, or a legacy scheduling/data link that resolves to actions, on
+  // a tenant where actions are disabled — clamp to Setup so we never render a
+  // blank panel with an orphaned save bar. Don't clamp the Actions tab while
+  // features are still loading, so a valid actions deep-link isn't bounced on
+  // first paint.
+  const isTabAvailable = (tab: string): boolean => {
+    if (tab === 'actions') return actionsEnabled
+    if (tab === 'booking-enquiries') return !!agent.bookingConfig?.enabled
+    return true
+  }
+  const effectiveTab =
+    isTabAvailable(activeTab) || (activeTab === 'actions' && featuresLoading)
+      ? activeTab
+      : 'setup'
+
+  const showSaveBar = SAVEABLE_TABS.includes(effectiveTab)
 
   return (
     <div>
@@ -117,7 +134,7 @@ export function AgentDashboardTabs({
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <Tabs value={effectiveTab} onValueChange={handleTabChange}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="setup">Setup</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
