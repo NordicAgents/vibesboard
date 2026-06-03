@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "next-web",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@vibesboard/web", "dev"],
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "--filter", "@vibesboard/web", "dev"],
       "port": 3000
     }
   ]

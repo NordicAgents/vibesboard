@@ -11,4 +11,4 @@ sh setup.sh
 [[actions]]
 name = "frontend"
 icon = "tool"
-command = "pnpm dev"
+command = "bun run dev"

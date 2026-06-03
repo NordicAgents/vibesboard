@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import test from 'node:test'
+import { it, expect } from 'vitest'
 import type { AgentBookingConfig } from '@vibesboard/contracts'
 import {
   DIRECT_BOOKING_ANONYMOUS_WARNING,
@@ -29,32 +28,32 @@ function bookingConfig(
   }
 }
 
-test('returns warning for enabled direct booking with anonymous chat', () => {
+it('returns warning for enabled direct booking with anonymous chat', () => {
   const warning = getDirectBookingAccessWarning(bookingConfig(), true)
 
-  assert.deepEqual(warning, DIRECT_BOOKING_ANONYMOUS_WARNING)
+  expect(warning).toEqual(DIRECT_BOOKING_ANONYMOUS_WARNING)
 })
 
-test('returns no warning for enquiry booking with anonymous chat', () => {
+it('returns no warning for enquiry booking with anonymous chat', () => {
   const warning = getDirectBookingAccessWarning(
     bookingConfig({ mode: 'enquiry' }),
     true
   )
 
-  assert.equal(warning, null)
+  expect(warning).toBe(null)
 })
 
-test('returns no warning for direct booking when anonymous chat is disabled', () => {
+it('returns no warning for direct booking when anonymous chat is disabled', () => {
   const warning = getDirectBookingAccessWarning(bookingConfig(), false)
 
-  assert.equal(warning, null)
+  expect(warning).toBe(null)
 })
 
-test('returns no warning when booking is disabled', () => {
+it('returns no warning when booking is disabled', () => {
   const warning = getDirectBookingAccessWarning(
     bookingConfig({ enabled: false }),
     true
   )
 
-  assert.equal(warning, null)
+  expect(warning).toBe(null)
 })

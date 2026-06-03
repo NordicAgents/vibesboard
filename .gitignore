@@ -26,7 +26,7 @@ tsconfig.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+.bun-debug.log*
 
 # local env files (never commit — these contain real secrets)
 .env.local
@@ -60,14 +60,14 @@ env.yaml
 # Cloud Functions build output
 apps/functions/lib
 
-# Firebase emulator debug logs
-firebase-debug.log
-firestore-debug.log
+# Debug logs
 *-debug.log
-apps/functions/firebase-debug.log
 
 # test artifacts
 .playwright-mcp/
+playwright-report/
+test-results/
+apps/web/e2e/.auth/
 
 # Local Postgres volumes (if overriding the default named volume path)
 docker-volumes/

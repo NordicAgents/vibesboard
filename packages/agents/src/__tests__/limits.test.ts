@@ -1,5 +1,4 @@
-import { test, describe } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
@@ -33,7 +32,7 @@ async function seedAgent(adminDb: any, totalResponseCount = 0) {
 }
 
 describe('agent response limits (postgres)', () => {
-  test('incrementAgentResponseCount adds 1 atomically', async () => {
+  it('incrementAgentResponseCount adds 1 atomically', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb, 4)
       await incrementAgentResponseCount(tenantId, agentId, adminDb)
@@ -41,33 +40,73 @@ describe('agent response limits (postgres)', () => {
         .select()
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(row.totalResponseCount, 5)
+      expect(row.totalResponseCount).toBe(5)
     })
   })
 
-  test('reserveAgentResponseSlot returns true below cap and increments', async () => {
+  it('reserveAgentResponseSlot returns true below cap and increments', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb, 9)
       const ok = await reserveAgentResponseSlot(tenantId, agentId, 10, adminDb)
-      assert.equal(ok, true)
+      expect(ok).toBe(true)
       const [row] = await adminDb
         .select()
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(row.totalResponseCount, 10)
+      expect(row.totalResponseCount).toBe(10)
     })
   })
 
-  test('reserveAgentResponseSlot returns false at cap and does not increment', async () => {
+  it('reserveAgentResponseSlot returns false at cap and does not increment', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb, 10)
       const ok = await reserveAgentResponseSlot(tenantId, agentId, 10, adminDb)
-      assert.equal(ok, false)
+      expect(ok).toBe(false)
       const [row] = await adminDb
         .select()
         .from(agents)
         .where(eq(agents.id, agentId))
-      assert.equal(row.totalResponseCount, 10)
+      expect(row.totalResponseCount).toBe(10)
+    })
+  })
+
+  it('reserveAgentResponseSlot is a no-op for an unknown agent', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId } = await seedAgent(adminDb, 0)
+      const ok = await reserveAgentResponseSlot(tenantId, randomUUID(), 10, adminDb)
+      expect(ok).toBe(false)
+    })
+  })
+
+  it('reserveAgentResponseSlot is scoped per tenant (wrong tenant cannot consume the slot)', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { agentId } = await seedAgent(adminDb, 0)
+      const ok = await reserveAgentResponseSlot(randomUUID(), agentId, 10, adminDb)
+      expect(ok).toBe(false)
+      const [row] = await adminDb
+        .select()
+        .from(agents)
+        .where(eq(agents.id, agentId))
+      expect(row.totalResponseCount).toBe(0)
+    })
+  })
+
+  it('reserveAgentResponseSlot can be called concurrently without exceeding the cap', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId } = await seedAgent(adminDb, 0)
+      const cap = 3
+      const results = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          reserveAgentResponseSlot(tenantId, agentId, cap, adminDb)
+        )
+      )
+      const granted = results.filter((r) => r === true).length
+      expect(granted).toBe(cap)
+      const [row] = await adminDb
+        .select()
+        .from(agents)
+        .where(eq(agents.id, agentId))
+      expect(row.totalResponseCount).toBe(cap)
     })
   })
 })

@@ -99,26 +99,42 @@ export async function PATCH(
   // NOTE: sourceUrls & domain intentionally NOT written — no such columns in agents table.
   const set: Record<string, unknown> = { updatedAt: new Date() }
   if (payload.name !== undefined) set.name = payload.name
-  if (payload.instructions !== undefined) set.instructions = payload.instructions
+  if (payload.instructions !== undefined)
+    set.instructions = payload.instructions
   if (payload.fileKeys !== undefined) set.fileKeys = payload.fileKeys
   if (payload.tools !== undefined) set.tools = payload.tools
-  if (typeof payload.allowAnonymous === 'boolean') set.allowAnonymous = payload.allowAnonymous
-  if (payload.greetingText !== undefined) set.greetingText = payload.greetingText
+  if (typeof payload.allowAnonymous === 'boolean')
+    set.allowAnonymous = payload.allowAnonymous
+  if (payload.greetingText !== undefined)
+    set.greetingText = payload.greetingText
   if (payload.mode !== undefined) set.mode = payload.mode
-  if (payload.collectionFields !== undefined) set.collectionFields = payload.collectionFields
-  if (payload.maxResponses !== undefined) set.maxResponses = payload.maxResponses
-  if (payload.maxAgentResponses !== undefined) set.maxAgentResponses = payload.maxAgentResponses
-  if (payload.quickSuggestionsMode !== undefined) set.quickSuggestionsMode = payload.quickSuggestionsMode
-  if (payload.quickSuggestionsCount !== undefined) set.quickSuggestionsCount = payload.quickSuggestionsCount
-  if (typeof payload.googleReviewEnabled === 'boolean') set.googleReviewEnabled = payload.googleReviewEnabled
-  if (payload.googlePlaceId !== undefined) set.googlePlaceId = payload.googlePlaceId
-  if (payload.retrievalStrategy !== undefined) set.retrievalStrategy = payload.retrievalStrategy
-  if (payload.notificationConfig !== undefined) set.notificationConfig = payload.notificationConfig
-  if (payload.handoffTargets !== undefined) set.handoffTargets = payload.handoffTargets
-  if (payload.schedulingConfig !== undefined) set.schedulingConfig = payload.schedulingConfig
+  if (payload.collectionFields !== undefined)
+    set.collectionFields = payload.collectionFields
+  if (payload.maxResponses !== undefined)
+    set.maxResponses = payload.maxResponses
+  if (payload.maxAgentResponses !== undefined)
+    set.maxAgentResponses = payload.maxAgentResponses
+  if (payload.quickSuggestionsMode !== undefined)
+    set.quickSuggestionsMode = payload.quickSuggestionsMode
+  if (payload.quickSuggestionsCount !== undefined)
+    set.quickSuggestionsCount = payload.quickSuggestionsCount
+  if (typeof payload.googleReviewEnabled === 'boolean')
+    set.googleReviewEnabled = payload.googleReviewEnabled
+  if (payload.googlePlaceId !== undefined)
+    set.googlePlaceId = payload.googlePlaceId
+  if (payload.retrievalStrategy !== undefined)
+    set.retrievalStrategy = payload.retrievalStrategy
+  if (payload.notificationConfig !== undefined)
+    set.notificationConfig = payload.notificationConfig
+  if (payload.handoffTargets !== undefined)
+    set.handoffTargets = payload.handoffTargets
+  if (payload.schedulingConfig !== undefined)
+    set.schedulingConfig = payload.schedulingConfig
   if (payload.dataConfig !== undefined) set.dataConfig = payload.dataConfig
-  if (payload.calendarAvailabilityConfig !== undefined) set.calendarAvailabilityConfig = payload.calendarAvailabilityConfig
-  if (payload.bookingConfig !== undefined) set.bookingConfig = payload.bookingConfig
+  if (payload.calendarAvailabilityConfig !== undefined)
+    set.calendarAvailabilityConfig = payload.calendarAvailabilityConfig
+  if (payload.bookingConfig !== undefined)
+    set.bookingConfig = payload.bookingConfig
 
   try {
     await getMigrateDb()
@@ -127,14 +143,19 @@ export async function PATCH(
       .where(eq(agentsTable.id, id))
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to update agent' },
+      {
+        error: error instanceof Error ? error.message : 'Unable to update agent'
+      },
       { status: 500 }
     )
   }
 
   const updated = await getAgentById(id)
   if (!updated) {
-    return NextResponse.json({ error: 'Unable to retrieve updated agent' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Unable to retrieve updated agent' },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({ agent: updated })
