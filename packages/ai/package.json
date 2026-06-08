@@ -29,7 +29,7 @@
     "@vibesboard/retrieval": "workspace:*",
     "@vibesboard/scheduling": "workspace:*",
     "@vibesboard/utils": "workspace:*",
-    "ai": "^3.4.33",
+    "ai": "^6.0.197",
     "exceljs": "^4.4.0",
     "jsdom": "^27.2.0",
     "mammoth": "^1.11.0",

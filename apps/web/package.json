@@ -52,7 +52,7 @@
     "@vibesboard/scheduling": "workspace:*",
     "@vibesboard/tenants": "workspace:*",
     "@vibesboard/utils": "workspace:*",
-    "ai": "^3.4.33",
+    "ai": "^6.0.197",
     "uuidv7": "^1.0.2",
     "better-auth": "^1.1.0",
     "chart.js": "^4.5.1",
