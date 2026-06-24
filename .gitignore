@@ -71,3 +71,14 @@ apps/web/e2e/.auth/
 
 # Local Postgres volumes (if overriding the default named volume path)
 docker-volumes/
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+apps/web/.ds-entry.tsx
+apps/web/.ds-tw.css
+apps/web/index.d.ts
+apps/web/types/.ds-dts/
+apps/web/.ds-dts.tsconfig.json
+apps/web/.ds-shim.ts
