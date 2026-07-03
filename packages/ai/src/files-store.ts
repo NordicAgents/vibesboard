@@ -1,4 +1,4 @@
-import { and, count, asc, eq } from 'drizzle-orm'
+import { and, count, asc, eq, inArray } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
@@ -50,4 +50,10 @@ export async function getPendingFiles(tenantId: string, agentId: string, limit =
 export async function getFileByKey(agentId: string, fileKey: string, db: Db = getMigrateDb()): Promise<FileRecord | null> {
   const rows = await db.select().from(files).where(and(eq(files.agentId, agentId), eq(files.fileKey, fileKey))).limit(1)
   return rows.length ? rowToFile(rows[0]) : null
+}
+/** Fetch existing file records for a specific set of fileKeys — bounded by the input, no pagination needed. */
+export async function getFilesByKeys(agentId: string, fileKeys: string[], db: Db = getMigrateDb()): Promise<FileRecord[]> {
+  if (!fileKeys.length) return []
+  const rows = await db.select().from(files).where(and(eq(files.agentId, agentId), inArray(files.fileKey, fileKeys)))
+  return rows.map(rowToFile)
 }
