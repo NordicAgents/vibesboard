@@ -202,7 +202,10 @@ export const upsertAgentSchema = z.object({
   bookingConfig: bookingConfigSchema.optional()
 })
 
-export const patchAgentSchema = upsertAgentSchema.partial()
+export const patchAgentSchema = upsertAgentSchema.partial().extend({
+  // Optional free-text note attached to the version this edit creates.
+  changeNote: z.string().max(500).optional()
+})
 
 export const agentChatMessageSchema = z.object({
   id: z.string().optional(),
