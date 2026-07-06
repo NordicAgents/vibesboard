@@ -7,6 +7,7 @@ import {
   tenants as tenantsTable,
 } from '@vibesboard/adapter-postgres/schema'
 import { agentRowToVibeAgent } from './db.ts'
+import { recordAgentVersion } from './versioning.ts'
 import { type VibeAgent } from '@vibesboard/contracts'
 
 type Db = PostgresJsDatabase<typeof schema>
@@ -104,8 +105,8 @@ async function disableConfigField(
   column:
     | typeof agentsTable.calendarAvailabilityConfig
     | typeof agentsTable.schedulingConfig,
-): Promise<void> {
-  await db
+): Promise<string[]> {
+  const rows = await db
     .update(agentsTable)
     .set({
       ...(column === agentsTable.calendarAvailabilityConfig
@@ -123,6 +124,8 @@ async function disableConfigField(
         sql`${column} ->> 'calendarConnectionId' = ${connectionId}`,
       ),
     )
+    .returning({ id: agentsTable.id })
+  return rows.map((r) => r.id)
 }
 
 export async function disableAgentsForConnection(
@@ -130,6 +133,45 @@ export async function disableAgentsForConnection(
   connectionId: string,
   db: Db = getMigrateDb(),
 ): Promise<void> {
-  await disableConfigField(db, tenantId, connectionId, agentsTable.calendarAvailabilityConfig)
-  await disableConfigField(db, tenantId, connectionId, agentsTable.schedulingConfig)
+  const affected = new Set<string>()
+  await db.transaction(async (tx) => {
+    const txDb = tx as unknown as Db
+    for (const id of await disableConfigField(
+      txDb,
+      tenantId,
+      connectionId,
+      agentsTable.calendarAvailabilityConfig,
+    )) {
+      affected.add(id)
+    }
+    for (const id of await disableConfigField(
+      txDb,
+      tenantId,
+      connectionId,
+      agentsTable.schedulingConfig,
+    )) {
+      affected.add(id)
+    }
+  })
+
+  // Snapshot each agent whose config we auto-disabled, each in its own
+  // transaction. The disables above have already committed — a version-write
+  // failure for one agent must not roll back the (already-applied) disable
+  // for that agent or any other. The no-op guard inside recordAgentVersion
+  // skips any agent whose config was already in the disabled state.
+  for (const agentId of affected) {
+    try {
+      await db.transaction(async (tx) => {
+        await recordAgentVersion(tx as unknown as Db, agentId, {
+          source: 'system',
+          note: 'Calendar connection disabled',
+        })
+      })
+    } catch (error) {
+      console.error(
+        `[disableAgentsForConnection] Failed to record version for agent ${agentId}:`,
+        error,
+      )
+    }
+  }
 }

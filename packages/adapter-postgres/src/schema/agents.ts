@@ -116,11 +116,90 @@ export const agents = pgTable(
     bookingConfig: jsonb('booking_config').$type<AgentBookingConfig>(),
     dataConfig: jsonb('data_config').$type<AgentDataConfig>(),
     calendarAvailabilityConfig: jsonb('calendar_availability_config').$type<AgentCalendarAvailabilityConfig>(),
+    // versionNo of the agent_versions row the live config currently reflects.
+    // Always >= 1 once the row exists (v1 is written at create / backfill).
+    currentVersion: integer('current_version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     uniqueSlug: uniqueIndex('agents_tenant_slug_idx').on(t.tenantId, t.slug),
+  }),
+)
+
+/**
+ * The config fields captured in an agent_versions snapshot — the editorial
+ * config subset of `agents`, excluding identity (id/tenant/user/slug), runtime
+ * counters (totalResponseCount, lastEmbeddingsSyncAt), the version pointer, the
+ * access-password credential (managed separately), and timestamps.
+ *
+ * This type is the single source of truth for the snapshot shape; the builder
+ * lives in `@vibesboard/agents/versioning`.
+ */
+export type AgentConfigSnapshot = {
+  name: string
+  instructions: string
+  mode: 'provider' | 'collector'
+  allowAnonymous: boolean
+  greetingText: string | null
+  quickSuggestionsMode: 'off' | 'smart' | 'always'
+  quickSuggestionsCount: number
+  tools: string[]
+  fileKeys: string[]
+  handoffTargets: string[]
+  collectionFields: CollectionField[] | null
+  maxResponses: number | null
+  maxAgentResponses: number | null
+  googleReviewEnabled: boolean
+  googlePlaceId: string | null
+  retrievalStrategy: 'direct' | 'rag' | 'bash' | null
+  schedulingConfig: AgentSchedulingConfig | null
+  notificationConfig: AgentNotificationConfig | null
+  bookingConfig: AgentBookingConfig | null
+  dataConfig: AgentDataConfig | null
+  calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | null
+}
+
+export type AgentVersionSource =
+  | 'create'
+  | 'update'
+  | 'restore'
+  | 'backfill'
+  | 'file-sync'
+  | 'system'
+
+/**
+ * Immutable per-agent config snapshots. One row is written on create (v1) and
+ * on every config-changing write (see `@vibesboard/agents/versioning`). History
+ * is append-only — restore writes a NEW forward version, never rewrites.
+ */
+export const agentVersions = pgTable(
+  'agent_versions',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    versionNo: integer('version_no').notNull(),
+    config: jsonb('config').$type<AgentConfigSnapshot>().notNull(),
+    source: text('source', {
+      enum: ['create', 'update', 'restore', 'backfill', 'file-sync', 'system'],
+    }).notNull(),
+    changeNote: text('change_note'),
+    restoredFrom: integer('restored_from'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    agentVersionUnique: uniqueIndex('agent_versions_agent_version_uq').on(
+      t.agentId,
+      t.versionNo,
+    ),
+    byAgent: index('agent_versions_agent_idx').on(t.agentId, t.versionNo.desc()),
+    byTenant: index('agent_versions_tenant_idx').on(t.tenantId),
   }),
 )
 
@@ -236,6 +315,8 @@ export const agentInviteCodes = pgTable(
 
 export type Agent = typeof agents.$inferSelect
 export type NewAgent = typeof agents.$inferInsert
+export type AgentVersion = typeof agentVersions.$inferSelect
+export type NewAgentVersion = typeof agentVersions.$inferInsert
 export type AgentLink = typeof agentLinks.$inferSelect
 export type Hook = typeof hooks.$inferSelect
 export type HookJob = typeof hookJobs.$inferSelect

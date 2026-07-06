@@ -6,8 +6,9 @@ import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { processFile } from '@vibesboard/ai/file-processor'
 import { insertFiles, listFiles } from '@vibesboard/ai/files-store'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
 import { agents } from '@vibesboard/adapter-postgres/schema'
+import { recordAgentVersion } from '@vibesboard/agents/versioning'
 
 export const runtime = 'nodejs'
 
@@ -151,18 +152,40 @@ export async function POST(
     )
   }
 
-  // Update agent fileKeys array in Postgres (deduplicated)
-  const currentFileKeys = agent.fileKeys ?? []
+  // Update agent fileKeys array in Postgres (deduplicated). Read-modify-write
+  // happens inside the transaction under a row lock so concurrent uploads for
+  // the same agent serialize instead of racing on a stale fileKeys read.
   const newFileKeys = files.map(f => f.fileKey)
-  const updatedFileKeys = Array.from(
-    new Set([...currentFileKeys, ...newFileKeys])
-  )
+  await getMigrateDb().transaction(async tx => {
+    const [row] = await tx
+      .select({ fileKeys: agents.fileKeys })
+      .from(agents)
+      .where(eq(agents.id, id))
+      .for('update')
+    const currentFileKeys = row?.fileKeys ?? []
+    const updatedFileKeys = Array.from(
+      new Set([...currentFileKeys, ...newFileKeys])
+    )
 
-  const db = getMigrateDb()
-  await db
-    .update(agents)
-    .set({ fileKeys: updatedFileKeys, updatedAt: new Date() })
-    .where(eq(agents.id, id))
+    // updatedAt always bumps — a files-sync request just completed against
+    // this agent — but fileKeys is only rewritten when it actually changed.
+    await tx
+      .update(agents)
+      .set({
+        ...(updatedFileKeys.length !== currentFileKeys.length
+          ? { fileKeys: updatedFileKeys }
+          : {}),
+        updatedAt: new Date()
+      })
+      .where(eq(agents.id, id))
+
+    // No-ops internally when the resulting config snapshot is unchanged.
+    await recordAgentVersion(tx as unknown as Db, id, {
+      source: 'file-sync',
+      actor: user.id,
+      note: 'Files added'
+    })
+  })
 
   // Trigger background processing (non-blocking)
   if (createdFiles.length > 0) {
