@@ -43,26 +43,37 @@ vi.mock('@vibesboard/agents/permissions', () => ({
 // mutation is observable without a real DB or storage.
 const updateSpy = vi.fn()
 const deleteSpy = vi.fn()
+const dbMock = {
+  update: () => ({
+    set: (v: unknown) => {
+      updateSpy(v)
+      return { where: async () => undefined }
+    }
+  }),
+  delete: () => ({
+    where: async () => {
+      deleteSpy()
+      return undefined
+    }
+  }),
+  // PATCH wraps its update + recordAgentVersion call in a transaction — run
+  // the callback against this same mock so update() is still observable.
+  transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(dbMock)
+}
 vi.mock('@vibesboard/adapter-postgres/client', () => ({
-  getMigrateDb: () => ({
-    update: () => ({
-      set: (v: unknown) => {
-        updateSpy(v)
-        return { where: async () => undefined }
-      }
-    }),
-    delete: () => ({
-      where: async () => {
-        deleteSpy()
-        return undefined
-      }
-    })
-  })
+  getMigrateDb: () => dbMock
 }))
 vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
 vi.mock('@vibesboard/adapter-s3', () => ({ deleteFile: async () => undefined }))
 vi.mock('@vibesboard/agents/webhook-utils', () => ({
   assertSafeCallbackUrl: () => undefined
+}))
+const recordAgentVersionMock = vi.fn(async (..._args: unknown[]) => ({
+  versionNo: 1,
+  created: true
+}))
+vi.mock('@vibesboard/agents/versioning', () => ({
+  recordAgentVersion: (...args: unknown[]) => recordAgentVersionMock(...args)
 }))
 
 const { GET, PATCH, DELETE } = await import('./route.ts')
@@ -85,6 +96,7 @@ beforeEach(() => {
   canEditAgentMock.mockClear()
   updateSpy.mockClear()
   deleteSpy.mockClear()
+  recordAgentVersionMock.mockClear()
 })
 
 describe('GET /api/agents/[id]', () => {

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
 import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
 import { patchAgentSchema } from '@vibesboard/agents/schema'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getAgentById } from '@vibesboard/agents/server'
+import { recordAgentVersion } from '@vibesboard/agents/versioning'
 import { deleteFile } from '@vibesboard/adapter-s3'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 
@@ -137,10 +138,18 @@ export async function PATCH(
     set.bookingConfig = payload.bookingConfig
 
   try {
-    await getMigrateDb()
-      .update(agentsTable)
-      .set(set as Partial<typeof agentsTable.$inferInsert>)
-      .where(eq(agentsTable.id, id))
+    await getMigrateDb().transaction(async tx => {
+      await tx
+        .update(agentsTable)
+        .set(set as Partial<typeof agentsTable.$inferInsert>)
+        .where(eq(agentsTable.id, id))
+      // Snapshot the result as a new version (no-op if config is unchanged).
+      await recordAgentVersion(tx as unknown as Db, id, {
+        source: 'update',
+        actor: authResult.user.id,
+        note: payload.changeNote ?? null
+      })
+    })
   } catch (error) {
     return NextResponse.json(
       {

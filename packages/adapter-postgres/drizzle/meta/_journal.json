@@ -78,6 +78,13 @@
       "when": 1780100000000,
       "tag": "0010_users_disabled",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780200000000,
+      "tag": "0011_agent_versioning",
+      "breakpoints": true
     }
   ]
 }
