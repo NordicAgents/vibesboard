@@ -1,7 +1,7 @@
 import 'server-only'
 import { eq, and, or, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
-import { getDb } from '@vibesboard/adapter-postgres/client'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { tenantLlmConfigs } from '@vibesboard/adapter-postgres/schema'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
@@ -36,7 +36,7 @@ export async function listLlmConfigs(
   tenantId: string,
   store: CredStore = credStore,
 ): Promise<LlmConfigView[]> {
-  const rows = await getDb()
+  const rows = await getMigrateDb()
     .select()
     .from(tenantLlmConfigs)
     .where(eq(tenantLlmConfigs.tenantId, tenantId))
@@ -48,7 +48,7 @@ export async function getLlmConfig(
   id: string,
   tenantId: string,
 ): Promise<LlmConfigView | null> {
-  const rows = await getDb()
+  const rows = await getMigrateDb()
     .select()
     .from(tenantLlmConfigs)
     .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
@@ -65,7 +65,7 @@ export async function createLlmConfig(
   const sealedKey = await store.seal(input.apiKey)
 
   // Single transaction: clear old default + insert new row atomically.
-  const [row] = await getDb().transaction(async (tx) => {
+  const [row] = await getMigrateDb().transaction(async (tx) => {
     if (input.isDefault) {
       await tx
         .update(tenantLlmConfigs)
@@ -104,7 +104,7 @@ export async function updateLlmConfig(
 ): Promise<LlmConfigView | null> {
   const sealedKey = input.apiKey != null ? await store.seal(input.apiKey) : undefined
 
-  const [row] = await getDb().transaction(async (tx) => {
+  const [row] = await getMigrateDb().transaction(async (tx) => {
     // Verify the row belongs to this tenant before touching the default flag.
     const existing = await tx
       .select({ id: tenantLlmConfigs.id })
@@ -149,7 +149,7 @@ export async function deleteLlmConfig(
   tenantId: string,
   store: CredStore = credStore,
 ): Promise<boolean> {
-  const rows = await getDb()
+  const rows = await getMigrateDb()
     .delete(tenantLlmConfigs)
     .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
     .returning({ id: tenantLlmConfigs.id, token: tenantLlmConfigs.apiKeyEncrypted })
@@ -170,7 +170,7 @@ export async function resolveProviderSpec(
   llmConfigId?: string | null,
   store: CredStore = credStore,
 ): Promise<ProviderModelSpec | null> {
-  const row = await getDb()
+  const row = await getMigrateDb()
     .select()
     .from(tenantLlmConfigs)
     .where(

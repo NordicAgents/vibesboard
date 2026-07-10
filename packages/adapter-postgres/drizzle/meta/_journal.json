@@ -92,6 +92,13 @@
       "when": 1783691935347,
       "tag": "0012_clumsy_queen_noir",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783700000000,
+      "tag": "0013_tenant_llm_configs_rls",
+      "breakpoints": true
     }
   ]
 }
