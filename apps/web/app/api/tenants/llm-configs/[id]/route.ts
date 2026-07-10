@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/auth/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getLlmConfig, updateLlmConfig, deleteLlmConfig } from '@vibesboard/ai/tenant-llm-config'
 
 export const runtime = 'nodejs'
@@ -24,18 +25,32 @@ const updateSchema = z
 
 type Params = { params: Promise<{ id: string }> }
 
+async function guardAdminAndFlag(userId: string) {
+  const tenantId = await getActiveTenant(userId)
+  if (!tenantId) return { ok: false as const, response: NextResponse.json({ error: 'No active tenant' }, { status: 400 }) }
+
+  const adminResult = await requireTenantAdmin(tenantId)
+  if (!adminResult.ok) return { ok: false as const, response: adminResult.response }
+
+  const enabled = await isFeatureEnabled(tenantId, 'BYO_LLM')
+  if (!enabled) return { ok: false as const, response: NextResponse.json({ error: 'BYO_LLM is not enabled for this workspace' }, { status: 403 }) }
+
+  return { ok: true as const, tenantId }
+}
+
 /**
  * GET /api/tenants/llm-configs/[id]
+ * Requires TENANT_ADMIN + BYO_LLM flag.
  */
 export async function GET(_req: NextRequest, { params }: Params) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  const tenantId = await getActiveTenant(authResult.user.id)
-  if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
+  const guard = await guardAdminAndFlag(authResult.user.id)
+  if (!guard.ok) return guard.response
 
   const { id } = await params
-  const config = await getLlmConfig(id, tenantId)
+  const config = await getLlmConfig(id, guard.tenantId)
   if (!config) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ config })
@@ -43,13 +58,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 /**
  * PATCH /api/tenants/llm-configs/[id]
+ * Requires TENANT_ADMIN + BYO_LLM flag.
  */
 export async function PATCH(request: NextRequest, { params }: Params) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  const tenantId = await getActiveTenant(authResult.user.id)
-  if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
+  const guard = await guardAdminAndFlag(authResult.user.id)
+  if (!guard.ok) return guard.response
 
   const body = await request.json().catch(() => null)
   const parsed = updateSchema.safeParse(body)
@@ -58,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 
   const { id } = await params
-  const config = await updateLlmConfig(id, tenantId, parsed.data)
+  const config = await updateLlmConfig(id, guard.tenantId, parsed.data)
   if (!config) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ config })
@@ -66,16 +82,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 /**
  * DELETE /api/tenants/llm-configs/[id]
+ * Requires TENANT_ADMIN + BYO_LLM flag.
  */
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  const tenantId = await getActiveTenant(authResult.user.id)
-  if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
+  const guard = await guardAdminAndFlag(authResult.user.id)
+  if (!guard.ok) return guard.response
 
   const { id } = await params
-  const deleted = await deleteLlmConfig(id, tenantId)
+  const deleted = await deleteLlmConfig(id, guard.tenantId)
   if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return new NextResponse(null, { status: 204 })

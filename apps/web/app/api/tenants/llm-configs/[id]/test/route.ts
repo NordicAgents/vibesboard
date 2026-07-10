@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText } from 'ai'
-import { requireAuth } from '@/lib/auth/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getLlmConfig, resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 
@@ -12,6 +13,7 @@ type Params = { params: Promise<{ id: string }> }
 /**
  * POST /api/tenants/llm-configs/[id]/test
  * Probe the config with a 1-token generation to verify credentials.
+ * Requires TENANT_ADMIN + BYO_LLM flag.
  */
 export async function POST(_req: NextRequest, { params }: Params) {
   const authResult = await requireAuth()
@@ -19,6 +21,12 @@ export async function POST(_req: NextRequest, { params }: Params) {
 
   const tenantId = await getActiveTenant(authResult.user.id)
   if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
+
+  const adminResult = await requireTenantAdmin(tenantId)
+  if (!adminResult.ok) return adminResult.response
+
+  const enabled = await isFeatureEnabled(tenantId, 'BYO_LLM')
+  if (!enabled) return NextResponse.json({ error: 'BYO_LLM is not enabled for this workspace' }, { status: 403 })
 
   const { id } = await params
   const config = await getLlmConfig(id, tenantId)

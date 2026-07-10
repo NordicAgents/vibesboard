@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/auth/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
+import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { listLlmConfigs, createLlmConfig } from '@vibesboard/ai/tenant-llm-config'
 
 export const runtime = 'nodejs'
@@ -21,31 +22,44 @@ const createSchema = z
     }
   })
 
+async function guardAdminAndFlag(userId: string) {
+  const tenantId = await getActiveTenant(userId)
+  if (!tenantId) return { ok: false as const, response: NextResponse.json({ error: 'No active tenant' }, { status: 400 }) }
+
+  const adminResult = await requireTenantAdmin(tenantId)
+  if (!adminResult.ok) return { ok: false as const, response: adminResult.response }
+
+  const enabled = await isFeatureEnabled(tenantId, 'BYO_LLM')
+  if (!enabled) return { ok: false as const, response: NextResponse.json({ error: 'BYO_LLM is not enabled for this workspace' }, { status: 403 }) }
+
+  return { ok: true as const, tenantId }
+}
+
 /**
  * GET /api/tenants/llm-configs
- * List LLM provider configs for the active tenant.
+ * List LLM provider configs. Requires TENANT_ADMIN + BYO_LLM flag.
  */
 export async function GET() {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  const tenantId = await getActiveTenant(authResult.user.id)
-  if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
+  const guard = await guardAdminAndFlag(authResult.user.id)
+  if (!guard.ok) return guard.response
 
-  const configs = await listLlmConfigs(tenantId)
+  const configs = await listLlmConfigs(guard.tenantId)
   return NextResponse.json({ configs })
 }
 
 /**
  * POST /api/tenants/llm-configs
- * Create a new LLM provider config for the active tenant.
+ * Create a new LLM provider config. Requires TENANT_ADMIN + BYO_LLM flag.
  */
 export async function POST(request: NextRequest) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  const tenantId = await getActiveTenant(authResult.user.id)
-  if (!tenantId) return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
+  const guard = await guardAdminAndFlag(authResult.user.id)
+  if (!guard.ok) return guard.response
 
   const body = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(body)
@@ -53,6 +67,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid input', issues: parsed.error.issues }, { status: 400 })
   }
 
-  const config = await createLlmConfig(tenantId, parsed.data)
+  const config = await createLlmConfig(guard.tenantId, parsed.data)
   return NextResponse.json({ config }, { status: 201 })
 }
