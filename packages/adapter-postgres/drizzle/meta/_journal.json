@@ -85,6 +85,13 @@
       "when": 1780200000000,
       "tag": "0011_agent_versioning",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783691935347,
+      "tag": "0012_clumsy_queen_noir",
+      "breakpoints": true
     }
   ]
 }

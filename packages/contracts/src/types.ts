@@ -152,6 +152,7 @@ export interface VibeAgent {
     overlapProtection?: boolean
   }
   actions?: AgentAction[]
+  llmConfigId?: string | null
   createdAt: string
   updatedAt: string
 }

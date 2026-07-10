@@ -13,6 +13,8 @@ import {
   streamText,
   type ResponsesApiTool
 } from '@vibesboard/adapter-openai'
+import { resolveProviderSpec } from './tenant-llm-config.ts'
+import { buildProviderModel } from './provider-registry.ts'
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -40,6 +42,27 @@ export async function runAgentStream({
   handoffTargetNames,
   remainingResponses
 }: RunAgentStreamArgs) {
+  // Check for tenant-scoped LLM config (agent-specific → tenant default → global).
+  // previewToken bypasses tenant config so the agent preview always uses the platform key.
+  const tenantSpec =
+    !previewToken && agent.tenantId
+      ? await resolveProviderSpec(agent.tenantId, agent.llmConfigId).catch(() => null)
+      : null
+
+  if (tenantSpec) {
+    return runAgentStreamWithSpec({
+      agent,
+      messages,
+      context,
+      temperature,
+      onCompletion,
+      toolContext,
+      handoffTargetNames,
+      remainingResponses,
+      spec: tenantSpec,
+    })
+  }
+
   const model = OPENAI_CHAT_MODEL
   const isResponses = isResponsesModel(model)
 
@@ -258,6 +281,76 @@ function validateToolArgs(
  * 2. If a tool was called, execute it and build a follow-up prompt.
  * 3. Stream the final answer via streamText().
  */
+/**
+ * Run an agent stream using a tenant-supplied ProviderModelSpec (BYO-LLM path).
+ * Uses the Vercel AI SDK chat-completions path so all providers share one interface.
+ */
+async function runAgentStreamWithSpec({
+  agent,
+  messages,
+  context,
+  temperature = 0.1,
+  onCompletion,
+  toolContext,
+  handoffTargetNames,
+  remainingResponses,
+  spec,
+}: Omit<RunAgentStreamArgs, 'previewToken'> & { spec: import('@vibesboard/contracts').ProviderModelSpec }) {
+  const agentContext = await buildAgentContext(agent, toolContext)
+  const effectiveContext = agentContext.contextText || context || null
+
+  const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
+    hasFileOverflow: agentContext.hasFileOverflow,
+    handoffTargetNames,
+    remainingResponses,
+  })
+
+  const payload = [
+    { role: 'system' as const, content: systemPrompt },
+    ...messages.map(m => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: typeof m.content === 'string' ? m.content : '',
+    })),
+  ]
+
+  let disposed = false
+  const safeDispose = async () => {
+    if (disposed) return
+    disposed = true
+    await agentContext.dispose()
+  }
+
+  const result = await aiStreamText({
+    model: buildProviderModel(spec),
+    messages: payload,
+    temperature,
+    async onFinish({ text, usage }) {
+      await safeDispose()
+      if (onCompletion) {
+        await onCompletion(text, usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined)
+      }
+    },
+  })
+
+  const encoder = new TextEncoder()
+  const iterator = result.textStream[Symbol.asyncIterator]()
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { value, done } = await iterator.next()
+        if (done) { controller.close(); return }
+        controller.enqueue(encoder.encode(value))
+      } catch (err) {
+        controller.error(err)
+      }
+    },
+    cancel() {
+      iterator.return?.()
+      safeDispose().catch(() => {})
+    },
+  })
+}
+
 const runResponsesAgentWithTools = async ({
   agent,
   messages,
