@@ -6,14 +6,20 @@ import { listLlmConfigs, createLlmConfig } from '@vibesboard/ai/tenant-llm-confi
 
 export const runtime = 'nodejs'
 
-const createSchema = z.object({
-  label: z.string().min(1).max(100),
-  kind: z.enum(['openai', 'anthropic', 'openai_compatible']),
-  modelId: z.string().min(1),
-  apiKey: z.string().min(1),
-  baseUrl: z.string().url().optional(),
-  isDefault: z.boolean().optional(),
-})
+const createSchema = z
+  .object({
+    label: z.string().min(1).max(100),
+    kind: z.enum(['openai', 'anthropic', 'openai_compatible']),
+    modelId: z.string().min(1),
+    apiKey: z.string().min(1),
+    baseUrl: z.string().url().optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'openai_compatible' && !v.baseUrl) {
+      ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'baseUrl is required for openai_compatible providers' })
+    }
+  })
 
 /**
  * GET /api/tenants/llm-configs

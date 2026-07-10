@@ -46,7 +46,10 @@ export async function runAgentStream({
   // previewToken bypasses tenant config so the agent preview always uses the platform key.
   const tenantSpec =
     !previewToken && agent.tenantId
-      ? await resolveProviderSpec(agent.tenantId, agent.llmConfigId).catch(() => null)
+      ? await resolveProviderSpec(agent.tenantId, agent.llmConfigId).catch((err) => {
+          console.error('[runtime] Failed to resolve tenant LLM config — falling back to platform model:', err)
+          return null
+        })
       : null
 
   if (tenantSpec) {
@@ -171,30 +174,33 @@ export async function runAgentStream({
     }
   })
 
-  // Convert AsyncIterableStream<string> → ReadableStream<Uint8Array>
-  // so it remains compatible with wrapStreamWithCompletionDetection.
-  // Uses pull() instead of start() so chunks are only read when the
-  // downstream consumer is ready, respecting backpressure.
+  return textStreamToReadable(result.textStream, () => safeDispose().catch(() => {}))
+}
+
+/**
+ * Convert an AsyncIterable<string> text stream → ReadableStream<Uint8Array>.
+ * Uses pull() for backpressure. onCancel fires when the client disconnects.
+ */
+function textStreamToReadable(
+  textStream: AsyncIterable<string>,
+  onCancel?: () => void,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
-  const iterator = result.textStream[Symbol.asyncIterator]()
+  const iterator = textStream[Symbol.asyncIterator]()
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
         const { value, done } = await iterator.next()
-        if (done) {
-          controller.close()
-          return
-        }
+        if (done) { controller.close(); return }
         controller.enqueue(encoder.encode(value))
       } catch (err) {
         controller.error(err)
       }
     },
     cancel() {
-      // Client disconnected mid-stream — ensure retriever resources are freed
       iterator.return?.()
-      safeDispose().catch(() => {})
-    }
+      onCancel?.()
+    },
   })
 }
 
@@ -332,23 +338,7 @@ async function runAgentStreamWithSpec({
     },
   })
 
-  const encoder = new TextEncoder()
-  const iterator = result.textStream[Symbol.asyncIterator]()
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        const { value, done } = await iterator.next()
-        if (done) { controller.close(); return }
-        controller.enqueue(encoder.encode(value))
-      } catch (err) {
-        controller.error(err)
-      }
-    },
-    cancel() {
-      iterator.return?.()
-      safeDispose().catch(() => {})
-    },
-  })
+  return textStreamToReadable(result.textStream, () => safeDispose().catch(() => {}))
 }
 
 const runResponsesAgentWithTools = async ({

@@ -1,27 +1,10 @@
 import 'server-only'
-import CryptoJS from 'crypto-js'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, or, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getDb } from '@vibesboard/adapter-postgres/client'
 import { tenantLlmConfigs } from '@vibesboard/adapter-postgres/schema'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
-
-// ─── Encryption (same pattern as scheduling/channel packages) ───────
-
-function getEncryptionKey(): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY is not set')
-  return key
-}
-
-function encryptApiKey(apiKey: string): string {
-  return CryptoJS.AES.encrypt(apiKey, getEncryptionKey()).toString()
-}
-
-function decryptApiKey(encrypted: string): string {
-  const bytes = CryptoJS.AES.decrypt(encrypted, getEncryptionKey())
-  return bytes.toString(CryptoJS.enc.Utf8)
-}
+import { credStore, type CredStore } from './cred-store/index.ts'
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -49,9 +32,11 @@ export interface LlmConfigView {
 
 // ─── Service ─────────────────────────────────────────────────────────
 
-export async function listLlmConfigs(tenantId: string): Promise<LlmConfigView[]> {
-  const db = getMigrateDb()
-  const rows = await db
+export async function listLlmConfigs(
+  tenantId: string,
+  store: CredStore = credStore,
+): Promise<LlmConfigView[]> {
+  const rows = await getDb()
     .select()
     .from(tenantLlmConfigs)
     .where(eq(tenantLlmConfigs.tenantId, tenantId))
@@ -59,9 +44,11 @@ export async function listLlmConfigs(tenantId: string): Promise<LlmConfigView[]>
   return rows.map(toView)
 }
 
-export async function getLlmConfig(id: string, tenantId: string): Promise<LlmConfigView | null> {
-  const db = getMigrateDb()
-  const rows = await db
+export async function getLlmConfig(
+  id: string,
+  tenantId: string,
+): Promise<LlmConfigView | null> {
+  const rows = await getDb()
     .select()
     .from(tenantLlmConfigs)
     .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
@@ -69,120 +56,154 @@ export async function getLlmConfig(id: string, tenantId: string): Promise<LlmCon
   return rows[0] ? toView(rows[0]) : null
 }
 
-export async function createLlmConfig(tenantId: string, input: LlmConfigInput): Promise<LlmConfigView> {
-  const db = getMigrateDb()
-
-  if (input.isDefault) {
-    await db
-      .update(tenantLlmConfigs)
-      .set({ isDefault: false, updatedAt: new Date() })
-      .where(and(eq(tenantLlmConfigs.tenantId, tenantId), eq(tenantLlmConfigs.isDefault, true)))
-  }
-
+export async function createLlmConfig(
+  tenantId: string,
+  input: LlmConfigInput,
+  store: CredStore = credStore,
+): Promise<LlmConfigView> {
   const id = uuidv7()
-  const rows = await db
-    .insert(tenantLlmConfigs)
-    .values({
-      id,
-      tenantId,
-      label: input.label,
-      kind: input.kind,
-      modelId: input.modelId,
-      baseUrl: input.baseUrl ?? null,
-      apiKeyEncrypted: encryptApiKey(input.apiKey),
-      isEnabled: true,
-      isDefault: input.isDefault ?? false,
-    })
-    .returning()
-  return toView(rows[0])
+  const sealedKey = await store.seal(input.apiKey)
+
+  // Single transaction: clear old default + insert new row atomically.
+  const [row] = await getDb().transaction(async (tx) => {
+    if (input.isDefault) {
+      await tx
+        .update(tenantLlmConfigs)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(tenantLlmConfigs.tenantId, tenantId),
+            eq(tenantLlmConfigs.isDefault, true),
+          ),
+        )
+    }
+    return tx
+      .insert(tenantLlmConfigs)
+      .values({
+        id,
+        tenantId,
+        label: input.label,
+        kind: input.kind,
+        modelId: input.modelId,
+        baseUrl: input.baseUrl ?? null,
+        apiKeyEncrypted: sealedKey,
+        isEnabled: true,
+        isDefault: input.isDefault ?? false,
+      })
+      .returning()
+  })
+
+  return toView(row)
 }
 
 export async function updateLlmConfig(
   id: string,
   tenantId: string,
   input: Partial<LlmConfigInput> & { isEnabled?: boolean },
+  store: CredStore = credStore,
 ): Promise<LlmConfigView | null> {
-  const db = getMigrateDb()
+  const sealedKey = input.apiKey != null ? await store.seal(input.apiKey) : undefined
 
-  if (input.isDefault) {
-    await db
+  const [row] = await getDb().transaction(async (tx) => {
+    // Verify the row belongs to this tenant before touching the default flag.
+    const existing = await tx
+      .select({ id: tenantLlmConfigs.id })
+      .from(tenantLlmConfigs)
+      .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
+      .limit(1)
+    if (!existing[0]) return []
+
+    if (input.isDefault) {
+      await tx
+        .update(tenantLlmConfigs)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(tenantLlmConfigs.tenantId, tenantId),
+            eq(tenantLlmConfigs.isDefault, true),
+          ),
+        )
+    }
+
+    return tx
       .update(tenantLlmConfigs)
-      .set({ isDefault: false, updatedAt: new Date() })
-      .where(and(eq(tenantLlmConfigs.tenantId, tenantId), eq(tenantLlmConfigs.isDefault, true)))
-  }
+      .set({
+        updatedAt: new Date(),
+        ...(input.label !== undefined && { label: input.label }),
+        ...(input.kind !== undefined && { kind: input.kind }),
+        ...(input.modelId !== undefined && { modelId: input.modelId }),
+        ...(input.baseUrl !== undefined && { baseUrl: input.baseUrl }),
+        ...(sealedKey !== undefined && { apiKeyEncrypted: sealedKey }),
+        ...(input.isEnabled !== undefined && { isEnabled: input.isEnabled }),
+        ...(input.isDefault !== undefined && { isDefault: input.isDefault }),
+      })
+      .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
+      .returning()
+  })
 
-  const patch: Record<string, unknown> = { updatedAt: new Date() }
-  if (input.label !== undefined) patch.label = input.label
-  if (input.kind !== undefined) patch.kind = input.kind
-  if (input.modelId !== undefined) patch.modelId = input.modelId
-  if (input.baseUrl !== undefined) patch.baseUrl = input.baseUrl
-  if (input.apiKey !== undefined) patch.apiKeyEncrypted = encryptApiKey(input.apiKey)
-  if (input.isEnabled !== undefined) patch.isEnabled = input.isEnabled
-  if (input.isDefault !== undefined) patch.isDefault = input.isDefault
-
-  const rows = await db
-    .update(tenantLlmConfigs)
-    .set(patch)
-    .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
-    .returning()
-  return rows[0] ? toView(rows[0]) : null
+  return row ? toView(row) : null
 }
 
-export async function deleteLlmConfig(id: string, tenantId: string): Promise<boolean> {
-  const db = getMigrateDb()
-  const rows = await db
+export async function deleteLlmConfig(
+  id: string,
+  tenantId: string,
+  store: CredStore = credStore,
+): Promise<boolean> {
+  const rows = await getDb()
     .delete(tenantLlmConfigs)
     .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
-    .returning({ id: tenantLlmConfigs.id })
+    .returning({ id: tenantLlmConfigs.id, token: tenantLlmConfigs.apiKeyEncrypted })
+
+  if (rows[0]?.token) {
+    await store.revoke(rows[0].token).catch(() => {})
+  }
   return rows.length > 0
 }
 
+/**
+ * Resolve a ProviderModelSpec for a tenant, trying agent config first then
+ * tenant default — in a single DB query.
+ * Returns null if no enabled config is found (caller falls back to platform model).
+ */
 export async function resolveProviderSpec(
   tenantId: string,
   llmConfigId?: string | null,
+  store: CredStore = credStore,
 ): Promise<ProviderModelSpec | null> {
-  const db = getMigrateDb()
+  const row = await getDb()
+    .select()
+    .from(tenantLlmConfigs)
+    .where(
+      and(
+        eq(tenantLlmConfigs.tenantId, tenantId),
+        eq(tenantLlmConfigs.isEnabled, true),
+        llmConfigId
+          ? or(eq(tenantLlmConfigs.id, llmConfigId), eq(tenantLlmConfigs.isDefault, true))
+          : eq(tenantLlmConfigs.isDefault, true),
+      ),
+    )
+    // Specific config (id match) ranks above the tenant default.
+    .orderBy(
+      llmConfigId
+        ? sql`CASE WHEN ${tenantLlmConfigs.id} = ${llmConfigId} THEN 0 ELSE 1 END`
+        : tenantLlmConfigs.createdAt,
+    )
+    .limit(1)
+    .then((rows) => rows[0] ?? null)
 
-  let row = null
-  if (llmConfigId) {
-    const rows = await db
-      .select()
-      .from(tenantLlmConfigs)
-      .where(
-        and(
-          eq(tenantLlmConfigs.id, llmConfigId),
-          eq(tenantLlmConfigs.tenantId, tenantId),
-          eq(tenantLlmConfigs.isEnabled, true),
-        ),
-      )
-      .limit(1)
-    row = rows[0] ?? null
-  }
+  if (!row?.apiKeyEncrypted) return null
 
-  if (!row) {
-    const rows = await db
-      .select()
-      .from(tenantLlmConfigs)
-      .where(
-        and(
-          eq(tenantLlmConfigs.tenantId, tenantId),
-          eq(tenantLlmConfigs.isDefault, true),
-          eq(tenantLlmConfigs.isEnabled, true),
-        ),
-      )
-      .limit(1)
-    row = rows[0] ?? null
-  }
-
-  if (!row || !row.apiKeyEncrypted) return null
-
-  const apiKey = decryptApiKey(row.apiKeyEncrypted)
+  const apiKey = await store.unseal(row.apiKeyEncrypted)
 
   if (row.kind === 'anthropic') {
     return { kind: 'anthropic', modelId: row.modelId, apiKey }
   }
   if (row.kind === 'openai_compatible') {
-    return { kind: 'openai_compatible', modelId: row.modelId, apiKey, baseUrl: row.baseUrl! }
+    if (!row.baseUrl) {
+      console.error(`[tenant-llm-config] openai_compatible config ${row.id} has no baseUrl — skipping`)
+      return null
+    }
+    return { kind: 'openai_compatible', modelId: row.modelId, apiKey, baseUrl: row.baseUrl }
   }
   return { kind: 'openai', modelId: row.modelId, apiKey, baseUrl: row.baseUrl ?? undefined }
 }

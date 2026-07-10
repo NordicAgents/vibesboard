@@ -6,15 +6,21 @@ import { getLlmConfig, updateLlmConfig, deleteLlmConfig } from '@vibesboard/ai/t
 
 export const runtime = 'nodejs'
 
-const updateSchema = z.object({
-  label: z.string().min(1).max(100).optional(),
-  kind: z.enum(['openai', 'anthropic', 'openai_compatible']).optional(),
-  modelId: z.string().min(1).optional(),
-  apiKey: z.string().min(1).optional(),
-  baseUrl: z.string().url().optional(),
-  isEnabled: z.boolean().optional(),
-  isDefault: z.boolean().optional(),
-})
+const updateSchema = z
+  .object({
+    label: z.string().min(1).max(100).optional(),
+    kind: z.enum(['openai', 'anthropic', 'openai_compatible']).optional(),
+    modelId: z.string().min(1).optional(),
+    apiKey: z.string().min(1).optional(),
+    baseUrl: z.string().url().optional(),
+    isEnabled: z.boolean().optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'openai_compatible' && v.baseUrl === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'baseUrl is required when changing kind to openai_compatible' })
+    }
+  })
 
 type Params = { params: Promise<{ id: string }> }
 

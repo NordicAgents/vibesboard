@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, CheckCircle2, XCircle, Loader2, Star } from 'lucide-react'
+import { Plus, Trash2, Loader2, Star, Pencil } from 'lucide-react'
 
 type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible'
 
@@ -59,10 +59,12 @@ const emptyForm = (): FormState => ({
   isDefault: false,
 })
 
+type Mode = { type: 'idle' } | { type: 'add' } | { type: 'edit'; id: string }
+
 export default function LlmProvidersPage() {
   const [configs, setConfigs] = useState<LlmConfig[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const [mode, setMode] = useState<Mode>({ type: 'idle' })
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
@@ -73,8 +75,7 @@ export default function LlmProvidersPage() {
     try {
       const res = await fetch('/api/tenants/llm-configs')
       if (!res.ok) throw new Error('Failed to load')
-      const data = await res.json()
-      setConfigs(data.configs)
+      setConfigs((await res.json()).configs)
     } catch {
       toast.error('Failed to load provider configs')
     } finally {
@@ -84,6 +85,20 @@ export default function LlmProvidersPage() {
 
   useEffect(() => { load() }, [load])
 
+  const openAdd = () => { setForm(emptyForm()); setMode({ type: 'add' }) }
+  const openEdit = (cfg: LlmConfig) => {
+    setForm({
+      label: cfg.label,
+      kind: cfg.kind,
+      modelId: cfg.modelId,
+      apiKey: '',           // never pre-filled — user must re-enter to rotate
+      baseUrl: cfg.baseUrl ?? '',
+      isDefault: cfg.isDefault,
+    })
+    setMode({ type: 'edit', id: cfg.id })
+  }
+  const closeForm = () => { setMode({ type: 'idle' }); setForm(emptyForm()) }
+
   const handleKindChange = (kind: ProviderKind) => {
     setForm(f => ({ ...f, kind, modelId: DEFAULT_MODELS[kind] }))
   }
@@ -92,19 +107,28 @@ export default function LlmProvidersPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const isEdit = mode.type === 'edit'
+      const url = isEdit ? `/api/tenants/llm-configs/${(mode as { id: string }).id}` : '/api/tenants/llm-configs'
+      const method = isEdit ? 'PATCH' : 'POST'
+
       const body: Record<string, unknown> = {
         label: form.label,
         kind: form.kind,
         modelId: form.modelId,
-        apiKey: form.apiKey,
         isDefault: form.isDefault,
       }
-      if (form.kind === 'openai_compatible' && form.baseUrl) {
-        body.baseUrl = form.baseUrl
+      // Only send apiKey if the user typed one (edit: leave blank to keep existing key)
+      if (form.apiKey) body.apiKey = form.apiKey
+      if (form.kind === 'openai_compatible' && form.baseUrl) body.baseUrl = form.baseUrl
+      // For non-edit, apiKey is always required (enforced by schema)
+      if (!isEdit && !form.apiKey) {
+        toast.error('API key is required')
+        setSaving(false)
+        return
       }
 
-      const res = await fetch('/api/tenants/llm-configs', {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
@@ -112,9 +136,8 @@ export default function LlmProvidersPage() {
         const err = await res.json()
         throw new Error(err.error ?? 'Failed to save')
       }
-      toast.success('Provider added')
-      setShowForm(false)
-      setForm(emptyForm())
+      toast.success(isEdit ? 'Provider updated' : 'Provider added')
+      closeForm()
       await load()
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save')
@@ -128,11 +151,8 @@ export default function LlmProvidersPage() {
     try {
       const res = await fetch(`/api/tenants/llm-configs/${id}/test`, { method: 'POST' })
       const data = await res.json()
-      if (data.ok) {
-        toast.success('Connection successful!')
-      } else {
-        toast.error(`Connection failed: ${data.error ?? 'Unknown error'}`)
-      }
+      if (data.ok) toast.success('Connection successful!')
+      else toast.error(`Connection failed: ${data.error ?? 'Unknown error'}`)
     } catch {
       toast.error('Test request failed')
     } finally {
@@ -147,7 +167,7 @@ export default function LlmProvidersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isDefault: true }),
       })
-      if (!res.ok) throw new Error('Failed to update')
+      if (!res.ok) throw new Error()
       toast.success('Default provider updated')
       await load()
     } catch {
@@ -172,7 +192,7 @@ export default function LlmProvidersPage() {
     setDeleting(id)
     try {
       const res = await fetch(`/api/tenants/llm-configs/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete')
+      if (!res.ok) throw new Error()
       toast.success('Provider removed')
       await load()
     } catch {
@@ -181,6 +201,9 @@ export default function LlmProvidersPage() {
       setDeleting(null)
     }
   }
+
+  const isFormOpen = mode.type !== 'idle'
+  const isEditMode = mode.type === 'edit'
 
   return (
     <div className="space-y-6">
@@ -192,10 +215,9 @@ export default function LlmProvidersPage() {
       <div className="space-y-4">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading…
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </div>
-        ) : configs.length === 0 && !showForm ? (
+        ) : configs.length === 0 && !isFormOpen ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
               No providers configured. Agents use the platform default model.
@@ -219,29 +241,22 @@ export default function LlmProvidersPage() {
                     {!cfg.isEnabled && <Badge variant="outline">Disabled</Badge>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleTest(cfg.id)}
-                      disabled={testing === cfg.id}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleTest(cfg.id)} disabled={testing === cfg.id}>
                       {testing === cfg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(cfg)}>
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {!cfg.isDefault && (
                       <Button variant="ghost" size="sm" onClick={() => handleSetDefault(cfg.id)}>
                         Set default
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggle(cfg.id, !cfg.isEnabled)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleToggle(cfg.id, !cfg.isEnabled)}>
                       {cfg.isEnabled ? 'Disable' : 'Enable'}
                     </Button>
                     <Button
-                      variant="ghost"
-                      size="sm"
+                      variant="ghost" size="sm"
                       onClick={() => handleDelete(cfg.id)}
                       disabled={deleting === cfg.id}
                       className="text-destructive hover:text-destructive"
@@ -251,18 +266,20 @@ export default function LlmProvidersPage() {
                   </div>
                 </div>
                 <CardDescription className="text-xs">
-                  {cfg.modelId}
-                  {cfg.baseUrl && ` · ${cfg.baseUrl}`}
+                  {cfg.modelId}{cfg.baseUrl && ` · ${cfg.baseUrl}`}
                 </CardDescription>
               </CardHeader>
             </Card>
           ))
         )}
 
-        {showForm ? (
+        {isFormOpen && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Add Provider</CardTitle>
+              <CardTitle className="text-base">{isEditMode ? 'Edit Provider' : 'Add Provider'}</CardTitle>
+              {isEditMode && (
+                <CardDescription className="text-xs">Leave API key blank to keep the existing key.</CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -301,13 +318,14 @@ export default function LlmProvidersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>API Key</Label>
+                    <Label>API Key{isEditMode && <span className="ml-1 text-muted-foreground font-normal">(leave blank to keep current)</span>}</Label>
                     <Input
                       type="password"
-                      placeholder="sk-…"
+                      placeholder={isEditMode ? '••••••••' : 'sk-…'}
                       value={form.apiKey}
                       onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
-                      required
+                      required={!isEditMode}
+                      autoComplete="new-password"
                     />
                   </div>
                 </div>
@@ -340,21 +358,17 @@ export default function LlmProvidersPage() {
                 <div className="flex gap-2 pt-2">
                   <Button type="submit" disabled={saving}>
                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Provider
+                    {isEditMode ? 'Update Provider' : 'Save Provider'}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => { setShowForm(false); setForm(emptyForm()) }}
-                  >
-                    Cancel
-                  </Button>
+                  <Button type="button" variant="ghost" onClick={closeForm}>Cancel</Button>
                 </div>
               </form>
             </CardContent>
           </Card>
-        ) : (
-          <Button variant="outline" onClick={() => setShowForm(true)} className="gap-2">
+        )}
+
+        {!isFormOpen && (
+          <Button variant="outline" onClick={openAdd} className="gap-2">
             <Plus className="h-4 w-4" /> Add Provider
           </Button>
         )}
