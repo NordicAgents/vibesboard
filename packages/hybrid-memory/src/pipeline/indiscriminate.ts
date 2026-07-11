@@ -13,5 +13,5 @@ export async function captureMessage(
   deps: { embedder: Embedder; store: HybridStore },
 ): Promise<void> {
   const embedding = await deps.embedder.embed(content)
-  await deps.store.saveMessageEmbedding(messageId, embedding, ctx)
+  await deps.store.saveMessageEmbedding(messageId, content, embedding, ctx)
 }

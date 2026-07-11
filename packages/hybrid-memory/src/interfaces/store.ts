@@ -28,7 +28,7 @@ export interface HybridStore {
   updateMemory(id: string, patch: Partial<HybridMemory>): Promise<HybridMemory>
   deleteMemory(id: string): Promise<void>
 
-  /** Vector similarity search — returns top-k ordered by similarity */
+  /** Vector similarity search — returns top-k ordered by similarity descending */
   searchMemories(embedding: number[], k: number, filter: MemoryFilter): Promise<HybridMemory[]>
 
   // ── Observations ──────────────────────────────────────────────────────────
@@ -36,7 +36,10 @@ export interface HybridStore {
   saveObservation(obs: Observation): Promise<void>
   updateObservationStatus(id: string, status: ObservationStatus): Promise<void>
 
-  /** Find sibling observations by statement embedding (cross-conversation) */
+  /**
+   * Find sibling observations by statement embedding (cross-conversation).
+   * Only returns observations with status 'new' or 'deferred' (active).
+   */
   searchObservations(embedding: number[], k: number, scopeId: string): Promise<Observation[]>
 
   /** Fetch new/deferred observations ready for reconciliation */
@@ -50,7 +53,12 @@ export interface HybridStore {
 
   // ── Indiscriminate capture (message embeddings) ───────────────────────────
 
-  saveMessageEmbedding(messageId: string, embedding: number[], ctx: EngineContext): Promise<void>
+  saveMessageEmbedding(messageId: string, content: string, embedding: number[], ctx: EngineContext): Promise<void>
+
+  /** Fetch all messages for a specific conversation (no vector scoring). Used in Stage 1. */
+  listMessagesByConversation(conversationId: string): Promise<MessageChunk[]>
+
+  /** Vector similarity search across messages in scope. Used in Stage 2. */
   searchMessages(embedding: number[], k: number, ctx: EngineContext): Promise<MessageChunk[]>
 
   // ── Mutations (approval queue) ────────────────────────────────────────────
@@ -69,7 +77,6 @@ export interface MemoryFilter {
   presenceClass?: HybridMemory['presenceClass']
   scope?: HybridMemory['scope']
   minImportance?: number
-  namespace?: string
 }
 
 export interface MutationFilter {

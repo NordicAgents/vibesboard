@@ -41,12 +41,8 @@ async function extractObservationsFromConversation(
   conv: { scopeId: string; subScopeId?: string | null },
   opts: ObserveOptions,
 ): Promise<number> {
-  // Fetch conversation messages — the store knows where to find them
-  const chunks = await opts.store.searchMessages(
-    new Array(1536).fill(0), // dummy embedding to fetch all (store can handle this)
-    100,
-    { conversationId, scopeId: conv.scopeId, subScopeId: conv.subScopeId },
-  )
+  // Fetch all messages for this conversation ordered by insertion (no vector scoring).
+  const chunks = await opts.store.listMessagesByConversation(conversationId)
 
   if (!chunks.length) return 0
 

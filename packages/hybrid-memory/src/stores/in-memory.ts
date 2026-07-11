@@ -19,7 +19,7 @@ export class InMemoryHybridStore implements HybridStore {
   private memories = new Map<string, HybridMemory>()
   private observations = new Map<string, Observation>()
   private mutations = new Map<string, PendingMutation>()
-  private messageEmbeddings = new Map<string, { embedding: number[]; content: string; ctx: EngineContext }>()
+  private messageEmbeddings = new Map<string, { embedding: number[]; content: string; ctx: EngineContext; createdAt: Date }>()
   private processedConversations = new Set<string>()
 
   // ── Memories ────────────────────────────────────────────────────────────────
@@ -49,12 +49,18 @@ export class InMemoryHybridStore implements HybridStore {
   }
 
   async searchMemories(embedding: number[], k: number, filter: MemoryFilter): Promise<HybridMemory[]> {
-    const candidates = [...this.memories.values()]
+    return [...this.memories.values()]
       .filter(m => matchesMemoryFilter(m, filter) && m.embedding)
       .map(m => ({ m, score: dotProduct(embedding, m.embedding!) }))
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score)   // descending — most similar first
       .slice(0, k)
-    return candidates.map(c => c.m)
+      .map(c => c.m)
+  }
+
+  async listMemories(filter: MemoryFilter): Promise<HybridMemory[]> {
+    return [...this.memories.values()]
+      .filter(m => matchesMemoryFilter(m, filter))
+      .sort((a, b) => b.importance - a.importance)  // descending — most important first
   }
 
   // ── Observations ────────────────────────────────────────────────────────────
@@ -70,7 +76,7 @@ export class InMemoryHybridStore implements HybridStore {
 
   async searchObservations(embedding: number[], k: number, scopeId: string): Promise<Observation[]> {
     return [...this.observations.values()]
-      .filter(o => o.scopeId === scopeId && o.statementEmbedding)
+      .filter(o => o.scopeId === scopeId && o.statementEmbedding && (o.status === 'new' || o.status === 'deferred'))
       .map(o => ({ o, score: dotProduct(embedding, o.statementEmbedding!) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, k)
@@ -85,22 +91,23 @@ export class InMemoryHybridStore implements HybridStore {
 
   async getIdleConversations(cooldownMs: number, scopeId?: string): Promise<ConversationRef[]> {
     const cutoff = new Date(Date.now() - cooldownMs)
-    const seen = new Map<string, ConversationRef>()
+    const latest = new Map<string, { ref: ConversationRef; lastAt: Date }>()
 
     for (const [, entry] of this.messageEmbeddings) {
       const cid = entry.ctx.conversationId
       if (this.processedConversations.has(cid)) continue
       if (scopeId && entry.ctx.scopeId !== scopeId) continue
-      if (!seen.has(cid)) {
-        seen.set(cid, {
-          conversationId: cid,
-          scopeId: entry.ctx.scopeId,
-          subScopeId: entry.ctx.subScopeId ?? null,
-          lastActivityAt: cutoff, // simplified — real impl tracks last message time
+      const existing = latest.get(cid)
+      if (!existing || entry.createdAt > existing.lastAt) {
+        latest.set(cid, {
+          lastAt: entry.createdAt,
+          ref: { conversationId: cid, scopeId: entry.ctx.scopeId, subScopeId: entry.ctx.subScopeId ?? null, lastActivityAt: entry.createdAt },
         })
       }
     }
-    return [...seen.values()]
+    return [...latest.values()]
+      .filter(({ lastAt }) => lastAt < cutoff)
+      .map(({ ref }) => ref)
   }
 
   async markConversationProcessed(conversationId: string): Promise<void> {
@@ -109,13 +116,19 @@ export class InMemoryHybridStore implements HybridStore {
 
   // ── Message embeddings ───────────────────────────────────────────────────────
 
-  async saveMessageEmbedding(messageId: string, embedding: number[], ctx: EngineContext): Promise<void> {
-    this.messageEmbeddings.set(messageId, { embedding, content: messageId, ctx })
+  async saveMessageEmbedding(messageId: string, content: string, embedding: number[], ctx: EngineContext): Promise<void> {
+    this.messageEmbeddings.set(messageId, { embedding, content, ctx, createdAt: new Date() })
+  }
+
+  async listMessagesByConversation(conversationId: string): Promise<MessageChunk[]> {
+    return [...this.messageEmbeddings.entries()]
+      .filter(([, e]) => e.ctx.conversationId === conversationId)
+      .map(([id, e]) => ({ messageId: id, content: e.content, conversationId, similarity: 1 }))
   }
 
   async searchMessages(embedding: number[], k: number, ctx: EngineContext): Promise<MessageChunk[]> {
     return [...this.messageEmbeddings.entries()]
-      .filter(([, e]) => e.ctx.conversationId === ctx.conversationId || e.ctx.scopeId === ctx.scopeId)
+      .filter(([, e]) => e.ctx.scopeId === ctx.scopeId && e.embedding)
       .map(([id, e]) => ({ messageId: id, content: e.content, conversationId: e.ctx.conversationId, similarity: dotProduct(embedding, e.embedding) }))
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, k)

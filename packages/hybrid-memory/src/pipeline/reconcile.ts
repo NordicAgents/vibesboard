@@ -8,6 +8,7 @@ import { serializeTreeToC } from '../serializer.ts'
 export interface ReconcileOptions {
   llm: LLMProvider
   store: HybridStore
+  embedder: import('../interfaces/embedder.ts').Embedder
   observationNeighbors: number
   messageNeighbors: number
   autoApprove: boolean
@@ -163,7 +164,7 @@ async function reconcileObservation(
     await opts.store.saveMutation(pending)
 
     if (opts.autoApprove) {
-      await applyMutation(mutation, opts.store)
+      await applyMutation(mutation, opts.store, opts.embedder)
     }
   }
 
@@ -171,11 +172,17 @@ async function reconcileObservation(
   return 'mutate'
 }
 
-export async function applyMutation(mutation: MemoryMutation, store: HybridStore): Promise<void> {
+export async function applyMutation(
+  mutation: MemoryMutation,
+  store: HybridStore,
+  embedder?: import('../interfaces/embedder.ts').Embedder,
+): Promise<void> {
   if (mutation.operation === 'add') {
+    const embedding = embedder ? await embedder.embed(mutation.memory.content) : undefined
     const memory: HybridMemory = {
       id: uuid(),
       ...mutation.memory,
+      embedding,
       version: 1,
       accessCount: 0,
       lastAccessed: new Date(),
@@ -183,7 +190,12 @@ export async function applyMutation(mutation: MemoryMutation, store: HybridStore
     }
     await store.saveMemory(memory)
   } else if (mutation.operation === 'modify') {
-    await store.updateMemory(mutation.memoryId, mutation.patch)
+    const updated = await store.updateMemory(mutation.memoryId, mutation.patch)
+    // Re-embed if content changed so vector search stays accurate
+    if (mutation.patch.content && embedder) {
+      const embedding = await embedder.embed(updated.content)
+      await store.updateMemory(mutation.memoryId, { embedding })
+    }
   } else {
     await store.deleteMemory(mutation.memoryId)
   }

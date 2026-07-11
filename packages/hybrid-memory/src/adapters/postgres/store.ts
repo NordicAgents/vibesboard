@@ -1,4 +1,4 @@
-import { eq, and, sql, inArray } from 'drizzle-orm'
+import { eq, and, sql, inArray, desc } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import type { HybridStore, MemoryFilter, MutationFilter } from '../../interfaces/store.ts'
 import type {
@@ -57,7 +57,7 @@ export class PostgresHybridStore implements HybridStore {
       .select()
       .from(hybridMemories)
       .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(hybridMemories.importance)
+      .orderBy(desc(hybridMemories.importance))   // most important first
     return rows.map(fromMemoryRow)
   }
 
@@ -149,27 +149,27 @@ export class PostgresHybridStore implements HybridStore {
   async getIdleConversations(cooldownMs: number, scopeId?: string): Promise<ConversationRef[]> {
     const cutoff = new Date(Date.now() - cooldownMs)
     const conditions = [
-      sql`${hybridMessageEmbeddings.createdAt} < ${cutoff}`,
-      sql`${hybridMessageEmbeddings.conversationId} NOT IN (
+      ...(scopeId ? [eq(hybridMessageEmbeddings.scopeId, scopeId)] : []),
+      sql`${hybridMessageEmbeddings.conversation_id} NOT IN (
         SELECT conversation_id FROM hybrid_processed_conversations
       )`,
-      ...(scopeId ? [eq(hybridMessageEmbeddings.scopeId, scopeId)] : []),
     ]
 
     const rows = await this.db
-      .selectDistinctOn([hybridMessageEmbeddings.conversationId], {
+      .select({
         conversationId: hybridMessageEmbeddings.conversationId,
         scopeId: hybridMessageEmbeddings.scopeId,
         subScopeId: hybridMessageEmbeddings.subScopeId,
         lastActivityAt: sql<Date>`max(${hybridMessageEmbeddings.createdAt})`,
       })
       .from(hybridMessageEmbeddings)
-      .where(and(...conditions))
+      .where(conditions.length ? and(...conditions) : undefined)
       .groupBy(
         hybridMessageEmbeddings.conversationId,
         hybridMessageEmbeddings.scopeId,
         hybridMessageEmbeddings.subScopeId,
       )
+      .having(sql`max(${hybridMessageEmbeddings.createdAt}) < ${cutoff}`)
 
     return rows.map(r => ({
       conversationId: r.conversationId,
@@ -194,7 +194,7 @@ export class PostgresHybridStore implements HybridStore {
 
   // ── Message embeddings ───────────────────────────────────────────────────────
 
-  async saveMessageEmbedding(messageId: string, embedding: number[], ctx: EngineContext): Promise<void> {
+  async saveMessageEmbedding(messageId: string, content: string, embedding: number[], ctx: EngineContext): Promise<void> {
     await this.db
       .insert(hybridMessageEmbeddings)
       .values({
@@ -202,11 +202,24 @@ export class PostgresHybridStore implements HybridStore {
         conversationId: ctx.conversationId,
         scopeId: ctx.scopeId,
         subScopeId: ctx.subScopeId ?? null,
-        content: messageId, // caller can pass content separately; messageId as fallback
+        content,
         embedding,
         createdAt: new Date(),
       })
       .onConflictDoNothing()
+  }
+
+  async listMessagesByConversation(conversationId: string): Promise<MessageChunk[]> {
+    const rows = await this.db
+      .select({
+        messageId: hybridMessageEmbeddings.messageId,
+        content: hybridMessageEmbeddings.content,
+        conversationId: hybridMessageEmbeddings.conversationId,
+      })
+      .from(hybridMessageEmbeddings)
+      .where(eq(hybridMessageEmbeddings.conversationId, conversationId))
+      .orderBy(hybridMessageEmbeddings.createdAt)
+    return rows.map(r => ({ ...r, similarity: 1 }))
   }
 
   async searchMessages(embedding: number[], k: number, ctx: EngineContext): Promise<MessageChunk[]> {

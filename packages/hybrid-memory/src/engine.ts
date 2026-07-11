@@ -142,6 +142,7 @@ export class HybridEngram {
     return runReconciliation({
       llm: this.llm,
       store: this.store,
+      embedder: this.embedder,
       observationNeighbors: this.opts.observationNeighbors,
       messageNeighbors: this.opts.messageNeighbors,
       autoApprove: this.opts.autoApprove,
@@ -216,9 +217,11 @@ export class HybridEngram {
     await this.store.saveMutation(mutation)
 
     if (this.opts.autoApprove) {
+      const embedding = await this.embedder.embed(newMemory.content)
       const mem: HybridMemory = {
         id: uuid(),
         ...newMemory,
+        embedding,
         version: 1,
         accessCount: 0,
         lastAccessed: new Date(),
@@ -237,7 +240,7 @@ export class HybridEngram {
   }
 
   async approve(mutationId: string): Promise<void> {
-    return approveMutation(mutationId, this.store)
+    return approveMutation(mutationId, this.store, this.embedder)
   }
 
   async reject(mutationId: string): Promise<void> {
