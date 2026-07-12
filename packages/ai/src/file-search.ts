@@ -353,7 +353,7 @@ export const ingestFileForAgent = async (args: {
   }
 
   const chunks = chunkText(text)
-  const spec = await resolveProviderSpec(tenantId).catch(() => null)
+  const spec = await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
   const providerKind = spec?.kind ?? 'openai'
   const embed = await resolveEmbedder(tenantId)
   const embeddings = await embed(chunks)
