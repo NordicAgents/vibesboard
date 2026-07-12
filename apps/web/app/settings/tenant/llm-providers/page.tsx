@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Loader2, Star, Pencil } from 'lucide-react'
+import { Plus, Trash2, Loader2, Star, Pencil, Shield, X } from 'lucide-react'
 
 type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible' | 'google'
 
@@ -108,6 +108,10 @@ type Mode = { type: 'idle' } | { type: 'add' } | { type: 'edit'; id: string }
 export default function LlmProvidersPage() {
   const [configs, setConfigs] = useState<LlmConfig[]>([])
   const [taskAssignments, setTaskAssignments] = useState<TaskAssignment[]>([])
+  const [allowPrivateHosts, setAllowPrivateHosts] = useState(false)
+  const [hostAllowlist, setHostAllowlist] = useState<string[]>([])
+  const [newAllowlistEntry, setNewAllowlistEntry] = useState('')
+  const [savingNetwork, setSavingNetwork] = useState(false)
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<Mode>({ type: 'idle' })
   const [form, setForm] = useState<FormState>(emptyForm())
@@ -119,13 +123,19 @@ export default function LlmProvidersPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [cfgRes, taskRes] = await Promise.all([
+      const [cfgRes, taskRes, netRes] = await Promise.all([
         fetch('/api/tenants/llm-configs'),
         fetch('/api/tenants/llm-configs/tasks'),
+        fetch('/api/tenants/llm-configs/network'),
       ])
       if (!cfgRes.ok) throw new Error('Failed to load')
       setConfigs((await cfgRes.json()).configs)
       if (taskRes.ok) setTaskAssignments((await taskRes.json()).assignments ?? [])
+      if (netRes.ok) {
+        const net = await netRes.json()
+        setAllowPrivateHosts(net.llmAllowPrivateHosts ?? false)
+        setHostAllowlist(net.llmHostAllowlist ?? [])
+      }
     } catch {
       toast.error('Failed to load provider configs')
     } finally {
@@ -252,6 +262,37 @@ export default function LlmProvidersPage() {
     } finally {
       setDeleting(null)
     }
+  }
+
+  const saveNetworkSettings = async (patch: { llmAllowPrivateHosts?: boolean; llmHostAllowlist?: string[] }) => {
+    setSavingNetwork(true)
+    try {
+      const res = await fetch('/api/tenants/llm-configs/network', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) throw new Error()
+      if (patch.llmAllowPrivateHosts !== undefined) setAllowPrivateHosts(patch.llmAllowPrivateHosts)
+      if (patch.llmHostAllowlist !== undefined) setHostAllowlist(patch.llmHostAllowlist)
+      toast.success('Network settings saved')
+    } catch {
+      toast.error('Failed to save network settings')
+    } finally {
+      setSavingNetwork(false)
+    }
+  }
+
+  const addAllowlistEntry = () => {
+    const host = newAllowlistEntry.trim().toLowerCase()
+    if (!host || hostAllowlist.includes(host)) return
+    const updated = [...hostAllowlist, host]
+    setNewAllowlistEntry('')
+    saveNetworkSettings({ llmHostAllowlist: updated })
+  }
+
+  const removeAllowlistEntry = (host: string) => {
+    saveNetworkSettings({ llmHostAllowlist: hostAllowlist.filter(h => h !== host) })
   }
 
   const handleTaskAssign = async (task: LlmTask, configId: string | null) => {
@@ -523,8 +564,85 @@ export default function LlmProvidersPage() {
           </div>
         )}
 
+        {/* ── Network Access ── */}
         {!isFormOpen && (
-          <Button variant="outline" onClick={openAdd} className="gap-2">
+          <Card className="mt-2">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Network Access</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Configure which hosts the server can reach for local or private LLM deployments (e.g. Ollama on your network).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Allow private hosts toggle */}
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Allow private / local hosts</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Permits base URLs with private IP ranges (10.x, 192.168.x, localhost, etc.).
+                    Use for on-device or LAN-deployed models.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={allowPrivateHosts}
+                  disabled={savingNetwork}
+                  onClick={() => saveNetworkSettings({ llmAllowPrivateHosts: !allowPrivateHosts })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors focus-visible:outline-none disabled:opacity-50 ${
+                    allowPrivateHosts ? 'bg-primary' : 'bg-input'
+                  }`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform mt-0.5 ${allowPrivateHosts ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {/* Allowlist */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Host allowlist</p>
+                <p className="text-xs text-muted-foreground">
+                  Specific hostnames always permitted regardless of the toggle above (e.g. <code className="text-xs">gpu-box.internal</code>, <code className="text-xs">192.168.1.50</code>).
+                </p>
+                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                  {hostAllowlist.map(host => (
+                    <span key={host} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-mono">
+                      {host}
+                      <button
+                        type="button"
+                        onClick={() => removeAllowlistEntry(host)}
+                        disabled={savingNetwork}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {hostAllowlist.length === 0 && (
+                    <span className="text-xs text-muted-foreground italic">No hosts allowlisted</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="hostname or IP (e.g. 192.168.1.50)"
+                    value={newAllowlistEntry}
+                    onChange={e => setNewAllowlistEntry(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAllowlistEntry())}
+                    className="h-8 text-sm font-mono flex-1"
+                  />
+                  <Button size="sm" variant="outline" onClick={addAllowlistEntry} disabled={savingNetwork || !newAllowlistEntry.trim()}>
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isFormOpen && (
+          <Button variant="outline" onClick={openAdd} className="gap-2 mt-2">
             <Plus className="h-4 w-4" /> Add Provider
           </Button>
         )}

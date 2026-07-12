@@ -5,6 +5,9 @@ import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getLlmConfig, updateLlmConfig, deleteLlmConfig } from '@vibesboard/ai/tenant-llm-config'
 import { validateProviderBaseUrl } from '@vibesboard/ai/provider-ssrf-guard'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { tenants } from '@vibesboard/adapter-postgres/schema'
+import { eq } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 
@@ -21,10 +24,6 @@ const updateSchema = z
   .superRefine((v, ctx) => {
     if (v.kind === 'openai_compatible' && v.baseUrl === undefined) {
       ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'baseUrl is required when changing kind to openai_compatible' })
-    }
-    if (v.baseUrl) {
-      const check = validateProviderBaseUrl(v.baseUrl)
-      if (!check.ok) ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: check.error })
     }
   })
 
@@ -76,6 +75,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const parsed = updateSchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid input', issues: parsed.error.issues }, { status: 400 })
+  }
+
+  // SSRF check with per-tenant network settings
+  if (parsed.data.baseUrl) {
+    const [row] = await getMigrateDb()
+      .select({ llmAllowPrivateHosts: tenants.llmAllowPrivateHosts, llmHostAllowlist: tenants.llmHostAllowlist })
+      .from(tenants).where(eq(tenants.id, guard.tenantId)).limit(1)
+    const check = validateProviderBaseUrl(parsed.data.baseUrl, {
+      allowPrivateHosts: row?.llmAllowPrivateHosts ?? false,
+      hostAllowlist: (row?.llmHostAllowlist ?? []) as string[],
+    })
+    if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 })
   }
 
   const { id } = await params

@@ -47,12 +47,23 @@ const isBlockedHost = (hostname: string): boolean => {
   return false
 }
 
+export interface SsrfGuardOptions {
+  /** When true, private/loopback/link-local hosts are permitted (on-prem/local models). */
+  allowPrivateHosts?: boolean
+  /** Explicit hostname allowlist — these hosts bypass the private-IP check regardless of allowPrivateHosts. */
+  hostAllowlist?: string[]
+}
+
 /**
  * Validate a tenant-supplied provider baseUrl.
  * Returns `{ ok: true }` or `{ ok: false, error: string }`.
- * Rejects non-http/https schemes and private/loopback/link-local hosts.
+ * Rejects non-http/https schemes and private/loopback/link-local hosts,
+ * unless the tenant has opted in via allowPrivateHosts or hostAllowlist.
  */
-export function validateProviderBaseUrl(value: string): { ok: true } | { ok: false; error: string } {
+export function validateProviderBaseUrl(
+  value: string,
+  opts: SsrfGuardOptions = {},
+): { ok: true } | { ok: false; error: string } {
   let parsed: URL
   try {
     parsed = new URL(value)
@@ -64,8 +75,25 @@ export function validateProviderBaseUrl(value: string): { ok: true } | { ok: fal
     return { ok: false, error: 'Only HTTP and HTTPS base URLs are supported' }
   }
 
-  if (isBlockedHost(parsed.hostname)) {
-    return { ok: false, error: 'Private, loopback, and link-local addresses are not allowed' }
+  const hostname = parsed.hostname.toLowerCase()
+
+  // Allowlist — specific hosts always permitted regardless of private-IP rules
+  if (opts.hostAllowlist?.some(h => h.toLowerCase() === hostname)) {
+    return { ok: true }
+  }
+
+  // Per-tenant flag — allow all private/loopback/link-local hosts
+  if (opts.allowPrivateHosts) {
+    return { ok: true }
+  }
+
+  if (isBlockedHost(hostname)) {
+    return {
+      ok: false,
+      error:
+        'Private, loopback, and link-local addresses are not allowed. ' +
+        'Enable "Allow private hosts" or add the host to the allowlist in Settings → LLM Providers.',
+    }
   }
 
   return { ok: true }
