@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 const createSchema = z
   .object({
     label: z.string().min(1).max(100),
-    kind: z.enum(['openai', 'anthropic', 'openai_compatible']),
+    kind: z.enum(['openai', 'anthropic', 'openai_compatible', 'google']),
     modelId: z.string().min(1),
     apiKey: z.string().min(1),
     baseUrl: z.string().url().optional(),

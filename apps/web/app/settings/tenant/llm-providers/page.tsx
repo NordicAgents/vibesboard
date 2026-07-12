@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import toast from 'react-hot-toast'
 import { Plus, Trash2, Loader2, Star, Pencil } from 'lucide-react'
 
-type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible'
+type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible' | 'google'
 
 interface LlmConfig {
   id: string
@@ -27,18 +27,21 @@ const KIND_LABELS: Record<ProviderKind, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   openai_compatible: 'OpenAI-Compatible',
+  google: 'Google Gemini',
 }
 
 const KIND_COLORS: Record<ProviderKind, string> = {
   openai: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
   anthropic: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
   openai_compatible: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  google: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
 }
 
 const DEFAULT_MODELS: Record<ProviderKind, string> = {
   openai: 'gpt-4o',
   anthropic: 'claude-sonnet-5',
   openai_compatible: 'llama-3.3-70b-versatile',
+  google: 'gemini-2.0-flash',
 }
 
 interface FormState {
@@ -303,6 +306,7 @@ export default function LlmProvidersPage() {
                       <option value="openai">OpenAI</option>
                       <option value="anthropic">Anthropic</option>
                       <option value="openai_compatible">OpenAI-Compatible (Groq, Mistral, etc.)</option>
+                      <option value="google">Google Gemini</option>
                     </select>
                   </div>
                 </div>

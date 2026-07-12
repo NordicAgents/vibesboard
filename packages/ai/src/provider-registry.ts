@@ -1,6 +1,7 @@
 import 'server-only'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import type { LanguageModel } from 'ai'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
 
@@ -35,6 +36,9 @@ const providerFactories: ProviderFactoryRegistry = {
       baseURL: spec.baseUrl,
       compatibility: 'compatible',
     })(spec.modelId),
+
+  google: (spec) =>
+    createGoogleGenerativeAI({ apiKey: spec.apiKey })(spec.modelId),
 }
 
 // ─── Public dispatcher ────────────────────────────────────────────────

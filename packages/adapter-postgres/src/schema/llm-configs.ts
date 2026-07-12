@@ -9,9 +9,9 @@ export const tenantLlmConfigs = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     label: text('label').notNull(),
-    kind: text('kind', { enum: ['openai', 'anthropic', 'openai_compatible'] })
+    kind: text('kind', { enum: ['openai', 'anthropic', 'openai_compatible', 'google'] })
       .notNull()
-      .$type<'openai' | 'anthropic' | 'openai_compatible'>(),
+      .$type<'openai' | 'anthropic' | 'openai_compatible' | 'google'>(),
     modelId: text('model_id').notNull(),
     baseUrl: text('base_url'),
     apiKeyEncrypted: text('api_key_encrypted'),
