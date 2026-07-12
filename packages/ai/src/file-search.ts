@@ -378,10 +378,15 @@ export const ingestFileForAgent = async (args: {
     }))
   })
 
-  // Record which provider embedded this file so we can detect stale embeddings later
+  // Mark file as indexed and record which provider embedded it
   await getMigrateDb()
     .update(filesTable)
-    .set({ embeddingProvider: providerKind, updatedAt: new Date() })
+    .set({
+      status: 'indexed',
+      embeddingProvider: providerKind,
+      processingCompletedAt: new Date(),
+      updatedAt: new Date(),
+    })
     .where(eq(filesTable.id, fileId))
 
   const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)

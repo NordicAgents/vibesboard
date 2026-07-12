@@ -178,7 +178,7 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "mode": "provider",
   "maxResponses": null,
   "maxAgentResponses": null,
-  "retrievalStrategy": "direct"
+  "retrievalStrategy": "rag"
 }
 ~~~
 
@@ -361,7 +361,10 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             maxAgentResponses,
             quickSuggestionsMode: args.quickSuggestionsMode ?? 'smart',
             quickSuggestionsCount: args.quickSuggestionsCount ?? 4,
-            retrievalStrategy: args.retrievalStrategy ?? 'direct',
+            // Default to 'rag' when files are attached so vector search is used.
+            // 'direct' loads the full file into context which fails for large files
+            // or small-context local models (e.g. Ollama smollm2 = 8k tokens).
+            retrievalStrategy: args.retrievalStrategy ?? (args.fileKeys?.length ? 'rag' : 'direct'),
             ...(bookingConfig !== undefined && { bookingConfig })
           })
 
