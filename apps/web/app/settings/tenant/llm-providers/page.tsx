@@ -41,7 +41,34 @@ const DEFAULT_MODELS: Record<ProviderKind, string> = {
   openai: 'gpt-4o',
   anthropic: 'claude-sonnet-5',
   openai_compatible: 'llama-3.3-70b-versatile',
-  google: 'gemini-2.0-flash',
+  google: 'gemini-2.5-flash',
+}
+
+// Official model lists per provider (latest as of 2026-07)
+const PROVIDER_MODELS: Partial<Record<ProviderKind, Array<{ id: string; label: string; recommended?: boolean }>>> = {
+  openai: [
+    { id: 'gpt-5.6-sol',   label: 'GPT-5.6 Sol',        recommended: true },
+    { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+    { id: 'gpt-5.6-luna',  label: 'GPT-5.6 Luna' },
+    { id: 'gpt-4o',        label: 'GPT-4o' },
+    { id: 'gpt-4o-mini',   label: 'GPT-4o Mini' },
+    { id: 'o3',            label: 'o3' },
+    { id: 'o3-mini',       label: 'o3 Mini' },
+  ],
+  anthropic: [
+    { id: 'claude-fable-5',            label: 'Claude Fable 5',   recommended: true },
+    { id: 'claude-opus-4-8',           label: 'Claude Opus 4.8' },
+    { id: 'claude-sonnet-5',           label: 'Claude Sonnet 5' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+  ],
+  google: [
+    { id: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro' },
+    { id: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash',      recommended: true },
+    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+    { id: 'gemini-3.5-flash',      label: 'Gemini 3.5 Flash' },
+    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)' },
+  ],
+  // openai_compatible intentionally omitted — free text (varies by provider)
 }
 
 interface FormState {
@@ -103,7 +130,9 @@ export default function LlmProvidersPage() {
   const closeForm = () => { setMode({ type: 'idle' }); setForm(emptyForm()) }
 
   const handleKindChange = (kind: ProviderKind) => {
-    setForm(f => ({ ...f, kind, modelId: DEFAULT_MODELS[kind] }))
+    // pre-select the recommended model for the new provider, or the default
+    const recommended = PROVIDER_MODELS[kind]?.find(m => m.recommended)
+    setForm(f => ({ ...f, kind, modelId: recommended?.id ?? DEFAULT_MODELS[kind] }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -313,13 +342,45 @@ export default function LlmProvidersPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Model ID</Label>
-                    <Input
-                      placeholder={DEFAULT_MODELS[form.kind]}
-                      value={form.modelId}
-                      onChange={e => setForm(f => ({ ...f, modelId: e.target.value }))}
-                      required
-                    />
+                    <Label>Model</Label>
+                    {PROVIDER_MODELS[form.kind] ? (
+                      <>
+                        <select
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          value={PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) ? form.modelId : '__custom__'}
+                          onChange={e => {
+                            if (e.target.value !== '__custom__') {
+                              setForm(f => ({ ...f, modelId: e.target.value }))
+                            }
+                          }}
+                          required
+                        >
+                          {PROVIDER_MODELS[form.kind]!.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.label}{m.recommended ? ' ★' : ''}
+                            </option>
+                          ))}
+                          <option value="__custom__">Custom model ID…</option>
+                        </select>
+                        {/* show text input when "Custom" is selected */}
+                        {!PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) && (
+                          <Input
+                            placeholder="Enter model ID"
+                            value={form.modelId}
+                            onChange={e => setForm(f => ({ ...f, modelId: e.target.value }))}
+                            required
+                            className="mt-1"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <Input
+                        placeholder={DEFAULT_MODELS[form.kind]}
+                        value={form.modelId}
+                        onChange={e => setForm(f => ({ ...f, modelId: e.target.value }))}
+                        required
+                      />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>API Key{isEditMode && <span className="ml-1 text-muted-foreground font-normal">(leave blank to keep current)</span>}</Label>
