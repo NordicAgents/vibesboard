@@ -2,7 +2,7 @@ import 'server-only'
 import { eq, and, or, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { tenantLlmConfigs, tenantLlmTaskConfigs } from '@vibesboard/adapter-postgres/schema'
+import { tenantLlmConfigs, tenantLlmTaskConfigs, tenants } from '@vibesboard/adapter-postgres/schema'
 import type { LlmProviderKind, LlmTask, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
 import { createEmbedding } from '@vibesboard/adapter-openai'
@@ -370,7 +370,17 @@ export async function resolveEmbedder(
   tenantId: string,
   store: CredStore = credStore,
 ): Promise<EmbedFn> {
-  const spec = await resolveProviderSpec(tenantId, null, store, 'embed').catch(() => null)
+  const [spec, tenantRow] = await Promise.all([
+    resolveProviderSpec(tenantId, null, store, 'embed').catch(() => null),
+    getMigrateDb()
+      .select({ llmAllowPrivateHosts: tenants.llmAllowPrivateHosts })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1)
+      .then(rows => rows[0] ?? null)
+      .catch(() => null),
+  ])
+  const allowPrivateHost = tenantRow?.llmAllowPrivateHosts ?? false
 
   if (!spec) {
     // No tenant config — use platform key
@@ -395,13 +405,18 @@ export async function resolveEmbedder(
   }
 
   if (spec.kind === 'openai' || spec.kind === 'openai_compatible') {
+    // openai → use OpenAI's standard embedding model (text-embedding-3-small)
+    // openai_compatible → use the config's modelId so Ollama/Groq/etc. can
+    //   serve their own embedding model (e.g. nomic-embed-text on Ollama)
+    const embeddingModel = spec.kind === 'openai_compatible' ? spec.modelId : OPENAI_EMBEDDING_MODEL
     const baseUrl = spec.kind === 'openai_compatible' ? spec.baseUrl : spec.baseUrl
     return async (texts) => {
       const json = await createEmbedding({
-        model: OPENAI_EMBEDDING_MODEL,
+        model: embeddingModel,
         input: texts,
         apiKey: spec.apiKey,
         ...(baseUrl ? { baseUrl } : {}),
+        ...(allowPrivateHost ? { allowPrivateHost: true } : {}),
       })
       return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
     }

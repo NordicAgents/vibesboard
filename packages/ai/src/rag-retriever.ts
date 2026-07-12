@@ -5,7 +5,8 @@
 
 import {
   vectorSearchFileChunks,
-  keywordSearchFileChunks
+  keywordSearchFileChunks,
+  providerFromDimension,
 } from '@vibesboard/ai/rag-store'
 import { resolveEmbedder } from './tenant-llm-config.ts'
 
@@ -86,7 +87,7 @@ async function vectorSearch(
       return []
     }
 
-    return vectorSearchFileChunks({ tenantId, agentId, queryEmbedding: embedding, topK })
+    return vectorSearchFileChunks({ tenantId, agentId, queryEmbedding: embedding, topK, provider: providerFromDimension(embedding.length) })
   } catch (error) {
     console.error('[RAG] Vector search exception:', error)
     return []

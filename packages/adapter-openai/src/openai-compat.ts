@@ -60,16 +60,16 @@ export async function createEmbedding(params: {
   input: string | string[]
   apiKey?: string
   baseUrl?: string
+  /** When true, skips the private-host SSRF check (tenant opted in via allowPrivateHosts). */
+  allowPrivateHost?: boolean
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
-  // Defense-in-depth: reject private/loopback baseUrls even if the API route
-  // validation was somehow bypassed. Keeps SSRF out of the hot path.
-  if (params.baseUrl) {
+  // Defense-in-depth: reject private/loopback baseUrls unless the tenant has
+  // explicitly opted in via the per-tenant allowPrivateHosts flag.
+  if (params.baseUrl && !params.allowPrivateHost) {
     const { hostname, protocol } = new URL(params.baseUrl)
     if (!['http:', 'https:'].includes(protocol)) {
       throw new Error('Embedding baseUrl must use HTTP or HTTPS')
     }
-    // Block localhost and numeric private ranges without importing net here
-    // (full guard is applied at the API layer; this is a fast secondary check)
     if (/^(localhost|127\.|169\.254\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname) || hostname === '::1') {
       throw new Error('Embedding baseUrl must not point to a private or loopback address')
     }

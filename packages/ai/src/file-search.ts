@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { downloadFile } from '@vibesboard/adapter-s3'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
-import { replaceFileChunks } from '@vibesboard/ai/rag-store'
+import { replaceFileChunks, providerFromDimension } from '@vibesboard/ai/rag-store'
 import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
@@ -366,9 +366,11 @@ export const ingestFileForAgent = async (args: {
   }
 
   // Write chunks to Postgres (replaceFileChunks deletes existing then inserts)
+  const embeddingDim = embeddings[0]?.length ?? 768
   await replaceFileChunks({
     tenantId,
     fileId,
+    provider: providerFromDimension(embeddingDim),
     chunks: chunks.map((content, index) => ({
       chunkIndex: index,
       content,
