@@ -225,32 +225,52 @@ export async function resolveProviderSpec(
 //   anthropic         → No embedding API — falls back to platform key
 
 const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
-const GOOGLE_EMBEDDING_MODEL = 'text-embedding-004'
-const GOOGLE_EMBEDDING_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const GOOGLE_EMBEDDING_MODEL = process.env.GOOGLE_EMBEDDING_MODEL ?? 'text-embedding-004'
+const GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+
+// Try embedding models in order until one works — API key availability varies
+const GOOGLE_EMBEDDING_FALLBACK_CHAIN = [
+  'text-embedding-004',
+  'embedding-001',
+]
+
+async function googleEmbedSingle(text: string, model: string, apiKey: string): Promise<number[]> {
+  const res = await fetch(
+    `${GOOGLE_API_BASE}/models/${model}:embedContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: { parts: [{ text }] } }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.text()
+    throw Object.assign(new Error(`Google embedding error (${res.status}): ${err}`), { status: res.status })
+  }
+  const data = await res.json() as { embedding: { values: number[] } }
+  return data.embedding.values
+}
 
 async function googleEmbed(texts: string[], apiKey: string): Promise<number[][]> {
-  const results: number[][] = []
-  // Google batch endpoint accepts up to 100 items
-  for (let i = 0; i < texts.length; i += 100) {
-    const batch = texts.slice(i, i + 100)
-    const res = await fetch(
-      `${GOOGLE_EMBEDDING_BASE}/models/${GOOGLE_EMBEDDING_MODEL}:batchEmbedContents?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          requests: batch.map(text => ({
-            model: `models/${GOOGLE_EMBEDDING_MODEL}`,
-            content: { parts: [{ text }] },
-          })),
-        }),
-      },
-    )
-    if (!res.ok) throw new Error(`Google embedding error (${res.status}): ${await res.text()}`)
-    const data = await res.json() as { embeddings: Array<{ values: number[] }> }
-    results.push(...data.embeddings.map(e => e.values))
+  // Find the first model that works with this key
+  let workingModel: string | null = null
+  for (const model of GOOGLE_EMBEDDING_FALLBACK_CHAIN) {
+    try {
+      await googleEmbedSingle(texts[0], model, apiKey)
+      workingModel = model
+      break
+    } catch {
+      continue
+    }
   }
-  return results
+  if (!workingModel) {
+    throw new Error(
+      'Google embedding models (text-embedding-004, embedding-001) are not available for this API key. ' +
+      'Use an OpenAI or OpenAI-compatible provider for file indexing, or set GOOGLE_EMBEDDING_MODEL env var.'
+    )
+  }
+  // Embed all texts with the working model
+  return Promise.all(texts.map(t => googleEmbedSingle(t, workingModel!, apiKey)))
 }
 
 export async function resolveEmbedder(
@@ -268,7 +288,17 @@ export async function resolveEmbedder(
   }
 
   if (spec.kind === 'google') {
-    return (texts) => googleEmbed(texts, spec.apiKey)
+    return async (texts) => {
+      try {
+        return await googleEmbed(texts, spec.apiKey)
+      } catch (err: any) {
+        // Google embedding models may not be available for all API keys.
+        // Fall back to the platform OPENAI_API_KEY so RAG indexing still works.
+        console.warn('[tenant-llm-config] Google embeddings unavailable, falling back to platform key:', err?.message)
+        const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
+        return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
+      }
+    }
   }
 
   if (spec.kind === 'openai' || spec.kind === 'openai_compatible') {
