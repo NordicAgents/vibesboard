@@ -198,6 +198,9 @@ export async function resolveProviderSpec(
   if (row.kind === 'anthropic') {
     return { kind: 'anthropic', modelId: row.modelId, apiKey }
   }
+  if (row.kind === 'google') {
+    return { kind: 'google', modelId: row.modelId, apiKey }
+  }
   if (row.kind === 'openai_compatible') {
     if (!row.baseUrl) {
       console.error(`[tenant-llm-config] openai_compatible config ${row.id} has no baseUrl — skipping`)
