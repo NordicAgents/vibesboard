@@ -23,7 +23,7 @@ interface AutoSummarizeArgs {
 
 interface Deps {
   db?: Db
-  summarize?: (messages: Message[]) => Promise<string | null>
+  summarize?: (messages: Message[], tenantId?: string) => Promise<string | null>
 }
 
 export async function maybeAutoSummarize(
@@ -51,7 +51,7 @@ export async function maybeAutoSummarize(
     if (totalResponses - summaryResponseCount < RE_SUMMARIZE_DELTA) return
   }
 
-  const summary = await summarize(messages)
+  const summary = await summarize(messages, tenantId)
   if (!summary) return
 
   await db

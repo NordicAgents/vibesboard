@@ -19,6 +19,8 @@ import {
 } from '@vibesboard/adapter-openai'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 
 export const runtime = 'nodejs'
 
@@ -30,13 +32,6 @@ export async function POST(
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
   const { user } = authResult
-
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: 'OPENAI_API_KEY is not configured.' },
-      { status: 500 }
-    )
-  }
 
   const agent = await getAgentById(id)
 
@@ -123,6 +118,7 @@ Conversation snippets:
 ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const model = OPENAI_CHAT_MODEL
+  const tenantSpec = await resolveProviderSpec(agent.tenantId, null, undefined, 'chat').catch(() => null)
 
   const saveAndRecord = async (
     completion: string,
@@ -132,7 +128,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       ...pendingMessages,
       { id: nanoid(), role: 'assistant' as const, content: completion }
     ]
-    const summary = await summarizeConversation(nextMessages)
+    const summary = await summarizeConversation(nextMessages, agent?.tenantId)
     await updateConversationMessages({
       tenantId: agent.tenantId,
       agentId: agent.id,
@@ -190,11 +186,11 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     { role: 'user', content: payload.question }
   ]
 
-  const openaiClient = createOpenAI({
-    apiKey: process.env.OPENAI_API_KEY ?? ''
-  })
+  const languageModel = tenantSpec
+    ? buildProviderModel(tenantSpec)
+    : createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })(model)
   const result = await aiStreamText({
-    model: openaiClient(model),
+    model: languageModel,
     messages: chatMessages,
     temperature: 0.2,
     async onFinish({ text, usage }) {
