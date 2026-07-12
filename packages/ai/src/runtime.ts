@@ -319,6 +319,29 @@ async function runAgentStreamWithSpec({
     })),
   ]
 
+  // Convert the toolkit's functions into Vercel AI SDK tool definitions
+  // so providers that support tool calling (Gemini, Anthropic, OpenAI) can
+  // use file_search and other agent tools without a separate tool-call loop.
+  const { tool: aiTool } = await import('ai')
+  const { z } = await import('zod')
+
+  const sdkTools: Record<string, any> = {}
+  for (const fn of agentContext.toolkit.functions) {
+    const executor = agentContext.toolkit.executors[fn.name]
+    if (!executor) continue
+    sdkTools[fn.name] = aiTool({
+      description: fn.description ?? fn.name,
+      parameters: z.record(z.unknown()),
+      execute: async (args: Record<string, unknown>) => {
+        try {
+          return await executor(args as Record<string, any>, { fileContext: toolContext?.fileContext ?? effectiveContext })
+        } catch (err: any) {
+          return `Tool error: ${err?.message ?? err}`
+        }
+      },
+    })
+  }
+
   let disposed = false
   const safeDispose = async () => {
     if (disposed) return
@@ -330,6 +353,8 @@ async function runAgentStreamWithSpec({
     model: buildProviderModel(spec),
     messages: payload,
     temperature,
+    tools: Object.keys(sdkTools).length > 0 ? sdkTools : undefined,
+    maxSteps: 5,
     async onFinish({ text, usage }) {
       await safeDispose()
       if (onCompletion) {
