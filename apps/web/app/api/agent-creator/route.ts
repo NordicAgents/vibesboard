@@ -21,6 +21,8 @@ import { getActiveTenant } from '@/lib/tenant-context'
 import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
@@ -82,13 +84,8 @@ export async function POST(req: Request) {
     fileNames = []
   } = json ?? {}
 
+  const tenantId = await getActiveTenant(session.user.id)
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'OPENAI_API_KEY is not configured.' },
-      { status: 500 }
-    )
-  }
 
   const availableTools = Object.values(BUILTIN_AGENT_TOOLS).map(t => ({
     id: t.id,
@@ -261,11 +258,27 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     ...messageList
   ]
 
-  const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
-  const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
-  const model = isResponsesModel(preferredModel)
-    ? DEFAULT_AGENT_CREATOR_MODEL
-    : preferredModel
+  // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
+  // previewToken skips BYO-LLM (same behaviour as agent runtime).
+  const tenantSpec = !previewToken && tenantId
+    ? await resolveProviderSpec(tenantId).catch(() => null)
+    : null
+
+  let languageModel
+  if (tenantSpec) {
+    languageModel = buildProviderModel(tenantSpec)
+  } else {
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'No LLM provider configured. Add one in Settings → LLM Providers, or set OPENAI_API_KEY.' },
+        { status: 500 }
+      )
+    }
+    const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
+    const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
+    const model = isResponsesModel(preferredModel) ? DEFAULT_AGENT_CREATOR_MODEL : preferredModel
+    languageModel = createOpenAI({ apiKey })(model)
+  }
 
   const createAgentArgsSchema = z.object({
     name: z.string().min(2).max(120),
@@ -289,10 +302,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     bookingConfig: bookingConfigSchema.optional()
   })
 
-  const openaiClient = createOpenAI({ apiKey })
-
   const result = await aiStreamText({
-    model: openaiClient(model),
+    model: languageModel,
     messages: initialMessages as any,
     temperature: 0.2,
     tools: {
