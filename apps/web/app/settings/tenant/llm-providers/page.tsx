@@ -71,6 +71,20 @@ const PROVIDER_MODELS: Partial<Record<ProviderKind, Array<{ id: string; label: s
   // openai_compatible intentionally omitted — free text (varies by provider)
 }
 
+type LlmTask = 'chat' | 'embed' | 'agent_creator' | '*'
+
+const TASK_LABELS: Record<LlmTask, { label: string; description: string }> = {
+  chat:          { label: 'Chat',          description: 'Agent conversations with users' },
+  embed:         { label: 'Embeddings',    description: 'File indexing and RAG search' },
+  agent_creator: { label: 'Agent Builder', description: 'The AI that helps you create agents' },
+  '*':           { label: 'Default',       description: 'All other tasks (wildcard)' },
+}
+
+interface TaskAssignment {
+  task: LlmTask
+  configId: string
+}
+
 interface FormState {
   label: string
   kind: ProviderKind
@@ -93,19 +107,25 @@ type Mode = { type: 'idle' } | { type: 'add' } | { type: 'edit'; id: string }
 
 export default function LlmProvidersPage() {
   const [configs, setConfigs] = useState<LlmConfig[]>([])
+  const [taskAssignments, setTaskAssignments] = useState<TaskAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<Mode>({ type: 'idle' })
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [savingTask, setSavingTask] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/tenants/llm-configs')
-      if (!res.ok) throw new Error('Failed to load')
-      setConfigs((await res.json()).configs)
+      const [cfgRes, taskRes] = await Promise.all([
+        fetch('/api/tenants/llm-configs'),
+        fetch('/api/tenants/llm-configs/tasks'),
+      ])
+      if (!cfgRes.ok) throw new Error('Failed to load')
+      setConfigs((await cfgRes.json()).configs)
+      if (taskRes.ok) setTaskAssignments((await taskRes.json()).assignments ?? [])
     } catch {
       toast.error('Failed to load provider configs')
     } finally {
@@ -231,6 +251,23 @@ export default function LlmProvidersPage() {
       toast.error('Failed to delete')
     } finally {
       setDeleting(null)
+    }
+  }
+
+  const handleTaskAssign = async (task: LlmTask, configId: string | null) => {
+    setSavingTask(task)
+    try {
+      const res = await fetch('/api/tenants/llm-configs/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task, configId }),
+      })
+      if (!res.ok) throw new Error()
+      await load()
+    } catch {
+      toast.error('Failed to update task assignment')
+    } finally {
+      setSavingTask(null)
     }
   }
 
@@ -430,6 +467,60 @@ export default function LlmProvidersPage() {
               </form>
             </CardContent>
           </Card>
+        )}
+
+        {/* ── Per-task assignment matrix ── */}
+        {configs.length > 0 && !isFormOpen && (
+          <div className="mt-6 space-y-3">
+            <div>
+              <h3 className="text-sm font-medium">Task Routing</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Assign a specific provider to each task. Unassigned tasks use the Default provider.
+              </p>
+            </div>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-1/3">Task</th>
+                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Provider</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(['chat', 'embed', 'agent_creator', '*'] as LlmTask[]).map(task => {
+                    const assigned = taskAssignments.find(a => a.task === task)?.configId ?? null
+                    const taskMeta = TASK_LABELS[task]
+                    return (
+                      <tr key={task} className="bg-background">
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{taskMeta.label}</div>
+                          <div className="text-xs text-muted-foreground">{taskMeta.description}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <select
+                              className="h-8 rounded-md border border-input bg-background px-2 text-sm flex-1 max-w-xs"
+                              value={assigned ?? ''}
+                              disabled={savingTask === task}
+                              onChange={e => handleTaskAssign(task, e.target.value || null)}
+                            >
+                              <option value="">— Use default resolution —</option>
+                              {configs.filter(c => c.isEnabled).map(c => (
+                                <option key={c.id} value={c.id}>
+                                  {c.label} ({KIND_LABELS[c.kind]} · {c.modelId})
+                                </option>
+                              ))}
+                            </select>
+                            {savingTask === task && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {!isFormOpen && (

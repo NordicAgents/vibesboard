@@ -261,7 +261,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
   // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
   // previewToken skips BYO-LLM (same behaviour as agent runtime).
   const tenantSpec = !previewToken && tenantId
-    ? await resolveProviderSpec(tenantId).catch(() => null)
+    ? await resolveProviderSpec(tenantId, null, undefined, 'agent_creator').catch(() => null)
     : null
 
   let languageModel

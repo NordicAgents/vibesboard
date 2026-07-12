@@ -46,7 +46,7 @@ export async function runAgentStream({
   // previewToken bypasses tenant config so the agent preview always uses the platform key.
   const tenantSpec =
     !previewToken && agent.tenantId
-      ? await resolveProviderSpec(agent.tenantId, agent.llmConfigId).catch((err) => {
+      ? await resolveProviderSpec(agent.tenantId, agent.llmConfigId, undefined, 'chat').catch((err) => {
           console.error('[runtime] Failed to resolve tenant LLM config — falling back to platform model:', err)
           return null
         })

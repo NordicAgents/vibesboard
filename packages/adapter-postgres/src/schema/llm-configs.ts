@@ -27,3 +27,28 @@ export const tenantLlmConfigs = pgTable(
 
 export type TenantLlmConfigRow = typeof tenantLlmConfigs.$inferSelect
 export type NewTenantLlmConfig = typeof tenantLlmConfigs.$inferInsert
+
+// ─── Per-task routing ─────────────────────────────────────────────────────────
+// Maps (tenantId, task) → a specific configId.
+// task = '*' is the wildcard that covers any task not explicitly assigned.
+
+export const tenantLlmTaskConfigs = pgTable(
+  'tenant_llm_task_configs',
+  {
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    task: text('task', { enum: ['chat', 'embed', 'agent_creator', '*'] })
+      .notNull()
+      .$type<'chat' | 'embed' | 'agent_creator' | '*'>(),
+    configId: uuid('config_id')
+      .notNull()
+      .references(() => tenantLlmConfigs.id, { onDelete: 'cascade' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: uniqueIndex('tenant_llm_task_configs_pk').on(t.tenantId, t.task),
+  }),
+)
+
+export type TenantLlmTaskConfigRow = typeof tenantLlmTaskConfigs.$inferSelect

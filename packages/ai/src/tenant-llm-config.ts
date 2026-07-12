@@ -2,8 +2,8 @@ import 'server-only'
 import { eq, and, or, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { tenantLlmConfigs } from '@vibesboard/adapter-postgres/schema'
-import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
+import { tenantLlmConfigs, tenantLlmTaskConfigs } from '@vibesboard/adapter-postgres/schema'
+import type { LlmProviderKind, LlmTask, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
 import { createEmbedding } from '@vibesboard/adapter-openai'
 
@@ -163,16 +163,109 @@ export async function deleteLlmConfig(
   return rows.length > 0
 }
 
+// ─── Per-task routing ────────────────────────────────────────────────────────
+
+export interface TaskAssignment {
+  task: LlmTask
+  configId: string
+  config: LlmConfigView
+}
+
+/** List all task→config assignments for a tenant. */
+export async function listTaskAssignments(tenantId: string): Promise<TaskAssignment[]> {
+  const db = getMigrateDb()
+  const rows = await db
+    .select({
+      task: tenantLlmTaskConfigs.task,
+      configId: tenantLlmTaskConfigs.configId,
+    })
+    .from(tenantLlmTaskConfigs)
+    .where(eq(tenantLlmTaskConfigs.tenantId, tenantId))
+
+  const configs = await db
+    .select()
+    .from(tenantLlmConfigs)
+    .where(eq(tenantLlmConfigs.tenantId, tenantId))
+
+  return rows.map(r => {
+    const cfg = configs.find(c => c.id === r.configId)
+    return { task: r.task, configId: r.configId, config: cfg ? toView(cfg) : { id: r.configId } as LlmConfigView }
+  })
+}
+
+/** Assign (or update) a specific configId to a task. Upserts by (tenantId, task). */
+export async function setTaskAssignment(
+  tenantId: string,
+  task: LlmTask,
+  configId: string,
+): Promise<void> {
+  await getMigrateDb()
+    .insert(tenantLlmTaskConfigs)
+    .values({ tenantId, task, configId, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [tenantLlmTaskConfigs.tenantId, tenantLlmTaskConfigs.task],
+      set: { configId, updatedAt: new Date() },
+    })
+}
+
+/** Remove a task assignment (falls back to default resolution). */
+export async function clearTaskAssignment(tenantId: string, task: LlmTask): Promise<void> {
+  await getMigrateDb()
+    .delete(tenantLlmTaskConfigs)
+    .where(and(
+      eq(tenantLlmTaskConfigs.tenantId, tenantId),
+      eq(tenantLlmTaskConfigs.task, task),
+    ))
+}
+
 /**
- * Resolve a ProviderModelSpec for a tenant, trying agent config first then
- * tenant default — in a single DB query.
- * Returns null if no enabled config is found (caller falls back to platform model).
+ * Look up the configId assigned to a task. Resolution order:
+ *   1. Exact task match (e.g. 'chat')
+ *   2. Wildcard '*'
+ *   3. null (caller falls through to isDefault / platform)
+ */
+async function resolveTaskConfigId(tenantId: string, task: LlmTask): Promise<string | null> {
+  if (task === '*') return null
+  const rows = await getMigrateDb()
+    .select({ task: tenantLlmTaskConfigs.task, configId: tenantLlmTaskConfigs.configId })
+    .from(tenantLlmTaskConfigs)
+    .where(
+      and(
+        eq(tenantLlmTaskConfigs.tenantId, tenantId),
+        or(eq(tenantLlmTaskConfigs.task, task), eq(tenantLlmTaskConfigs.task, '*')),
+      ),
+    )
+  // Prefer exact task match over wildcard
+  return (
+    rows.find(r => r.task === task)?.configId ??
+    rows.find(r => r.task === '*')?.configId ??
+    null
+  )
+}
+
+// ─── Provider spec resolution ────────────────────────────────────────────────
+
+/**
+ * Resolve a ProviderModelSpec for a tenant.
+ *
+ * Resolution order:
+ *   1. Per-agent llmConfigId (explicit override)
+ *   2. Per-task assignment (task='chat'/'embed'/etc.)
+ *   3. Wildcard task assignment ('*')
+ *   4. Tenant default (isDefault=true)
+ *   5. null → caller falls back to platform model
  */
 export async function resolveProviderSpec(
   tenantId: string,
   llmConfigId?: string | null,
   store: CredStore = credStore,
+  task?: LlmTask,
 ): Promise<ProviderModelSpec | null> {
+  // Step 1: per-agent explicit override
+  // Step 2+3: task-based assignment (if no explicit llmConfigId)
+  const taskConfigId = !llmConfigId && task ? await resolveTaskConfigId(tenantId, task) : null
+  const effectiveConfigId = llmConfigId ?? taskConfigId
+
   const row = await getMigrateDb()
     .select()
     .from(tenantLlmConfigs)
@@ -180,15 +273,15 @@ export async function resolveProviderSpec(
       and(
         eq(tenantLlmConfigs.tenantId, tenantId),
         eq(tenantLlmConfigs.isEnabled, true),
-        llmConfigId
-          ? or(eq(tenantLlmConfigs.id, llmConfigId), eq(tenantLlmConfigs.isDefault, true))
+        effectiveConfigId
+          ? or(eq(tenantLlmConfigs.id, effectiveConfigId), eq(tenantLlmConfigs.isDefault, true))
           : eq(tenantLlmConfigs.isDefault, true),
       ),
     )
     // Specific config (id match) ranks above the tenant default.
     .orderBy(
-      llmConfigId
-        ? sql`CASE WHEN ${tenantLlmConfigs.id} = ${llmConfigId} THEN 0 ELSE 1 END`
+      effectiveConfigId
+        ? sql`CASE WHEN ${tenantLlmConfigs.id} = ${effectiveConfigId} THEN 0 ELSE 1 END`
         : tenantLlmConfigs.createdAt,
     )
     .limit(1)
@@ -277,7 +370,7 @@ export async function resolveEmbedder(
   tenantId: string,
   store: CredStore = credStore,
 ): Promise<EmbedFn> {
-  const spec = await resolveProviderSpec(tenantId, null, store).catch(() => null)
+  const spec = await resolveProviderSpec(tenantId, null, store, 'embed').catch(() => null)
 
   if (!spec) {
     // No tenant config — use platform key
