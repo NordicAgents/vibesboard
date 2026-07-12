@@ -4,6 +4,7 @@ import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getLlmConfig, updateLlmConfig, deleteLlmConfig } from '@vibesboard/ai/tenant-llm-config'
+import { validateProviderBaseUrl } from '@vibesboard/ai/provider-ssrf-guard'
 
 export const runtime = 'nodejs'
 
@@ -20,6 +21,10 @@ const updateSchema = z
   .superRefine((v, ctx) => {
     if (v.kind === 'openai_compatible' && v.baseUrl === undefined) {
       ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'baseUrl is required when changing kind to openai_compatible' })
+    }
+    if (v.baseUrl) {
+      const check = validateProviderBaseUrl(v.baseUrl)
+      if (!check.ok) ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: check.error })
     }
   })
 

@@ -43,6 +43,15 @@ export async function POST(_req: NextRequest, { params }: Params) {
     })
     return NextResponse.json({ ok: true })
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message ?? 'Unknown error' }, { status: 200 })
+    // Return a sanitised error — never echo raw provider response bodies which
+    // could exfiltrate internal service content when baseUrl points inward.
+    const raw: string = err?.message ?? ''
+    const sanitised = raw.includes('401') || raw.includes('403') || raw.includes('Unauthorized') || raw.includes('authentication')
+      ? 'Authentication failed — check your API key'
+      : raw.includes('404') || raw.includes('not found')
+      ? 'Model or endpoint not found — check model ID and base URL'
+      : 'Connection failed — check your provider settings'
+    console.error('[llm-config/test] Provider test error:', raw)
+    return NextResponse.json({ ok: false, error: sanitised }, { status: 200 })
   }
 }
