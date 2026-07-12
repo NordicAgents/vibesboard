@@ -284,7 +284,8 @@ export function ToolsFilesManager({
                 body: JSON.stringify({
                   fileKey: path,
                   fileName: file.name,
-                  mimeType: file.type || undefined
+                  mimeType: file.type || undefined,
+                  fileSize: file.size,
                 })
               })
               if (!res.ok) {
