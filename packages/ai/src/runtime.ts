@@ -303,7 +303,37 @@ async function runAgentStreamWithSpec({
   spec,
 }: Omit<RunAgentStreamArgs, 'previewToken'> & { spec: import('@vibesboard/contracts').ProviderModelSpec }) {
   const agentContext = await buildAgentContext(agent, toolContext)
-  const effectiveContext = agentContext.contextText || context || null
+  let effectiveContext = agentContext.contextText || context || null
+
+  // Google thinking models (gemini-3.5-flash, gemini-2.5-*) require thought_signature
+  // to be echoed back in tool responses — unsupported in @ai-sdk/google@0.0.55.
+  // For Google provider: pre-load RAG results into context instead of using tool calls.
+  const isGoogle = spec.kind === 'google'
+  if (isGoogle && agent.fileKeys?.length && agent.retrievalStrategy === 'rag') {
+    const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+    const query = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : ''
+    if (query) {
+      try {
+        const { searchAgentFileChunks } = await import('./file-search.ts')
+        const { matches } = await searchAgentFileChunks({
+          tenantId: agent.tenantId ?? '',
+          agentId: agent.id,
+          query,
+          limit: 8,
+        })
+        if (matches?.length) {
+          const ragContext = matches
+            .map(m => `[${m.fileName}]\n${m.snippet}`)
+            .join('\n\n---\n\n')
+          effectiveContext = effectiveContext
+            ? `${effectiveContext}\n\n---\n\n${ragContext}`
+            : ragContext
+        }
+      } catch (err) {
+        console.error('[runtime] Google RAG pre-load failed:', err)
+      }
+    }
+  }
 
   const systemPrompt = buildAgentSystemPrompt(agent, effectiveContext, {
     hasFileOverflow: agentContext.hasFileOverflow,
@@ -319,27 +349,29 @@ async function runAgentStreamWithSpec({
     })),
   ]
 
-  // Convert the toolkit's functions into Vercel AI SDK tool definitions
-  // so providers that support tool calling (Gemini, Anthropic, OpenAI) can
-  // use file_search and other agent tools without a separate tool-call loop.
+  // For non-Google providers: pass toolkit as Vercel AI SDK tools so models
+  // that support tool calling (Anthropic, OpenAI) can use file_search etc.
   const { tool: aiTool } = await import('ai')
   const { z } = await import('zod')
 
   const sdkTools: Record<string, any> = {}
-  for (const fn of agentContext.toolkit.functions) {
-    const executor = agentContext.toolkit.executors[fn.name]
-    if (!executor) continue
-    sdkTools[fn.name] = aiTool({
-      description: fn.description ?? fn.name,
-      parameters: z.record(z.unknown()),
-      execute: async (args: Record<string, unknown>) => {
-        try {
-          return await executor(args as Record<string, any>, { fileContext: toolContext?.fileContext ?? effectiveContext })
-        } catch (err: any) {
-          return `Tool error: ${err?.message ?? err}`
-        }
-      },
-    })
+  if (!isGoogle) {
+    for (const fn of agentContext.toolkit.functions) {
+      const executor = agentContext.toolkit.executors[fn.name]
+      if (!executor) continue
+      sdkTools[fn.name] = aiTool({
+        description: fn.description ?? fn.name,
+        parameters: z.record(z.unknown()),
+        execute: async (args: Record<string, unknown>) => {
+          try {
+            const result = await executor(args as Record<string, any>, { fileContext: toolContext?.fileContext ?? effectiveContext })
+            return typeof result === 'string' ? { result } : result
+          } catch (err: any) {
+            return { error: err?.message ?? String(err) }
+          }
+        },
+      })
+    }
   }
 
   let disposed = false
@@ -354,7 +386,7 @@ async function runAgentStreamWithSpec({
     messages: payload,
     temperature,
     tools: Object.keys(sdkTools).length > 0 ? sdkTools : undefined,
-    maxSteps: 5,
+    maxSteps: Object.keys(sdkTools).length > 0 ? 5 : undefined,
     async onFinish({ text, usage }) {
       await safeDispose()
       if (onCompletion) {
