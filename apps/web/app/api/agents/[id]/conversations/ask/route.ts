@@ -128,7 +128,11 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       ...pendingMessages,
       { id: nanoid(), role: 'assistant' as const, content: completion }
     ]
-    const summary = await summarizeConversation(nextMessages, agent?.tenantId)
+    // Only summarize after at least 3 exchanges (matches maybeAutoSummarize threshold)
+    const assistantCount = nextMessages.filter(m => m.role === 'assistant').length
+    const summary = assistantCount >= 3
+      ? await summarizeConversation(nextMessages, agent?.tenantId)
+      : null
     await updateConversationMessages({
       tenantId: agent.tenantId,
       agentId: agent.id,
