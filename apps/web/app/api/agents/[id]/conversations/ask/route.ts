@@ -21,6 +21,7 @@ import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildProviderModel } from '@vibesboard/ai/provider-registry'
+import { contextWindowForModel } from '@vibesboard/agents/auto-summarize'
 
 export const runtime = 'nodejs'
 
@@ -128,9 +129,10 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       ...pendingMessages,
       { id: nanoid(), role: 'assistant' as const, content: completion }
     ]
-    // Only summarize after at least 3 exchanges (matches maybeAutoSummarize threshold)
-    const assistantCount = nextMessages.filter(m => m.role === 'assistant').length
-    const summary = assistantCount >= 3
+    // Summarize only when context reaches 50% — same logic as public chat
+    const promptTokens = tokenUsage?.inputTokens ?? 0
+    const contextWindow = contextWindowForModel(tenantSpec?.modelId ?? '')
+    const summary = promptTokens > 0 && promptTokens / contextWindow >= 0.5
       ? await summarizeConversation(nextMessages, agent?.tenantId)
       : null
     await updateConversationMessages({
