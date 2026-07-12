@@ -58,10 +58,16 @@ export async function chatCompletion(params: {
 export async function createEmbedding(params: {
   model: string
   input: string | string[]
+  apiKey?: string
+  baseUrl?: string
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
-  const res = await fetch(OPENAI_EMBEDDINGS, {
+  const url = params.baseUrl
+    ? `${params.baseUrl.replace(/\/+$/, '')}/embeddings`
+    : OPENAI_EMBEDDINGS
+  const key = params.apiKey ?? getApiKey()
+  const res = await fetch(url, {
     method: 'POST',
-    headers: headers(),
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: params.model,
       input: params.input

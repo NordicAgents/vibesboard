@@ -5,6 +5,9 @@ import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { tenantLlmConfigs } from '@vibesboard/adapter-postgres/schema'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
+import { createEmbedding } from '@vibesboard/adapter-openai'
+
+export type EmbedFn = (texts: string[]) => Promise<number[][]>
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -209,6 +212,83 @@ export async function resolveProviderSpec(
     return { kind: 'openai_compatible', modelId: row.modelId, apiKey, baseUrl: row.baseUrl }
   }
   return { kind: 'openai', modelId: row.modelId, apiKey, baseUrl: row.baseUrl ?? undefined }
+}
+
+// ─── Tenant-aware embedder ────────────────────────────────────────────
+// Returns an embed function that uses the tenant's configured provider.
+// Falls back to the platform OPENAI_API_KEY when no tenant config exists.
+//
+// Provider embedding support:
+//   openai            → OpenAI Embeddings API (text-embedding-3-small) with tenant key
+//   openai_compatible → Same endpoint with tenant key + custom baseUrl
+//   google            → Google Generative AI Embeddings (text-embedding-004)
+//   anthropic         → No embedding API — falls back to platform key
+
+const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
+const GOOGLE_EMBEDDING_MODEL = 'text-embedding-004'
+const GOOGLE_EMBEDDING_BASE = 'https://generativelanguage.googleapis.com/v1beta'
+
+async function googleEmbed(texts: string[], apiKey: string): Promise<number[][]> {
+  const results: number[][] = []
+  // Google batch endpoint accepts up to 100 items
+  for (let i = 0; i < texts.length; i += 100) {
+    const batch = texts.slice(i, i + 100)
+    const res = await fetch(
+      `${GOOGLE_EMBEDDING_BASE}/models/${GOOGLE_EMBEDDING_MODEL}:batchEmbedContents?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: batch.map(text => ({
+            model: `models/${GOOGLE_EMBEDDING_MODEL}`,
+            content: { parts: [{ text }] },
+          })),
+        }),
+      },
+    )
+    if (!res.ok) throw new Error(`Google embedding error (${res.status}): ${await res.text()}`)
+    const data = await res.json() as { embeddings: Array<{ values: number[] }> }
+    results.push(...data.embeddings.map(e => e.values))
+  }
+  return results
+}
+
+export async function resolveEmbedder(
+  tenantId: string,
+  store: CredStore = credStore,
+): Promise<EmbedFn> {
+  const spec = await resolveProviderSpec(tenantId, null, store).catch(() => null)
+
+  if (!spec) {
+    // No tenant config — use platform key
+    return async (texts) => {
+      const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
+      return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
+    }
+  }
+
+  if (spec.kind === 'google') {
+    return (texts) => googleEmbed(texts, spec.apiKey)
+  }
+
+  if (spec.kind === 'openai' || spec.kind === 'openai_compatible') {
+    const baseUrl = spec.kind === 'openai_compatible' ? spec.baseUrl : spec.baseUrl
+    return async (texts) => {
+      const json = await createEmbedding({
+        model: OPENAI_EMBEDDING_MODEL,
+        input: texts,
+        apiKey: spec.apiKey,
+        ...(baseUrl ? { baseUrl } : {}),
+      })
+      return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
+    }
+  }
+
+  // anthropic — no embedding API, fall back to platform key
+  return async (texts) => {
+    const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
+    return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
+  }
 }
 
 // ─── Internal ────────────────────────────────────────────────────────

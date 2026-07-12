@@ -2,11 +2,9 @@ import { Buffer } from 'node:buffer'
 
 import { downloadFile } from '@vibesboard/adapter-s3'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
-import { createEmbedding, chatCompletionWithVision } from '@vibesboard/adapter-openai'
+import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
 import { replaceFileChunks } from '@vibesboard/ai/rag-store'
-
-const EMBEDDING_MODEL =
-  process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
+import { resolveEmbedder } from './tenant-llm-config.ts'
 const VISION_MODEL = OPENAI_VISION_MODEL
 
 const IMAGE_MIME_TYPES = new Set([
@@ -327,17 +325,6 @@ const chunkText = (input: string, targetLength = 1200, overlap = 200) => {
   return chunks
 }
 
-const embedChunks = async (values: string[]) => {
-  if (!values.length) {
-    return []
-  }
-  const json = await createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: values
-  })
-  return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
-}
-
 export const ingestFileForAgent = async (args: {
   tenantId: string
   agentId: string
@@ -363,7 +350,8 @@ export const ingestFileForAgent = async (args: {
   }
 
   const chunks = chunkText(text)
-  const embeddings = await embedChunks(chunks)
+  const embed = await resolveEmbedder(tenantId)
+  const embeddings = await embed(chunks)
 
   if (!embeddings.length) {
     return {

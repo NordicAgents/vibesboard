@@ -3,14 +3,11 @@
  * Advanced retrieval strategies for knowledge base search
  */
 
-import { createEmbedding } from '@vibesboard/adapter-openai'
 import {
   vectorSearchFileChunks,
   keywordSearchFileChunks
 } from '@vibesboard/ai/rag-store'
-
-const EMBEDDING_MODEL =
-  process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
+import { resolveEmbedder } from './tenant-llm-config.ts'
 
 export interface RetrievalConfig {
   topK?: number
@@ -83,7 +80,7 @@ async function vectorSearch(
   topK: number
 ): Promise<RetrievedChunk[]> {
   try {
-    const embedding = await generateQueryEmbedding(query)
+    const embedding = await generateQueryEmbedding(query, tenantId)
     if (!embedding) {
       console.warn('[RAG] Failed to generate query embedding')
       return []
@@ -164,16 +161,11 @@ function buildRAGContext(
   }
 }
 
-async function generateQueryEmbedding(query: string): Promise<number[] | null> {
+async function generateQueryEmbedding(query: string, tenantId: string): Promise<number[] | null> {
   try {
-    const json = await createEmbedding({
-      model: EMBEDDING_MODEL,
-      input: query.trim()
-    })
-
-    const embedding = json?.data?.[0]?.embedding
-
-    return embedding ?? null
+    const embed = await resolveEmbedder(tenantId)
+    const results = await embed([query.trim()])
+    return results[0] ?? null
   } catch (error) {
     console.error('[RAG] Failed to generate embedding:', error)
     return null
