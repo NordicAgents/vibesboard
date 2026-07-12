@@ -4,7 +4,10 @@ import { downloadFile } from '@vibesboard/adapter-s3'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
 import { replaceFileChunks } from '@vibesboard/ai/rag-store'
-import { resolveEmbedder } from './tenant-llm-config.ts'
+import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
+import { eq } from 'drizzle-orm'
 const VISION_MODEL = OPENAI_VISION_MODEL
 
 const IMAGE_MIME_TYPES = new Set([
@@ -350,6 +353,8 @@ export const ingestFileForAgent = async (args: {
   }
 
   const chunks = chunkText(text)
+  const spec = await resolveProviderSpec(tenantId).catch(() => null)
+  const providerKind = spec?.kind ?? 'openai'
   const embed = await resolveEmbedder(tenantId)
   const embeddings = await embed(chunks)
 
@@ -370,6 +375,12 @@ export const ingestFileForAgent = async (args: {
       embedding: embeddings[index] ?? []
     }))
   })
+
+  // Record which provider embedded this file so we can detect stale embeddings later
+  await getMigrateDb()
+    .update(filesTable)
+    .set({ embeddingProvider: providerKind, updatedAt: new Date() })
+    .where(eq(filesTable.id, fileId))
 
   const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 

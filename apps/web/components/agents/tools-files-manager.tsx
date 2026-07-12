@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
 import { type VibeAgent } from '@vibesboard/contracts'
@@ -57,6 +57,42 @@ export function ToolsFilesManager({
   const [isSaving, setIsSaving] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isIndexing, setIsIndexing] = useState(false)
+  const [hasStaleEmbeddings, setHasStaleEmbeddings] = useState(false)
+  const [isReembedding, setIsReembedding] = useState(false)
+
+  // Detect stale embeddings: compare file embedding_provider vs current tenant default provider
+  useEffect(() => {
+    if (!fileKeys.length) return
+    Promise.all([
+      fetch(`/api/agents/${agent.id}/files`).then(r => r.json()).catch(() => null),
+      fetch('/api/tenants/llm-configs').then(r => r.json()).catch(() => null),
+    ]).then(([filesData, configsData]) => {
+      const indexedFiles: Array<{ status: string; embeddingProvider: string | null }> =
+        filesData?.files?.filter((f: any) => f.status === 'indexed') ?? []
+      if (!indexedFiles.length) return
+      const defaultConfig = configsData?.configs?.find((c: any) => c.isDefault && c.isEnabled)
+      const currentProvider = defaultConfig?.kind ?? 'openai'
+      const stale = indexedFiles.some(
+        f => f.embeddingProvider !== null && f.embeddingProvider !== currentProvider
+      )
+      setHasStaleEmbeddings(stale)
+    })
+  }, [agent.id, fileKeys])
+
+  const handleReembed = async () => {
+    setIsReembedding(true)
+    try {
+      const res = await fetch(`/api/agents/${agent.id}/reembed`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Re-embed failed')
+      toast.success(data.message)
+      setHasStaleEmbeddings(false)
+    } catch (err: any) {
+      toast.error(err.message ?? 'Re-embed failed')
+    } finally {
+      setIsReembedding(false)
+    }
+  }
 
   // Extract clean filename from storage path
   const getFileName = (path: string): string => {
@@ -610,6 +646,22 @@ export function ToolsFilesManager({
           )}
 
           {/* Uploaded files list */}
+          {hasStaleEmbeddings && (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              <span>⚠ LLM provider changed — file embeddings are stale and may return poor results.</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleReembed}
+                disabled={isReembedding || !canEdit}
+                className="shrink-0 border-amber-500/50 text-amber-700 hover:bg-amber-500/20 dark:text-amber-400"
+              >
+                {isReembedding ? 'Re-embedding…' : 'Re-embed files'}
+              </Button>
+            </div>
+          )}
+
           {fileKeys.length > 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
