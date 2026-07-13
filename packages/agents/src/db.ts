@@ -134,6 +134,7 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   dataConfig: data.dataConfig ?? undefined,
   calendarAvailabilityConfig: data.calendarAvailabilityConfig ?? undefined,
   bookingConfig: data.bookingConfig ?? undefined,
+  llmConfigId: data.llmConfigId ?? null,
   createdAt: data.createdAt,
   updatedAt: data.updatedAt
 })
@@ -328,6 +329,7 @@ export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): VibeAgent =
   dataConfig: (row.dataConfig as unknown) as VibeAgent['dataConfig'] ?? undefined,
   calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
   bookingConfig: row.bookingConfig ?? undefined,
+  llmConfigId: row.llmConfigId ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 })

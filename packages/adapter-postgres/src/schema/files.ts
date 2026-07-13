@@ -33,6 +33,9 @@ export const files = pgTable(
     processingError: text('processing_error'),
     processingStartedAt: timestamp('processing_started_at', { withTimezone: true }),
     processingCompletedAt: timestamp('processing_completed_at', { withTimezone: true }),
+    // Which provider embedded this file's chunks. null = platform OpenAI (legacy).
+    // Used to detect stale embeddings when the tenant switches LLM provider.
+    embeddingProvider: text('embedding_provider'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

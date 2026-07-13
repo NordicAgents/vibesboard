@@ -37,6 +37,7 @@ export interface AgentFormFields {
   dataConfig: AgentDataConfig | undefined
   calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | undefined
   bookingConfig: AgentBookingConfig | undefined
+  llmConfigId: string | null
 }
 
 export interface AgentFormSetters {
@@ -61,6 +62,7 @@ export interface AgentFormSetters {
     v: AgentCalendarAvailabilityConfig | undefined
   ) => void
   setBookingConfig: (v: AgentBookingConfig | undefined) => void
+  setLlmConfigId: (v: string | null) => void
 }
 
 export interface UseAgentFormReturn {
@@ -126,11 +128,15 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [bookingConfig, setBookingConfig] = useState<
     AgentBookingConfig | undefined
   >(agent.bookingConfig as AgentBookingConfig | undefined)
+  const [llmConfigId, setLlmConfigId] = useState<string | null>(
+    agent.llmConfigId ?? null
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   // ── Change detection ──
   const hasChanges =
+    llmConfigId !== (agent.llmConfigId ?? null) ||
     name !== agent.name ||
     instructions !== agent.instructions ||
     greetingText.trim() !==
@@ -181,7 +187,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       schedulingConfig,
       dataConfig,
       calendarAvailabilityConfig,
-      bookingConfig
+      bookingConfig,
+      llmConfigId,
     }
 
     try {
@@ -278,7 +285,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       schedulingConfig,
       dataConfig,
       calendarAvailabilityConfig,
-      bookingConfig
+      bookingConfig,
+      llmConfigId,
     },
     setters: {
       setName,
@@ -299,7 +307,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       setSchedulingConfig,
       setDataConfig,
       setCalendarAvailabilityConfig,
-      setBookingConfig
+      setBookingConfig,
+      setLlmConfigId,
     },
     hasChanges,
     saving,

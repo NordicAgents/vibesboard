@@ -274,7 +274,8 @@ export async function POST(
           messages: nextMessages,
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
-          responseCounts: conversation.responseCounts
+          responseCounts: conversation.responseCounts,
+          tokenUsage: usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined,
         }).catch(err =>
           console.error('[public-chat] Auto-summarize failed:', err)
         )

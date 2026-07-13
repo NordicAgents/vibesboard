@@ -58,10 +58,30 @@ export async function chatCompletion(params: {
 export async function createEmbedding(params: {
   model: string
   input: string | string[]
+  apiKey?: string
+  baseUrl?: string
+  /** When true, skips the private-host SSRF check (tenant opted in via allowPrivateHosts). */
+  allowPrivateHost?: boolean
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
-  const res = await fetch(OPENAI_EMBEDDINGS, {
+  // Defense-in-depth: reject private/loopback baseUrls unless the tenant has
+  // explicitly opted in via the per-tenant allowPrivateHosts flag.
+  if (params.baseUrl && !params.allowPrivateHost) {
+    const { hostname, protocol } = new URL(params.baseUrl)
+    if (!['http:', 'https:'].includes(protocol)) {
+      throw new Error('Embedding baseUrl must use HTTP or HTTPS')
+    }
+    if (/^(localhost|127\.|169\.254\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname) || hostname === '::1') {
+      throw new Error('Embedding baseUrl must not point to a private or loopback address')
+    }
+  }
+
+  const url = params.baseUrl
+    ? `${params.baseUrl.replace(/\/+$/, '')}/embeddings`
+    : OPENAI_EMBEDDINGS
+  const key = params.apiKey ?? getApiKey()
+  const res = await fetch(url, {
     method: 'POST',
-    headers: headers(),
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: params.model,
       input: params.input
