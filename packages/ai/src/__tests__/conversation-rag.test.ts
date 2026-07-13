@@ -249,7 +249,7 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cFar,
           messages: [{ id: 'f1', role: 'assistant', content: 'FAR answer' }],
         },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(768, 900)) },
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(768, 700)) },
       )
       // Query nearest to cNear (hot index 3).
       const res = await buildAskAiConversationContext(
