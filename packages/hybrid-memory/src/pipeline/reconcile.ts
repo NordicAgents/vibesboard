@@ -115,44 +115,9 @@ async function reconcileObservation(
   }
 
   // Build mutations
-  const mutations: MemoryMutation[] = (parsed.mutations ?? []).flatMap((m): MemoryMutation[] => {
-    if (m.operation === 'add') {
-      const memory: NewHybridMemory = {
-        content: m.content ?? '',
-        category: 'preference',
-        importance: 0.7,
-        surprise: 0,
-        embedding: undefined,
-        key: m.key ?? '/misc/unknown',
-        description: m.description ?? '',
-        presenceClass: m.presenceClass ?? 'pattern',
-        triggerPatterns: m.triggerPatterns ?? [],
-        scope: obs.subScopeId ? 'member' : 'org',
-        scopeId: obs.scopeId,
-        subScopeId: obs.subScopeId ?? null,
-      }
-      return [{ operation: 'add' as const, memory }]
-    }
-    if (m.operation === 'modify') {
-      if (!m.memoryId) return []
-      return [{
-        operation: 'modify' as const,
-        memoryId: m.memoryId,
-        patch: {
-          content: m.content,
-          key: m.key,
-          description: m.description,
-          presenceClass: m.presenceClass,
-          triggerPatterns: m.triggerPatterns,
-        },
-      }]
-    }
-    if (m.operation === 'delete') {
-      if (!m.memoryId) return []
-      return [{ operation: 'delete' as const, memoryId: m.memoryId }]
-    }
-    return []  // unknown operation — skip
-  })
+  const mutations: MemoryMutation[] = (parsed.mutations ?? []).flatMap(
+    (m) => buildMutationFromLlm(m, obs),
+  )
 
   const approver = obs.subScopeId ? 'member' : 'org-admin'
 
@@ -181,6 +146,49 @@ async function reconcileObservation(
 
   await opts.store.updateObservationStatus(obs.id, 'consolidated')
   return 'mutate'
+}
+
+type LlmMutationInput = {
+  operation: 'add' | 'modify' | 'delete'
+  key?: string
+  description?: string
+  content?: string
+  presenceClass?: HybridMemory['presenceClass']
+  triggerPatterns?: string[]
+  memoryId?: string
+}
+
+function buildMutationFromLlm(m: LlmMutationInput, obs: Observation): MemoryMutation[] {
+  if (m.operation === 'add') {
+    const memory: NewHybridMemory = {
+      content: m.content ?? '',
+      category: 'preference',
+      importance: 0.7,
+      surprise: 0,
+      embedding: undefined,
+      key: m.key ?? '/misc/unknown',
+      description: m.description ?? '',
+      presenceClass: m.presenceClass ?? 'pattern',
+      triggerPatterns: m.triggerPatterns ?? [],
+      scope: obs.subScopeId ? 'member' : 'org',
+      scopeId: obs.scopeId,
+      subScopeId: obs.subScopeId ?? null,
+    }
+    return [{ operation: 'add', memory }]
+  }
+  if (m.operation === 'modify') {
+    if (!m.memoryId) return []
+    return [{
+      operation: 'modify',
+      memoryId: m.memoryId,
+      patch: { content: m.content, key: m.key, description: m.description, presenceClass: m.presenceClass, triggerPatterns: m.triggerPatterns },
+    }]
+  }
+  if (m.operation === 'delete') {
+    if (!m.memoryId) return []
+    return [{ operation: 'delete', memoryId: m.memoryId }]
+  }
+  return []
 }
 
 export async function applyMutation(

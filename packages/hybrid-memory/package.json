@@ -12,8 +12,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run",
-    "lint": "eslint src --ext .ts"
+    "test": "vitest run"
   },
   "keywords": ["ai", "agent", "memory", "llm", "hybrid", "embeddings", "typescript"],
   "license": "MIT",
