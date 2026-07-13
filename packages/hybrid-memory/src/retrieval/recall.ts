@@ -26,6 +26,7 @@ export async function recall(
   const baseFilter: MemoryFilter = {
     scopeId: ctx.scopeId,
     subScopeId: ctx.subScopeId ?? null,
+    includeOrgWide: ctx.subScopeId != null,
   }
 
   const [omnipresent, allPatternMemories, queryEmbedding] = await Promise.all([

@@ -40,7 +40,7 @@ export interface HybridStore {
    * Find sibling observations by statement embedding (cross-conversation).
    * Only returns observations with status 'new' or 'deferred' (active).
    */
-  searchObservations(embedding: number[], k: number, scopeId: string): Promise<Observation[]>
+  searchObservations(embedding: number[], k: number, scopeId: string, subScopeId?: string | null): Promise<Observation[]>
 
   /** Fetch new/deferred observations ready for reconciliation */
   getPendingObservations(scopeId?: string, limit?: number): Promise<Observation[]>
@@ -74,6 +74,7 @@ export interface HybridStore {
 export interface MemoryFilter {
   scopeId?: string
   subScopeId?: string | null
+  includeOrgWide?: boolean
   presenceClass?: HybridMemory['presenceClass']
   scope?: HybridMemory['scope']
   minImportance?: number

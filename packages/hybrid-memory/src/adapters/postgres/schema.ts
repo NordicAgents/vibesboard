@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // pgvector type — mirrors the existing vectors schema in adapter-postgres
-const vector = customType<{ data: number[]; driverData: string }>({
+const vector = customType<{ data: number[]; driverData: string; config: { dimensions?: number } }>({
   dataType(config?: { dimensions?: number }) {
     return config?.dimensions ? `vector(${config.dimensions})` : 'vector'
   },

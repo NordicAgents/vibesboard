@@ -117,16 +117,22 @@ export class PostgresHybridStore implements HybridStore {
       .where(eq(hybridObservations.id, id))
   }
 
-  async searchObservations(embedding: number[], k: number, scopeId: string): Promise<Observation[]> {
+  async searchObservations(embedding: number[], k: number, scopeId: string, subScopeId?: string | null): Promise<Observation[]> {
     const vec = `[${embedding.join(',')}]`
+    const conditions: ReturnType<typeof eq>[] = [
+      eq(hybridObservations.scopeId, scopeId),
+      inArray(hybridObservations.status, ['new', 'deferred']),
+      sql`${hybridObservations.statementEmbedding} IS NOT NULL`,
+    ]
+    if (typeof subScopeId === 'string') {
+      conditions.push(eq(hybridObservations.subScopeId, subScopeId))
+    } else if (subScopeId === null) {
+      conditions.push(sql`${hybridObservations.subScopeId} IS NULL`)
+    }
     const rows = await this.db
       .select()
       .from(hybridObservations)
-      .where(and(
-        eq(hybridObservations.scopeId, scopeId),
-        inArray(hybridObservations.status, ['new', 'deferred']),
-        sql`${hybridObservations.statementEmbedding} IS NOT NULL`,
-      ))
+      .where(and(...conditions))
       .orderBy(sql`${hybridObservations.statementEmbedding} <=> ${vec}::vector`)
       .limit(k)
     return rows.map(fromObsRow)
@@ -150,7 +156,7 @@ export class PostgresHybridStore implements HybridStore {
     const cutoff = new Date(Date.now() - cooldownMs)
     const conditions = [
       ...(scopeId ? [eq(hybridMessageEmbeddings.scopeId, scopeId)] : []),
-      sql`${hybridMessageEmbeddings.conversation_id} NOT IN (
+      sql`${hybridMessageEmbeddings.conversationId} NOT IN (
         SELECT conversation_id FROM hybrid_processed_conversations
       )`,
     ]
@@ -189,7 +195,10 @@ export class PostgresHybridStore implements HybridStore {
     await this.db
       .insert(hybridProcessedConversations)
       .values({ conversationId, scopeId, processedAt: new Date() })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: hybridProcessedConversations.conversationId,
+        set: { processedAt: new Date() },
+      })
   }
 
   // ── Message embeddings ───────────────────────────────────────────────────────
@@ -224,6 +233,15 @@ export class PostgresHybridStore implements HybridStore {
 
   async searchMessages(embedding: number[], k: number, ctx: EngineContext): Promise<MessageChunk[]> {
     const vec = `[${embedding.join(',')}]`
+    const conditions = [
+      eq(hybridMessageEmbeddings.scopeId, ctx.scopeId),
+      sql`${hybridMessageEmbeddings.embedding} IS NOT NULL`,
+    ]
+    if (ctx.subScopeId) {
+      conditions.push(eq(hybridMessageEmbeddings.subScopeId, ctx.subScopeId))
+    } else {
+      conditions.push(sql`${hybridMessageEmbeddings.subScopeId} IS NULL`)
+    }
     const rows = await this.db
       .select({
         messageId: hybridMessageEmbeddings.messageId,
@@ -232,10 +250,7 @@ export class PostgresHybridStore implements HybridStore {
         similarity: sql<number>`1 - (${hybridMessageEmbeddings.embedding} <=> ${vec}::vector)`,
       })
       .from(hybridMessageEmbeddings)
-      .where(and(
-        eq(hybridMessageEmbeddings.scopeId, ctx.scopeId),
-        sql`${hybridMessageEmbeddings.embedding} IS NOT NULL`,
-      ))
+      .where(and(...conditions))
       .orderBy(sql`${hybridMessageEmbeddings.embedding} <=> ${vec}::vector`)
       .limit(k)
     return rows
@@ -329,6 +344,10 @@ function toPartialMemoryRow(patch: Partial<HybridMemory>): Partial<typeof hybrid
   if (patch.accessCount !== undefined) row.accessCount = patch.accessCount
   if (patch.lastAccessed !== undefined) row.lastAccessed = patch.lastAccessed
   if (patch.version !== undefined) row.version = patch.version
+  if (patch.embedding !== undefined) row.embedding = patch.embedding ?? null
+  if (patch.metadata !== undefined) row.metadata = patch.metadata ?? {}
+  if (patch.history !== undefined) row.history = (patch.history ?? []).map(h => ({ content: h.content, changedAt: h.changedAt.toISOString() }))
+  if (patch.expiresAt !== undefined) row.expiresAt = patch.expiresAt ?? null
   return row
 }
 
@@ -396,11 +415,13 @@ function buildMemoryConditions(filter: MemoryFilter) {
   const conditions = []
   if (filter.scopeId) conditions.push(eq(hybridMemories.scopeId, filter.scopeId))
   if (filter.subScopeId !== undefined) {
-    conditions.push(
-      filter.subScopeId === null
-        ? sql`${hybridMemories.subScopeId} IS NULL`
-        : eq(hybridMemories.subScopeId, filter.subScopeId),
-    )
+    if (filter.subScopeId === null) {
+      conditions.push(sql`${hybridMemories.subScopeId} IS NULL`)
+    } else if (filter.includeOrgWide) {
+      conditions.push(sql`(${hybridMemories.subScopeId} IS NULL OR ${hybridMemories.subScopeId} = ${filter.subScopeId})`)
+    } else {
+      conditions.push(eq(hybridMemories.subScopeId, filter.subScopeId))
+    }
   }
   if (filter.presenceClass) conditions.push(eq(hybridMemories.presenceClass, filter.presenceClass))
   if (filter.scope) conditions.push(eq(hybridMemories.scope, filter.scope))

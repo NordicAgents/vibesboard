@@ -1,4 +1,4 @@
-import { v4 as uuid } from 'uuid'
+import { randomUUID as uuid } from 'node:crypto'
 import type { HybridStore, MemoryFilter, MutationFilter } from '../interfaces/store.ts'
 import type {
   HybridMemory,
@@ -30,10 +30,6 @@ export class InMemoryHybridStore implements HybridStore {
 
   async getMemory(id: string): Promise<HybridMemory | null> {
     return this.memories.get(id) ?? null
-  }
-
-  async listMemories(filter: MemoryFilter): Promise<HybridMemory[]> {
-    return [...this.memories.values()].filter(m => matchesMemoryFilter(m, filter))
   }
 
   async updateMemory(id: string, patch: Partial<HybridMemory>): Promise<HybridMemory> {
@@ -74,9 +70,9 @@ export class InMemoryHybridStore implements HybridStore {
     if (obs) this.observations.set(id, { ...obs, status })
   }
 
-  async searchObservations(embedding: number[], k: number, scopeId: string): Promise<Observation[]> {
+  async searchObservations(embedding: number[], k: number, scopeId: string, subScopeId?: string | null): Promise<Observation[]> {
     return [...this.observations.values()]
-      .filter(o => o.scopeId === scopeId && o.statementEmbedding && (o.status === 'new' || o.status === 'deferred'))
+      .filter(o => o.scopeId === scopeId && (typeof subScopeId === 'string' ? o.subScopeId === subScopeId : (o.subScopeId === null || o.subScopeId === undefined)) && o.statementEmbedding && (o.status === 'new' || o.status === 'deferred'))
       .map(o => ({ o, score: dotProduct(embedding, o.statementEmbedding!) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, k)
@@ -128,7 +124,7 @@ export class InMemoryHybridStore implements HybridStore {
 
   async searchMessages(embedding: number[], k: number, ctx: EngineContext): Promise<MessageChunk[]> {
     return [...this.messageEmbeddings.entries()]
-      .filter(([, e]) => e.ctx.scopeId === ctx.scopeId && e.embedding)
+      .filter(([, e]) => e.ctx.scopeId === ctx.scopeId && e.embedding && (ctx.subScopeId ? e.ctx.subScopeId === ctx.subScopeId : !e.ctx.subScopeId))
       .map(([id, e]) => ({ messageId: id, content: e.content, conversationId: e.ctx.conversationId, similarity: dotProduct(embedding, e.embedding) }))
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, k)
@@ -162,7 +158,9 @@ function dotProduct(a: number[], b: number[]): number {
 
 function matchesMemoryFilter(m: HybridMemory, f: MemoryFilter): boolean {
   if (f.scopeId && m.scopeId !== f.scopeId) return false
-  if (f.subScopeId !== undefined && m.subScopeId !== f.subScopeId) return false
+  if (f.includeOrgWide && f.subScopeId != null) {
+    if (m.subScopeId !== null && m.subScopeId !== f.subScopeId) return false
+  } else if (f.subScopeId !== undefined && m.subScopeId !== f.subScopeId) return false
   if (f.presenceClass && m.presenceClass !== f.presenceClass) return false
   if (f.scope && m.scope !== f.scope) return false
   if (f.minImportance != null && m.importance < f.minImportance) return false

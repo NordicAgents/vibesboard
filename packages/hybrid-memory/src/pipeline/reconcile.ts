@@ -1,9 +1,8 @@
-import { v4 as uuid } from 'uuid'
+import { randomUUID as uuid } from 'node:crypto'
 import type { LLMProvider } from '../interfaces/llm.ts'
 import type { HybridStore } from '../interfaces/store.ts'
 import type { Observation, PendingMutation, MemoryMutation, HybridMemory, NewHybridMemory } from '../types.ts'
 import { reconciliationPrompt } from '../prompts.ts'
-import { serializeTreeToC } from '../serializer.ts'
 
 export interface ReconcileOptions {
   llm: LLMProvider
@@ -64,7 +63,9 @@ async function reconcileObservation(
 
   const messageTexts = messages.map(m => m.content)
 
-  const toc = serializeTreeToC(existingMemories, { tocOnly: true })
+  const memoryContext = existingMemories.length
+    ? existingMemories.map(m => `[id:${m.id}] ${m.key} — ${m.description}`).join('\n')
+    : ''
 
   const omnipresent = existingMemories
     .filter(m => m.presenceClass === 'omnipresent')
@@ -76,7 +77,7 @@ async function reconcileObservation(
       observation: `Statement: ${obs.statement}\nEvidence: ${obs.evidence}`,
       siblingObservations: siblingTexts,
       relevantMessages: messageTexts,
-      existingMemoryToc: toc,
+      existingMemoryToc: memoryContext,
       existingMemoryExcerpts: omnipresent,
     }),
     { maxTokens: 1024, temperature: 0.1 },
@@ -99,8 +100,8 @@ async function reconcileObservation(
   try {
     parsed = JSON.parse(raw.trim())
   } catch {
-    await opts.store.updateObservationStatus(obs.id, 'discarded')
-    return 'discard'
+    await opts.store.updateObservationStatus(obs.id, 'deferred')
+    return 'defer'
   }
 
   if (parsed.decision === 'defer') {
@@ -114,7 +115,7 @@ async function reconcileObservation(
   }
 
   // Build mutations
-  const mutations: MemoryMutation[] = (parsed.mutations ?? []).map(m => {
+  const mutations: MemoryMutation[] = (parsed.mutations ?? []).flatMap((m): MemoryMutation[] => {
     if (m.operation === 'add') {
       const memory: NewHybridMemory = {
         content: m.content ?? '',
@@ -130,12 +131,13 @@ async function reconcileObservation(
         scopeId: obs.scopeId,
         subScopeId: obs.subScopeId ?? null,
       }
-      return { operation: 'add', memory }
+      return [{ operation: 'add' as const, memory }]
     }
     if (m.operation === 'modify') {
-      return {
-        operation: 'modify',
-        memoryId: m.memoryId ?? '',
+      if (!m.memoryId) return []
+      return [{
+        operation: 'modify' as const,
+        memoryId: m.memoryId,
         patch: {
           content: m.content,
           key: m.key,
@@ -143,9 +145,13 @@ async function reconcileObservation(
           presenceClass: m.presenceClass,
           triggerPatterns: m.triggerPatterns,
         },
-      }
+      }]
     }
-    return { operation: 'delete', memoryId: m.memoryId ?? '' }
+    if (m.operation === 'delete') {
+      if (!m.memoryId) return []
+      return [{ operation: 'delete' as const, memoryId: m.memoryId }]
+    }
+    return []  // unknown operation — skip
   })
 
   const approver = obs.subScopeId ? 'member' : 'org-admin'
@@ -164,7 +170,7 @@ async function reconcileObservation(
     await opts.store.saveMutation(pending)
 
     if (opts.autoApprove) {
-      await applyMutation(mutation, opts.store, opts.embedder)
+      await applyMutation(mutation, opts.store, opts.embedder, obs.scopeId)
     }
   }
 
@@ -176,6 +182,7 @@ export async function applyMutation(
   mutation: MemoryMutation,
   store: HybridStore,
   embedder?: import('../interfaces/embedder.ts').Embedder,
+  scopeId?: string,
 ): Promise<void> {
   if (mutation.operation === 'add') {
     const embedding = embedder ? await embedder.embed(mutation.memory.content) : undefined
@@ -190,6 +197,11 @@ export async function applyMutation(
     }
     await store.saveMemory(memory)
   } else if (mutation.operation === 'modify') {
+    if (scopeId) {
+      const mem = await store.getMemory(mutation.memoryId)
+      if (!mem) throw new Error(`Memory ${mutation.memoryId} not found`)
+      if (mem.scopeId !== scopeId) throw new Error(`Memory ${mutation.memoryId} not in scope`)
+    }
     const updated = await store.updateMemory(mutation.memoryId, mutation.patch)
     // Re-embed if content changed so vector search stays accurate
     if (mutation.patch.content && embedder) {
@@ -197,6 +209,11 @@ export async function applyMutation(
       await store.updateMemory(mutation.memoryId, { embedding })
     }
   } else {
+    if (scopeId) {
+      const mem = await store.getMemory(mutation.memoryId)
+      if (!mem) return  // already gone — idempotent
+      if (mem.scopeId !== scopeId) throw new Error(`Memory ${mutation.memoryId} not in scope`)
+    }
     await store.deleteMemory(mutation.memoryId)
   }
 }

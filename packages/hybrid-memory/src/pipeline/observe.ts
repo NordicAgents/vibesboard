@@ -1,4 +1,4 @@
-import { v4 as uuid } from 'uuid'
+import { randomUUID as uuid } from 'node:crypto'
 import type { LLMProvider } from '../interfaces/llm.ts'
 import type { Embedder } from '../interfaces/embedder.ts'
 import type { HybridStore } from '../interfaces/store.ts'
