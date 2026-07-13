@@ -85,6 +85,55 @@
       "when": 1780200000000,
       "tag": "0011_agent_versioning",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783691935347,
+      "tag": "0012_clumsy_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783700000000,
+      "tag": "0013_tenant_llm_configs_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783858142671,
+      "tag": "0014_moaning_cobalt_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1783865584191,
+      "tag": "0015_ambiguous_arachne",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1783889055833,
+      "tag": "0016_bitter_blackheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783891908776,
+      "tag": "0017_old_cargill",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783900000000,
+      "tag": "0018_embeddings_rls_and_task_configs_rls",
+      "breakpoints": true
     }
   ]
 }

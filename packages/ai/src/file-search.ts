@@ -2,11 +2,12 @@ import { Buffer } from 'node:buffer'
 
 import { downloadFile } from '@vibesboard/adapter-s3'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
-import { createEmbedding, chatCompletionWithVision } from '@vibesboard/adapter-openai'
-import { replaceFileChunks } from '@vibesboard/ai/rag-store'
-
-const EMBEDDING_MODEL =
-  process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
+import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
+import { replaceFileChunks, providerFromDimension } from '@vibesboard/ai/rag-store'
+import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
+import { eq } from 'drizzle-orm'
 const VISION_MODEL = OPENAI_VISION_MODEL
 
 const IMAGE_MIME_TYPES = new Set([
@@ -327,17 +328,6 @@ const chunkText = (input: string, targetLength = 1200, overlap = 200) => {
   return chunks
 }
 
-const embedChunks = async (values: string[]) => {
-  if (!values.length) {
-    return []
-  }
-  const json = await createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: values
-  })
-  return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
-}
-
 export const ingestFileForAgent = async (args: {
   tenantId: string
   agentId: string
@@ -363,7 +353,10 @@ export const ingestFileForAgent = async (args: {
   }
 
   const chunks = chunkText(text)
-  const embeddings = await embedChunks(chunks)
+  const spec = await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
+  const providerKind = spec?.kind ?? 'openai'
+  const embed = await resolveEmbedder(tenantId)
+  const embeddings = await embed(chunks)
 
   if (!embeddings.length) {
     return {
@@ -373,15 +366,28 @@ export const ingestFileForAgent = async (args: {
   }
 
   // Write chunks to Postgres (replaceFileChunks deletes existing then inserts)
+  const embeddingDim = embeddings[0]?.length ?? 768
   await replaceFileChunks({
     tenantId,
     fileId,
+    provider: providerFromDimension(embeddingDim),
     chunks: chunks.map((content, index) => ({
       chunkIndex: index,
       content,
       embedding: embeddings[index] ?? []
     }))
   })
+
+  // Mark file as indexed and record which provider embedded it
+  await getMigrateDb()
+    .update(filesTable)
+    .set({
+      status: 'indexed',
+      embeddingProvider: providerKind,
+      processingCompletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(filesTable.id, fileId))
 
   const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 

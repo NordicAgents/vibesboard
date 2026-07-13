@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import type {
   AgentMode,
   CollectionField,
@@ -8,7 +9,7 @@ import type {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@vibesboard/utils'
 import { CollectionFieldsEditor } from './collection-fields-editor'
@@ -42,6 +43,9 @@ interface AgentSetupTabProps {
   canEdit: boolean
   agentId: string
   hasAccessPassword: boolean
+  llmConfigId?: string | null
+  onLlmConfigIdChange?: (id: string | null) => void
+  tenantId?: string
 }
 
 export function AgentSetupTab({
@@ -71,8 +75,20 @@ export function AgentSetupTab({
   saving,
   canEdit,
   agentId,
-  hasAccessPassword
+  hasAccessPassword,
+  llmConfigId,
+  onLlmConfigIdChange,
+  tenantId,
 }: AgentSetupTabProps) {
+  const [llmConfigs, setLlmConfigs] = useState<Array<{ id: string; label: string; kind: string; modelId: string }>>([])
+
+  useEffect(() => {
+    fetch('/api/tenants/llm-configs')
+      .then(r => r.ok ? r.json() : { configs: [] })
+      .then(d => setLlmConfigs((d.configs ?? []).filter((c: any) => c.isEnabled)))
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="space-y-5 pb-8">
       {/* Agent card */}
@@ -120,6 +136,33 @@ export function AgentSetupTab({
           )}
         </CardContent>
       </Card>
+
+      {/* LLM Provider override */}
+      {llmConfigs.length > 0 && onLlmConfigIdChange && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">LLM Provider</CardTitle>
+            <CardDescription className="text-xs">
+              Override the workspace default for this agent only. Leave as "Workspace default" to follow task routing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <select
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={llmConfigId ?? ''}
+              onChange={e => onLlmConfigIdChange(e.target.value || null)}
+              disabled={saving || !canEdit}
+            >
+              <option value="">— Workspace default (task routing) —</option>
+              {llmConfigs.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.label} ({c.kind} · {c.modelId})
+                </option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Instructions */}
       <Card>

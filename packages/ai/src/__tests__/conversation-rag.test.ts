@@ -55,7 +55,7 @@ describe('upsertConversationEmbeddings (pg)', () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       const embed = async (texts: string[]) =>
-        texts.map((_, i) => unitVec(1536, i % 1536))
+        texts.map((_, i) => unitVec(768, i % 768))
       await upsertConversationEmbeddings(
         {
           tenantId,
@@ -103,10 +103,10 @@ describe('upsertConversationEmbeddings (pg)', () => {
     })
   })
 
-  it('stores 1536-dim embedding and content_tsv (keyword-searchable)', async () => {
+  it('stores 768-dim embedding and content_tsv (keyword-searchable)', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
-      const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 7))
+      const embed = async (texts: string[]) => texts.map(() => unitVec(768, 7))
       await upsertConversationEmbeddings(
         {
           tenantId,
@@ -138,7 +138,7 @@ describe('upsertConversationEmbeddings (pg)', () => {
   it('deleteConversationEmbeddings removes only that conversation chunks', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
-      const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 1))
+      const embed = async (texts: string[]) => texts.map(() => unitVec(768, 1))
       await upsertConversationEmbeddings(
         {
           tenantId,
@@ -178,7 +178,7 @@ describe('buildAskAiConversationContext (pg)', () => {
         },
         adminDb,
       )
-      const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 5))
+      const embed = async (texts: string[]) => texts.map(() => unitVec(768, 5))
       await upsertConversationEmbeddings(
         {
           tenantId,
@@ -240,7 +240,7 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cNear,
           messages: [{ id: 'n1', role: 'assistant', content: 'NEAR answer' }],
         },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 3)) },
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(768, 3)) },
       )
       await upsertConversationEmbeddings(
         {
@@ -249,12 +249,12 @@ describe('buildAskAiConversationContext (pg)', () => {
           conversationId: cFar,
           messages: [{ id: 'f1', role: 'assistant', content: 'FAR answer' }],
         },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 900)) },
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(768, 700)) },
       )
       // Query nearest to cNear (hot index 3).
       const res = await buildAskAiConversationContext(
         { tenantId, agentId, question: 'which?' },
-        { db: adminDb, embed: async (t) => t.map(() => unitVec(1536, 3)) },
+        { db: adminDb, embed: async (t) => t.map(() => unitVec(768, 3)) },
       )
       expect(res.usedVectorSearch).toBe(true)
       const nearPos = res.context.indexOf('NEAR answer')
@@ -279,7 +279,7 @@ describe('buildAskAiConversationContext (pg)', () => {
         },
         adminDb,
       )
-      const embed = async (texts: string[]) => texts.map(() => unitVec(1536, 5))
+      const embed = async (texts: string[]) => texts.map(() => unitVec(768, 5))
       const res = await buildAskAiConversationContext(
         { tenantId, agentId, question: 'when do you open' },
         { db: adminDb, embed },

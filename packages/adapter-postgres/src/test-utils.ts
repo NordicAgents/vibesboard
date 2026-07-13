@@ -43,10 +43,23 @@ export async function withTestDb<T>(
   }) => Promise<T>,
 ): Promise<T> {
   const schemaName = `test_${randomUUID().replace(/-/g, '_')}`
-  const adminClient = postgres(migrateUrl(), { max: 2, prepare: false })
+  // Set search_path via the connection option so EVERY connection in the pool
+  // uses the test schema from the moment it is created, even when the pool
+  // creates a second connection mid-test (e.g. during concurrent Promise.all).
+  // Previously, only the first connection had search_path set via unsafe(),
+  // causing concurrent tests to hit the wrong (public) schema.
+  const adminClient = postgres(migrateUrl(), {
+    max: 2,
+    prepare: false,
+    connection: { search_path: `"${schemaName}", public` },
+  })
   const appUrl = (process.env.DATABASE_URL ??
     'postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev')
-  const appClient = postgres(appUrl, { max: 2, prepare: false })
+  const appClient = postgres(appUrl, {
+    max: 2,
+    prepare: false,
+    connection: { search_path: `"${schemaName}", public` },
+  })
 
   // Extract the app role name from the app URL so we can grant privileges.
   const appRole = new URL(appUrl).username
@@ -57,8 +70,9 @@ export async function withTestDb<T>(
     // works and RLS policies can be evaluated against the test-schema tables.
     await adminClient.unsafe(`GRANT USAGE ON SCHEMA "${schemaName}" TO ${appRole}`)
     await adminClient.unsafe(`ALTER DEFAULT PRIVILEGES IN SCHEMA "${schemaName}" GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${appRole}`)
-    await adminClient.unsafe(`SET search_path TO "${schemaName}"`)
-    await appClient.unsafe(`SET search_path TO "${schemaName}", public`)
+    // search_path is now set via the `connection` option on both clients so all
+    // pool connections (including lazily-created ones) use the test schema.
+    // The explicit SET calls below are kept as a safety net for the first connection.
 
     for (const m of readMigrationFiles()) {
       // Run each migration file inside the new schema. The SQL was generated

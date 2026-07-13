@@ -4,7 +4,7 @@ import { uuidv7 } from 'uuidv7'
 import { withTestDb } from '../test-utils.ts'
 import { tenants, embeddings } from '../schema/index.ts'
 
-function randomVector(dim = 1536): number[] {
+function randomVector(dim = 768): number[] {
   return Array.from({ length: dim }, () => Math.random() * 2 - 1)
 }
 
@@ -152,7 +152,7 @@ describe('vectors', () => {
             VALUES ('${uuidv7()}', '${t}', 'file_chunk', '${uuidv7()}', 0, 'bad', '[1,2,3]'::vector)
           `),
         ),
-        /dimension|expected 1536/i,
+        /dimension|expected 768/i,
       )
     })
   })

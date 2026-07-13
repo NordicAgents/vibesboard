@@ -7,6 +7,9 @@ import {
   isResponsesModel,
   streamText
 } from '@vibesboard/adapter-openai'
+import { getActiveTenant } from '@/lib/tenant-context'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 
 export const runtime = 'nodejs'
 
@@ -22,9 +25,12 @@ export async function POST(req: Request) {
 
   const model = OPENAI_CHAT_MODEL
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return new Response('OPENAI_API_KEY is not configured.', { status: 500 })
-  }
+
+  // Resolve tenant BYO-LLM for agent_creator task
+  const tenantId = !previewToken ? await getActiveTenant(session.user.id).catch(() => null) : null
+  const tenantSpec = tenantId
+    ? await resolveProviderSpec(tenantId, null, undefined, 'agent_creator').catch(() => null)
+    : null
 
   const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
 
@@ -66,26 +72,28 @@ Example output format:
 
 Remember: Great agent instructions are specific, actionable, and provide clear boundaries while giving the agent personality and purpose.`
 
+  if (tenantSpec) {
+    const result = await aiStreamText({
+      model: buildProviderModel(tenantSpec),
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+      temperature: 0.3
+    })
+    return result.toTextStreamResponse()
+  }
+
+  if (!apiKey) {
+    return new Response('No LLM provider configured. Add one in Settings → LLM Providers.', { status: 500 })
+  }
+
   if (isResponsesModel(model)) {
     const history = Array.isArray(messages)
       ? messages
-          .map(
-            (m: any) =>
-              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${
-                typeof m.content === 'string' ? m.content : ''
-              }`
-          )
+          .map((m: any) => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''}`)
           .join('\n\n')
       : ''
-
-    const prompt = `${systemPrompt}\n\n${
-      history ? `Conversation so far:\n${history}` : ''
-    }`
-
+    const prompt = `${systemPrompt}\n\n${history ? `Conversation so far:\n${history}` : ''}`
     const stream = await streamText({ prompt, model, apiKey })
-    return new Response(stream, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-    })
+    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   }
 
   const openaiClient = createOpenAI({ apiKey })
