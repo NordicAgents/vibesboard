@@ -394,14 +394,15 @@ async function runAgentStreamWithSpec({
 
     const body: Record<string, unknown> = {
       contents: geminiMessages,
-      // Disable thinking mode — thinking models (gemini-3.5-flash) sometimes
-      // generate thought tokens but no text for complex queries.
-      generationConfig: { temperature, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { temperature },
     }
     if (systemInstruction) body.system_instruction = { parts: [{ text: systemInstruction }] }
 
+    // Use streamGenerateContent so thinking models can think AND produce text.
+    // generateContent sometimes produces 0 text when thinking is forced off
+    // and the prompt is large (3k+ tokens).
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     )
 
@@ -410,35 +411,105 @@ async function runAgentStreamWithSpec({
       throw new Error(`Gemini API error (${res.status}): ${err}`)
     }
 
-    const data = await res.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
-    }
+    // Accumulate full text from SSE stream (collect all chunks, then return as one)
+    // Gemini thinking models (3.5-flash, 2.5-*) use a two-turn protocol:
+    // Turn 1: model generates thought + thoughtSignature (no visible text)
+    // Turn 2: echo thoughtSignature back → model generates the actual text response
+    const sseReader = res.body!.getReader()
+    const sseDecoder = new TextDecoder()
 
-    const parts = data.candidates?.[0]?.content?.parts ?? []
-    const text = parts
-      .filter((p: any) => p.text !== undefined && !p.thought)
-      .map((p: any) => p.text as string)
-      .join('') || parts
-      .filter((p: any) => p.text !== undefined)
-      .map((p: any) => p.text as string)
-      .join('')
-
-    await safeDispose()
-    if (onCompletion) {
-      await onCompletion(text, {
-        promptTokens: data.usageMetadata?.promptTokenCount ?? 0,
-        completionTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
-      })
-    }
-
-    const encoder = new TextEncoder()
-    return new ReadableStream<Uint8Array>({
-      start(controller) {
-        if (text) controller.enqueue(encoder.encode(text))
-        controller.close()
+    // Collect turn 1: gather all parts including thoughtSignature
+    let turn1Buf = ''
+    const turn1Parts: any[] = []
+    let promptTokens = 0
+    let completionTokens = 0
+    while (true) {
+      const { done, value } = await sseReader.read()
+      if (done) break
+      turn1Buf += sseDecoder.decode(value, { stream: true })
+      const lines = turn1Buf.split('\n')
+      turn1Buf = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const json = line.slice(6).trim()
+        if (!json) continue
+        try {
+          const chunk = JSON.parse(json)
+          const parts = chunk.candidates?.[0]?.content?.parts ?? []
+          turn1Parts.push(...parts)
+          if (chunk.usageMetadata) {
+            promptTokens = chunk.usageMetadata.promptTokenCount ?? 0
+            completionTokens = chunk.usageMetadata.candidatesTokenCount ?? 0
+          }
+        } catch {}
       }
-    })
+    }
+
+    // Check if turn 1 had any real text
+    const turn1Text = turn1Parts.filter((p: any) => p.text && !p.thought).map((p: any) => p.text).join('')
+    const hasThoughtSig = turn1Parts.some((p: any) => (p as any).thoughtSignature)
+
+    const textIterable = (async function* () {
+      let fullText = ''
+
+      if (turn1Text) {
+        // Turn 1 already has text — no need for turn 2
+        fullText = turn1Text
+        yield turn1Text
+      } else if (hasThoughtSig) {
+        // Turn 2: echo the thought signature back so model produces actual text
+        const turn2Body = {
+          contents: [
+            ...geminiMessages,
+            { role: 'model', parts: turn1Parts },                          // model's thinking turn
+            { role: 'user', parts: [{ text: '(continue your response)' }] } // nudge for text
+          ],
+          generationConfig: { temperature },
+        }
+        if (systemInstruction) (turn2Body as any).system_instruction = { parts: [{ text: systemInstruction }] }
+
+        const res2 = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(turn2Body) }
+        )
+
+        if (res2.ok) {
+          const reader2 = res2.body!.getReader()
+          const dec2 = new TextDecoder()
+          let buf2 = ''
+          while (true) {
+            const { done, value } = await reader2.read()
+            if (done) break
+            buf2 += dec2.decode(value, { stream: true })
+            const lines = buf2.split('\n')
+            buf2 = lines.pop() ?? ''
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue
+              const json = line.slice(6).trim()
+              if (!json) continue
+              try {
+                const chunk = JSON.parse(json)
+                for (const p of (chunk.candidates?.[0]?.content?.parts ?? [])) {
+                  if (p.text && !(p as any).thought) { fullText += p.text; yield p.text as string }
+                }
+              } catch {}
+            }
+          }
+        }
+      }
+
+      if (!fullText) {
+        // Both turns produced no text — model may be in thinking-only mode.
+        // Surface a clear message rather than silently returning empty response.
+        const msg = 'I was unable to generate a response. The configured Gemini model appears to be in thinking-only mode with this API key. Please try a different model or provider in Settings → LLM Providers.'
+        fullText = msg
+        yield msg
+      }
+      yield `\n<!--CHAT_COMPLETE:${JSON.stringify({ chatComplete: true, reason: null })}-->`
+      await safeDispose()
+      if (onCompletion) await onCompletion(fullText, { promptTokens, completionTokens })
+    })()
+    return textStreamToReadable(textIterable, () => safeDispose().catch(() => {}))
   }
 
   const result = await aiStreamText({
