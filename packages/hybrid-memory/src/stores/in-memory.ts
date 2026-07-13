@@ -35,7 +35,7 @@ export class InMemoryHybridStore implements HybridStore {
   async updateMemory(id: string, patch: Partial<HybridMemory>): Promise<HybridMemory> {
     const existing = this.memories.get(id)
     if (!existing) throw new Error(`Memory ${id} not found`)
-    const updated = { ...existing, ...patch, version: existing.version + 1 }
+    const updated = { ...existing, ...patch, version: patch.version !== undefined ? patch.version : existing.version + 1 }
     this.memories.set(id, updated)
     return updated
   }
@@ -72,7 +72,7 @@ export class InMemoryHybridStore implements HybridStore {
 
   async searchObservations(embedding: number[], k: number, scopeId: string, subScopeId?: string | null): Promise<Observation[]> {
     return [...this.observations.values()]
-      .filter(o => o.scopeId === scopeId && (typeof subScopeId === 'string' ? o.subScopeId === subScopeId : (o.subScopeId === null || o.subScopeId === undefined)) && o.statementEmbedding && (o.status === 'new' || o.status === 'deferred'))
+      .filter(o => o.scopeId === scopeId && (subScopeId === undefined ? true : typeof subScopeId === 'string' ? o.subScopeId === subScopeId : (o.subScopeId === null || o.subScopeId === undefined)) && o.statementEmbedding && (o.status === 'new' || o.status === 'deferred'))
       .map(o => ({ o, score: dotProduct(embedding, o.statementEmbedding!) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, k)

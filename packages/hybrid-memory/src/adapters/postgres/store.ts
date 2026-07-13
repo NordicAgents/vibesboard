@@ -157,7 +157,7 @@ export class PostgresHybridStore implements HybridStore {
     const conditions = [
       ...(scopeId ? [eq(hybridMessageEmbeddings.scopeId, scopeId)] : []),
       sql`${hybridMessageEmbeddings.conversationId} NOT IN (
-        SELECT conversation_id FROM hybrid_processed_conversations
+        SELECT conversation_id FROM ${hybridProcessedConversations}
       )`,
     ]
 
@@ -341,6 +341,7 @@ function toPartialMemoryRow(patch: Partial<HybridMemory>): Partial<typeof hybrid
   if (patch.presenceClass !== undefined) row.presenceClass = patch.presenceClass
   if (patch.triggerPatterns !== undefined) row.triggerPatterns = patch.triggerPatterns
   if (patch.importance !== undefined) row.importance = patch.importance
+  if (patch.surprise !== undefined) row.surprise = patch.surprise
   if (patch.accessCount !== undefined) row.accessCount = patch.accessCount
   if (patch.lastAccessed !== undefined) row.lastAccessed = patch.lastAccessed
   if (patch.version !== undefined) row.version = patch.version

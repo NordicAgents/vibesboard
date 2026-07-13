@@ -13,8 +13,13 @@ export async function getPendingMutations(
 export async function approveMutation(id: string, store: HybridStore, embedder?: Embedder): Promise<void> {
   const mut = await store.getMutation(id)
   if (!mut || mut.status !== 'pending') return
-  await applyMutation(mut.mutation, store, embedder)
-  await store.updateMutationStatus(id, 'approved', new Date())
+  try {
+    await applyMutation(mut.mutation, store, embedder, mut.scopeId)
+    await store.updateMutationStatus(id, 'approved', new Date())
+  } catch (err) {
+    await store.updateMutationStatus(id, 'rejected', new Date())
+    throw err
+  }
 }
 
 export async function rejectMutation(id: string, store: HybridStore): Promise<void> {

@@ -45,7 +45,7 @@ async function reconcileObservation(
 ): Promise<'mutate' | 'defer' | 'discard'> {
   const [siblings, messages, existingMemories] = await Promise.all([
     obs.statementEmbedding
-      ? opts.store.searchObservations(obs.statementEmbedding, opts.observationNeighbors, obs.scopeId)
+      ? opts.store.searchObservations(obs.statementEmbedding, opts.observationNeighbors, obs.scopeId, obs.subScopeId)
       : Promise.resolve([] as Observation[]),
     obs.evidenceEmbedding
       ? opts.store.searchMessages(obs.evidenceEmbedding, opts.messageNeighbors, {
@@ -54,7 +54,7 @@ async function reconcileObservation(
           subScopeId: obs.subScopeId,
         })
       : Promise.resolve([]),
-    opts.store.listMemories({ scopeId: obs.scopeId, subScopeId: obs.subScopeId }),
+    opts.store.listMemories({ scopeId: obs.scopeId, subScopeId: obs.subScopeId, includeOrgWide: obs.subScopeId != null }),
   ])
 
   const siblingTexts = siblings
@@ -163,14 +163,19 @@ async function reconcileObservation(
       subScopeId: obs.subScopeId ?? null,
       mutation,
       approver,
-      status: opts.autoApprove ? 'approved' : 'pending',
+      status: 'pending',
       sourceObservationIds: [obs.id],
       createdAt: new Date(),
     }
     await opts.store.saveMutation(pending)
 
     if (opts.autoApprove) {
-      await applyMutation(mutation, opts.store, opts.embedder, obs.scopeId)
+      try {
+        await applyMutation(mutation, opts.store, opts.embedder, obs.scopeId, obs.subScopeId)
+        await opts.store.updateMutationStatus(pending.id, 'approved', new Date())
+      } catch {
+        await opts.store.updateMutationStatus(pending.id, 'rejected', new Date())
+      }
     }
   }
 
@@ -183,6 +188,7 @@ export async function applyMutation(
   store: HybridStore,
   embedder?: import('../interfaces/embedder.ts').Embedder,
   scopeId?: string,
+  subScopeId?: string | null,
 ): Promise<void> {
   if (mutation.operation === 'add') {
     const embedding = embedder ? await embedder.embed(mutation.memory.content) : undefined
@@ -201,6 +207,9 @@ export async function applyMutation(
       const mem = await store.getMemory(mutation.memoryId)
       if (!mem) throw new Error(`Memory ${mutation.memoryId} not found`)
       if (mem.scopeId !== scopeId) throw new Error(`Memory ${mutation.memoryId} not in scope`)
+      if (subScopeId !== undefined && mem.subScopeId !== subScopeId) {
+        throw new Error(`Memory ${mutation.memoryId} not in sub-scope`)
+      }
     }
     const updated = await store.updateMemory(mutation.memoryId, mutation.patch)
     // Re-embed if content changed so vector search stays accurate
@@ -213,6 +222,9 @@ export async function applyMutation(
       const mem = await store.getMemory(mutation.memoryId)
       if (!mem) return  // already gone — idempotent
       if (mem.scopeId !== scopeId) throw new Error(`Memory ${mutation.memoryId} not in scope`)
+      if (subScopeId !== undefined && mem.subScopeId !== subScopeId) {
+        throw new Error(`Memory ${mutation.memoryId} not in sub-scope`)
+      }
     }
     await store.deleteMemory(mutation.memoryId)
   }
