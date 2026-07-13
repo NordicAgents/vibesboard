@@ -5,8 +5,9 @@ import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { embeddings as embeddingsTable } from '@vibesboard/adapter-postgres/schema'
+import { embeddings as embeddingsTable, embeddings1536 } from '@vibesboard/adapter-postgres/schema'
 import { createEmbedding } from '@vibesboard/adapter-openai'
+import { providerFromDimension } from './rag-store.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -94,13 +95,13 @@ interface UpsertConversationEmbeddingsArgs {
 
 interface UpsertDeps {
   db?: Db
-  embed?: (texts: string[]) => Promise<number[][]>
+  embed?: (texts: string[], tenantId?: string) => Promise<number[][]>
 }
 
 /**
- * Replace all conversation_chunk embeddings for a conversation (delete +
- * insert) in the unified `embeddings` table. One row per non-empty message;
- * `chunkIndex` = message index (the windowing key used by conversation-rag).
+ * Replace all conversation_chunk embeddings for a conversation.
+ * Routes to `embeddings` (768-dim) or `embeddings_1536` (1536-dim) based on
+ * the dimension of the vectors — matching the dual-table strategy in rag-store.ts.
  */
 export async function upsertConversationEmbeddings(
   { tenantId, conversationId, messages }: UpsertConversationEmbeddingsArgs,
@@ -115,25 +116,32 @@ export async function upsertConversationEmbeddings(
     }))
     .filter(c => c.content)
 
+  if (!indexed.length) return
+
+  let vectors: number[][] = []
+  try {
+    vectors = await embed(indexed.map(c => c.content), tenantId)
+  } catch (error) {
+    console.error('Failed to embed conversation chunks', error)
+    return
+  }
+
+  if (!vectors.length) return
+
+  // Route to correct table based on vector dimension (768 → embeddings, 1536 → embeddings_1536)
+  const dim = vectors[0].length
+  const provider = providerFromDimension(dim)
+  const table = provider === 'openai' ? embeddings1536 : embeddingsTable
+
   await db.transaction(async tx => {
-    await tx
-      .delete(embeddingsTable)
-      .where(
-        and(
-          eq(embeddingsTable.tenantId, tenantId),
-          eq(embeddingsTable.sourceType, 'conversation_chunk'),
-          eq(embeddingsTable.sourceId, conversationId)
-        )
-      )
-    if (!indexed.length) return
-    let vectors: number[][] = []
-    try {
-      vectors = await embed(indexed.map(c => c.content))
-    } catch (error) {
-      console.error('Failed to embed conversation chunks', error)
-      return
-    }
-    await tx.insert(embeddingsTable).values(
+    // Delete from both tables to handle provider switches cleanly
+    await tx.delete(embeddingsTable).where(
+      and(eq(embeddingsTable.tenantId, tenantId), eq(embeddingsTable.sourceType, 'conversation_chunk'), eq(embeddingsTable.sourceId, conversationId))
+    )
+    await tx.delete(embeddings1536).where(
+      and(eq(embeddings1536.tenantId, tenantId), eq(embeddings1536.sourceType, 'conversation_chunk'), eq(embeddings1536.sourceId, conversationId))
+    )
+    await tx.insert(table).values(
       indexed.map((c, i) => ({
         id: uuidv7(),
         tenantId,
@@ -148,19 +156,18 @@ export async function upsertConversationEmbeddings(
   })
 }
 
-/** Delete all conversation_chunk embeddings for a conversation. */
+/** Delete all conversation_chunk embeddings for a conversation from both tables. */
 export async function deleteConversationEmbeddings(
   tenantId: string,
   conversationId: string,
   db: Db = getMigrateDb()
 ): Promise<void> {
-  await db
-    .delete(embeddingsTable)
-    .where(
-      and(
-        eq(embeddingsTable.tenantId, tenantId),
-        eq(embeddingsTable.sourceType, 'conversation_chunk'),
-        eq(embeddingsTable.sourceId, conversationId)
-      )
-    )
+  await Promise.all([
+    db.delete(embeddingsTable).where(
+      and(eq(embeddingsTable.tenantId, tenantId), eq(embeddingsTable.sourceType, 'conversation_chunk'), eq(embeddingsTable.sourceId, conversationId))
+    ),
+    db.delete(embeddings1536).where(
+      and(eq(embeddings1536.tenantId, tenantId), eq(embeddings1536.sourceType, 'conversation_chunk'), eq(embeddings1536.sourceId, conversationId))
+    ),
+  ])
 }

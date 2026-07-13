@@ -7,6 +7,7 @@ import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import {
   embeddings,
+  embeddings1536,
   conversations as conversationsTable
 } from '@vibesboard/adapter-postgres/schema'
 import {
@@ -14,6 +15,7 @@ import {
   getConversation
 } from '@vibesboard/agents/conversations'
 import { embedTexts } from './embeddings.ts'
+import { providerFromDimension } from './rag-store.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 interface Deps {
@@ -159,27 +161,31 @@ async function buildVectorContext(
     return { context: '', usedVectorSearch: false, sourceCount: 0 }
   }
 
-  const distance = cosineDistance(embeddings.embedding, queryEmbedding)
+  // Route the vector search to the correct table based on query embedding dimension
+  const queryDim = queryEmbedding.length
+  const table = providerFromDimension(queryDim) === 'openai' ? embeddings1536 : embeddings
+  const distance = cosineDistance(table.embedding, queryEmbedding)
+
   let hits: Array<{ conversationId: string; messageIndex: number }>
   try {
     const rows = await db
       .select({
-        conversationId: embeddings.sourceId,
-        messageIndex: embeddings.chunkIndex,
+        conversationId: table.sourceId,
+        messageIndex: table.chunkIndex,
         distance: sql<number>`${distance}`
       })
-      .from(embeddings)
+      .from(table)
       .innerJoin(
         conversationsTable,
-        eq(conversationsTable.id, embeddings.sourceId)
+        eq(conversationsTable.id, table.sourceId)
       )
       .where(
         and(
-          eq(embeddings.tenantId, tenantId),
-          eq(embeddings.sourceType, 'conversation_chunk'),
+          eq(table.tenantId, tenantId),
+          eq(table.sourceType, 'conversation_chunk'),
           eq(conversationsTable.agentId, agentId),
           ...(contextConversationId
-            ? [eq(embeddings.sourceId, contextConversationId)]
+            ? [eq(table.sourceId, contextConversationId)]
             : [])
         )
       )

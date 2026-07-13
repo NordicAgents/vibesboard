@@ -409,7 +409,8 @@ export async function resolveEmbedder(
     // openai_compatible → use the config's modelId so Ollama/Groq/etc. can
     //   serve their own embedding model (e.g. nomic-embed-text on Ollama)
     const embeddingModel = spec.kind === 'openai_compatible' ? spec.modelId : OPENAI_EMBEDDING_MODEL
-    const baseUrl = spec.kind === 'openai_compatible' ? spec.baseUrl : spec.baseUrl
+    // baseUrl is only applicable for openai and openai_compatible; undefined for others
+    const baseUrl = (spec.kind === 'openai' || spec.kind === 'openai_compatible') ? spec.baseUrl : undefined
     return async (texts) => {
       const json = await createEmbedding({
         model: embeddingModel,

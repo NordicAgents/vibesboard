@@ -4,6 +4,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import type { LanguageModel } from 'ai'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
+import { validateProviderBaseUrl } from './provider-ssrf-guard.ts'
 
 // ─── Context ─────────────────────────────────────────────────────────
 // Shared infra passed to every factory. Empty for now; add AWS clients,
@@ -46,6 +47,18 @@ export function buildProviderModel(
   spec: ProviderModelSpec,
   ctx: ProviderFactoryContext = {},
 ): LanguageModel {
+  // Defense-in-depth: re-validate baseUrl at call time so the runtime path
+  // (runtime.ts, summarize.ts, agent-creator, etc.) can't be bypassed by a
+  // URL that passed the save-time string check but was later DNS-rebound.
+  // allowPrivateHosts/hostAllowlist are not threaded here (runtime has no
+  // tenant context at model-construction time) — private hosts are gated at
+  // the save route level for standard spec; the Google raw-fetch path in
+  // runtime.ts uses the Gemini public endpoint so it's unaffected.
+  if ('baseUrl' in spec && spec.baseUrl) {
+    const check = validateProviderBaseUrl(spec.baseUrl)
+    if (!check.ok) throw new Error(`SSRF guard: ${check.error}`)
+  }
+
   const factory = providerFactories[spec.kind] as (
     spec: ProviderModelSpec,
     ctx: ProviderFactoryContext,
