@@ -1,0 +1,21 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+# Copy gitignored env files into each new workspace
+file_include_globs = "apps/web/.env.local\napps/web/.env\n"
+
+[scripts]
+# Install deps, ensure the shared DB stack is up (from root), then migrate + seed.
+# Docker Compose is run from the repo root so all worktrees share one container set.
+setup = """
+bun install
+POSTGRES_HOST_PORT=5433 docker compose -f "$CONDUCTOR_ROOT_PATH/docker-compose.dev.yml" up -d postgres adminer minio minio-init
+sleep 3
+DATABASE_MIGRATE_URL="postgres://vibesboard_migrate:vibesboard_migrate@localhost:5433/vibesboard_dev" bun run db:migrate
+bun run db:seed
+"""
+run_mode = "nonconcurrent"
+
+[scripts.run.dev]
+command = "PORT=$CONDUCTOR_PORT bun run dev"
+default = true
+icon = "play"

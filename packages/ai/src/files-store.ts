@@ -10,12 +10,15 @@ export type FileStatus = 'pending' | 'processing' | 'indexed' | 'failed'
 export interface FileRecord {
   id: string; agentId: string; tenantId: string; userId: string | null
   fileKey: string; fileName: string; mimeType: string; fileSize: number
-  status: string; processingError: string | null; createdAt: string; updatedAt: string
+  status: string; processingError: string | null
+  embeddingProvider: string | null
+  createdAt: string; updatedAt: string
 }
 function rowToFile(r: typeof files.$inferSelect): FileRecord {
   return { id: r.id, agentId: r.agentId, tenantId: r.tenantId, userId: r.userId,
     fileKey: r.fileKey, fileName: r.fileName, mimeType: r.mimeType, fileSize: r.fileSize,
     status: r.status, processingError: r.processingError,
+    embeddingProvider: r.embeddingProvider ?? null,
     createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() }
 }
 export interface InsertFileInput { tenantId: string; agentId: string; userId: string | null; fileKey: string; fileName: string; mimeType: string; fileSize: number }
