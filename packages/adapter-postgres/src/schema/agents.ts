@@ -116,6 +116,9 @@ export const agents = pgTable(
     bookingConfig: jsonb('booking_config').$type<AgentBookingConfig>(),
     dataConfig: jsonb('data_config').$type<AgentDataConfig>(),
     calendarAvailabilityConfig: jsonb('calendar_availability_config').$type<AgentCalendarAvailabilityConfig>(),
+    // Optional override: use a specific tenant LLM config instead of the global model.
+    // Null → fall through to tenant default → global OPENAI_CHAT_MODEL.
+    llmConfigId: uuid('llm_config_id'),
     // versionNo of the agent_versions row the live config currently reflects.
     // Always >= 1 once the row exists (v1 is written at create / backfill).
     currentVersion: integer('current_version').notNull().default(1),

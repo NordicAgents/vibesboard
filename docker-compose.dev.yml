@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: vibesboard
       POSTGRES_PASSWORD: vibesboard
     ports:
-      - '5432:5432'
+      - '${POSTGRES_HOST_PORT:-5432}:5432'
     volumes:
       - vibesboard_pg:/var/lib/postgresql/data
       - ./packages/adapter-postgres/docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

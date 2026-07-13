@@ -191,6 +191,9 @@ export function AgentDashboardTabs({
             canEdit={canEdit}
             agentId={agent.id}
             hasAccessPassword={!!agent.accessPassword}
+            llmConfigId={fields.llmConfigId}
+            onLlmConfigIdChange={setters.setLlmConfigId}
+            tenantId={agent.tenantId}
           />
           {agent.tenantId && (
             <FeatureGate feature="AGENT_HANDOFF" tenantId={agent.tenantId}>
