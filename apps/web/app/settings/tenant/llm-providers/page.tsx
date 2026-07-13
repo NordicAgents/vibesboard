@@ -31,10 +31,10 @@ const KIND_LABELS: Record<ProviderKind, string> = {
 }
 
 const KIND_COLORS: Record<ProviderKind, string> = {
-  openai: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-  anthropic: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-  openai_compatible: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  google: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  openai:           'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/40',
+  anthropic:        'bg-orange-100  text-orange-700  ring-1 ring-orange-300  dark:bg-orange-500/15  dark:text-orange-300  dark:ring-orange-500/40',
+  openai_compatible:'bg-sky-100     text-sky-700     ring-1 ring-sky-300     dark:bg-sky-500/15     dark:text-sky-300     dark:ring-sky-500/40',
+  google:           'bg-purple-100  text-purple-700  ring-1 ring-purple-300  dark:bg-purple-500/15  dark:text-purple-300  dark:ring-purple-500/40',
 }
 
 const DEFAULT_MODELS: Record<ProviderKind, string> = {
