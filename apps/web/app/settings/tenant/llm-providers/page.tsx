@@ -62,11 +62,14 @@ const PROVIDER_MODELS: Partial<Record<ProviderKind, Array<{ id: string; label: s
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
   ],
   google: [
-    { id: 'gemini-2.5-pro',        label: 'Gemini 2.5 Pro' },
-    { id: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash',      recommended: true },
-    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-    { id: 'gemini-3.5-flash',      label: 'Gemini 3.5 Flash' },
-    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (Preview)' },
+    // Non-thinking models — work with current SDK
+    { id: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash ✓',    recommended: true },
+    { id: 'gemini-1.5-flash',        label: 'Gemini 1.5 Flash ✓' },
+    { id: 'gemini-1.5-pro',          label: 'Gemini 1.5 Pro ✓' },
+    // Thinking models — require SDK upgrade (may return empty responses)
+    { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash (thinking)' },
+    { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro (thinking)' },
+    { id: 'gemini-3.5-flash',        label: 'Gemini 3.5 Flash (thinking)' },
   ],
   // openai_compatible intentionally omitted — free text (varies by provider)
 }

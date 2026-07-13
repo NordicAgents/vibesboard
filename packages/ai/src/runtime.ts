@@ -381,6 +381,66 @@ async function runAgentStreamWithSpec({
     await agentContext.dispose()
   }
 
+  // Google provider: @ai-sdk/google@0.0.55 drops text when thinking models
+  // (gemini-3.5-flash, gemini-2.5-*) emit thought tokens before text content.
+  // Bypass the SDK and call the Gemini REST API directly so we control parsing.
+  if (isGoogle) {
+    const apiKey = (spec as Extract<import('@vibesboard/contracts').ProviderModelSpec, { kind: 'google' }>).apiKey
+    const modelId = spec.modelId
+    const geminiMessages = payload
+      .filter(m => m.role !== 'system')
+      .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }))
+    const systemInstruction = payload.find(m => m.role === 'system')?.content
+
+    const body: Record<string, unknown> = {
+      contents: geminiMessages,
+      // Disable thinking mode — thinking models (gemini-3.5-flash) sometimes
+      // generate thought tokens but no text for complex queries.
+      generationConfig: { temperature, thinkingConfig: { thinkingBudget: 0 } },
+    }
+    if (systemInstruction) body.system_instruction = { parts: [{ text: systemInstruction }] }
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    )
+
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(`Gemini API error (${res.status}): ${err}`)
+    }
+
+    const data = await res.json() as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+    }
+
+    const parts = data.candidates?.[0]?.content?.parts ?? []
+    const text = parts
+      .filter((p: any) => p.text !== undefined && !p.thought)
+      .map((p: any) => p.text as string)
+      .join('') || parts
+      .filter((p: any) => p.text !== undefined)
+      .map((p: any) => p.text as string)
+      .join('')
+
+    await safeDispose()
+    if (onCompletion) {
+      await onCompletion(text, {
+        promptTokens: data.usageMetadata?.promptTokenCount ?? 0,
+        completionTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+      })
+    }
+
+    const encoder = new TextEncoder()
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (text) controller.enqueue(encoder.encode(text))
+        controller.close()
+      }
+    })
+  }
+
   const result = await aiStreamText({
     model: buildProviderModel(spec),
     messages: payload,
