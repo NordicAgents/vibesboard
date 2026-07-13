@@ -194,6 +194,8 @@ export function AgentDashboardTabs({
             llmConfigId={fields.llmConfigId}
             onLlmConfigIdChange={setters.setLlmConfigId}
             tenantId={agent.tenantId}
+            memoryEnabled={fields.memoryEnabled}
+            onMemoryEnabledChange={setters.setMemoryEnabled}
           />
           {agent.tenantId && (
             <FeatureGate feature="AGENT_HANDOFF" tenantId={agent.tenantId}>

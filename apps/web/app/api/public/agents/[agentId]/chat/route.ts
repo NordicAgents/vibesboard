@@ -25,6 +25,8 @@ import {
   mapCompletionToEvent
 } from '@vibesboard/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@vibesboard/ai/handoff'
+import { recallMemory, ingestMemory } from '@vibesboard/ai/agent-memory'
+import { getDb } from '@vibesboard/adapter-postgres/client'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import {
   incrementAgentResponseCount,
@@ -227,11 +229,24 @@ export async function POST(
       )
     }
 
-    const agentMessages = handoffContext
-      ? [
-          { id: nanoid(), role: 'system' as const, content: handoffContext },
-          ...normalizedMessages
-        ]
+    // Memory recall — inject context if this agent has memory enabled (never throws)
+    let memoryContext = ''
+    if (activeAgent.memoryEnabled) {
+      const lastUserMsg = normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
+      memoryContext = await recallMemory(getDb(), lastUserMsg, {
+        conversationId: conversation.id,
+        scopeId: activeAgent.id,
+        subScopeId: externalId,
+      })
+    }
+
+    const systemPrefixes = [
+      handoffContext ? { id: nanoid(), role: 'system' as const, content: handoffContext } : null,
+      memoryContext ? { id: nanoid(), role: 'system' as const, content: `## Relevant Memory\n${memoryContext}` } : null,
+    ].filter(Boolean) as Array<{ id: string; role: 'system'; content: string }>
+
+    const agentMessages = systemPrefixes.length
+      ? [...systemPrefixes, ...normalizedMessages]
       : normalizedMessages
 
     // Use per-agent response counts from the conversation document
@@ -266,6 +281,14 @@ export async function POST(
           messages: nextMessages,
           respondingAgentId: activeAgent.id
         })
+
+        // Memory ingest — fire-and-forget, never throws or blocks
+        if (activeAgent.memoryEnabled) {
+          const memCtx = { conversationId: conversation.id, scopeId: activeAgent.id, subScopeId: externalId }
+          const lastUser = normalizedMessages.filter(m => m.role === 'user').at(-1)
+          if (lastUser) ingestMemory(getDb(), lastUser.id, lastUser.content, memCtx)
+          ingestMemory(getDb(), nanoid(), cleanedCompletion, { ...memCtx, subScopeId: null })
+        }
 
         maybeAutoSummarize({
           tenantId,

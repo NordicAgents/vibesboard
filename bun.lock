@@ -217,6 +217,7 @@
         "@vibesboard/booking-enquiries": "workspace:*",
         "@vibesboard/contracts": "workspace:*",
         "@vibesboard/data": "workspace:*",
+        "@vibesboard/hybrid-memory": "workspace:*",
         "@vibesboard/policy": "workspace:*",
         "@vibesboard/retrieval": "workspace:*",
         "@vibesboard/scheduling": "workspace:*",

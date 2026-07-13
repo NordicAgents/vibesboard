@@ -153,6 +153,7 @@ export interface VibeAgent {
   }
   actions?: AgentAction[]
   llmConfigId?: string | null
+  memoryEnabled?: boolean
   createdAt: string
   updatedAt: string
 }
