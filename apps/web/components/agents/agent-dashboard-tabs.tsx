@@ -13,6 +13,8 @@ import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab
 import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
 import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiries'
 import { AgentActionsFlow } from '@/components/agents/agent-actions-flow'
+import { AgentVersionHistoryTab } from '@/components/agents/agent-version-history-tab'
+import { AgentMemoryTab } from '@/components/agents/agent-memory-tab'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import { useTenantFeatures } from '@/hooks/use-tenant-features'
@@ -143,6 +145,8 @@ export function AgentDashboardTabs({
           {actionsEnabled && <TabsTrigger value="actions">Actions</TabsTrigger>}
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="share">Share</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+          {fields.memoryEnabled && <TabsTrigger value="memory">Memory</TabsTrigger>}
           {agent.bookingConfig?.enabled && (
             <TabsTrigger value="booking-enquiries">Enquiries</TabsTrigger>
           )}
@@ -297,6 +301,22 @@ export function AgentDashboardTabs({
             <AgentBookingEnquiries agentId={agent.id} />
           </TabsContent>
         )}
+
+        <TabsContent value="history">
+          <AgentVersionHistoryTab
+            agentId={agent.id}
+            currentVersion={agent.currentVersion ?? 1}
+            canEdit={canEdit}
+          />
+        </TabsContent>
+
+        <TabsContent value="memory">
+          <AgentMemoryTab
+            agentId={agent.id}
+            memoryEnabled={fields.memoryEnabled}
+            canEdit={canEdit}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   )
