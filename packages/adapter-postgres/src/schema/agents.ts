@@ -162,6 +162,8 @@ export type AgentConfigSnapshot = {
   bookingConfig: AgentBookingConfig | null
   dataConfig: AgentDataConfig | null
   calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | null
+  llmConfigId: string | null
+  memoryEnabled: boolean
 }
 
 export type AgentVersionSource =

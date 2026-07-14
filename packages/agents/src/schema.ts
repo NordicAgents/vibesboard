@@ -200,7 +200,8 @@ export const upsertAgentSchema = z.object({
   dataConfig: dataConfigSchema.optional(),
   calendarAvailabilityConfig: calendarAvailabilityConfigSchema.optional(),
   bookingConfig: bookingConfigSchema.optional(),
-  memoryEnabled: z.boolean().default(false)
+  memoryEnabled: z.boolean().default(false),
+  llmConfigId: z.string().uuid().nullable().optional()
 })
 
 export const patchAgentSchema = upsertAgentSchema.partial().extend({
