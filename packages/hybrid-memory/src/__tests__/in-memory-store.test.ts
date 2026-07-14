@@ -171,4 +171,76 @@ describe('InMemoryHybridStore', () => {
     const approved = await store.listMutations({ scopeId: 'org-1', status: 'approved' })
     expect(approved).toHaveLength(0)
   })
+
+  // ── Search operations ──────────────────────────────────────────────────────
+
+  it('searchMemories returns top-k by dot-product similarity', async () => {
+    const mem1 = makeMemory({ embedding: [1, 0, 0] })
+    const mem2 = makeMemory({ embedding: [0, 1, 0] })
+    const mem3 = makeMemory({ embedding: [0, 0, 1] })
+    await store.saveMemory(mem1)
+    await store.saveMemory(mem2)
+    await store.saveMemory(mem3)
+
+    const results = await store.searchMemories([1, 0, 0], 1, { scopeId: 'org-1' })
+    expect(results).toHaveLength(1)
+    expect(results[0].id).toBe(mem1.id)
+  })
+
+  it('searchObservations filters by subScopeId', async () => {
+    const obsA = makeObs({ subScopeId: 'user-A', statementEmbedding: [1, 0] })
+    const obsNull = makeObs({ subScopeId: null, statementEmbedding: [0, 1] })
+    await store.saveObservation(obsA)
+    await store.saveObservation(obsNull)
+
+    const results = await store.searchObservations([1, 0], 10, 'org-1', 'user-A')
+    expect(results).toHaveLength(1)
+    expect(results[0].subScopeId).toBe('user-A')
+  })
+
+  it('searchObservations with no subScopeId filter returns all active', async () => {
+    const obsA = makeObs({ subScopeId: 'user-A', statementEmbedding: [1, 0] })
+    const obsNull = makeObs({ subScopeId: null, statementEmbedding: [1, 0] })
+    await store.saveObservation(obsA)
+    await store.saveObservation(obsNull)
+
+    const results = await store.searchObservations([1, 0], 10, 'org-1', undefined)
+    expect(results).toHaveLength(2)
+  })
+
+  it('listMessagesByConversation returns messages for that conversation only', async () => {
+    const ctx1: EngineContext = { conversationId: 'conv-1', scopeId: 'org-1' }
+    const ctx2: EngineContext = { conversationId: 'conv-2', scopeId: 'org-1' }
+    await store.saveMessageEmbedding('msg-1a', 'hello from conv-1', [1, 0], ctx1)
+    await store.saveMessageEmbedding('msg-1b', 'also from conv-1', [0, 1], ctx1)
+    await store.saveMessageEmbedding('msg-2a', 'hello from conv-2', [1, 0], ctx2)
+
+    const results = await store.listMessagesByConversation('conv-1')
+    expect(results).toHaveLength(2)
+    expect(results.every(r => r.conversationId === 'conv-1')).toBe(true)
+  })
+
+  it('getMutation returns null for missing id', async () => {
+    const result = await store.getMutation('nonexistent-uuid')
+    expect(result).toBeNull()
+  })
+
+  it('updateMutationStatus changes status', async () => {
+    const mutId = uuid()
+    await store.saveMutation({
+      id: mutId,
+      scopeId: 'org-1',
+      subScopeId: null,
+      mutation: { operation: 'add', memory: makeMemory() },
+      approver: 'org-admin',
+      status: 'pending',
+      createdAt: new Date(),
+    })
+
+    await store.updateMutationStatus(mutId, 'approved', new Date())
+
+    const approved = await store.listMutations({ scopeId: 'org-1', status: 'approved' })
+    expect(approved).toHaveLength(1)
+    expect(approved[0].id).toBe(mutId)
+  })
 })

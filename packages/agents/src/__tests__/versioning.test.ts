@@ -105,6 +105,64 @@ describe('snapshot builder + equality (pure)', () => {
     } as Agent)
     expect(snapshotsEqual(a, bumped)).toBe(true)
   })
+
+  it('llmConfigId is included in the snapshot', () => {
+    const withId = toAgentConfigSnapshot({
+      ...baseRow,
+      llmConfigId: 'some-uuid-value'
+    } as unknown as Agent)
+    expect(withId.llmConfigId).toBe('some-uuid-value')
+
+    const withNull = toAgentConfigSnapshot({
+      ...baseRow,
+      llmConfigId: null
+    } as unknown as Agent)
+    expect(withNull.llmConfigId).toBeNull()
+  })
+
+  it('memoryEnabled is included in the snapshot', () => {
+    const enabled = toAgentConfigSnapshot({
+      ...baseRow,
+      memoryEnabled: true
+    } as unknown as Agent)
+    expect(enabled.memoryEnabled).toBe(true)
+
+    const disabled = toAgentConfigSnapshot({
+      ...baseRow,
+      memoryEnabled: false
+    } as unknown as Agent)
+    expect(disabled.memoryEnabled).toBe(false)
+  })
+
+  it('snapshotsEqual is insensitive to key ordering in nested schedulingConfig', () => {
+    const schedA = {
+      enabled: true,
+      calendarConnectionId: null,
+      defaultDurationMinutes: 30,
+      bufferMinutes: 5,
+      timezone: 'UTC',
+      availableHours: { start: '09:00', end: '17:00' },
+      availableDays: [1, 2, 3, 4, 5],
+      meetingTitleTemplate: 'Chat with us',
+      createMeetLink: false,
+    }
+    // Same values as schedA but keys written in a different order
+    const schedB = {
+      bufferMinutes: 5,
+      timezone: 'UTC',
+      enabled: true,
+      calendarConnectionId: null,
+      availableDays: [1, 2, 3, 4, 5],
+      defaultDurationMinutes: 30,
+      availableHours: { start: '09:00', end: '17:00' },
+      meetingTitleTemplate: 'Chat with us',
+      createMeetLink: false,
+    }
+    const base = toAgentConfigSnapshot(baseRow)
+    const a = { ...base, schedulingConfig: schedA } as typeof base
+    const b = { ...base, schedulingConfig: schedB } as typeof base
+    expect(snapshotsEqual(a, b)).toBe(true)
+  })
 })
 
 describe('agent versioning (postgres)', () => {
