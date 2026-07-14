@@ -158,31 +158,28 @@ type LlmMutationInput = {
   memoryId?: string
 }
 
-function buildMutationFromLlm(m: LlmMutationInput, obs: Observation): MemoryMutation[] {
-  if (m.operation === 'add') {
-    const memory: NewHybridMemory = {
-      content: m.content ?? '',
-      category: 'preference',
-      importance: 0.7,
-      surprise: 0,
-      embedding: undefined,
-      key: m.key ?? '/misc/unknown',
-      description: m.description ?? '',
-      presenceClass: m.presenceClass ?? 'pattern',
-      triggerPatterns: m.triggerPatterns ?? [],
-      scope: obs.subScopeId ? 'member' : 'org',
-      scopeId: obs.scopeId,
-      subScopeId: obs.subScopeId ?? null,
-    }
-    return [{ operation: 'add', memory }]
+function buildAddMemory(m: LlmMutationInput, obs: Observation): NewHybridMemory {
+  return {
+    content: m.content ?? '',
+    category: 'preference',
+    importance: 0.7,
+    surprise: 0,
+    embedding: undefined,
+    key: m.key ?? '/misc/unknown',
+    description: m.description ?? '',
+    presenceClass: m.presenceClass ?? 'pattern',
+    triggerPatterns: m.triggerPatterns ?? [],
+    scope: obs.subScopeId ? 'member' : 'org',
+    scopeId: obs.scopeId,
+    subScopeId: obs.subScopeId ?? null,
   }
+}
+
+function buildMutationFromLlm(m: LlmMutationInput, obs: Observation): MemoryMutation[] {
+  if (m.operation === 'add') return [{ operation: 'add', memory: buildAddMemory(m, obs) }]
   if (m.operation === 'modify') {
     if (!m.memoryId) return []
-    return [{
-      operation: 'modify',
-      memoryId: m.memoryId,
-      patch: { content: m.content, key: m.key, description: m.description, presenceClass: m.presenceClass, triggerPatterns: m.triggerPatterns },
-    }]
+    return [{ operation: 'modify', memoryId: m.memoryId, patch: { content: m.content, key: m.key, description: m.description, presenceClass: m.presenceClass, triggerPatterns: m.triggerPatterns } }]
   }
   if (m.operation === 'delete') {
     if (!m.memoryId) return []
