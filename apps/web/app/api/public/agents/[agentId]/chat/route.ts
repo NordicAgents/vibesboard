@@ -287,7 +287,10 @@ export async function POST(
           const memCtx = { conversationId: conversation.id, scopeId: activeAgent.id, subScopeId: externalId }
           const lastUser = normalizedMessages.filter(m => m.role === 'user').at(-1)
           if (lastUser) ingestMemory(getDb(), lastUser.id, lastUser.content, memCtx)
-          ingestMemory(getDb(), nanoid(), cleanedCompletion, { ...memCtx, subScopeId: null })
+          // Use visitor subScopeId for assistant responses too — prevents GROUP BY producing
+          // a null-subScopeId ref that causes listMessagesByConversation to leak visitor
+          // content into org-scoped observations during Stage 1 processing
+          ingestMemory(getDb(), nanoid(), cleanedCompletion, memCtx)
         }
 
         maybeAutoSummarize({

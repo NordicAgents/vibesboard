@@ -14,7 +14,7 @@ export async function approveMutation(id: string, store: HybridStore, embedder?:
   const mut = await store.getMutation(id)
   if (!mut || mut.status !== 'pending') return
   try {
-    await applyMutation(mut.mutation, store, embedder, mut.scopeId)
+    await applyMutation(mut.mutation, store, embedder, mut.scopeId, mut.subScopeId ?? undefined)
     await store.updateMutationStatus(id, 'approved', new Date())
   } catch (err) {
     await store.updateMutationStatus(id, 'rejected', new Date())
