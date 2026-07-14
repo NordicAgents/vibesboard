@@ -42,20 +42,23 @@ const providerFactories: ProviderFactoryRegistry = {
     createGoogleGenerativeAI({ apiKey: spec.apiKey })(spec.modelId),
 }
 
+export interface ProviderNetworkOpts {
+  allowPrivateHosts?: boolean
+  hostAllowlist?: string[]
+}
+
 // ─── Public dispatcher ────────────────────────────────────────────────
 export function buildProviderModel(
   spec: ProviderModelSpec,
   ctx: ProviderFactoryContext = {},
+  networkOpts: ProviderNetworkOpts = {},
 ): LanguageModel {
   // Defense-in-depth: re-validate baseUrl at call time so the runtime path
-  // (runtime.ts, summarize.ts, agent-creator, etc.) can't be bypassed by a
-  // URL that passed the save-time string check but was later DNS-rebound.
-  // allowPrivateHosts/hostAllowlist are not threaded here (runtime has no
-  // tenant context at model-construction time) — private hosts are gated at
-  // the save route level for standard spec; the Google raw-fetch path in
-  // runtime.ts uses the Gemini public endpoint so it's unaffected.
+  // can't be bypassed by a URL that passed the save-time check but was later
+  // DNS-rebound. Thread tenant network opts (allowPrivateHosts, hostAllowlist)
+  // so Ollama / on-prem providers work for tenants that opted in.
   if ('baseUrl' in spec && spec.baseUrl) {
-    const check = validateProviderBaseUrl(spec.baseUrl)
+    const check = validateProviderBaseUrl(spec.baseUrl, networkOpts)
     if (!check.ok) throw new Error(`SSRF guard: ${check.error}`)
   }
 
