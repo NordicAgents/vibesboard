@@ -32,6 +32,7 @@ COPY packages/channel-instagram/package.json ./packages/channel-instagram/
 COPY packages/channel-whatsapp/package.json ./packages/channel-whatsapp/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY packages/data/package.json ./packages/data/
+COPY packages/hybrid-memory/package.json ./packages/hybrid-memory/
 COPY packages/inbox/package.json ./packages/inbox/
 COPY packages/integrations/package.json ./packages/integrations/
 COPY packages/policy/package.json ./packages/policy/
