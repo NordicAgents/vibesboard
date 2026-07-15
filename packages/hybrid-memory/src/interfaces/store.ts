@@ -25,6 +25,12 @@ export interface HybridStore {
   saveMemory(memory: HybridMemory): Promise<void>
   getMemory(id: string): Promise<HybridMemory | null>
   listMemories(filter: MemoryFilter): Promise<HybridMemory[]>
+
+  /**
+   * Patch a memory. When the patch changes `content` (and doesn't set
+   * version/history itself), the store must increment `version` and append
+   * the previous content to `history`.
+   */
   updateMemory(id: string, patch: Partial<HybridMemory>): Promise<HybridMemory>
   deleteMemory(id: string): Promise<void>
 
@@ -34,6 +40,11 @@ export interface HybridStore {
   // ── Observations ──────────────────────────────────────────────────────────
 
   saveObservation(obs: Observation): Promise<void>
+
+  /**
+   * Update an observation's status. Transitioning to 'deferred' must also
+   * increment the observation's deferCount (used to cap re-processing).
+   */
   updateObservationStatus(id: string, status: ObservationStatus): Promise<void>
 
   /**
@@ -42,7 +53,11 @@ export interface HybridStore {
    */
   searchObservations(embedding: number[], k: number, scopeId: string, subScopeId?: string | null): Promise<Observation[]>
 
-  /** Fetch new/deferred observations ready for reconciliation */
+  /**
+   * Fetch new/deferred observations ready for reconciliation.
+   * 'new' observations come before 'deferred' ones (oldest first within each)
+   * so re-queued deferrals can't starve fresh observations out of the batch.
+   */
   getPendingObservations(scopeId?: string, limit?: number): Promise<Observation[]>
 
   /** Find conversations that have been idle longer than cooldownMs */

@@ -92,6 +92,22 @@ describe('InMemoryHybridStore', () => {
     expect(updated.version).toBe(2)
   })
 
+  it('updateMemory appends previous content to history on content change', async () => {
+    const mem = makeMemory({ content: 'original' })
+    await store.saveMemory(mem)
+    const updated = await store.updateMemory(mem.id, { content: 'revised' })
+    expect(updated.history).toHaveLength(1)
+    expect(updated.history?.[0].content).toBe('original')
+  })
+
+  it('updateMemory does not bump version for metadata-only patches', async () => {
+    const mem = makeMemory()
+    await store.saveMemory(mem)
+    const updated = await store.updateMemory(mem.id, { embedding: [1, 2, 3] })
+    expect(updated.version).toBe(1)
+    expect(updated.history ?? []).toHaveLength(0)
+  })
+
   it('deleteMemory removes the memory', async () => {
     const mem = makeMemory()
     await store.saveMemory(mem)
@@ -115,6 +131,26 @@ describe('InMemoryHybridStore', () => {
     await store.updateObservationStatus(obs.id, 'deferred')
     const pending = await store.getPendingObservations('org-1')
     expect(pending[0].status).toBe('deferred')
+  })
+
+  it('deferring increments deferCount', async () => {
+    const obs = makeObs()
+    await store.saveObservation(obs)
+    await store.updateObservationStatus(obs.id, 'deferred')
+    await store.updateObservationStatus(obs.id, 'deferred')
+    const pending = await store.getPendingObservations('org-1')
+    expect(pending[0].deferCount).toBe(2)
+  })
+
+  it('getPendingObservations returns new observations before deferred ones', async () => {
+    const older = new Date(Date.now() - 10_000)
+    await store.saveObservation(makeObs({ status: 'deferred', createdAt: older }))
+    const fresh = makeObs({ status: 'new' })
+    await store.saveObservation(fresh)
+
+    const pending = await store.getPendingObservations('org-1')
+    expect(pending[0].id).toBe(fresh.id)
+    expect(pending[1].status).toBe('deferred')
   })
 
   // ── Message embeddings / idle conversations ────────────────────────────────

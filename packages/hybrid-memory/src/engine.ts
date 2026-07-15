@@ -52,6 +52,7 @@ const DEFAULTS: Required<HybridEngramOptions> = {
   cooldownMs: 2 * 60 * 60 * 1000,   // 2 hours
   observationNeighbors: 5,
   messageNeighbors: 10,
+  maxDefers: 3,
   maxOmnipresentTokens: 500,
   autoApprove: false,
 }
@@ -145,6 +146,7 @@ export class HybridEngram {
       embedder: this.embedder,
       observationNeighbors: this.opts.observationNeighbors,
       messageNeighbors: this.opts.messageNeighbors,
+      maxDefers: this.opts.maxDefers,
       autoApprove: this.opts.autoApprove,
     })
   }

@@ -319,6 +319,7 @@ const engine = new HybridEngram({
     cooldownMs: 7_200_000,        // idle threshold before Stage 1 (default: 2h)
     observationNeighbors: 5,      // sibling observations fetched in Stage 2 (k_o)
     messageNeighbors: 10,         // message chunks fetched in Stage 2 (k_m)
+    maxDefers: 3,                 // defers before an observation is discarded
     maxOmnipresentTokens: 500,    // cap on always-injected text
     autoApprove: false,           // skip approval queue
   },
@@ -329,7 +330,7 @@ const engine = new HybridEngram({
 
 ## DB schema (Postgres adapter)
 
-Five tables created automatically via Drizzle migrations:
+Five tables, created by `migrations/001_create_hybrid_tables.sql` (standalone consumers) or, within Vibesboard, by the adapter-postgres Drizzle migration `0020_hybrid_memory_tables.sql`:
 
 ```sql
 hybrid_memories              -- durable long-term memories (pgvector)

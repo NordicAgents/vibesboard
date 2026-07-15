@@ -1,5 +1,12 @@
--- Hybrid memory tables — run this migration before using PostgresHybridStore.
--- Requires: pgvector extension installed (CREATE EXTENSION IF NOT EXISTS vector).
+-- Hybrid memory tables — standalone reference migration for external consumers
+-- of PostgresHybridStore. Requires the pgvector extension.
+--
+-- NOTE: within Vibesboard this is NOT the migration that runs — the tables are
+-- created by packages/adapter-postgres/drizzle/0020_hybrid_memory_tables.sql,
+-- which enables RLS without policies (scope_id holds an agent id there, so the
+-- tenant-GUC policies below would never match; access goes through the
+-- BYPASSRLS migrate client). The policies below assume scope_id is your tenant
+-- id and your app sets the app.current_tenant_id GUC — adapt them if not.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
@@ -58,6 +65,8 @@ CREATE TABLE IF NOT EXISTS hybrid_observations (
   evidence             text NOT NULL,
   evidence_embedding   vector(1536),
   status               text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'deferred', 'consolidated', 'discarded')),
+  defer_count          integer NOT NULL DEFAULT 0,
+  deferred_at          timestamptz,
   created_at           timestamptz NOT NULL DEFAULT now()
 );
 

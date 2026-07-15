@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
-import { getDb } from '@vibesboard/adapter-postgres/client'
+// Hybrid memory tables are RLS-denied for the app role (drizzle migration 0020)
+// — the store must use the BYPASSRLS migrate client; access is guarded by
+// guardAgent and the scopeId check before approve/reject.
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { HybridEngram } from '@vibesboard/hybrid-memory'
 import { PostgresHybridStore } from '@vibesboard/hybrid-memory/adapters/postgres'
 import { OpenAILLMProvider, OpenAIEmbedder } from '@vibesboard/hybrid-memory/adapters/openai'
@@ -13,7 +16,7 @@ export const dynamic = 'force-dynamic'
 function getEngine() {
   const apiKey = process.env.OPENAI_API_KEY ?? ''
   return new HybridEngram({
-    store: new PostgresHybridStore(getDb()),
+    store: new PostgresHybridStore(getMigrateDb()),
     llm: new OpenAILLMProvider({ apiKey }),
     embedder: new OpenAIEmbedder({ apiKey }),
     options: { autoApprove: false },

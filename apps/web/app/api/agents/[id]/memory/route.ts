@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
-import { getDb } from '@vibesboard/adapter-postgres/client'
+// Hybrid memory tables are RLS-denied for the app role (drizzle migration 0020)
+// — the store must use the BYPASSRLS migrate client; access is guarded by
+// canEditAgent above and scoped by agent id below.
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { PostgresHybridStore } from '@vibesboard/hybrid-memory/adapters/postgres'
 
 export const runtime = 'nodejs'
@@ -25,7 +28,7 @@ export async function GET(
 
   if (!agent.memoryEnabled) return NextResponse.json({ memories: [] })
 
-  const store = new PostgresHybridStore(getDb())
+  const store = new PostgresHybridStore(getMigrateDb())
   const memories = await store.listMemories({ scopeId: id })
   return NextResponse.json({ memories })
 }

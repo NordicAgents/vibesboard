@@ -62,9 +62,25 @@ export class PostgresHybridStore implements HybridStore {
   }
 
   async updateMemory(id: string, patch: Partial<HybridMemory>): Promise<HybridMemory> {
+    const row = toPartialMemoryRow(patch)
+
+    // Content changes bump the version and record the previous content
+    // (matching InMemoryHybridStore); metadata-only patches leave both alone.
+    if (patch.content !== undefined && patch.version === undefined && patch.history === undefined) {
+      const existing = await this.getMemory(id)
+      if (!existing) throw new Error(`Memory ${id} not found`)
+      if (patch.content !== existing.content) {
+        row.version = existing.version + 1
+        row.history = [
+          ...(existing.history ?? []),
+          { content: existing.content, changedAt: new Date() },
+        ].map(h => ({ content: h.content, changedAt: h.changedAt.toISOString() }))
+      }
+    }
+
     const rows = await this.db
       .update(hybridMemories)
-      .set({ ...toPartialMemoryRow(patch), updatedAt: new Date() })
+      .set({ ...row, updatedAt: new Date() })
       .where(eq(hybridMemories.id, id))
       .returning()
     if (!rows[0]) throw new Error(`Memory ${id} not found`)
@@ -106,6 +122,7 @@ export class PostgresHybridStore implements HybridStore {
       evidenceEmbedding: obs.evidenceEmbedding ?? null,
       evidence: obs.evidence,
       status: obs.status,
+      deferCount: obs.deferCount ?? 0,
       createdAt: obs.createdAt,
     })
   }
@@ -113,7 +130,11 @@ export class PostgresHybridStore implements HybridStore {
   async updateObservationStatus(id: string, status: ObservationStatus): Promise<void> {
     await this.db
       .update(hybridObservations)
-      .set({ status })
+      .set(
+        status === 'deferred'
+          ? { status, deferCount: sql`${hybridObservations.deferCount} + 1`, deferredAt: new Date() }
+          : { status },
+      )
       .where(eq(hybridObservations.id, id))
   }
 
@@ -147,7 +168,11 @@ export class PostgresHybridStore implements HybridStore {
       .select()
       .from(hybridObservations)
       .where(and(...conditions))
-      .orderBy(hybridObservations.createdAt)
+      // 'new' before 'deferred' so re-queued deferrals can't starve fresh observations
+      .orderBy(
+        sql`case when ${hybridObservations.status} = 'new' then 0 else 1 end`,
+        hybridObservations.createdAt,
+      )
       .limit(limit)
     return rows.map(fromObsRow)
   }
@@ -390,6 +415,7 @@ function fromObsRow(r: ObsRow): Observation {
     evidence: r.evidence,
     evidenceEmbedding: r.evidenceEmbedding ?? undefined,
     status: r.status as Observation['status'],
+    deferCount: r.deferCount ?? 0,
     createdAt: r.createdAt,
   }
 }

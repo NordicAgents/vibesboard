@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@vibesboard/adapter-postgres/client'
+// Hybrid memory tables are RLS-denied for the app role (drizzle migration 0020)
+// — memory jobs run on the BYPASSRLS migrate client.
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { runMemoryObserve } from '@vibesboard/ai/agent-memory'
 
 export const runtime = 'nodejs'
@@ -13,7 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const db = getDb()
+  const db = getMigrateDb()
   const result = await runMemoryObserve(db)
   return NextResponse.json({ ok: true, ...result })
 }

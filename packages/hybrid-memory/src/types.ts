@@ -74,10 +74,12 @@ export interface Observation {
   evidence: string
   evidenceEmbedding?: number[]
   status: ObservationStatus
+  /** Times this observation has been deferred by reconciliation (default 0) */
+  deferCount?: number
   createdAt: Date
 }
 
-export type NewObservation = Omit<Observation, 'id' | 'createdAt' | 'status'>
+export type NewObservation = Omit<Observation, 'id' | 'createdAt' | 'status' | 'deferCount'>
 
 // ─── Memory mutations (Stage 2 output / explicit capture output) ──────────────
 
@@ -151,6 +153,7 @@ export interface HybridEngramOptions {
   cooldownMs?: number                 // idle threshold before Stage 1 (default 2h)
   observationNeighbors?: number       // k_o — sibling observations to fetch (default 5)
   messageNeighbors?: number           // k_m — message chunks to fetch (default 10)
+  maxDefers?: number                  // defers before an observation is discarded (default 3)
   maxOmnipresentTokens?: number       // cap injected omnipresent text (default 500)
   autoApprove?: boolean               // skip approval queue (default false)
 }

@@ -15,7 +15,7 @@ vi.mock('@vibesboard/ai/agent-memory', () => ({
 }))
 
 vi.mock('@vibesboard/adapter-postgres/client', () => ({
-  getDb: () => ({}),
+  getMigrateDb: () => ({}),
 }))
 
 const { POST } = await import('./route.ts')

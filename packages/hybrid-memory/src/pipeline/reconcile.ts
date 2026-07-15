@@ -10,6 +10,8 @@ export interface ReconcileOptions {
   embedder: import('../interfaces/embedder.ts').Embedder
   observationNeighbors: number
   messageNeighbors: number
+  /** Defers allowed before an observation is discarded instead of re-queued */
+  maxDefers: number
   autoApprove: boolean
 }
 
@@ -100,13 +102,11 @@ async function reconcileObservation(
   try {
     parsed = JSON.parse(raw.trim())
   } catch {
-    await opts.store.updateObservationStatus(obs.id, 'deferred')
-    return 'defer'
+    return deferOrDiscard(obs, opts)
   }
 
   if (parsed.decision === 'defer') {
-    await opts.store.updateObservationStatus(obs.id, 'deferred')
-    return 'defer'
+    return deferOrDiscard(obs, opts)
   }
 
   if (parsed.decision === 'discard') {
@@ -146,6 +146,21 @@ async function reconcileObservation(
 
   await opts.store.updateObservationStatus(obs.id, 'consolidated')
   return 'mutate'
+}
+
+// Defer, unless the observation has already been deferred maxDefers times —
+// then discard so stale observations don't clog the queue and re-incur LLM
+// cost on every run.
+async function deferOrDiscard(
+  obs: Observation,
+  opts: ReconcileOptions,
+): Promise<'defer' | 'discard'> {
+  if ((obs.deferCount ?? 0) >= opts.maxDefers) {
+    await opts.store.updateObservationStatus(obs.id, 'discarded')
+    return 'discard'
+  }
+  await opts.store.updateObservationStatus(obs.id, 'deferred')
+  return 'defer'
 }
 
 type LlmMutationInput = {

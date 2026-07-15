@@ -69,6 +69,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: false,
     })
 
@@ -90,6 +91,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: false,
     })
 
@@ -97,6 +99,52 @@ describe('runReconciliation', () => {
     const pending = await store.getPendingObservations('agent-1')
     expect(pending).toHaveLength(1)
     expect(pending[0].status).toBe('deferred')
+  })
+
+  it('defer past maxDefers discards the observation instead of re-queuing it', async () => {
+    const llm = mockLlm({ decision: 'defer', reasoning: 'need more data' })
+    const embedder = mockEmbedder()
+    const obs = makeObs({ status: 'deferred', deferCount: 3 })
+    await store.saveObservation(obs)
+
+    const result = await runReconciliation({
+      llm,
+      store,
+      embedder,
+      observationNeighbors: 3,
+      messageNeighbors: 5,
+      maxDefers: 3,
+      autoApprove: false,
+    })
+
+    expect(result.discarded).toBe(1)
+    expect(result.deferred).toBe(0)
+    const pending = await store.getPendingObservations('agent-1')
+    expect(pending).toHaveLength(0)
+  })
+
+  it('deferring increments deferCount so repeated defers eventually discard', async () => {
+    const llm = mockLlm({ decision: 'defer', reasoning: 'need more data' })
+    const embedder = mockEmbedder()
+    const obs = makeObs()
+    await store.saveObservation(obs)
+
+    const opts = {
+      llm,
+      store,
+      embedder,
+      observationNeighbors: 3,
+      messageNeighbors: 5,
+      maxDefers: 2,
+      autoApprove: false,
+    }
+
+    // Runs 1 and 2 defer (deferCount 0→1→2), run 3 hits the cap and discards
+    expect((await runReconciliation(opts)).deferred).toBe(1)
+    expect((await runReconciliation(opts)).deferred).toBe(1)
+    const third = await runReconciliation(opts)
+    expect(third.discarded).toBe(1)
+    expect(await store.getPendingObservations('agent-1')).toHaveLength(0)
   })
 
   it('LLM decision "discard" discards the observation', async () => {
@@ -111,6 +159,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: false,
     })
 
@@ -144,6 +193,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: false,
     })
 
@@ -174,6 +224,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: false,
     })
 
@@ -201,6 +252,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: false,
     })
 
@@ -233,6 +285,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: true,
     })
 
@@ -266,6 +319,7 @@ describe('runReconciliation', () => {
       embedder,
       observationNeighbors: 3,
       messageNeighbors: 5,
+      maxDefers: 3,
       autoApprove: true,
     })
 

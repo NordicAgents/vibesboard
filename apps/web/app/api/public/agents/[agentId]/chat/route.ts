@@ -26,7 +26,10 @@ import {
 } from '@vibesboard/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@vibesboard/ai/handoff'
 import { recallMemory, ingestMemory } from '@vibesboard/ai/agent-memory'
-import { getDb } from '@vibesboard/adapter-postgres/client'
+// Hybrid memory tables are RLS-denied for the app role (see drizzle migration
+// 0020) — the store must use the BYPASSRLS migrate client; scoping is enforced
+// by the engine via scopeId/subScopeId.
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import {
   incrementAgentResponseCount,
@@ -233,7 +236,7 @@ export async function POST(
     let memoryContext = ''
     if (activeAgent.memoryEnabled) {
       const lastUserMsg = normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
-      memoryContext = await recallMemory(getDb(), lastUserMsg, {
+      memoryContext = await recallMemory(getMigrateDb(), lastUserMsg, {
         conversationId: conversation.id,
         scopeId: activeAgent.id,
         subScopeId: externalId,
@@ -286,11 +289,11 @@ export async function POST(
         if (activeAgent.memoryEnabled) {
           const memCtx = { conversationId: conversation.id, scopeId: activeAgent.id, subScopeId: externalId }
           const lastUser = normalizedMessages.filter(m => m.role === 'user').at(-1)
-          if (lastUser) ingestMemory(getDb(), lastUser.id, lastUser.content, memCtx)
+          if (lastUser) ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
           // Use visitor subScopeId for assistant responses too — prevents GROUP BY producing
           // a null-subScopeId ref that causes listMessagesByConversation to leak visitor
           // content into org-scoped observations during Stage 1 processing
-          ingestMemory(getDb(), nanoid(), cleanedCompletion, memCtx)
+          ingestMemory(getMigrateDb(), nanoid(), cleanedCompletion, memCtx)
         }
 
         maybeAutoSummarize({

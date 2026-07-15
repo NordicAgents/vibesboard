@@ -3,9 +3,15 @@ import type { HybridMemory } from './types.ts'
 export interface SerializeOptions {
   /** Only render the table of contents (descriptions, no bodies) */
   tocOnly?: boolean
-  /** Cap total characters for omnipresent bodies */
+  /**
+   * Cap on total omnipresent body text (approximated at 4 chars/token).
+   * Once the budget is spent, remaining omnipresent memories render as
+   * ToC entries (description only) instead of full bodies.
+   */
   maxOmnipresentTokens?: number
 }
+
+const CHARS_PER_TOKEN = 4
 
 /**
  * Renders a set of memories as a tree-structured block for injection into the
@@ -25,7 +31,12 @@ export function serializeTreeToC(
   // Build tree from slash-delimited keys
   const tree = buildTree(memories)
   const lines: string[] = []
-  renderNode(tree, '', lines, opts)
+  const budget = {
+    remainingBodyChars: opts.maxOmnipresentTokens != null
+      ? opts.maxOmnipresentTokens * CHARS_PER_TOKEN
+      : Infinity,
+  }
+  renderNode(tree, '', lines, opts, budget)
   return lines.join('\n')
 }
 
@@ -65,6 +76,7 @@ function renderNode(
   indent: string,
   lines: string[],
   opts: SerializeOptions,
+  budget: { remainingBodyChars: number },
 ): void {
   for (const [, child] of node.children) {
     const mem = child.memory
@@ -73,9 +85,11 @@ function renderNode(
 
     if (mem) {
       const isOmnipresent = mem.presenceClass === 'omnipresent'
-      const showBody = isOmnipresent && !opts.tocOnly
+      const showBody =
+        isOmnipresent && !opts.tocOnly && mem.content.length <= budget.remainingBodyChars
 
       if (showBody) {
+        budget.remainingBodyChars -= mem.content.length
         lines.push(`${indent}[${mem.key}] ${mem.content}`)
       } else if (mem.description) {
         lines.push(`${indent}[${mem.key}] ${mem.description} ...`)
@@ -92,7 +106,7 @@ function renderNode(
     }
 
     if (hasChildren && !(childCount > 3)) {
-      renderNode(child, indent + '  ', lines, opts)
+      renderNode(child, indent + '  ', lines, opts, budget)
     }
   }
 }

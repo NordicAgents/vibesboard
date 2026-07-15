@@ -35,7 +35,17 @@ export class InMemoryHybridStore implements HybridStore {
   async updateMemory(id: string, patch: Partial<HybridMemory>): Promise<HybridMemory> {
     const existing = this.memories.get(id)
     if (!existing) throw new Error(`Memory ${id} not found`)
-    const updated = { ...existing, ...patch, version: patch.version !== undefined ? patch.version : existing.version + 1 }
+    // Content changes bump the version and record the previous content;
+    // metadata-only patches (e.g. re-embedding) leave both untouched.
+    const contentChanged = patch.content !== undefined && patch.content !== existing.content
+    const updated = {
+      ...existing,
+      ...patch,
+      version: patch.version ?? (contentChanged ? existing.version + 1 : existing.version),
+      history: patch.history ?? (contentChanged
+        ? [...(existing.history ?? []), { content: existing.content, changedAt: new Date() }]
+        : existing.history),
+    }
     this.memories.set(id, updated)
     return updated
   }
@@ -67,7 +77,9 @@ export class InMemoryHybridStore implements HybridStore {
 
   async updateObservationStatus(id: string, status: ObservationStatus): Promise<void> {
     const obs = this.observations.get(id)
-    if (obs) this.observations.set(id, { ...obs, status })
+    if (!obs) return
+    const deferCount = status === 'deferred' ? (obs.deferCount ?? 0) + 1 : obs.deferCount
+    this.observations.set(id, { ...obs, status, deferCount })
   }
 
   async searchObservations(embedding: number[], k: number, scopeId: string, subScopeId?: string | null): Promise<Observation[]> {
@@ -82,6 +94,12 @@ export class InMemoryHybridStore implements HybridStore {
   async getPendingObservations(scopeId?: string, limit = 50): Promise<Observation[]> {
     return [...this.observations.values()]
       .filter(o => (o.status === 'new' || o.status === 'deferred') && (!scopeId || o.scopeId === scopeId))
+      // 'new' before 'deferred' so re-queued deferrals can't starve fresh observations
+      .sort((a, b) =>
+        a.status === b.status
+          ? a.createdAt.getTime() - b.createdAt.getTime()
+          : a.status === 'new' ? -1 : 1,
+      )
       .slice(0, limit)
   }
 

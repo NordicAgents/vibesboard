@@ -93,6 +93,8 @@ export const hybridObservations = pgTable(
     status: text('status', { enum: ['new', 'deferred', 'consolidated', 'discarded'] })
       .notNull()
       .default('new'),
+    deferCount: integer('defer_count').notNull().default(0),
+    deferredAt: timestamp('deferred_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
