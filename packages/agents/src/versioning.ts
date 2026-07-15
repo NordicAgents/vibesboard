@@ -42,6 +42,8 @@ export function toAgentConfigSnapshot(row: Agent): AgentConfigSnapshot {
     bookingConfig: row.bookingConfig ?? null,
     dataConfig: row.dataConfig ?? null,
     calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? null,
+    llmConfigId: row.llmConfigId ?? null,
+    memoryEnabled: row.memoryEnabled ?? false,
   }
 }
 
@@ -75,6 +77,8 @@ export function applySnapshotToAgentUpdate(
     bookingConfig: snapshot.bookingConfig,
     dataConfig: snapshot.dataConfig as NewAgent['dataConfig'],
     calendarAvailabilityConfig: snapshot.calendarAvailabilityConfig,
+    llmConfigId: snapshot.llmConfigId,
+    memoryEnabled: snapshot.memoryEnabled,
     updatedAt: new Date(),
   }
 }

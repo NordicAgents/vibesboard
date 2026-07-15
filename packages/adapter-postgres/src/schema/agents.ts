@@ -119,6 +119,7 @@ export const agents = pgTable(
     // Optional override: use a specific tenant LLM config instead of the global model.
     // Null → fall through to tenant default → global OPENAI_CHAT_MODEL.
     llmConfigId: uuid('llm_config_id'),
+    memoryEnabled: boolean('memory_enabled').notNull().default(false),
     // versionNo of the agent_versions row the live config currently reflects.
     // Always >= 1 once the row exists (v1 is written at create / backfill).
     currentVersion: integer('current_version').notNull().default(1),
@@ -161,6 +162,8 @@ export type AgentConfigSnapshot = {
   bookingConfig: AgentBookingConfig | null
   dataConfig: AgentDataConfig | null
   calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | null
+  llmConfigId: string | null
+  memoryEnabled: boolean
 }
 
 export type AgentVersionSource =
