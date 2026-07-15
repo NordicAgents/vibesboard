@@ -9,7 +9,7 @@ function mockLlm(response: object) {
 }
 
 function mockEmbedder() {
-  return { embed: vi.fn().mockResolvedValue([0, 0, 1]) }
+  return { embed: vi.fn().mockResolvedValue([0, 0, 1]), embedBatch: vi.fn().mockImplementation(async (texts: string[]) => texts.map(() => [0, 0, 1])) }
 }
 
 function makeObs(overrides: Partial<Observation> = {}): Observation {
