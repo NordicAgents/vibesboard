@@ -46,6 +46,8 @@ interface AgentSetupTabProps {
   llmConfigId?: string | null
   onLlmConfigIdChange?: (id: string | null) => void
   tenantId?: string
+  memoryEnabled: boolean
+  onMemoryEnabledChange: (value: boolean) => void
 }
 
 export function AgentSetupTab({
@@ -79,6 +81,8 @@ export function AgentSetupTab({
   llmConfigId,
   onLlmConfigIdChange,
   tenantId,
+  memoryEnabled,
+  onMemoryEnabledChange,
 }: AgentSetupTabProps) {
   const [llmConfigs, setLlmConfigs] = useState<Array<{ id: string; label: string; kind: string; modelId: string }>>([])
 
@@ -393,6 +397,28 @@ export function AgentSetupTab({
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Memory */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Memory</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Enable agent memory</p>
+              <p className="text-xs text-muted-foreground">
+                Agent learns from past conversations and recalls relevant context for each visitor.
+              </p>
+            </div>
+            <Switch
+              checked={memoryEnabled}
+              onCheckedChange={onMemoryEnabledChange}
+              disabled={!canEdit}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -25,6 +25,11 @@ import {
   mapCompletionToEvent
 } from '@vibesboard/agents/notifications'
 import { validateHandoff, buildHandoffContext } from '@vibesboard/ai/handoff'
+import { recallMemory, ingestMemory } from '@vibesboard/ai/agent-memory'
+// Hybrid memory tables are RLS-denied for the app role (see drizzle migration
+// 0020) — the store must use the BYPASSRLS migrate client; scoping is enforced
+// by the engine via scopeId/subScopeId.
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import {
   incrementAgentResponseCount,
@@ -227,11 +232,24 @@ export async function POST(
       )
     }
 
-    const agentMessages = handoffContext
-      ? [
-          { id: nanoid(), role: 'system' as const, content: handoffContext },
-          ...normalizedMessages
-        ]
+    // Memory recall — inject context if this agent has memory enabled (never throws)
+    let memoryContext = ''
+    if (activeAgent.memoryEnabled) {
+      const lastUserMsg = normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
+      memoryContext = await recallMemory(getMigrateDb(), lastUserMsg, {
+        conversationId: conversation.id,
+        scopeId: activeAgent.id,
+        subScopeId: externalId,
+      })
+    }
+
+    const systemPrefixes = [
+      handoffContext ? { id: nanoid(), role: 'system' as const, content: handoffContext } : null,
+      memoryContext ? { id: nanoid(), role: 'system' as const, content: `## Relevant Memory\n${memoryContext}` } : null,
+    ].filter(Boolean) as Array<{ id: string; role: 'system'; content: string }>
+
+    const agentMessages = systemPrefixes.length
+      ? [...systemPrefixes, ...normalizedMessages]
       : normalizedMessages
 
     // Use per-agent response counts from the conversation document
@@ -266,6 +284,17 @@ export async function POST(
           messages: nextMessages,
           respondingAgentId: activeAgent.id
         })
+
+        // Memory ingest — fire-and-forget, never throws or blocks
+        if (activeAgent.memoryEnabled) {
+          const memCtx = { conversationId: conversation.id, scopeId: activeAgent.id, subScopeId: externalId }
+          const lastUser = normalizedMessages.filter(m => m.role === 'user').at(-1)
+          if (lastUser) ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
+          // Use visitor subScopeId for assistant responses too — prevents GROUP BY producing
+          // a null-subScopeId ref that causes listMessagesByConversation to leak visitor
+          // content into org-scoped observations during Stage 1 processing
+          ingestMemory(getMigrateDb(), nanoid(), cleanedCompletion, memCtx)
+        }
 
         maybeAutoSummarize({
           tenantId,
