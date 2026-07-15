@@ -136,6 +136,8 @@ export async function PATCH(
     set.calendarAvailabilityConfig = payload.calendarAvailabilityConfig
   if (payload.bookingConfig !== undefined)
     set.bookingConfig = payload.bookingConfig
+  if (typeof payload.memoryEnabled === 'boolean')
+    set.memoryEnabled = payload.memoryEnabled
 
   try {
     await getMigrateDb().transaction(async tx => {

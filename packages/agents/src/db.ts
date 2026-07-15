@@ -330,6 +330,8 @@ export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): VibeAgent =
   calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
   bookingConfig: row.bookingConfig ?? undefined,
   llmConfigId: row.llmConfigId ?? null,
+  memoryEnabled: row.memoryEnabled ?? false,
+  currentVersion: row.currentVersion ?? 1,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 })

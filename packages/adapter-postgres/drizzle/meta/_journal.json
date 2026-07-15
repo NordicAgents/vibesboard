@@ -134,6 +134,8 @@
       "when": 1783900000000,
       "tag": "0018_embeddings_rls_and_task_configs_rls",
       "breakpoints": true
-    }
+    },
+    { "idx": 19, "version": "7", "when": 1784073600000, "tag": "0019_agent_memory_enabled", "breakpoints": true },
+    { "idx": 20, "version": "7", "when": 1784077200000, "tag": "0020_hybrid_memory_tables", "breakpoints": true }
   ]
 }

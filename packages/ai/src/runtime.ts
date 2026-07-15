@@ -13,8 +13,8 @@ import {
   streamText,
   type ResponsesApiTool
 } from '@vibesboard/adapter-openai'
-import { resolveProviderSpec } from './tenant-llm-config.ts'
-import { buildProviderModel } from './provider-registry.ts'
+import { resolveProviderSpec, resolveTenantNetworkOpts } from './tenant-llm-config.ts'
+import { buildProviderModel, type ProviderNetworkOpts } from './provider-registry.ts'
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -44,13 +44,20 @@ export async function runAgentStream({
 }: RunAgentStreamArgs) {
   // Check for tenant-scoped LLM config (agent-specific → tenant default → global).
   // previewToken bypasses tenant config so the agent preview always uses the platform key.
-  const tenantSpec =
-    !previewToken && agent.tenantId
-      ? await resolveProviderSpec(agent.tenantId, agent.llmConfigId, undefined, 'chat').catch((err) => {
-          console.error('[runtime] Failed to resolve tenant LLM config — falling back to platform model:', err)
-          return null
-        })
-      : null
+  let tenantSpec = null
+  let networkOpts: ProviderNetworkOpts = {}
+
+  if (!previewToken && agent.tenantId) {
+    const [spec, netOpts] = await Promise.all([
+      resolveProviderSpec(agent.tenantId, agent.llmConfigId, undefined, 'chat').catch((err) => {
+        console.error('[runtime] Failed to resolve tenant LLM config — falling back to platform model:', err)
+        return null
+      }),
+      resolveTenantNetworkOpts(agent.tenantId).catch(() => ({ allowPrivateHosts: false, hostAllowlist: [] as string[] })),
+    ])
+    tenantSpec = spec
+    networkOpts = netOpts
+  }
 
   if (tenantSpec) {
     return runAgentStreamWithSpec({
@@ -63,6 +70,7 @@ export async function runAgentStream({
       handoffTargetNames,
       remainingResponses,
       spec: tenantSpec,
+      networkOpts,
     })
   }
 
@@ -301,7 +309,8 @@ async function runAgentStreamWithSpec({
   handoffTargetNames,
   remainingResponses,
   spec,
-}: Omit<RunAgentStreamArgs, 'previewToken'> & { spec: import('@vibesboard/contracts').ProviderModelSpec }) {
+  networkOpts = {},
+}: Omit<RunAgentStreamArgs, 'previewToken'> & { spec: import('@vibesboard/contracts').ProviderModelSpec; networkOpts?: ProviderNetworkOpts }) {
   const agentContext = await buildAgentContext(agent, toolContext)
   let effectiveContext = agentContext.contextText || context || null
 
@@ -513,7 +522,7 @@ async function runAgentStreamWithSpec({
   }
 
   const result = await aiStreamText({
-    model: buildProviderModel(spec),
+    model: buildProviderModel(spec, {}, networkOpts),
     messages: payload,
     temperature,
     tools: Object.keys(sdkTools).length > 0 ? sdkTools : undefined,

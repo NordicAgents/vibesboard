@@ -255,6 +255,22 @@ async function resolveTaskConfigId(tenantId: string, task: LlmTask): Promise<str
  *   4. Tenant default (isDefault=true)
  *   5. null → caller falls back to platform model
  */
+export async function resolveTenantNetworkOpts(
+  tenantId: string,
+): Promise<{ allowPrivateHosts: boolean; hostAllowlist: string[] }> {
+  const row = await getMigrateDb()
+    .select({ llmAllowPrivateHosts: tenants.llmAllowPrivateHosts, llmHostAllowlist: tenants.llmHostAllowlist })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1)
+    .then(rows => rows[0] ?? null)
+    .catch(() => null)
+  return {
+    allowPrivateHosts: row?.llmAllowPrivateHosts ?? false,
+    hostAllowlist: (row?.llmHostAllowlist as string[] | null) ?? [],
+  }
+}
+
 export async function resolveProviderSpec(
   tenantId: string,
   llmConfigId?: string | null,

@@ -38,6 +38,7 @@ export interface AgentFormFields {
   calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | undefined
   bookingConfig: AgentBookingConfig | undefined
   llmConfigId: string | null
+  memoryEnabled: boolean
 }
 
 export interface AgentFormSetters {
@@ -63,6 +64,7 @@ export interface AgentFormSetters {
   ) => void
   setBookingConfig: (v: AgentBookingConfig | undefined) => void
   setLlmConfigId: (v: string | null) => void
+  setMemoryEnabled: (v: boolean) => void
 }
 
 export interface UseAgentFormReturn {
@@ -131,6 +133,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [llmConfigId, setLlmConfigId] = useState<string | null>(
     agent.llmConfigId ?? null
   )
+  const [memoryEnabled, setMemoryEnabled] = useState(agent.memoryEnabled ?? false)
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -163,7 +166,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
     JSON.stringify(calendarAvailabilityConfig) !==
       JSON.stringify(agent.calendarAvailabilityConfig ?? undefined) ||
     JSON.stringify(bookingConfig) !==
-      JSON.stringify(agent.bookingConfig ?? undefined)
+      JSON.stringify(agent.bookingConfig ?? undefined) ||
+    memoryEnabled !== (agent.memoryEnabled ?? false)
 
   // ── Save all ──
   const handleSaveAll = async () => {
@@ -189,6 +193,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       calendarAvailabilityConfig,
       bookingConfig,
       llmConfigId,
+      memoryEnabled,
     }
 
     try {
@@ -287,6 +292,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       calendarAvailabilityConfig,
       bookingConfig,
       llmConfigId,
+      memoryEnabled,
     },
     setters: {
       setName,
@@ -309,6 +315,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       setCalendarAvailabilityConfig,
       setBookingConfig,
       setLlmConfigId,
+      setMemoryEnabled,
     },
     hasChanges,
     saving,
