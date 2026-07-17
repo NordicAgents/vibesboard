@@ -110,11 +110,16 @@ export async function updateLlmConfig(
   const [row] = await getMigrateDb().transaction(async (tx) => {
     // Verify the row belongs to this tenant before touching the default flag.
     const existing = await tx
-      .select({ id: tenantLlmConfigs.id })
+      .select({ id: tenantLlmConfigs.id, kind: tenantLlmConfigs.kind })
       .from(tenantLlmConfigs)
       .where(and(eq(tenantLlmConfigs.id, id), eq(tenantLlmConfigs.tenantId, tenantId)))
       .limit(1)
     if (!existing[0]) return []
+
+    // Switching kind without an explicit baseUrl resets it — otherwise a stale
+    // custom URL (e.g. an old Ollama endpoint) survives the switch and
+    // openai/nvidia specs would silently route to the wrong host.
+    const kindChanged = input.kind !== undefined && input.kind !== existing[0].kind
 
     if (input.isDefault) {
       await tx
@@ -135,7 +140,11 @@ export async function updateLlmConfig(
         ...(input.label !== undefined && { label: input.label }),
         ...(input.kind !== undefined && { kind: input.kind }),
         ...(input.modelId !== undefined && { modelId: input.modelId }),
-        ...(input.baseUrl !== undefined && { baseUrl: input.baseUrl }),
+        ...(input.baseUrl !== undefined
+          ? { baseUrl: input.baseUrl }
+          : kindChanged
+            ? { baseUrl: null }
+            : {}),
         ...(sealedKey !== undefined && { apiKeyEncrypted: sealedKey }),
         ...(input.isEnabled !== undefined && { isEnabled: input.isEnabled }),
         ...(input.isDefault !== undefined && { isDefault: input.isDefault }),
