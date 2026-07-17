@@ -320,6 +320,10 @@ export async function resolveProviderSpec(
     }
     return { kind: 'openai_compatible', modelId: row.modelId, apiKey, baseUrl: row.baseUrl }
   }
+  if (row.kind === 'nvidia') {
+    // baseUrl optional — the registry defaults to the hosted API catalog
+    return { kind: 'nvidia', modelId: row.modelId, apiKey, baseUrl: row.baseUrl ?? undefined }
+  }
   return { kind: 'openai', modelId: row.modelId, apiKey, baseUrl: row.baseUrl ?? undefined }
 }
 
@@ -332,6 +336,9 @@ export async function resolveProviderSpec(
 //   openai_compatible → Same endpoint with tenant key + custom baseUrl
 //   google            → Google Generative AI Embeddings (text-embedding-004)
 //   anthropic         → No embedding API — falls back to platform key
+//   nvidia            → Falls back to platform key: NVIDIA's embedding NIMs
+//                       need a non-standard `input_type` param and produce
+//                       1024-dim vectors that don't fit the 768/1536 tables
 
 const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
 const GOOGLE_EMBEDDING_MODEL = process.env.GOOGLE_EMBEDDING_MODEL ?? 'text-embedding-004'
@@ -439,7 +446,7 @@ export async function resolveEmbedder(
     }
   }
 
-  // anthropic — no embedding API, fall back to platform key
+  // anthropic / nvidia — no usable embedding API, fall back to platform key
   return async (texts) => {
     const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
     return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
