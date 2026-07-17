@@ -147,6 +147,34 @@ describe('resolveProviderSpec', () => {
     expect(result).toBeNull()
   })
 
+  it('returns an nvidia spec without baseUrl (registry defaults to the hosted catalog)', async () => {
+    vi.mocked(getMigrateDb).mockReturnValue(
+      makeChain([
+        makeRow({ kind: 'nvidia', modelId: 'meta/llama-3.1-70b-instruct', baseUrl: null }),
+      ]) as any,
+    )
+
+    const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
+
+    expect(result?.kind).toBe('nvidia')
+    expect(result?.modelId).toBe('meta/llama-3.1-70b-instruct')
+    expect(result?.apiKey).toBe('decrypted-key')
+    expect((result as any).baseUrl).toBeUndefined()
+  })
+
+  it('returns an nvidia spec with a custom baseUrl (self-hosted NIM)', async () => {
+    vi.mocked(getMigrateDb).mockReturnValue(
+      makeChain([
+        makeRow({ kind: 'nvidia', baseUrl: 'https://nim.internal.example.com/v1' }),
+      ]) as any,
+    )
+
+    const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
+
+    expect(result?.kind).toBe('nvidia')
+    expect((result as any).baseUrl).toBe('https://nim.internal.example.com/v1')
+  })
+
   it('returns a google spec for kind=google', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
       makeChain([makeRow({ kind: 'google', modelId: 'gemini-pro' })]) as any,
