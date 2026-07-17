@@ -14,7 +14,7 @@ export const runtime = 'nodejs'
 const updateSchema = z
   .object({
     label: z.string().min(1).max(100).optional(),
-    kind: z.enum(['openai', 'anthropic', 'openai_compatible', 'google']).optional(),
+    kind: z.enum(['openai', 'anthropic', 'openai_compatible', 'google', 'nvidia']).optional(),
     modelId: z.string().min(1).optional(),
     apiKey: z.string().min(1).optional(),
     baseUrl: z.string().url().optional(),

@@ -6,6 +6,9 @@ import type { LanguageModel } from 'ai'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
 import { validateProviderBaseUrl } from './provider-ssrf-guard.ts'
 
+// NVIDIA API Catalog (build.nvidia.com) hosted endpoint — OpenAI-compatible.
+export const NVIDIA_API_BASE_URL = 'https://integrate.api.nvidia.com/v1'
+
 // ─── Context ─────────────────────────────────────────────────────────
 // Shared infra passed to every factory. Empty for now; add AWS clients,
 // feature-flag readers, etc. here without changing call sites.
@@ -40,6 +43,13 @@ const providerFactories: ProviderFactoryRegistry = {
 
   google: (spec) =>
     createGoogleGenerativeAI({ apiKey: spec.apiKey })(spec.modelId),
+
+  nvidia: (spec) =>
+    createOpenAI({
+      apiKey: spec.apiKey,
+      baseURL: spec.baseUrl ?? NVIDIA_API_BASE_URL,
+      compatibility: 'compatible',
+    })(spec.modelId),
 }
 
 export interface ProviderNetworkOpts {

@@ -45,10 +45,13 @@ export async function POST(_req: NextRequest, { params }: Params) {
   } catch (err: any) {
     // Return a sanitised error — never echo raw provider response bodies which
     // could exfiltrate internal service content when baseUrl points inward.
+    // Some providers (e.g. NVIDIA) return non-OpenAI-shaped error bodies that
+    // leave the SDK error message empty, so also check the HTTP status code.
     const raw: string = err?.message ?? ''
-    const sanitised = raw.includes('401') || raw.includes('403') || raw.includes('Unauthorized') || raw.includes('authentication')
+    const status: number | undefined = err?.statusCode ?? err?.status
+    const sanitised = status === 401 || status === 403 || raw.includes('401') || raw.includes('403') || raw.includes('Unauthorized') || raw.includes('authentication')
       ? 'Authentication failed — check your API key'
-      : raw.includes('404') || raw.includes('not found')
+      : status === 404 || raw.includes('404') || raw.includes('not found')
       ? 'Model or endpoint not found — check model ID and base URL'
       : 'Connection failed — check your provider settings'
     console.error('[llm-config/test] Provider test error:', raw)
