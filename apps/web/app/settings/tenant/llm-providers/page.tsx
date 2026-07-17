@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import toast from 'react-hot-toast'
 import { Plus, Trash2, Loader2, Star, Pencil, Shield, X } from 'lucide-react'
 
-type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible' | 'google'
+type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible' | 'google' | 'nvidia'
 
 interface LlmConfig {
   id: string
@@ -28,6 +28,7 @@ const KIND_LABELS: Record<ProviderKind, string> = {
   anthropic: 'Anthropic',
   openai_compatible: 'OpenAI-Compatible',
   google: 'Google Gemini',
+  nvidia: 'NVIDIA',
 }
 
 const KIND_COLORS: Record<ProviderKind, string> = {
@@ -35,6 +36,7 @@ const KIND_COLORS: Record<ProviderKind, string> = {
   anthropic:        'bg-orange-100  text-orange-700  ring-1 ring-orange-300  dark:bg-orange-500/15  dark:text-orange-300  dark:ring-orange-500/40',
   openai_compatible:'bg-sky-100     text-sky-700     ring-1 ring-sky-300     dark:bg-sky-500/15     dark:text-sky-300     dark:ring-sky-500/40',
   google:           'bg-purple-100  text-purple-700  ring-1 ring-purple-300  dark:bg-purple-500/15  dark:text-purple-300  dark:ring-purple-500/40',
+  nvidia:           'bg-lime-100    text-lime-700    ring-1 ring-lime-300    dark:bg-lime-500/15    dark:text-lime-300    dark:ring-lime-500/40',
 }
 
 const DEFAULT_MODELS: Record<ProviderKind, string> = {
@@ -42,6 +44,7 @@ const DEFAULT_MODELS: Record<ProviderKind, string> = {
   anthropic: 'claude-sonnet-5',
   openai_compatible: 'llama-3.3-70b-versatile',
   google: 'gemini-2.5-flash',
+  nvidia: 'meta/llama-3.1-70b-instruct',
 }
 
 // Official model lists per provider (latest as of 2026-07)
@@ -70,6 +73,17 @@ const PROVIDER_MODELS: Partial<Record<ProviderKind, Array<{ id: string; label: s
     { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash (thinking)' },
     { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro (thinking)' },
     { id: 'gemini-3.5-flash',        label: 'Gemini 3.5 Flash (thinking)' },
+  ],
+  nvidia: [
+    // Hosted on NVIDIA's API catalog (build.nvidia.com) — free tier, nvapi- key
+    { id: 'meta/llama-3.1-70b-instruct',          label: 'Llama 3.1 70B Instruct', recommended: true },
+    { id: 'meta/llama-3.3-70b-instruct',          label: 'Llama 3.3 70B Instruct' },
+    { id: 'meta/llama-3.1-8b-instruct',           label: 'Llama 3.1 8B Instruct' },
+    { id: 'nvidia/llama-3.1-nemotron-70b-instruct', label: 'Nemotron 70B Instruct' },
+    { id: 'nvidia/nemotron-3-ultra-550b-a55b',    label: 'Nemotron 3 Ultra 550B' },
+    { id: 'deepseek-ai/deepseek-v4-pro',          label: 'DeepSeek V4 Pro' },
+    { id: 'qwen/qwen3-coder-480b-a35b-instruct',  label: 'Qwen3 Coder 480B' },
+    { id: 'mistralai/mixtral-8x22b-instruct',     label: 'Mixtral 8x22B Instruct' },
   ],
   // openai_compatible intentionally omitted — free text (varies by provider)
 }
@@ -417,6 +431,7 @@ export default function LlmProvidersPage() {
                       <option value="anthropic">Anthropic</option>
                       <option value="openai_compatible">OpenAI-Compatible (Groq, Mistral, etc.)</option>
                       <option value="google">Google Gemini</option>
+                      <option value="nvidia">NVIDIA (build.nvidia.com — free tier)</option>
                     </select>
                   </div>
                 </div>
@@ -467,7 +482,7 @@ export default function LlmProvidersPage() {
                     <Label>API Key{isEditMode && <span className="ml-1 text-muted-foreground font-normal">(leave blank to keep current)</span>}</Label>
                     <Input
                       type="password"
-                      placeholder={isEditMode ? '••••••••' : 'sk-…'}
+                      placeholder={isEditMode ? '••••••••' : form.kind === 'nvidia' ? 'nvapi-…' : 'sk-…'}
                       value={form.apiKey}
                       onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
                       required={!isEditMode}
@@ -475,6 +490,17 @@ export default function LlmProvidersPage() {
                     />
                   </div>
                 </div>
+
+                {form.kind === 'nvidia' && (
+                  <p className="text-xs text-muted-foreground">
+                    Get a free API key at{' '}
+                    <a href="https://build.nvidia.com" target="_blank" rel="noreferrer" className="underline">
+                      build.nvidia.com
+                    </a>
+                    {' '}— the free tier gives rate-limited access to 100+ hosted models
+                    (no credit card). Requests go to integrate.api.nvidia.com.
+                  </p>
+                )}
 
                 {form.kind === 'openai_compatible' && (
                   <div className="space-y-1.5">
