@@ -315,7 +315,14 @@ export async function resolveProviderSpec(
   if (!row?.apiKeyEncrypted) return null
 
   const apiKey = await store.unseal(row.apiKeyEncrypted)
+  return rowToProviderSpec(row, apiKey)
+}
 
+/** Map a stored config row + decrypted key to its runtime provider spec. */
+function rowToProviderSpec(
+  row: typeof tenantLlmConfigs.$inferSelect,
+  apiKey: string,
+): ProviderModelSpec | null {
   if (row.kind === 'anthropic') {
     return { kind: 'anthropic', modelId: row.modelId, apiKey }
   }
