@@ -169,6 +169,13 @@
       "when": 1786284904192,
       "tag": "0023_lucky_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786371304192,
+      "tag": "0024_embeddings_1024_rls",
+      "breakpoints": true
     }
   ]
 }
