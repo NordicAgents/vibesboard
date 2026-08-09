@@ -66,6 +66,7 @@ apps/functions/lib
 # test artifacts
 .playwright-mcp/
 playwright-report/
+playwright-report-local/
 test-results/
 apps/web/e2e/.auth/
 

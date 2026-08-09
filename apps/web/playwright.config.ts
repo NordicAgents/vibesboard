@@ -47,6 +47,10 @@ export default defineConfig({
   testDir: './e2e',
   // Only *.spec.ts are specs; helpers/setup/mock are plain modules.
   testMatch: /.*\.spec\.ts/,
+  // e2e/local/ is the developer-machine suite (playwright.local.config.ts). It
+  // needs a superadmin cookie jar and other state that this config's
+  // global-setup does not seed, so it must never run in CI.
+  testIgnore: '**/local/**',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

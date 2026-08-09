@@ -117,6 +117,7 @@ export function PromptForm({
             onChange={e => setInput(e.target.value)}
             placeholder={placeholder}
             spellCheck={false}
+            data-testid="chat-input"
             className="w-full resize-none bg-transparent text-[15px] leading-[1.65] text-[#222f30] placeholder:text-[#6f7f80] focus:outline-none disabled:opacity-50 dark:text-[#f5f8f7] dark:placeholder:text-[#7e8e8f]"
           />
         </div>

@@ -18,7 +18,7 @@ import {
   upsertAgentSchema
 } from '@vibesboard/agents/schema'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
+import { OPENAI_CHAT_MODEL, OPENAI_BASE_URL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
@@ -277,7 +277,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
     const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
     const model = isResponsesModel(preferredModel) ? DEFAULT_AGENT_CREATOR_MODEL : preferredModel
-    languageModel = createOpenAI({ apiKey })(model)
+    languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })(model)
   }
 
   const createAgentArgsSchema = z.object({

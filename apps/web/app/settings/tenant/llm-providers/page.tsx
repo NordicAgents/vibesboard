@@ -8,7 +8,86 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Loader2, Star, Pencil, Shield, X } from 'lucide-react'
+import { Plus, Trash2, Loader2, Star, Pencil, Shield, X, ChevronDown, ChevronUp } from 'lucide-react'
+
+// ─── Google Cloud AI Platform URL Builder ────────────────────────────────────
+// Constructs: https://{endpoint}/v1/projects/{projectId}/locations/{region}/endpoints/openapi
+// Used for Google Cloud Model Garden MaaS models (e.g. multilingual-e5-large-instruct-maas)
+function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [endpoint, setEndpoint] = useState('us-central1-aiplatform.googleapis.com')
+  const [region, setRegion] = useState('us-central1')
+  const [projectId, setProjectId] = useState('')
+
+  const builtUrl = endpoint && region && projectId
+    ? `https://${endpoint}/v1/projects/${projectId}/locations/${region}/endpoints/openapi`
+    : ''
+
+  return (
+    <div className="rounded-md border border-border text-xs">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="font-medium">Google Cloud AI Platform URL builder</span>
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
+          <p className="text-muted-foreground">
+            For Google Cloud MaaS models (e.g. <span className="font-mono">intfloat/multilingual-e5-large-instruct-maas</span>).
+            Use a service account key or <span className="font-mono">gcloud auth print-access-token</span> as the API key.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Endpoint host</Label>
+              <Input
+                className="h-7 text-xs mt-0.5"
+                value={endpoint}
+                onChange={e => setEndpoint(e.target.value)}
+                placeholder="us-central1-aiplatform.googleapis.com"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Region</Label>
+              <Input
+                className="h-7 text-xs mt-0.5"
+                value={region}
+                onChange={e => setRegion(e.target.value)}
+                placeholder="us-central1"
+              />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Project ID</Label>
+            <Input
+              className="h-7 text-xs mt-0.5"
+              value={projectId}
+              onChange={e => setProjectId(e.target.value)}
+              placeholder="your-gcp-project-id"
+            />
+          </div>
+          {builtUrl && (
+            <div className="rounded bg-muted px-2 py-1 font-mono text-[11px] break-all text-muted-foreground">
+              {builtUrl}
+            </div>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs px-2"
+            disabled={!builtUrl}
+            onClick={() => { onApply(builtUrl); setOpen(false) }}
+          >
+            Apply URL
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible' | 'google' | 'nvidia'
 
@@ -445,9 +524,9 @@ export default function LlmProvidersPage() {
                           className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
                           value={PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) ? form.modelId : '__custom__'}
                           onChange={e => {
-                            if (e.target.value !== '__custom__') {
-                              setForm(f => ({ ...f, modelId: e.target.value }))
-                            }
+                            // Selecting "Custom model ID…" clears modelId so the
+                            // free-text input below becomes visible for the user to type in.
+                            setForm(f => ({ ...f, modelId: e.target.value === '__custom__' ? '' : e.target.value }))
                           }}
                           required
                         >
@@ -503,14 +582,42 @@ export default function LlmProvidersPage() {
                 )}
 
                 {form.kind === 'openai_compatible' && (
-                  <div className="space-y-1.5">
-                    <Label>Base URL</Label>
-                    <Input
-                      placeholder="https://api.groq.com/openai/v1"
-                      value={form.baseUrl}
-                      onChange={e => setForm(f => ({ ...f, baseUrl: e.target.value }))}
-                      required
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label>Base URL</Label>
+                      <Input
+                        placeholder="https://api.groq.com/openai/v1"
+                        value={form.baseUrl}
+                        onChange={e => setForm(f => ({ ...f, baseUrl: e.target.value }))}
+                        required
+                      />
+                    </div>
+
+                    {/* Google Cloud AI Platform URL Builder */}
+                    <GoogleCloudUrlBuilder
+                      onApply={url => setForm(f => ({ ...f, baseUrl: url }))}
                     />
+
+                    <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground space-y-1">
+                      <p className="font-medium text-foreground">Embedding model suggestions</p>
+                      <p>When assigning this provider to the <span className="font-mono">Embeddings</span> task, use one of these model IDs:</p>
+                      <ul className="list-disc list-inside space-y-0.5 mt-1">
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'intfloat/multilingual-e5-large-instruct-maas' }))}>
+                            intfloat/multilingual-e5-large-instruct-maas
+                          </button>
+                          {' '}— 384-dim · Google Cloud AI Platform MaaS (use URL builder above)
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'nomic-embed-text' }))}>
+                            nomic-embed-text
+                          </button>
+                          {' '}— 768-dim · Ollama local
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 )}
 

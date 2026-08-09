@@ -8,6 +8,7 @@ import { type VibeAgent } from '@vibesboard/contracts'
 import { type ToolExecutionContext, type ToolKit } from './tools/index.ts'
 import {
   OPENAI_CHAT_MODEL,
+  OPENAI_BASE_URL,
   completeText,
   isResponsesModel,
   streamText,
@@ -155,7 +156,7 @@ export async function runAgentStream({
   ]
 
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? ''
-  const openaiClient = createOpenAI({ apiKey })
+  const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
 
   let disposed = false
   const safeDispose = async () => {

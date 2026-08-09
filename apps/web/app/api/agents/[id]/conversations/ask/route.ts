@@ -14,12 +14,13 @@ import { summarizeConversation } from '@vibesboard/ai/summarize'
 import { buildAskAiConversationContext } from '@vibesboard/ai/conversation-rag'
 import {
   OPENAI_CHAT_MODEL,
+  OPENAI_BASE_URL,
   isResponsesModel,
   streamText
 } from '@vibesboard/adapter-openai'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { resolveProviderSpec, resolveEmbedder } from '@vibesboard/ai/tenant-llm-config'
 import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 import { contextWindowForModel } from '@vibesboard/agents/auto-summarize'
 
@@ -88,12 +89,18 @@ export async function POST(
   }
   const pendingMessages = [...existingMessages, userMessage]
 
-  const { context } = await buildAskAiConversationContext({
-    tenantId: agent.tenantId,
-    agentId: agent.id,
-    question: payload.question,
-    contextConversationId: payload.contextConversationId
-  })
+  // Use the tenant's configured embedding provider rather than the hardcoded
+  // platform key — falls back to platform OPENAI_API_KEY when not configured.
+  const tenantEmbed = await resolveEmbedder(agent.tenantId).catch(() => null)
+  const { context } = await buildAskAiConversationContext(
+    {
+      tenantId: agent.tenantId,
+      agentId: agent.id,
+      question: payload.question,
+      contextConversationId: payload.contextConversationId
+    },
+    tenantEmbed ? { embed: tenantEmbed } : undefined,
+  )
 
   const systemPrompt = `You help the editor of agent "${agent.name}" analyze visitor conversations.
 Use only the supplied conversation snippets; do not invent details that are not present.
@@ -194,7 +201,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const languageModel = tenantSpec
     ? buildProviderModel(tenantSpec)
-    : createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '' })(model)
+    : createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '', baseURL: OPENAI_BASE_URL })(model)
   const result = await aiStreamText({
     model: languageModel,
     messages: chatMessages,

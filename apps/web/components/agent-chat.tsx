@@ -9,6 +9,7 @@ import {
   useState
 } from 'react'
 import { useChat } from 'ai/react'
+import { type UIMessage } from 'ai'
 import { type Message } from '@vibesboard/contracts'
 import { ChevronRight } from 'lucide-react'
 
@@ -309,7 +310,7 @@ export function AgentChat({
 
   // Clean completion markers from messages for display, insert handoff indicators
   const messages = useMemo(() => {
-    const cleaned: Message[] = []
+    const cleaned: UIMessage[] = []
 
     for (const m of rawMessages) {
       // Skip auto-start messages
@@ -344,8 +345,9 @@ export function AgentChat({
             cleaned.push({
               id: `${HANDOFF_INDICATOR_PREFIX}${m.id}`,
               role: 'system',
-              content: meta.targetAgentName
-            })
+              content: meta.targetAgentName,
+              parts: [],
+            } as UIMessage)
           } catch {
             // ignore
           }

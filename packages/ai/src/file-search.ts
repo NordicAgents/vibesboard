@@ -356,7 +356,24 @@ export const ingestFileForAgent = async (args: {
   const spec = await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
   const providerKind = spec?.kind ?? 'openai'
   const embed = await resolveEmbedder(tenantId)
-  const embeddings = await embed(chunks)
+
+  let embeddings: number[][]
+  try {
+    embeddings = await embed(chunks)
+  } catch (err: any) {
+    // Surface a human-readable reason so the UI can show actionable guidance
+    const msg: string = err?.message ?? String(err)
+    const reason =
+      msg.includes('redirect count exceeded') || msg.includes('401') || msg.includes('Unauthorized') || msg.includes('authentication')
+        ? 'Embedding API authentication failed — the API key may be expired. ' +
+          (spec?.kind === 'openai_compatible'
+            ? 'For Google Cloud MaaS, refresh the access token with: gcloud auth print-access-token'
+            : 'Check your embedding provider API key in Settings → LLM Providers.')
+        : msg.includes('429') || msg.includes('quota') || msg.includes('credits')
+        ? 'Embedding API quota exceeded — check your billing/credits for the embedding provider.'
+        : `Embedding failed: ${msg.slice(0, 200)}`
+    return { chunksInserted: 0, message: reason }
+  }
 
   if (!embeddings.length) {
     return {

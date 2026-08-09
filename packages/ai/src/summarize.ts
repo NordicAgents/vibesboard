@@ -12,11 +12,14 @@ export async function summarizeConversation(
   messages: Message[],
   tenantId?: string
 ): Promise<string | null> {
+  // ai v4's Message role union is system | user | assistant | data; the chat
+  // completion APIs only accept the first three, so anything else (currently
+  // just 'data') is folded into 'assistant'.
+  const CHAT_ROLES = ['system', 'user', 'assistant'] as const
   const recent = messages.slice(-8).map(message => ({
-    role: (message.role === 'function' ? 'assistant' : message.role) as
-      | 'system'
-      | 'user'
-      | 'assistant',
+    role: (CHAT_ROLES as readonly string[]).includes(message.role)
+      ? (message.role as (typeof CHAT_ROLES)[number])
+      : ('assistant' as const),
     content: truncate(message.content, 500)
   }))
 

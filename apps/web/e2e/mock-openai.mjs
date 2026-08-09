@@ -71,11 +71,66 @@ function writeSSE(res) {
   res.end()
 }
 
+function chatCompletionsJson() {
+  return {
+    id: 'chatcmpl-e2e-stub',
+    object: 'chat.completion',
+    model: 'gpt-4o',
+    choices: [
+      {
+        index: 0,
+        message: { role: 'assistant', content: REPLY },
+        finish_reason: 'stop',
+      },
+    ],
+    usage: { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20 },
+  }
+}
+
+function writeChatSSE(res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  })
+  // Vercel AI SDK / OpenAI streaming chat.completion.chunk format
+  res.write(
+    `data: ${JSON.stringify({
+      id: 'chatcmpl-e2e-stub',
+      object: 'chat.completion.chunk',
+      model: 'gpt-4o',
+      choices: [{ index: 0, delta: { role: 'assistant', content: REPLY }, finish_reason: null }],
+    })}\n\n`,
+  )
+  res.write(
+    `data: ${JSON.stringify({
+      id: 'chatcmpl-e2e-stub',
+      object: 'chat.completion.chunk',
+      model: 'gpt-4o',
+      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+    })}\n\n`,
+  )
+  res.write('data: [DONE]\n\n')
+  res.end()
+}
+
 const server = createServer(async (req, res) => {
   const url = req.url ?? ''
   if (req.method === 'GET' && url.startsWith('/healthz')) {
     res.writeHead(200, { 'Content-Type': 'text/plain' })
     res.end('ok')
+    return
+  }
+
+  // Chat Completions API (Vercel AI SDK / streamText)
+  if (req.method === 'POST' && url.includes('/chat/completions')) {
+    const body = await readBody(req)
+    if (body && body.stream === true) {
+      writeChatSSE(res)
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify(chatCompletionsJson()))
     return
   }
 

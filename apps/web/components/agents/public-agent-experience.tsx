@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { type Message } from 'ai/react'
+import { type Message } from '@vibesboard/contracts'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { type VibeAgent } from '@vibesboard/contracts'

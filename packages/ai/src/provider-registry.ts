@@ -5,6 +5,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import type { LanguageModel } from 'ai'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
 import { validateProviderBaseUrl } from './provider-ssrf-guard.ts'
+import { buildNvidiaFetch } from './nvidia-stream-adapter.ts'
 
 // NVIDIA API Catalog (build.nvidia.com) hosted endpoint — OpenAI-compatible.
 export const NVIDIA_API_BASE_URL = 'https://integrate.api.nvidia.com/v1'
@@ -49,6 +50,12 @@ const providerFactories: ProviderFactoryRegistry = {
       apiKey: spec.apiKey,
       baseURL: spec.baseUrl ?? NVIDIA_API_BASE_URL,
       compatibility: 'compatible',
+      // NVIDIA reasoning models (Nemotron Ultra, DeepSeek V4 Pro, Qwen3 Coder)
+      // return text in delta.reasoning_content rather than delta.content.
+      // buildNvidiaFetch() promotes reasoning_content → content before the SDK
+      // Zod parser strips it. Flagged for removal when @ai-sdk/openai is upgraded
+      // to 4.x, which handles reasoning_content natively.
+      fetch: buildNvidiaFetch(),
     })(spec.modelId),
 }
 

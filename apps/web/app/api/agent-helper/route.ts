@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { streamText as aiStreamText } from 'ai'
 
 import { auth } from '@/auth'
+import { OPENAI_BASE_URL } from '@vibesboard/adapter-openai'
 import {
   OPENAI_CHAT_MODEL,
   isResponsesModel,
@@ -96,7 +97,7 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
     return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   }
 
-  const openaiClient = createOpenAI({ apiKey })
+  const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
   const result = await aiStreamText({
     model: openaiClient(model),
     messages: [{ role: 'system', content: systemPrompt }, ...messages],

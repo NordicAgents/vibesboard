@@ -4,25 +4,35 @@ import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { embeddings, embeddings1536, files } from '@vibesboard/adapter-postgres/schema'
+import { embeddings, embeddings1536, embeddings384, files } from '@vibesboard/adapter-postgres/schema'
 
 type Db = PostgresJsDatabase<typeof schema>
 export interface ChunkInput { chunkIndex: number; content: string; embedding: number[] }
 export interface RetrievedChunk { fileId: string; fileName: string; fileKey: string; mimeType: string; chunkIndex: number; content: string; similarity: number | null }
 
 // ─── Routing ──────────────────────────────────────────────────────────────────
-// openai kind → embeddings_1536 (1536-dim, OpenAI text-embedding-3-small)
-// everything else → embeddings (768-dim, nomic-embed-text / Ollama default)
+// openai kind   → embeddings_1536 (1536-dim, OpenAI text-embedding-3-small)
+// e5/maas kind  → embeddings_384  (384-dim,  multilingual-e5-small and similar MaaS models)
+// everything else → embeddings    (768-dim,  nomic-embed-text / Ollama default)
 
-export type EmbeddingProvider = 'openai' | 'other'
+export type EmbeddingProvider = 'openai' | 'e5' | 'other'
+export type EmbeddingTable = typeof embeddings | typeof embeddings1536 | typeof embeddings384
 
-function selectTable(provider: EmbeddingProvider) {
-  return provider === 'openai' ? embeddings1536 : embeddings
+/** The embedding table a provider's vectors belong in. Shared by every call site. */
+export function selectTable(provider: EmbeddingProvider): EmbeddingTable {
+  if (provider === 'openai') return embeddings1536
+  if (provider === 'e5') return embeddings384
+  return embeddings
 }
+
+/** Every embedding table, for provider-switch cleanup (delete from all, insert into one). */
+export const ALL_EMBEDDING_TABLES: EmbeddingTable[] = [embeddings, embeddings1536, embeddings384]
 
 /** Infer the embedding table from a vector's length. */
 export function providerFromDimension(dim: number): EmbeddingProvider {
-  return dim === 1536 ? 'openai' : 'other'
+  if (dim === 1536) return 'openai'
+  if (dim === 384) return 'e5'
+  return 'other'
 }
 
 // ─── Write ────────────────────────────────────────────────────────────────────
@@ -36,9 +46,10 @@ export async function replaceFileChunks(
   const table = selectTable(provider)
 
   return db.transaction(async (tx) => {
-    // Delete from both tables to handle provider switches cleanly
+    // Delete from all tables to handle provider switches cleanly
     await tx.delete(embeddings).where(and(eq(embeddings.tenantId, input.tenantId), eq(embeddings.sourceType, 'file_chunk'), eq(embeddings.sourceId, input.fileId)))
     await tx.delete(embeddings1536).where(and(eq(embeddings1536.tenantId, input.tenantId), eq(embeddings1536.sourceType, 'file_chunk'), eq(embeddings1536.sourceId, input.fileId)))
+    await tx.delete(embeddings384).where(and(eq(embeddings384.tenantId, input.tenantId), eq(embeddings384.sourceType, 'file_chunk'), eq(embeddings384.sourceId, input.fileId)))
     if (!input.chunks.length) return 0
     await tx.insert(table).values(input.chunks.map((c) => ({
       id: uuidv7(), tenantId: input.tenantId, sourceType: 'file_chunk' as const, sourceId: input.fileId,
@@ -54,6 +65,7 @@ export async function deleteFileEmbeddings(tenantId: string, fileId: string, db:
   await Promise.all([
     db.delete(embeddings).where(and(eq(embeddings.tenantId, tenantId), eq(embeddings.sourceType, 'file_chunk'), eq(embeddings.sourceId, fileId))),
     db.delete(embeddings1536).where(and(eq(embeddings1536.tenantId, tenantId), eq(embeddings1536.sourceType, 'file_chunk'), eq(embeddings1536.sourceId, fileId))),
+    db.delete(embeddings384).where(and(eq(embeddings384.tenantId, tenantId), eq(embeddings384.sourceType, 'file_chunk'), eq(embeddings384.sourceId, fileId))),
   ])
 }
 
@@ -82,8 +94,8 @@ export async function keywordSearchFileChunks(
   opts: { tenantId: string; agentId: string; query: string; topK: number },
   db: Db = getMigrateDb(),
 ): Promise<RetrievedChunk[]> {
-  // Keyword search doesn't depend on vector dimension — search both tables and merge
-  const searchTable = async (table: typeof embeddings | typeof embeddings1536) => {
+  // Keyword search doesn't depend on vector dimension — search every table and merge
+  const searchTable = async (table: EmbeddingTable) => {
     const tsq = sql`plainto_tsquery('english', ${opts.query})`
     const rank = sql<number>`ts_rank(${table.contentTsv}, ${tsq})`
     const rows = await db.select({
@@ -96,8 +108,8 @@ export async function keywordSearchFileChunks(
     return rows.map((r) => ({ fileId: r.fileId, fileName: r.fileName, fileKey: r.fileKey, mimeType: r.mimeType, chunkIndex: r.chunkIndex, content: r.content, similarity: null as null }))
   }
 
-  const [r768, r1536] = await Promise.all([searchTable(embeddings), searchTable(embeddings1536)])
-  return [...r768, ...r1536]
+  const [r768, r1536, r384] = await Promise.all([searchTable(embeddings), searchTable(embeddings1536), searchTable(embeddings384)])
+  return [...r768, ...r1536, ...r384]
     .sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
     .slice(0, opts.topK)
 }
