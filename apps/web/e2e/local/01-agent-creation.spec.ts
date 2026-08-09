@@ -1,118 +1,442 @@
 /**
  * Section 1 — Agent Creation
  *
- * Covers:
- *   - Agents list page renders for authenticated users
- *   - "Create Agent" button navigates to the AI-creator chat
- *   - Agent creator chat loads and accepts input
- *   - AI responds (mock reply) and an agent is saved
- *   - New agent appears on the /agents list
- *   - Agent can be created directly via POST /api/agents (API smoke)
+ * Every assertion here is pinned to something only the page/route under test
+ * can produce. Notably:
+ *   - the list page is asserted with a fixture agent guaranteed to exist, so the
+ *     empty state (which renders a *second* "Create Agent" link) cannot race the
+ *     locator, and the CTA count is deterministic
+ *   - the creator API is asserted against the deterministic mock reply, not just
+ *     `res.ok()` — `toTextStreamResponse()` commits a 200 before the provider is
+ *     ever contacted, so a 200 alone proves nothing about the model round-trip
+ *   - POST /api/agents is asserted to take the tenant from the session, never
+ *     from the request body (the body field is silently stripped by Zod)
+ *   - the detail page is asserted by HTTP status + the agent's own heading; the
+ *     404 (notFound()) and the error boundary both render at the *same URL*, so
+ *     a URL assertion cannot see them
+ *
+ * Not covered here (see the report): the agent-creator's `create_agent` tool,
+ * which is the LLM-driven persistence path. The mock model never emits a
+ * tool_calls delta, so `execute` — and the `~~~agentcreated~~~` marker — are
+ * unreachable under E2E. The preview-panel "Create Agent" button exercises the
+ * other half of that flow (creator page → agent persisted → success screen).
  */
-import { test, expect } from '@playwright/test'
-import { STORAGE_STATE } from '../constants.ts'
+import { test, expect, request as playwrightRequest } from '@playwright/test'
+import { BASE_URL, OUTSIDER_STATE, STORAGE_STATE } from '../constants.ts'
 
+// e2e/mock-openai.mjs always replies with exactly this (MOCK_OPENAI_REPLY default).
 const STUB_REPLY = 'This is a deterministic E2E stubbed reply from the mock model.'
+
+// components/agents/agent-creator-chat.tsx → STARTER_PROMPTS[0]
+const STARTER_PROMPT = 'Customer support agent for my business'
+
+// The fixture agent that keeps /agents non-empty for the whole file.
+const LIST_AGENT_NAME = `E2E List Fixture ${Date.now()}`
+const LIST_AGENT_INSTRUCTIONS =
+  'Fixture agent that keeps the agents list non-empty for the E2E list assertions.'
 
 test.use({ storageState: STORAGE_STATE })
 
-test.describe('Agent Creation', () => {
-  test('agents list page loads for authenticated user', async ({ page }) => {
-    await page.goto('/agents')
-    await expect(page).not.toHaveURL(/sign-in/)
-    // Either shows agents or an empty state — just confirm the page renders
-    await expect(page.locator('body')).toBeVisible()
-    await expect(page.getByRole('link', { name: /create agent/i }).or(
-      page.getByRole('button', { name: /create agent/i })
-    )).toBeVisible()
+let tenantId: string
+let outsiderTenantId: string
+let listAgentId: string
+
+test.beforeAll(async () => {
+  const owner = await playwrightRequest.newContext({
+    baseURL: BASE_URL,
+    storageState: STORAGE_STATE,
   })
-
-  test('create agent button navigates to the AI creator', async ({ page }) => {
-    await page.goto('/agents')
-    const createBtn = page.getByRole('link', { name: /create agent/i }).or(
-      page.getByRole('button', { name: /create agent/i })
-    )
-    await createBtn.click()
-    await expect(page).toHaveURL(/\/agents\/create-chat|\/agents\/new/)
-  })
-
-  test('agent creator chat interface renders', async ({ page }) => {
-    await page.goto('/agents/create-chat')
-    await expect(page).not.toHaveURL(/sign-in/)
-    // prompt-form.tsx uses data-testid="chat-input" on the message textarea
-    await expect(page.getByTestId('chat-input')).toBeVisible()
-  })
-
-  test('agent creator API responds to a message', async ({ request, page }) => {
-    // Verify the creator chat page loads
-    await page.goto('/agents/create-chat')
-    await expect(page.getByTestId('chat-input')).toBeVisible()
-
-    // The suggestion card chips should be visible in initial state
-    await expect(page.getByText(/customer support/i)).toBeVisible()
-
-    // Verify the API endpoint itself works (the UI chat state is complex to
-    // drive via Playwright due to react-textarea-autosize controlled state)
-    const tenantRes = await request.get('/api/user/active-tenant')
-    const { tenant_id: tenantId } = await tenantRes.json()
-
-    const res = await request.post('/api/agent-creator', {
-      data: {
-        messages: [{ role: 'user', content: 'I need a helpful customer support agent' }],
-        fileKeys: [],
-        fileNames: [],
-        id: 'e2e-test-chat',
-        tenant_id: tenantId,
-      },
-      headers: { 'Content-Type': 'application/json' },
+  try {
+    const tenantRes = await owner.get('/api/user/active-tenant', {
+      failOnStatusCode: false,
     })
-    // 200 means the API accepted the request and streamed a response
-    expect(res.ok()).toBeTruthy()
-    const body = await res.text()
-    expect(body.length).toBeGreaterThan(0)
-  })
-
-  test('can create an agent via API and it appears on the list', async ({ request, page }) => {
-    // Get active tenant
-    const tenantRes = await request.get('/api/user/active-tenant')
-    expect(tenantRes.ok()).toBeTruthy()
-    const { tenant_id: tenantId } = await tenantRes.json()
+    expect(tenantRes.status(), await tenantRes.text()).toBe(200)
+    tenantId = (await tenantRes.json()).tenant_id
     expect(tenantId).toBeTruthy()
 
-    // Create agent via API — response shape is { agent: { id, ... } }
-    const agentName = `E2E Test Agent ${Date.now()}`
-    const createRes = await request.post('/api/agents', {
-      data: {
-        name: agentName,
-        instructions: 'You are a helpful E2E test agent.',
-        tenantId,
-      },
+    const createRes = await owner.post('/api/agents', {
+      data: { name: LIST_AGENT_NAME, instructions: LIST_AGENT_INSTRUCTIONS },
+      failOnStatusCode: false,
     })
-    expect(createRes.ok()).toBeTruthy()
-    const body = await createRes.json()
-    const agentId = body.agent?.id ?? body.id
-    expect(agentId).toBeTruthy()
+    expect(createRes.status(), await createRes.text()).toBe(200)
+    listAgentId = (await createRes.json()).agent?.id
+    expect(listAgentId).toBeTruthy()
+  } finally {
+    await owner.dispose()
+  }
 
-    // The agent should appear on the list page
-    await page.goto('/agents')
-    // The name appears in the card h3 AND possibly a sidebar link — .first() avoids strict-mode errors
-    await expect(page.getByText(agentName).first()).toBeVisible({ timeout: 10_000 })
+  // A tenant that genuinely exists and that E2E_USER is *not* a member of.
+  const outsider = await playwrightRequest.newContext({
+    baseURL: BASE_URL,
+    storageState: OUTSIDER_STATE,
+  })
+  try {
+    const res = await outsider.get('/api/user/active-tenant', {
+      failOnStatusCode: false,
+    })
+    expect(res.status(), await res.text()).toBe(200)
+    outsiderTenantId = (await res.json()).tenant_id
+    expect(outsiderTenantId).toBeTruthy()
+    expect(outsiderTenantId).not.toBe(tenantId)
+  } finally {
+    await outsider.dispose()
+  }
+})
+
+test.afterAll(async () => {
+  const owner = await playwrightRequest.newContext({
+    baseURL: BASE_URL,
+    storageState: STORAGE_STATE,
+  })
+  try {
+    if (listAgentId) {
+      await owner.delete(`/api/agents/${listAgentId}`, {
+        failOnStatusCode: false,
+      })
+    }
+  } finally {
+    await owner.dispose()
+  }
+})
+
+test.describe('Agent Creation — list page', () => {
+  test('the list renders the agent card and exactly one Create Agent CTA', async ({
+    page,
+  }) => {
+    const res = await page.goto('/agents')
+    expect(res?.status()).toBe(200)
+
+    // The sidebar links to the same href, so filter on the instructions — only
+    // the grid card (app/agents/page.tsx CardDescription) renders those.
+    const card = page
+      .locator(`a[href="/agents/${listAgentId}?tab=configure"]`)
+      .filter({ hasText: LIST_AGENT_INSTRUCTIONS })
+    await expect(card).toHaveCount(1)
+    await expect(card).toContainText(LIST_AGENT_NAME)
+
+    // Copy that only /agents renders (PageHeader description).
+    await expect(
+      page.getByText('Build Agents for Vibing with People'),
+    ).toBeVisible()
+
+    // With the list loaded and non-empty the EmptyState CTA must not exist, so
+    // there is exactly one "Create Agent" link. Two means the empty state
+    // rendered anyway (and every locator on this page is ambiguous).
+    const cta = page.getByRole('link', { name: 'Create Agent' })
+    await expect(cta).toHaveCount(1)
+    await expect(cta).toHaveAttribute('href', '/agents/create-chat')
   })
 
-  test('agent detail page loads after creation', async ({ request, page }) => {
-    // Create a fresh agent via API
-    const tenantRes = await request.get('/api/user/active-tenant')
-    const { tenant_id: tenantId } = await tenantRes.json()
+  test('the Create Agent CTA opens the AI creator', async ({ page }) => {
+    await page.goto('/agents')
 
-    const agentName = `E2E Detail Test ${Date.now()}`
-    const createRes = await request.post('/api/agents', {
-      data: { name: agentName, instructions: 'Detail page test agent.', tenantId },
+    // Wait for the list to settle first, otherwise the CTA count is racing the
+    // loading skeleton → empty-state transition.
+    await expect(
+      page
+        .locator(`a[href="/agents/${listAgentId}?tab=configure"]`)
+        .filter({ hasText: LIST_AGENT_INSTRUCTIONS }),
+    ).toHaveCount(1)
+
+    const cta = page.getByRole('link', { name: 'Create Agent' })
+    await expect(cta).toHaveCount(1)
+    await cta.click()
+
+    await expect(page).toHaveURL(/\/agents\/create-chat$/)
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Build Your Agent' }),
+    ).toBeVisible()
+  })
+})
+
+test.describe('Agent Creation — creator page', () => {
+  test('the creator renders the chat shell, starter prompts and live preview', async ({
+    page,
+  }) => {
+    const res = await page.goto('/agents/create-chat')
+    expect(res?.status()).toBe(200)
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Build Your Agent' }),
+    ).toBeVisible()
+    await expect(page.getByTestId('chat-input')).toBeVisible()
+
+    // The four STARTER_PROMPTS are the only way to start the conversation
+    // without typing; each one is an append() trigger.
+    const suggestions = page
+      .locator('[aria-label="Quick suggestions"]')
+      .getByRole('button')
+    await expect(suggestions).toHaveCount(4)
+    await expect(suggestions.first()).toHaveText(STARTER_PROMPT)
+
+    // The live preview panel holds the three fields required to create.
+    await expect(page.getByPlaceholder('e.g., Support Assistant')).toBeVisible()
+    await expect(
+      page.getByPlaceholder('Describe how the agent should behave...'),
+    ).toBeVisible()
+    await expect(
+      page.getByPlaceholder('e.g., Hi! How can I help you today?'),
+    ).toBeVisible()
+  })
+
+  test('sending a starter prompt streams the model reply into the transcript', async ({
+    page,
+  }) => {
+    await page.goto('/agents/create-chat')
+
+    const suggestion = page.getByRole('button', { name: STARTER_PROMPT })
+    await expect(suggestion).toBeVisible()
+
+    const creatorCall = page.waitForResponse(
+      r =>
+        r.url().includes('/api/agent-creator') &&
+        r.request().method() === 'POST',
+    )
+    await suggestion.click()
+    const res = await creatorCall
+    expect(res.status()).toBe(200)
+
+    // The deterministic mock reply has to reach the DOM: this is what proves the
+    // stream was consumed, not just that a 200 status line was written.
+    await expect(page.getByText(STUB_REPLY)).toBeVisible({ timeout: 30_000 })
+  })
+
+  test('the builder preview creates and persists an agent from the creator page', async ({
+    request,
+    page,
+  }) => {
+    const name = `E2E Builder Agent ${Date.now()}`
+    const instructions =
+      'Created from the agent-creator preview panel during the E2E run.'
+    const greeting = 'Hi! I am the E2E builder agent.'
+
+    await page.goto('/agents/create-chat')
+    await page.getByPlaceholder('e.g., Support Assistant').fill(name)
+    await page
+      .getByPlaceholder('Describe how the agent should behave...')
+      .fill(instructions)
+    await page
+      .getByPlaceholder('e.g., Hi! How can I help you today?')
+      .fill(greeting)
+
+    // No chat messages yet, so the preview panel holds the only Create button.
+    const createBtn = page.getByRole('button', { name: 'Create Agent' })
+    await expect(createBtn).toBeEnabled()
+
+    const createCall = page.waitForResponse(
+      r => r.url().endsWith('/api/agents') && r.request().method() === 'POST',
+    )
+    await createBtn.click()
+    const createRes = await createCall
+    expect(createRes.status()).toBe(200)
+    const createdId = (await createRes.json()).agent?.id
+    expect(createdId).toBeTruthy()
+
+    try {
+      // The success screen replaces the builder and names the new agent.
+      await expect(
+        page.getByRole('heading', { name: 'Your agent is ready!' }),
+      ).toBeVisible()
+      await expect(page.getByText(`${name} has been created`)).toBeVisible()
+
+      // …and the agent is really persisted, with the values typed into the form.
+      const read = await request.get(`/api/agents/${createdId}`, {
+        failOnStatusCode: false,
+      })
+      expect(read.status()).toBe(200)
+      const { agent } = await read.json()
+      expect(agent.name).toBe(name)
+      expect(agent.instructions).toBe(instructions)
+      expect(agent.greetingText).toBe(greeting)
+    } finally {
+      await request.delete(`/api/agents/${createdId}`, {
+        failOnStatusCode: false,
+      })
+    }
+  })
+})
+
+test.describe('Agent Creation — creator API', () => {
+  test('POST /api/agent-creator streams the deterministic model reply', async ({
+    request,
+  }) => {
+    const res = await request.post('/api/agent-creator', {
+      // The handler destructures only messages/previewToken/fileKeys/fileNames
+      // and resolves the tenant from the session cookie — a tenant_id in the
+      // body would be silently ignored, so it is deliberately not sent.
+      data: {
+        messages: [
+          { role: 'user', content: 'I need a helpful customer support agent' },
+        ],
+        fileKeys: [],
+        fileNames: [],
+      },
+      headers: { 'Content-Type': 'application/json' },
+      failOnStatusCode: false,
     })
-    const body = await createRes.json()
-    const id = body.agent?.id ?? body.id
+    expect(res.status()).toBe(200)
+    // toTextStreamResponse() writes the 200 before the provider is contacted,
+    // so the body — not the status — is the evidence the model round-tripped.
+    expect(await res.text()).toContain(STUB_REPLY)
+  })
 
-    await page.goto(`/agents/${id}`)
-    await expect(page).not.toHaveURL(/sign-in|not-found/)
-    await expect(page.locator('body')).toBeVisible()
+  test('POST /api/agent-creator refuses an unauthenticated caller', async () => {
+    const anon = await playwrightRequest.newContext({ baseURL: BASE_URL, storageState: undefined })
+    try {
+      const res = await anon.post('/api/agent-creator', {
+        data: { messages: [{ role: 'user', content: 'hello' }] },
+        headers: { 'Content-Type': 'application/json' },
+        failOnStatusCode: false,
+      })
+      expect(res.status()).toBe(401)
+      expect(await res.text()).not.toContain(STUB_REPLY)
+    } finally {
+      await anon.dispose()
+    }
+  })
+})
+
+test.describe('Agent Creation — agents API', () => {
+  test('POST /api/agents persists the agent into the session tenant and lists it', async ({
+    request,
+  }) => {
+    const name = `E2E API Agent ${Date.now()}`
+    const instructions = 'You are a helpful E2E test agent created over the API.'
+
+    const createRes = await request.post('/api/agents', {
+      data: { name, instructions },
+      failOnStatusCode: false,
+    })
+    expect(createRes.status(), await createRes.text()).toBe(200)
+    const { agent } = await createRes.json()
+    expect(agent?.id).toBeTruthy()
+
+    try {
+      expect(agent.name).toBe(name)
+      expect(agent.instructions).toBe(instructions)
+      expect(agent.tenantId).toBe(tenantId)
+      // The slug is generated server-side and is what the public URL uses.
+      expect(agent.agentUrl).toBeTruthy()
+
+      const list = await request.get(
+        `/api/agents?tenant_id=${tenantId}&limit=50`,
+        { failOnStatusCode: false },
+      )
+      expect(list.status()).toBe(200)
+      const { agents } = await list.json()
+      expect(agents.map((a: { id: string }) => a.id)).toContain(agent.id)
+      // Everything the tenant-scoped list returns belongs to that tenant.
+      expect(
+        agents.every((a: { tenantId: string }) => a.tenantId === tenantId),
+      ).toBe(true)
+    } finally {
+      await request.delete(`/api/agents/${agent.id}`, {
+        failOnStatusCode: false,
+      })
+    }
+  })
+
+  test('POST /api/agents ignores a client-supplied tenantId', async ({
+    request,
+  }) => {
+    const name = `E2E Tenant Spoof ${Date.now()}`
+    const res = await request.post('/api/agents', {
+      // upsertAgentSchema has no tenantId key, and the handler resolves the
+      // tenant from the session — a caller must not be able to plant an agent
+      // in a workspace it is not a member of.
+      data: {
+        name,
+        instructions: 'A spoofed tenantId must not move this agent.',
+        tenantId: outsiderTenantId,
+      },
+      failOnStatusCode: false,
+    })
+    expect(res.status(), await res.text()).toBe(200)
+    const { agent } = await res.json()
+    expect(agent?.id).toBeTruthy()
+
+    try {
+      expect(agent.tenantId).toBe(tenantId)
+      expect(agent.tenantId).not.toBe(outsiderTenantId)
+    } finally {
+      await request.delete(`/api/agents/${agent.id}`, {
+        failOnStatusCode: false,
+      })
+    }
+  })
+
+  test('POST /api/agents rejects a too-short name/instructions with 400', async ({
+    request,
+  }) => {
+    // name min 2, instructions min 10 (packages/agents/src/schema.ts).
+    const res = await request.post('/api/agents', {
+      data: { name: 'x', instructions: 'too short' },
+      failOnStatusCode: false,
+    })
+    expect(res.status()).toBe(400)
+    const body = await res.json()
+    expect(Array.isArray(body.issues)).toBe(true)
+    const paths = body.issues.flatMap((i: { path: string[] }) => i.path)
+    expect(paths).toContain('name')
+    expect(paths).toContain('instructions')
+  })
+
+  test('GET /api/agents refuses a tenant_id the caller is not a member of', async ({
+    request,
+  }) => {
+    const res = await request.get(`/api/agents?tenant_id=${outsiderTenantId}`, {
+      failOnStatusCode: false,
+    })
+    expect(res.status()).toBe(403)
+    expect(await res.text()).not.toContain('"agents"')
+  })
+})
+
+test.describe('Agent Creation — detail page', () => {
+  test('the detail page loads the agent that was just created', async ({
+    request,
+    page,
+  }) => {
+    const name = `E2E Detail Agent ${Date.now()}`
+    const createRes = await request.post('/api/agents', {
+      data: {
+        name,
+        instructions: 'Detail page agent instructions for the E2E run.',
+      },
+      failOnStatusCode: false,
+    })
+    expect(createRes.status(), await createRes.text()).toBe(200)
+    const id = (await createRes.json()).agent?.id
+    expect(id).toBeTruthy()
+
+    try {
+      // notFound() and the route error boundary both render at this same URL,
+      // so the HTTP status is the only thing that separates them.
+      const res = await page.goto(`/agents/${id}?tab=configure`)
+      expect(res?.status()).toBe(200)
+
+      // Only the loaded agent produces this heading (AgentDashboardTabs h2).
+      await expect(page.getByRole('heading', { level: 2, name })).toBeVisible()
+      // app/agents/[id]/error.tsx must not have caught anything.
+      await expect(page.getByText('Could not load this agent')).toHaveCount(0)
+    } finally {
+      await request.delete(`/api/agents/${id}`, { failOnStatusCode: false })
+    }
+  })
+
+  test('an agent id that does not exist renders a 404, not the agent shell', async ({
+    page,
+  }) => {
+    const missingId = '00000000-0000-4000-8000-000000000000'
+    await page.goto(`/agents/${missingId}`)
+
+    // The HTTP status is deliberately not asserted. app/agents/[id]/layout.tsx
+    // does call notFound() for a missing agent, but the App Router has already
+    // flushed the streamed shell by then, so the response is committed as 200.
+    // What the user sees is the contract worth guarding:
+    await expect(page.getByText('404')).toBeVisible()
+    // Neither the chat shell nor the error boundary — a plain not-found.
+    await expect(page.getByTestId('chat-input')).toHaveCount(0)
+    await expect(page.getByText('Could not load this agent')).toHaveCount(0)
   })
 })

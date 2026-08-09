@@ -1,115 +1,422 @@
 /**
- * Section 3 — Agent Settings / Configuration Tab
+ * Section 3 — Agent Settings / Setup tab
+ *
+ * `/agents/[id]?tab=configure` is the legacy alias that AgentDashboardTabs
+ * resolves to the "setup" tab (agent-dashboard-tabs.tsx:52-59), which renders
+ * AgentSetupTab plus the sticky "Save Changes" bar. Saving goes through
+ * useAgentForm.handleSaveAll → PATCH /api/agents/[id].
  *
  * Covers:
- *   - Configure tab loads with agent name and instructions pre-filled
- *   - Updating agent name saves successfully
- *   - Updating instructions saves successfully
- *   - Invalid/empty name is rejected
- *   - Agent list reflects name update
+ *   - ?tab=configure selects Setup and pre-fills name + instructions from the DB
+ *   - Save Changes is gated on hasChanges (no phantom-dirty state on load)
+ *   - Renaming persists: PATCH 200 → success toast → API read-back → reload →
+ *     the /agents list card
+ *   - Updating instructions persists (read-back + reload)
+ *   - GET /api/agents/[id] returns the owner's full record (exact field values)
+ *   - An invalid name is refused and never persisted (API + UI)
+ *   - Deleting from the Share tab: confirm dialog → 204 → redirect → 404
+ *   - DELETE /api/agents/[id] is 204 and the row is really gone
+ *
+ * Deliberately NOT covered here: cross-tenant reads/writes of an agent — that
+ * is 12-tenant-isolation.spec.ts, which drives the same routes as the outsider.
+ *
+ * Selector note: the Setup tab's name Input and instructions Textarea carry no
+ * `name` attribute and no data-testid (components/ui/input.tsx and
+ * components/ui/textarea.tsx only spread props), so the only stable hooks the
+ * app renders today are their exact placeholders. Both are matched in strict
+ * mode (no `.first()`) so a second matching control would fail the test rather
+ * than be silently skipped.
  */
-import { test, expect } from '@playwright/test'
-import { STORAGE_STATE } from '../constants.ts'
+import {
+  test,
+  expect,
+  request as playwrightRequest,
+  type APIRequestContext,
+} from '@playwright/test'
+import { BASE_URL, STORAGE_STATE } from '../constants.ts'
 
 test.use({ storageState: STORAGE_STATE })
 
-let agentId: string
-const ORIGINAL_NAME = `E2E Settings Agent ${Date.now()}`
+// agent-setup-tab.tsx:109 and :181 — verified against the app source.
+const NAME_PLACEHOLDER = 'Agent name'
+const INSTRUCTIONS_PLACEHOLDER =
+  'Explain how the agent should behave, tone, and guardrails.'
 
-test.beforeAll(async ({ request }) => {
-  const tenantRes = await request.get('/api/user/active-tenant')
-  const { tenant_id: tenantId } = await tenantRes.json()
+interface CreatedAgent {
+  id: string
+  name: string
+  instructions: string
+  agentUrl: string
+  tenantSlug: string
+}
 
-  const res = await request.post('/api/agents', {
-    data: {
-      name: ORIGINAL_NAME,
-      instructions: 'Original instructions for settings test.',
-      tenantId,
-    },
+/** Every agent this file creates, so afterAll can remove them all. */
+const createdIds: string[] = []
+
+/**
+ * Create a throwaway agent for a single test. The tenant is derived server-side
+ * from getActiveTenant(user.id) (app/api/agents/route.ts:151) — upsertAgentSchema
+ * has no tenantId key, so sending one is dead weight and is not sent here.
+ * `instructions` must be >= 10 chars (packages/agents/src/schema.ts:176).
+ */
+async function createAgent(
+  api: APIRequestContext,
+  label: string,
+): Promise<CreatedAgent> {
+  const name = `E2E ${label} ${Date.now()}-${Math.floor(Math.random() * 10_000)}`
+  const instructions = `Original instructions for the ${label} test.`
+
+  const res = await api.post('/api/agents', {
+    data: { name, instructions },
+    failOnStatusCode: false,
   })
-  expect(res.ok()).toBeTruthy()
-  const body = await res.json()
-  agentId = body.agent?.id ?? body.id
+  const raw = await res.text()
+  expect(res.status(), `POST /api/agents failed: ${raw}`).toBe(200)
+
+  const { agent } = JSON.parse(raw)
+  expect(agent?.id, 'POST /api/agents must return the created agent').toBeTruthy()
+  createdIds.push(agent.id)
+
+  return {
+    id: agent.id,
+    name,
+    instructions,
+    agentUrl: agent.agentUrl,
+    tenantSlug: agent.tenantSlug,
+  }
+}
+
+/** Read an agent back through the API, asserting the read itself succeeded. */
+async function readAgent(api: APIRequestContext, id: string) {
+  const res = await api.get(`/api/agents/${id}`, { failOnStatusCode: false })
+  expect(res.status(), `GET /api/agents/${id} failed: ${res.status()}`).toBe(200)
+  const { agent } = await res.json()
+  expect(agent?.id).toBe(id)
+  return agent
+}
+
+test.afterAll(async () => {
+  const api = await playwrightRequest.newContext({
+    baseURL: BASE_URL,
+    storageState: STORAGE_STATE,
+  })
+  try {
+    for (const id of createdIds) {
+      await api.delete(`/api/agents/${id}`, { failOnStatusCode: false })
+    }
+  } finally {
+    await api.dispose()
+  }
 })
 
-test.describe('Agent Settings', () => {
-  test('configure tab shows pre-filled name and instructions', async ({ page }) => {
-    await page.goto(`/agents/${agentId}?tab=configure`)
+test.describe('Agent Settings — Setup tab', () => {
+  test('?tab=configure selects Setup and pre-fills name and instructions', async ({
+    page,
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Prefill')
+
+    await page.goto(`/agents/${agent.id}?tab=configure`)
     await expect(page).not.toHaveURL(/sign-in/)
 
-    // Find name input — should be pre-filled
-    const nameInput = page.locator('input[name="name"], input[placeholder*="name" i], input[placeholder*="agent" i]').first()
-    await expect(nameInput).toBeVisible({ timeout: 10_000 })
-    await expect(nameInput).toHaveValue(ORIGINAL_NAME)
+    // The legacy `configure` alias must resolve to the Setup tab.
+    await expect(page.getByRole('tab', { name: /^setup$/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+
+    // Values come from the DB row we just created, not from the layout.
+    await expect(
+      page.getByPlaceholder(NAME_PLACEHOLDER, { exact: true }),
+    ).toHaveValue(agent.name)
+    await expect(
+      page.getByPlaceholder(INSTRUCTIONS_PLACEHOLDER, { exact: true }),
+    ).toHaveValue(agent.instructions)
+
+    // agent-setup-tab.tsx:112-114 renders the public path — only this tab does.
+    await expect(
+      page.getByText(`/${agent.tenantSlug}/${agent.agentUrl}`, { exact: true }),
+    ).toBeVisible()
   })
 
-  test('can update agent name via the settings form', async ({ page }) => {
-    await page.goto(`/agents/${agentId}?tab=configure`)
+  test('Save Changes is disabled until a field actually changes', async ({
+    page,
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Dirty Gate')
 
-    const nameInput = page.locator('input[placeholder*="name" i], input[placeholder*="agent" i]').first()
-    await expect(nameInput).toBeVisible({ timeout: 10_000 })
+    await page.goto(`/agents/${agent.id}?tab=configure`)
+    const nameInput = page.getByPlaceholder(NAME_PLACEHOLDER, { exact: true })
+    await expect(nameInput).toHaveValue(agent.name)
 
-    const newName = `E2E Renamed Agent ${Date.now()}`
-    await nameInput.clear()
+    const saveBtn = page.getByRole('button', { name: /save changes/i })
+    // useAgentForm.hasChanges must be false for a freshly loaded agent — a
+    // regression that makes the form dirty on mount (e.g. a default that does
+    // not round-trip) would arm the save bar with no user edit.
+    await expect(saveBtn).toBeDisabled()
+
+    await nameInput.fill(`${agent.name} edited`)
+    await expect(saveBtn).toBeEnabled()
+  })
+
+  test('renaming persists to the API, survives a reload and updates the agents list', async ({
+    page,
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Rename')
+    const newName = `E2E Renamed ${Date.now()}`
+
+    await page.goto(`/agents/${agent.id}?tab=configure`)
+    const nameInput = page.getByPlaceholder(NAME_PLACEHOLDER, { exact: true })
+    await expect(nameInput).toHaveValue(agent.name)
     await nameInput.fill(newName)
 
-    // "Save Changes" becomes enabled when hasChanges is true
     const saveBtn = page.getByRole('button', { name: /save changes/i })
-    await expect(saveBtn).toBeEnabled({ timeout: 5_000 })
-    await saveBtn.click()
+    await expect(saveBtn).toBeEnabled()
 
-    await expect(page.locator('[role="status"]').first()).toBeVisible({ timeout: 10_000 })
+    const [patchRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/agents/${agent.id}`) &&
+          r.request().method() === 'PATCH',
+      ),
+      saveBtn.click(),
+    ])
+    expect(patchRes.status()).toBe(200)
 
-    // Verify the agent name was actually updated via API
-    const res = await page.request.get(`/api/agents/${agentId}`)
-    if (res.ok()) {
-      const { agent } = await res.json()
-      expect(agent.name).toBe(newName)
-    }
+    // `[role="status"]` is stamped on EVERY react-hot-toast, error ones
+    // included, so assert the success copy from use-agent-form.ts:209.
+    await expect(page.getByText('Changes saved')).toBeVisible()
+
+    // Persistence, not "no error toast": read the row back.
+    const saved = await readAgent(page.request, agent.id)
+    expect(saved.name).toBe(newName)
+    expect(saved.instructions).toBe(agent.instructions)
+
+    // ...and the form re-hydrates from the DB on a hard reload.
+    await page.reload()
+    await expect(
+      page.getByPlaceholder(NAME_PLACEHOLDER, { exact: true }),
+    ).toHaveValue(newName)
+
+    // The list page reads /api/agents; the renamed agent is the newest row in
+    // the tenant, so it is on page 1 of the 9-per-page grid.
+    await page.goto('/agents')
+    // The renamed agent appears twice by design — once as a grid card and once
+    // in the sidebar list — so this must not be a strict single-element match.
+    await expect(page.getByText(newName, { exact: true }).first()).toBeVisible()
+    // The old name must be gone from *both* places.
+    await expect(page.getByText(agent.name, { exact: true })).toHaveCount(0)
   })
 
-  test('can update agent instructions', async ({ page }) => {
-    await page.goto(`/agents/${agentId}?tab=configure`)
+  test('updating instructions persists to the API and survives a reload', async ({
+    page,
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Instructions')
+    const newInstructions = `Updated E2E instructions ${Date.now()}: be concise and helpful.`
 
-    // Instructions textarea has placeholder "Explain how the agent should behave..."
-    // rows=6 is unique to the instructions field in the setup tab
-    const instructionsField = page.locator('textarea[rows="6"]').first()
-    await expect(instructionsField).toBeVisible({ timeout: 10_000 })
-
-    // Use fill() — Playwright's fill dispatches input+change events for React controlled textareas
-    await instructionsField.fill('Updated E2E instructions: Be concise and helpful.')
-
-    // "Save Changes" button becomes enabled once hasChanges is true
-    const saveBtn = page.getByRole('button', { name: /save changes/i })
-    await expect(saveBtn).toBeEnabled({ timeout: 5_000 })
-    await saveBtn.click()
-
-    await expect(page.locator('[role="status"]').first()).toBeVisible({ timeout: 10_000 })
-  })
-
-  test('agent API returns the agent data', async ({ request }) => {
-    const res = await request.get(`/api/agents/${agentId}`)
-    expect(res.ok()).toBeTruthy()
-    const { agent } = await res.json()
-    expect(agent.id).toBe(agentId)
-    expect(agent.name).toBeTruthy()
-  })
-
-  test('can delete agent via API', async ({ request }) => {
-    // Create a throwaway agent to delete
-    const tenantRes = await request.get('/api/user/active-tenant')
-    const { tenant_id: tenantId } = await tenantRes.json()
-
-    const createRes = await request.post('/api/agents', {
-      data: { name: 'E2E Delete Me', instructions: 'To be deleted.', tenantId },
+    await page.goto(`/agents/${agent.id}?tab=configure`)
+    const instructionsField = page.getByPlaceholder(INSTRUCTIONS_PLACEHOLDER, {
+      exact: true,
     })
-    const _dr = await createRes.json(); const deleteId = _dr.agent?.id ?? _dr.id
+    await expect(instructionsField).toHaveValue(agent.instructions)
+    await instructionsField.fill(newInstructions)
 
-    const delRes = await request.delete(`/api/agents/${deleteId}`)
-    expect([200, 204]).toContain(delRes.status())
+    const saveBtn = page.getByRole('button', { name: /save changes/i })
+    await expect(saveBtn).toBeEnabled()
 
-    // Verify it's gone
-    const getRes = await request.get(`/api/agents/${deleteId}`, { failOnStatusCode: false })
+    const [patchRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/agents/${agent.id}`) &&
+          r.request().method() === 'PATCH',
+      ),
+      saveBtn.click(),
+    ])
+    expect(patchRes.status()).toBe(200)
+    await expect(page.getByText('Changes saved')).toBeVisible()
+
+    const saved = await readAgent(page.request, agent.id)
+    expect(saved.instructions).toBe(newInstructions)
+    expect(saved.name).toBe(agent.name)
+
+    await page.reload()
+    await expect(
+      page.getByPlaceholder(INSTRUCTIONS_PLACEHOLDER, { exact: true }),
+    ).toHaveValue(newInstructions)
+  })
+
+  test('GET /api/agents/[id] returns the owner’s full record', async ({
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Read')
+
+    const res = await request.get(`/api/agents/${agent.id}`, {
+      failOnStatusCode: false,
+    })
+    expect(res.status()).toBe(200)
+    const { agent: body } = await res.json()
+
+    expect(body.id).toBe(agent.id)
+    expect(body.name).toBe(agent.name)
+    expect(body.instructions).toBe(agent.instructions)
+    expect(body.agentUrl).toBe(agent.agentUrl)
+    expect(body.tenantSlug).toBe(agent.tenantSlug)
+    // Slug is derived from the name by slugify() (packages/utils/src/general.ts:14).
+    expect(body.agentUrl).toMatch(/^e2e-read-\d+/)
+    // Schema defaults applied at insert time (packages/agents/src/schema.ts:174-205).
+    expect(body.mode).toBe('provider')
+    expect(body.allowAnonymous).toBe(true)
+    expect(body.quickSuggestionsMode).toBe('smart')
+    expect(body.quickSuggestionsCount).toBe(4)
+    expect(body.llmConfigId).toBeNull()
+    expect(body.handoffTargets).toEqual([])
+    expect(body.tenantId).toBeTruthy()
+  })
+})
+
+test.describe('Agent Settings — invalid input', () => {
+  // packages/agents/src/schema.ts:175 — name is z.string().min(2).max(120), and
+  // patchAgentSchema is upsertAgentSchema.partial() (:207).
+  const INVALID_NAMES = ['', 'a', 'x'.repeat(121)]
+
+  test('PATCH refuses a schema-invalid name and leaves the row untouched', async ({
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Invalid Name')
+
+    for (const badName of INVALID_NAMES) {
+      const res = await request.patch(`/api/agents/${agent.id}`, {
+        data: { name: badName },
+        failOnStatusCode: false,
+      })
+
+      // KNOWN APP BUG, asserted as-is so this test stays honest: the handler
+      // calls patchAgentSchema.parse(body) bare (app/api/agents/[id]/route.ts:56),
+      // so the ZodError escapes and Next reports 500. POST /api/agents was
+      // already converted to safeParse → 400; PATCH was not. When PATCH is
+      // fixed the expected status below becomes 400.
+      expect(
+        res.status(),
+        `PATCH with name=${JSON.stringify(badName)} must be rejected`,
+      ).toBe(500)
+    }
+
+    // The important invariant, independent of the status code: nothing landed.
+    const after = await readAgent(request, agent.id)
+    expect(after.name).toBe(agent.name)
+    expect(after.instructions).toBe(agent.instructions)
+  })
+
+  test('clearing the name in the Setup form does not persist an empty name', async ({
+    page,
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Empty Name UI')
+
+    await page.goto(`/agents/${agent.id}?tab=configure`)
+    const nameInput = page.getByPlaceholder(NAME_PLACEHOLDER, { exact: true })
+    await expect(nameInput).toHaveValue(agent.name)
+    await nameInput.clear()
+
+    const saveBtn = page.getByRole('button', { name: /save changes/i })
+    await expect(saveBtn).toBeEnabled()
+
+    const [patchRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/agents/${agent.id}`) &&
+          r.request().method() === 'PATCH',
+      ),
+      saveBtn.click(),
+    ])
+    // Same known bug as above — the save is refused, currently as a 500.
+    expect(patchRes.status()).toBe(500)
+
+    // A toast appears (use-agent-form.ts:212 renders toast.error on failure)...
+    await expect(page.locator('[role="status"]').first()).toBeVisible()
+    // ...and it must NOT be the success one. Both carry role="status", which is
+    // why asserting the role alone proves nothing.
+    await expect(page.getByText('Changes saved')).toHaveCount(0)
+
+    const after = await readAgent(page.request, agent.id)
+    expect(after.name).toBe(agent.name)
+  })
+})
+
+test.describe('Agent Settings — deletion', () => {
+  test('the Share tab delete flow confirms, redirects and removes the agent', async ({
+    page,
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Delete UI')
+
+    await page.goto(`/agents/${agent.id}?tab=share`)
+    await expect(page.getByRole('tab', { name: /^share$/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    // agent-share-tab.tsx:87-92 — only the Share tab renders the danger zone.
+    await expect(page.getByText('Danger Zone')).toBeVisible()
+
+    // Only the AlertDialogTrigger exists at this point; the confirm button with
+    // the same label is mounted by the portal once the dialog opens.
+    await page.getByRole('button', { name: 'Delete Agent' }).click()
+
+    const dialog = page.getByRole('alertdialog')
+    await expect(
+      dialog.getByText('Are you absolutely sure?'),
+    ).toBeVisible()
+    // The dialog must name the agent it is about to destroy.
+    await expect(dialog).toContainText(agent.name)
+
+    const [delRes] = await Promise.all([
+      page.waitForResponse(
+        r =>
+          r.url().includes(`/api/agents/${agent.id}`) &&
+          r.request().method() === 'DELETE',
+      ),
+      dialog.getByRole('button', { name: 'Delete Agent' }).click(),
+    ])
+    expect(delRes.status()).toBe(204)
+
+    await expect(page.getByText('Agent deleted')).toBeVisible()
+
+    // use-agent-form.ts:227 pushes '/', which redirects on to /agents or
+    // /agents/create-chat depending on how many agents remain — assert only
+    // that we left the (now deleted) agent's page.
+    await page.waitForURL(url => !url.pathname.includes(agent.id), {
+      timeout: 30_000,
+    })
+
+    const gone = await page.request.get(`/api/agents/${agent.id}`, {
+      failOnStatusCode: false,
+    })
+    expect(gone.status()).toBe(404)
+  })
+
+  test('DELETE /api/agents/[id] returns 204 and the agent is gone', async ({
+    request,
+  }) => {
+    const agent = await createAgent(request, 'Delete API')
+
+    const delRes = await request.delete(`/api/agents/${agent.id}`, {
+      failOnStatusCode: false,
+    })
+    // app/api/agents/[id]/route.ts:240 — the handler can only ever return 204.
+    expect(delRes.status()).toBe(204)
+    expect(await delRes.text()).toBe('')
+
+    const getRes = await request.get(`/api/agents/${agent.id}`, {
+      failOnStatusCode: false,
+    })
     expect(getRes.status()).toBe(404)
+
+    // A second delete is a 404, not a silent success.
+    const again = await request.delete(`/api/agents/${agent.id}`, {
+      failOnStatusCode: false,
+    })
+    expect(again.status()).toBe(404)
   })
 })
