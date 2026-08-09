@@ -6,7 +6,13 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import postgres from 'postgres'
 import { request, type FullConfig } from '@playwright/test'
-import { BASE_URL, E2E_USER, STORAGE_STATE } from '../constants.ts'
+import {
+  BASE_URL,
+  E2E_OUTSIDER,
+  E2E_USER,
+  OUTSIDER_STATE,
+  STORAGE_STATE,
+} from '../constants.ts'
 
 // Override: local Postgres lives on 5434
 const MIGRATE_URL =
@@ -95,6 +101,43 @@ export default async function localGlobalSetup(_config: FullConfig) {
     console.log(`[local-setup] authenticated as ${E2E_USER.email} → ${STORAGE_STATE}`)
   } finally {
     await ctx.dispose()
+  }
+
+  // ── Outsider user (tenant-isolation fixture) ───────────────────────────────
+  // Signing up provisions its own personal tenant via the on-user-create hook,
+  // so this account is a member of nothing the E2E_USER owns.
+  const outsiderCtx = await request.newContext({ baseURL: LOCAL_BASE_URL })
+  try {
+    const signUp = await outsiderCtx.post('/api/auth/sign-up/email', {
+      data: {
+        email: E2E_OUTSIDER.email,
+        password: E2E_OUTSIDER.password,
+        name: E2E_OUTSIDER.name,
+      },
+      failOnStatusCode: false,
+    })
+    if (![200, 201, 400, 409, 422].includes(signUp.status())) {
+      throw new Error(
+        `outsider sign-up returned unexpected status ${signUp.status()}: ${await signUp.text()}`,
+      )
+    }
+    await markEmailVerified(E2E_OUTSIDER.email)
+
+    const signIn = await outsiderCtx.post('/api/auth/sign-in/email', {
+      data: { email: E2E_OUTSIDER.email, password: E2E_OUTSIDER.password },
+      failOnStatusCode: false,
+    })
+    if (![200, 201].includes(signIn.status())) {
+      throw new Error(
+        `outsider sign-in failed (${signIn.status()}): ${await signIn.text()}`,
+      )
+    }
+
+    mkdirSync(dirname(OUTSIDER_STATE), { recursive: true })
+    await outsiderCtx.storageState({ path: OUTSIDER_STATE })
+    console.log(`[local-setup] authenticated as ${E2E_OUTSIDER.email} → ${OUTSIDER_STATE}`)
+  } finally {
+    await outsiderCtx.dispose()
   }
 
   // ── Superadmin user ────────────────────────────────────────────────────────

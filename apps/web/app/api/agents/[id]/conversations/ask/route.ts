@@ -64,7 +64,9 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const payload = agentAskRequestSchema.parse({
+  // A bare .parse() here threw a ZodError straight out of the handler, which
+  // Next surfaces as a 500 — invalid client input is a 400.
+  const parsed = agentAskRequestSchema.safeParse({
     question:
       typeof json?.question === 'string'
         ? (json.question as string)
@@ -72,6 +74,13 @@ export async function POST(
     contextConversationId: json?.contextConversationId as string | undefined,
     sessionId: json?.sessionId as string | undefined
   })
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', issues: parsed.error.issues },
+      { status: 400 }
+    )
+  }
+  const payload = parsed.data
 
   const askConversation = await ensureConversation({
     tenantId: agent.tenantId,

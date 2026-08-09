@@ -137,6 +137,11 @@ export async function PATCH(
     set.googleReviewEnabled = payload.googleReviewEnabled
   if (payload.googlePlaceId !== undefined)
     set.googlePlaceId = payload.googlePlaceId
+  // llmConfigId is in patchAgentSchema and is sent by the Setup tab
+  // (lib/hooks/use-agent-form.ts), but was never written here — the per-agent
+  // provider override reported "Changes saved" and silently did nothing.
+  // Nullable on purpose: null clears the override back to workspace routing.
+  if (payload.llmConfigId !== undefined) set.llmConfigId = payload.llmConfigId
   if (payload.retrievalStrategy !== undefined)
     set.retrievalStrategy = payload.retrievalStrategy
   if (payload.notificationConfig !== undefined)
