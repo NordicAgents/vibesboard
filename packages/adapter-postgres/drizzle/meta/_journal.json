@@ -162,6 +162,13 @@
       "when": 1786183391508,
       "tag": "0022_cultured_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786284904192,
+      "tag": "0023_lucky_shatterstar",
+      "breakpoints": true
     }
   ]
 }

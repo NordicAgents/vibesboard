@@ -611,6 +611,20 @@ export default function LlmProvidersPage() {
                         </li>
                         <li>
                           <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'baai/bge-m3' }))}>
+                            baai/bge-m3
+                          </button>
+                          {' '}— 1024-dim · NVIDIA free tier · multilingual · base URL: https://integrate.api.nvidia.com/v1
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'snowflake/arctic-embed-l-v2.0' }))}>
+                            snowflake/arctic-embed-l-v2.0
+                          </button>
+                          {' '}— 1024-dim · NVIDIA free tier · English · base URL: https://integrate.api.nvidia.com/v1
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
                             onClick={() => setForm(f => ({ ...f, modelId: 'nomic-embed-text' }))}>
                             nomic-embed-text
                           </button>

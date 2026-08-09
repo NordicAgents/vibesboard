@@ -97,7 +97,37 @@ export const embeddings384 = pgTable(
   }),
 )
 
+// ─── 1024-dim embeddings (bge-m3 / NVIDIA free-tier models) ──────────────────
+// Used by baai/bge-m3, snowflake/arctic-embed-l-v2.0 and similar models
+// available on NVIDIA's free API catalog (integrate.api.nvidia.com).
+// Separate table because pgvector requires a fixed dimension per column.
+
+export const embeddings1024 = pgTable(
+  'embeddings_1024',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    sourceType: text('source_type', {
+      enum: ['file_chunk', 'conversation_chunk'],
+    }).notNull(),
+    sourceId: uuid('source_id').notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    content: text('content').notNull(),
+    contentTsv: tsvector('content_tsv'),
+    embedding: vector('embedding', { dimensions: 1024 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byTenantSource: index('embeddings_1024_tenant_src_idx').on(t.tenantId, t.sourceType, t.sourceId),
+    hnsw: index('embeddings_1024_hnsw_idx').using('hnsw', t.embedding.op('vector_cosine_ops')),
+    tsvIdx: index('embeddings_1024_tsv_idx').using('gin', sql`${t.contentTsv}`),
+  }),
+)
+
 export type Embedding = typeof embeddings.$inferSelect
 export type NewEmbedding = typeof embeddings.$inferInsert
 export type Embedding1536 = typeof embeddings1536.$inferSelect
 export type Embedding384 = typeof embeddings384.$inferSelect
+export type Embedding1024 = typeof embeddings1024.$inferSelect
