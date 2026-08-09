@@ -167,27 +167,58 @@ test.describe('LLM Providers Settings', () => {
     await expect(page.getByRole('heading', { name: 'E2E Test Provider' }).first()).toBeVisible({ timeout: 10_000 })
   })
 
-  test('task routing table appears when a provider is configured', async ({ page }) => {
-    await page.goto('/settings/tenant/llm-providers')
-    // If any provider exists, the routing table should be visible
-    const hasProviders = await page.locator('[data-testid="provider-card"], .provider-item').count() > 0
-      || await page.getByText(/task routing/i).isVisible().catch(() => false)
+  test('task routing table appears when a provider is configured', async ({ page, request }) => {
+    // Guarantee the precondition instead of detecting it. The old version
+    // probed for `[data-testid="provider-card"]` / `.provider-item` — neither
+    // selector exists in the app — and then read "task routing" synchronously,
+    // before the client-side fetch had populated `configs`. Both signals were
+    // therefore false and the test silently `test.skip()`ed on every run.
+    const list = await request.get('/api/tenants/llm-configs')
+    expect(list.ok()).toBeTruthy()
+    const { configs } = await list.json()
+    if ((configs ?? []).length === 0) {
+      const created = await request.post('/api/tenants/llm-configs', {
+        data: {
+          label: 'E2E Routing Precondition',
+          kind: 'openai_compatible',
+          modelId: 'routing-precondition-model',
+          apiKey: 'sk-routing-precondition',
+          baseUrl: 'https://api.openai.com/v1',
+        },
+        failOnStatusCode: false,
+      })
+      expect(created.status()).toBe(201)
+    }
 
-    if (hasProviders) {
-      await expect(page.getByText(/task routing/i)).toBeVisible()
-      await expect(page.getByText(/embeddings/i)).toBeVisible()
-    } else {
-      test.skip()
+    await page.goto('/settings/tenant/llm-providers')
+    // The matrix renders only once `configs` has loaded (configs.length > 0
+    // && !isFormOpen), so wait for it rather than sampling immediately.
+    await expect(
+      page.getByRole('heading', { name: 'Task Routing' })
+    ).toBeVisible({ timeout: 15_000 })
+    // Every task row from TASK_LABELS must be present. Each cell's accessible
+    // name is "<label><description>", so anchor the match at the start.
+    const routingTable = page.locator('table', {
+      has: page.getByRole('columnheader', { name: 'Task' }),
+    })
+    for (const label of ['Chat', 'Embeddings', 'Agent Builder', 'Default']) {
+      await expect(
+        routingTable.getByRole('cell', { name: new RegExp(`^${label}`) })
+      ).toBeVisible()
     }
   })
 
   test('can delete a provider', async ({ page }) => {
+    // A unique label per run, so the assertions below are about THIS provider
+    // and cannot be satisfied by a leftover from an earlier run.
+    const label = `E2E Delete Me ${Date.now()}`
+
     await page.goto('/settings/tenant/llm-providers')
 
     // Add a provider to delete
     await page.getByRole('button', { name: /add provider/i }).click()
     const labelInput = page.locator('input').first()
-    await labelInput.fill('E2E Delete Me Provider')
+    await labelInput.fill(label)
 
     const kindSelect = page.locator('select').first()
     await kindSelect.selectOption('openai_compatible')
@@ -199,26 +230,26 @@ test.describe('LLM Providers Settings', () => {
     await page.locator('input[placeholder*="groq" i], input[placeholder*="https://api" i]').first().fill('https://api.openai.com/v1')
 
     await page.getByRole('button', { name: /save provider/i }).click()
-    // Multiple runs accumulate providers — just assert at least one exists
-    await expect(page.getByRole('heading', { name: 'E2E Delete Me Provider' }).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: label })).toBeVisible({ timeout: 10_000 })
 
-    // Find the FIRST card with this heading and click its delete button
-    // The delete button has no text — only a Trash2 icon. Target by destructive color class.
-    const card = page.locator('div').filter({ has: page.getByRole('heading', { name: 'E2E Delete Me Provider' }) }).first()
-    const deleteBtn = card.locator('button.text-destructive')
+    // Each row's delete button is icon-only but carries an accessible name
+    // ("Delete <label>"), so this targets exactly the provider under test.
+    // The previous version scoped with page.locator('div').filter({has: …})
+    // .first(), which resolves to the OUTERMOST matching ancestor — every
+    // card's delete button was in scope and `.first()` deleted the OLDEST
+    // provider instead.
+    await page.getByRole('button', { name: `Delete ${label}` }).click()
 
-    await deleteBtn.first().click()
+    // The provider must actually be gone from the list (the old assertion —
+    // "no error toast" — passed even when the wrong row was deleted).
+    await expect(page.getByRole('heading', { name: label })).toHaveCount(0, {
+      timeout: 10_000,
+    })
 
-    // Confirm if a dialog appears
-    const confirmBtn = page.getByRole('button', { name: /confirm|yes|delete/i })
-    if (await confirmBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await confirmBtn.click()
-    }
-
-    // Wait for deletion — there may still be other copies, just verify deletion occurred
-    await page.waitForTimeout(1_000)
-    // The page should have one fewer instance after deletion (don't assert not-visible since there may be duplicates)
-    // Just verify no error toast appeared
-    await expect(page.getByRole('alert').filter({ hasText: /error|fail/i })).not.toBeVisible({ timeout: 3_000 })
+    // …and gone from the server, not just the client-side list.
+    const after = await page.request.get('/api/tenants/llm-configs')
+    expect(after.ok()).toBeTruthy()
+    const { configs } = await after.json()
+    expect((configs ?? []).some((c: { label: string }) => c.label === label)).toBe(false)
   })
 })

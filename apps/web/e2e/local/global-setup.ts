@@ -51,6 +51,16 @@ async function cleanupE2EWorkspaces(sql: ReturnType<typeof postgres>) {
 }
 
 /**
+ * The LLM-provider specs create configs on the *personal* tenant, which
+ * cleanupE2EWorkspaces deliberately never deletes. Without this, rows pile up
+ * run after run and later assertions can be satisfied by a leftover from an
+ * earlier run instead of the provider the test just created.
+ */
+async function cleanupE2ELlmConfigs(sql: ReturnType<typeof postgres>) {
+  await sql`DELETE FROM tenant_llm_configs WHERE label LIKE 'E2E %'`
+}
+
+/**
  * Promote the superadmin account. This runs AFTER the better-auth sign-up so
  * the user is created through the normal flow — inserting the users row
  * directly would leave it without a credential account (breaking sign-in) and
@@ -91,6 +101,7 @@ export default async function localGlobalSetup(_config: FullConfig) {
   const sql = postgres(MIGRATE_URL, { max: 1, prepare: false })
   try {
     await cleanupE2EWorkspaces(sql)
+    await cleanupE2ELlmConfigs(sql)
   } finally {
     await sql.end({ timeout: 1 })
   }

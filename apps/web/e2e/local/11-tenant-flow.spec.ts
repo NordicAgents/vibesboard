@@ -62,15 +62,33 @@ test.describe('Tenant — Workspace Creation', () => {
 
   test('workspace switcher shows the new team', async ({ page }) => {
     await page.goto('/agents')
-    // Click the workspace selector
-    const switcher = page.getByRole('combobox', { name: /workspace|switch/i }).first()
+    // Target the sidebar workspace switcher by testid. A name-based query is
+    // ambiguous here: the sidebar footer renders a second TenantSwitcher (the
+    // account menu), and it streams in before the sidebar one, so `.first()`
+    // used to open the account menu and never show any workspace.
+    const switcher = page.getByTestId('workspace-switcher')
     await expect(switcher).toBeVisible({ timeout: 10_000 })
     await switcher.click()
-    // Should show the new team workspace
+    // Should show the new team workspace, under the "Teams" section.
+    await expect(page.getByRole('menu')).toBeVisible()
     await expect(
-      page.getByText('E2E Team Workspace').or(page.getByText(/e2e-team/i)).first()
+      page.getByRole('menuitem', { name: /E2E Team Workspace/ }).first()
     ).toBeVisible({ timeout: 5_000 })
     await page.keyboard.press('Escape')
+  })
+
+  test('the sidebar-footer account menu is not labelled as a workspace switcher', async ({
+    page,
+  }) => {
+    await page.goto('/agents')
+    // Regression guard for the ambiguity fixed above: exactly one control on
+    // the page may claim the "Switch active workspace" accessible name.
+    await expect(page.getByTestId('account-menu-trigger')).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(
+      page.getByRole('combobox', { name: 'Switch active workspace' })
+    ).toHaveCount(1)
   })
 })
 
