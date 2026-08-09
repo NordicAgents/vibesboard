@@ -250,15 +250,30 @@ test('mock OpenAI server serves the deterministic stub contract', async ({
   expect(embeddingsBody.data?.[0]?.embedding).toHaveLength(1536)
 })
 
+test('the app under test is bound to the mock model, not a real provider', async ({
+  request
+}) => {
+  // The assertion that actually protects this suite. Everything else here
+  // could pass against a hand-started dev server holding a REAL OPENAI_BASE_URL
+  // and API key — reuseExistingServer adopts whatever is on :3100 — and the
+  // bill would be the only signal.
+  //
+  // /api/smoke is the one unauthenticated route that invokes the model, so a
+  // 200 carrying the mock's canned sentence proves the *server process*, not
+  // the test runner, reached e2e/mock-openai.mjs.
+  const res = await request.get('/api/smoke?mode=file')
+  expect(res.status(), await res.text()).toBe(200)
+  expect(await res.text()).toContain(STUB_REPLY)
+})
+
 test('the browser fixture and e2e/constants.ts agree on the app origin', async ({
   baseURL,
   page
 }) => {
-  // playwright.local.config.ts hard-codes its own APP_PORT/baseURL and never
-  // imports e2e/constants.ts, so the two can drift: the browser specs would
-  // navigate to one server while the API-level specs (which build URLs from
-  // BASE_URL) talk to another. Compare the config's effective baseURL — not the
-  // env var BASE_URL is derived from — so that drift actually fails.
+  // playwright.local.config.ts now imports APP_PORT/BASE_URL from
+  // e2e/constants.ts, so this is a structural guarantee rather than a real
+  // risk; it stays as a cheap guard against someone re-introducing a local
+  // copy of the port. The navigation check below is the part with teeth.
   expect(baseURL).toBe(BASE_URL)
 
   // And relative navigation really resolves against it.

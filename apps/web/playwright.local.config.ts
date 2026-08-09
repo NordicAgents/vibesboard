@@ -3,18 +3,29 @@
  *
  * Uses port 3100 for the test server (separate from the manual dev server on
  * 3001) and the mock OpenAI server on 4010 for deterministic, free responses.
- * Postgres lives on 5434 (5432/5433 occupied by SSH tunnels on this machine).
+ *
+ * Postgres and S3 are env-driven: DATABASE_URL / DATABASE_MIGRATE_URL /
+ * S3_ENDPOINT override the defaults below, so this runs against either the
+ * docker-compose stack (Postgres on 5434) or a native install. See
+ * docs/local-e2e.md.
  *
  * Run: bun run test:e2e:local
  */
 import { defineConfig, devices } from '@playwright/test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { STORAGE_STATE } from './e2e/constants.ts'
+import {
+  APP_PORT,
+  BASE_URL,
+  MOCK_OPENAI_PORT as MOCK_PORT,
+  STORAGE_STATE,
+} from './e2e/constants.ts'
 
-const APP_PORT = 3100
-const MOCK_PORT = 4010
-const BASE_URL = `http://localhost:${APP_PORT}`
+// APP_PORT / BASE_URL / MOCK_PORT come from e2e/constants.ts rather than being
+// re-declared here. They used to be duplicated, so this config and the specs
+// could disagree about which port the suite targets — and 00-smoke's "pointed
+// at the local test server" guard compared constants.ts to itself, making it
+// true by construction and blind to exactly that drift.
 
 // Postgres location. Defaults to 5434 (the docker-compose stack brought up with
 // POSTGRES_HOST_PORT=5434), but both URLs are overridable so the suite can also
@@ -127,14 +138,20 @@ export default defineConfig({
     {
       command: 'node e2e/mock-openai.mjs',
       url: `http://localhost:${MOCK_PORT}/healthz`,
-      reuseExistingServer: true,
+      // In CI nothing should already be listening; adopting a stray server
+      // there would silently test the wrong process. Locally, reuse is what
+      // lets a hand-started dev server be shared across runs.
+      reuseExistingServer: !process.env.CI,
       timeout: 15_000,
       env: { MOCK_OPENAI_PORT: String(MOCK_PORT) },
     },
     {
       command: 'bun run --filter @vibesboard/web dev',
       url: BASE_URL,
-      reuseExistingServer: true,
+      // In CI nothing should already be listening; adopting a stray server
+      // there would silently test the wrong process. Locally, reuse is what
+      // lets a hand-started dev server be shared across runs.
+      reuseExistingServer: !process.env.CI,
       timeout: 180_000,
       cwd: path.resolve(__dirname, '../../'),
       env: appEnv,
