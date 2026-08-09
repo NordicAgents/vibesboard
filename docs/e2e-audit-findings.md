@@ -12,6 +12,29 @@ Every finding below was independently re-verified by a separate agent instructed
 > siblings `files/download-url` and `files/delete` *were* genuinely vulnerable and
 > have been fixed.
 
+## Open: `~~~agentcreated~~~` never reaches the creator chat
+
+Found by making the `create_agent` tool path reachable (the mock now emits a tool
+call when a prompt contains `E2E_TRIGGER_CREATE_AGENT`). **The agent row is
+written, but the HTTP response body is empty**, so the UI is told nothing.
+
+- `app/api/agent-creator/route.ts` ends with `result.toTextStreamResponse()`,
+  which streams text parts only, and sets no `maxSteps`. In AI SDK v4 that means
+  one step: the model emits a tool call, `tool.execute()` runs and inserts the
+  agent, and the string it returns — carrying `~~~agentcreated~~~` and the new
+  id — is a *tool result*, never converted into assistant text.
+- `components/agents/agent-creator-chat.tsx` uses `streamProtocol: 'text'` and
+  parses `~~~agentcreated~~~` out of the finished message in `onFinish`. With an
+  empty stream that regex never matches, so no success screen and no redirect.
+
+Verified: after one triggered request the response body was `""` while
+`select … from agents` showed the new row. Not fixed here — the repair is either
+`maxSteps: 2` (which makes the marker depend on the model echoing a tool result,
+i.e. fragile) or moving to `toDataStreamResponse()` and changing the client's
+stream protocol. Both need validating against a real model, not the stub.
+`e2e/local/01-agent-creation.spec.ts` asserts the persistence half and documents
+the gap inline.
+
 Fixed during the session (listed here for completeness, no action needed):
 - `04-llm-providers` delete test deleted the *oldest* provider and asserted only on a toast role react-hot-toast never renders — rewritten to target its own provider by accessible name and verify removal server-side.
 - `04-llm-providers` task-routing test silently `test.skip()`ed every run — now guarantees its precondition and asserts all four rows.

@@ -87,6 +87,63 @@ function chatCompletionsJson() {
   }
 }
 
+// A request whose conversation contains this phrase makes the mock emit a
+// `create_agent` tool call instead of plain text. Without it, the only code
+// path that persists an agent from the creator chat
+// (app/api/agent-creator/route.ts) is unreachable in E2E: the stub never asks
+// for a tool, so `execute()` never runs. Any other prompt still gets REPLY, so
+// existing specs are unaffected.
+export const TOOL_CALL_TRIGGER = 'E2E_TRIGGER_CREATE_AGENT'
+
+function collectText(body) {
+  const messages = Array.isArray(body?.messages) ? body.messages : []
+  return messages
+    .map((m) =>
+      typeof m?.content === 'string'
+        ? m.content
+        : Array.isArray(m?.content)
+          ? m.content.map((p) => p?.text ?? '').join(' ')
+          : '',
+    )
+    .join('\n')
+}
+
+/** Minimal OpenAI streaming shape for one function/tool call. */
+function writeToolCallSSE(res, name, args) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  })
+  const chunk = (delta, finish = null) =>
+    `data: ${JSON.stringify({
+      id: 'chatcmpl-e2e-tool',
+      object: 'chat.completion.chunk',
+      model: 'gpt-4o',
+      choices: [{ index: 0, delta, finish_reason: finish }],
+    })}\n\n`
+
+  // Name first, then the arguments as a single JSON string delta — the shape
+  // the OpenAI provider assembles tool calls from.
+  res.write(
+    chunk({
+      tool_calls: [
+        { index: 0, id: 'call_e2e_1', type: 'function', function: { name, arguments: '' } },
+      ],
+    }),
+  )
+  res.write(
+    chunk({
+      tool_calls: [
+        { index: 0, function: { arguments: JSON.stringify(args) } },
+      ],
+    }),
+  )
+  res.write(chunk({}, 'tool_calls'))
+  res.write('data: [DONE]\n\n')
+  res.end()
+}
+
 function writeChatSSE(res) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -125,6 +182,23 @@ const server = createServer(async (req, res) => {
   // Chat Completions API (Vercel AI SDK / streamText)
   if (req.method === 'POST' && url.includes('/chat/completions')) {
     const body = await readBody(req)
+
+    // Tool-call path: only when the caller opted in AND the tool is on offer.
+    const wantsToolCall = collectText(body).includes(TOOL_CALL_TRIGGER)
+    const offersCreateAgent = (body?.tools ?? []).some(
+      (t) => t?.function?.name === 'create_agent',
+    )
+    if (wantsToolCall && offersCreateAgent) {
+      writeToolCallSSE(res, 'create_agent', {
+        name: `E2E Tool-Created Agent ${Date.now()}`,
+        instructions:
+          'Created through the agent-creator create_agent tool during E2E.',
+        greetingText: 'Hello from the tool-created agent.',
+        tools: [],
+      })
+      return
+    }
+
     if (body && body.stream === true) {
       writeChatSSE(res)
       return

@@ -257,6 +257,65 @@ test.describe('Agent Creation — creator page', () => {
 })
 
 test.describe('Agent Creation — creator API', () => {
+  test('the create_agent tool actually persists an agent', async ({ request }) => {
+    // The only code path that turns a creator conversation into a real agent.
+    // It was unreachable in E2E until e2e/mock-openai.mjs learned to emit a
+    // tool call: the stub only ever returned prose, so tool.execute() never
+    // ran and the whole branch — slug generation, upsertAgentSchema.parse of
+    // the model's arguments, the insert, the ~~~agentcreated~~~ marker — was
+    // untested. TOOL_CALL_TRIGGER opts this one request into that behaviour.
+    // pagination.total, not agents.length — the list endpoint defaults to
+    // limit=9, so the array caps out and would hide the new row.
+    const before = await request.get('/api/agents')
+    expect(before.ok()).toBeTruthy()
+    const countBefore = (await before.json()).pagination.total
+
+    const res = await request.post('/api/agent-creator', {
+      data: {
+        messages: [
+          { role: 'user', content: 'E2E_TRIGGER_CREATE_AGENT — create it now' },
+        ],
+        fileKeys: [],
+        fileNames: [],
+      },
+      headers: { 'Content-Type': 'application/json' },
+      failOnStatusCode: false,
+    })
+    expect(res.status()).toBe(200)
+
+    // NOTE — the agent is created, but this response body comes back EMPTY, so
+    // the ~~~agentcreated~~~ marker is not asserted here. tool.execute() returns
+    // that marker as a *tool result*, and the route ends with
+    // toTextStreamResponse() (text parts only) without setting maxSteps, so the
+    // SDK never takes a second step to turn the result into assistant text.
+    // components/agents/agent-creator-chat.tsx uses streamProtocol: 'text' and
+    // parses ~~~agentcreated~~~ out of the message in onFinish — so the row is
+    // written while the UI is told nothing. Tracked in docs/e2e-audit-findings.md;
+    // deliberately not "fixed" here, because changing the streaming contract
+    // needs validating against a real model, not the stub.
+    const after = await request.get('/api/agents?page=1&limit=100')
+    expect(after.ok()).toBeTruthy()
+    const afterBody = await after.json()
+    expect(afterBody.pagination.total).toBe(countBefore + 1)
+
+    const created = (afterBody.agents ?? []).find((a: { name: string }) =>
+      a.name.startsWith('E2E Tool-Created Agent'),
+    )
+    expect(created, 'the tool call should have persisted an agent').toBeTruthy()
+
+    try {
+      const read = await request.get(`/api/agents/${created.id}`)
+      expect(read.status()).toBe(200)
+      expect((await read.json()).agent.instructions).toContain(
+        'create_agent tool',
+      )
+    } finally {
+      await request.delete(`/api/agents/${created.id}`, {
+        failOnStatusCode: false,
+      })
+    }
+  })
+
   test('POST /api/agent-creator streams the deterministic model reply', async ({
     request,
   }) => {
