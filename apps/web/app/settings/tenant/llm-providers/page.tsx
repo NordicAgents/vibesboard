@@ -450,7 +450,11 @@ export default function LlmProvidersPage() {
                     <Button variant="ghost" size="sm" onClick={() => handleTest(cfg.id)} disabled={testing === cfg.id}>
                       {testing === cfg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(cfg)}>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => openEdit(cfg)}
+                      aria-label={`Edit ${cfg.label}`}
+                    >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {!cfg.isDefault && (
@@ -465,6 +469,7 @@ export default function LlmProvidersPage() {
                       variant="ghost" size="sm"
                       onClick={() => handleDelete(cfg.id)}
                       disabled={deleting === cfg.id}
+                      aria-label={`Delete ${cfg.label}`}
                       className="text-destructive hover:text-destructive"
                     >
                       {deleting === cfg.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
