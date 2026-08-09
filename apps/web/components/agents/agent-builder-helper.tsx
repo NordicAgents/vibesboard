@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useChat } from 'ai/react'
+import { useCompatChat } from '@/lib/hooks/use-compat-chat'
 import type { Message } from '@vibesboard/contracts'
 import { nanoid } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ export function AgentBuilderHelper({
   onUseSuggestion
 }: AgentBuilderHelperProps) {
   const [error, setError] = useState<string | null>(null)
-  const { messages, input, setInput, append, isLoading } = useChat({
+  const { messages, input, setInput, append, isLoading } = useCompatChat({
     api: '/api/agent-helper',
     id: 'agent-builder-helper',
     streamProtocol: 'text',
@@ -45,7 +45,7 @@ export function AgentBuilderHelper({
             Describe what your agent should do and get a draft prompt back.
           </p>
         )}
-        {messages.map((message: Message) => (
+        {(messages as Message[]).map((message: Message) => (
           <div
             key={message.id}
             className="space-y-2 rounded-2xl border border-black-10 bg-purewhite-bg p-4 shadow-sm"

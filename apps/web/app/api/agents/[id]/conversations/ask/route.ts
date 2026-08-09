@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { streamText as aiStreamText } from 'ai'
+import { streamText as aiStreamText, createTextStreamResponse } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
 import { requireAuth } from '@/lib/auth/route-handler'
@@ -20,7 +20,7 @@ import {
 } from '@vibesboard/adapter-openai'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
-import { resolveProviderSpec, resolveEmbedder } from '@vibesboard/ai/tenant-llm-config'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 import { contextWindowForModel } from '@vibesboard/agents/auto-summarize'
 
@@ -89,18 +89,12 @@ export async function POST(
   }
   const pendingMessages = [...existingMessages, userMessage]
 
-  // Use the tenant's configured embedding provider rather than the hardcoded
-  // platform key — falls back to platform OPENAI_API_KEY when not configured.
-  const tenantEmbed = await resolveEmbedder(agent.tenantId).catch(() => null)
-  const { context } = await buildAskAiConversationContext(
-    {
-      tenantId: agent.tenantId,
-      agentId: agent.id,
-      question: payload.question,
-      contextConversationId: payload.contextConversationId
-    },
-    tenantEmbed ? { embed: tenantEmbed } : undefined,
-  )
+  const { context } = await buildAskAiConversationContext({
+    tenantId: agent.tenantId,
+    agentId: agent.id,
+    question: payload.question,
+    contextConversationId: payload.contextConversationId
+  })
 
   const systemPrompt = `You help the editor of agent "${agent.name}" analyze visitor conversations.
 Use only the supplied conversation snippets; do not invent details that are not present.
@@ -187,11 +181,11 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     })
   }
 
+  // ai@7.x: system messages must go in `system` (not in `messages` array)
   const chatMessages: Array<{
-    role: 'system' | 'user' | 'assistant'
+    role: 'user' | 'assistant'
     content: string
   }> = [
-    { role: 'system', content: systemPrompt },
     ...existingMessages.map(m => ({
       role: m.role as 'user' | 'assistant',
       content: m.content
@@ -204,20 +198,21 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     : createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '', baseURL: OPENAI_BASE_URL })(model)
   const result = await aiStreamText({
     model: languageModel,
+    system: systemPrompt,
     messages: chatMessages,
     temperature: 0.2,
     async onFinish({ text, usage }) {
       await saveAndRecord(text, {
-        inputTokens: usage?.promptTokens,
-        outputTokens: usage?.completionTokens
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens
       })
     }
   })
 
-  return new Response(result.textStream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'x-session-id': askConversation.id
-    }
+  // createTextStreamResponse takes AsyncIterable<string> — this interface is not locked
+  // by the SDK's internal subscriptions (unlike ReadableStream which is locked via getReader)
+  return createTextStreamResponse({
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'x-session-id': askConversation.id },
+    stream: result.textStream,
   })
 }

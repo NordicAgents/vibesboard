@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText, tool } from 'ai'
+import { streamText as aiStreamText, tool, createTextStreamResponse } from 'ai'
 import { z } from 'zod'
 
 import { uuidv7 } from 'uuidv7'
@@ -18,7 +18,7 @@ import {
   upsertAgentSchema
 } from '@vibesboard/agents/schema'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { OPENAI_CHAT_MODEL, OPENAI_BASE_URL, isResponsesModel } from '@vibesboard/adapter-openai'
+import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
@@ -253,10 +253,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     }
   }
 
-  const initialMessages = [
-    { role: 'system', content: systemPrompt + fileInfoBlock },
-    ...messageList
-  ]
+  // ai@7.x: system messages must go in `system`, not in `messages`
+  const initialMessages = messageList
 
   // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
   // previewToken skips BYO-LLM (same behaviour as agent runtime).
@@ -277,7 +275,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
     const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
     const model = isResponsesModel(preferredModel) ? DEFAULT_AGENT_CREATOR_MODEL : preferredModel
-    languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })(model)
+    languageModel = createOpenAI({ apiKey })(model)
   }
 
   const createAgentArgsSchema = z.object({
@@ -304,13 +302,14 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
   const result = await aiStreamText({
     model: languageModel,
+    system: systemPrompt + fileInfoBlock,
     messages: initialMessages as any,
     temperature: 0.2,
     tools: {
       create_agent: tool({
         description:
           'Creates the agent with all collected fields when user confirms.',
-        parameters: createAgentArgsSchema,
+        inputSchema: createAgentArgsSchema,
         async execute(args) {
           const effectiveFileKeys = (
             args.fileKeys?.length ? args.fileKeys : fileKeys
@@ -435,5 +434,5 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     }
   })
 
-  return result.toTextStreamResponse()
+  return createTextStreamResponse({ stream: result.textStream })
 }

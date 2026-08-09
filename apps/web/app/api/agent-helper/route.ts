@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText } from 'ai'
+import { streamText as aiStreamText, createTextStreamResponse } from 'ai'
 
 import { auth } from '@/auth'
 import { OPENAI_BASE_URL } from '@vibesboard/adapter-openai'
@@ -76,10 +76,10 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
   if (tenantSpec) {
     const result = await aiStreamText({
       model: buildProviderModel(tenantSpec),
-      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+      system: systemPrompt, messages: messages,
       temperature: 0.3
     })
-    return result.toTextStreamResponse()
+    return createTextStreamResponse({ stream: result.textStream })
   }
 
   if (!apiKey) {
@@ -100,8 +100,8 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
   const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
   const result = await aiStreamText({
     model: openaiClient(model),
-    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    system: systemPrompt, messages: messages,
     temperature: 0.3
   })
-  return result.toTextStreamResponse()
+  return createTextStreamResponse({ stream: result.textStream })
 }

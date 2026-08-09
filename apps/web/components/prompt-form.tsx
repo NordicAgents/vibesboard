@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Textarea from 'react-textarea-autosize'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { UseChatHelpers } from 'ai/react'
 
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { cn } from '@vibesboard/utils'
@@ -19,10 +18,10 @@ export interface AttachedFile {
   error?: string
 }
 
-export interface PromptProps extends Pick<
-  UseChatHelpers,
-  'input' | 'setInput'
-> {
+export interface PromptProps {
+  input: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setInput: (value: any) => void
   onSubmit: (value: string) => Promise<void>
   isLoading: boolean
   placeholder?: string

@@ -54,17 +54,24 @@ function writeSSE(res) {
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
   })
-  // Minimal Responses-API streaming sequence.
+  // Minimal Responses-API streaming sequence for @ai-sdk/openai@4.x.
+  // The output_text.delta schema requires item_id (non-optional).
+  // The completed event response requires input_tokens + output_tokens.
   res.write(
     `event: response.output_text.delta\ndata: ${JSON.stringify({
       type: 'response.output_text.delta',
+      item_id: 'item_e2e_001',
+      output_index: 0,
       delta: REPLY,
     })}\n\n`,
   )
   res.write(
     `event: response.completed\ndata: ${JSON.stringify({
       type: 'response.completed',
-      response: responsesJson(),
+      response: {
+        ...responsesJson(),
+        usage: { input_tokens: 12, output_tokens: 8 },
+      },
     })}\n\n`,
   )
   res.write('data: [DONE]\n\n')
@@ -93,7 +100,9 @@ function writeChatSSE(res) {
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
   })
-  // Vercel AI SDK / OpenAI streaming chat.completion.chunk format
+  // Vercel AI SDK / @ai-sdk/openai@4.x streaming chat.completion.chunk format.
+  // @ai-sdk/openai@4.x sends stream_options.include_usage=true in the request
+  // and expects a final usage chunk before [DONE].
   res.write(
     `data: ${JSON.stringify({
       id: 'chatcmpl-e2e-stub',
@@ -108,6 +117,16 @@ function writeChatSSE(res) {
       object: 'chat.completion.chunk',
       model: 'gpt-4o',
       choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+    })}\n\n`,
+  )
+  // Usage chunk required by stream_options.include_usage=true (@ai-sdk/openai@4.x)
+  res.write(
+    `data: ${JSON.stringify({
+      id: 'chatcmpl-e2e-stub',
+      object: 'chat.completion.chunk',
+      model: 'gpt-4o',
+      choices: [],
+      usage: { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20 },
     })}\n\n`,
   )
   res.write('data: [DONE]\n\n')

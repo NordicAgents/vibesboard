@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useChat } from 'ai/react'
+import { useCompatChat } from '@/lib/hooks/use-compat-chat'
 import { useRouter } from 'next/navigation'
 import { ChatList } from '@/components/chat-list'
 import { PromptForm, type AttachedFile } from '@/components/prompt-form'
@@ -61,7 +61,7 @@ export function AgentCreatorChat({
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
-    useChat({
+    useCompatChat({
       id: chatId,
       api: '/api/agent-creator',
       streamProtocol: 'text',
@@ -76,11 +76,13 @@ export function AgentCreatorChat({
           toast.error('Please sign in to create an agent.')
         }
       },
-      onFinish(message) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onFinish(message: any) {
+        // useCompatChat normalizes UIMessage to have content: string
+        const content: string = message?.content ?? ''
+
         // Parse agentupdate blocks from the AI response
         try {
-          const content = message.content
-          // Look for ~~~agentupdate blocks
           const agentUpdateRegex = /~~~agentupdate\s*\n([\s\S]*?)\n~~~/g
           const matches = content.matchAll(agentUpdateRegex)
 
@@ -136,7 +138,6 @@ export function AgentCreatorChat({
 
         // Detect an agent creation completion marker from the API.
         try {
-          const content = message.content
           const agentCreatedRegex = /~~~agentcreated\s*\n([\s\S]*?)\n~~~/g
           const matches = content.matchAll(agentCreatedRegex)
 
@@ -479,14 +480,15 @@ export function AgentCreatorChat({
               <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto max-w-3xl">
                   <ChatList
-                    messages={messages.map(msg => ({
+                    messages={(messages as any[]).map(msg => ({
                       ...msg,
                       // Remove agentupdate/agentcreated blocks from display
                       content: msg.content
                         .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
                         .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
                         .trim()
-                    }))}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    })) as any}
                   />
                   {isLoading && (
                     <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">

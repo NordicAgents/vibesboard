@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText } from 'ai'
+import { streamText as aiStreamText, stepCountIs } from 'ai'
 import { type Message } from '@vibesboard/contracts'
 
 import { buildAgentSystemPrompt } from './prompts.ts'
@@ -147,13 +147,11 @@ export async function runAgentStream({
   const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
     remainingResponses
   })
-  const payload = [
-    { role: 'system' as const, content: systemPromptLegacy },
-    ...messages.map(message => ({
-      role: message.role as 'system' | 'user' | 'assistant',
-      content: typeof message.content === 'string' ? message.content : ''
-    }))
-  ]
+  // ai@7.x: system messages must go in `system`, not in `messages`
+  const payload = messages.map(message => ({
+    role: message.role as 'user' | 'assistant',
+    content: typeof message.content === 'string' ? message.content : ''
+  }))
 
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY ?? ''
   const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
@@ -167,6 +165,7 @@ export async function runAgentStream({
 
   const result = await aiStreamText({
     model: openaiClient(model),
+    system: systemPromptLegacy,
     messages: payload,
     temperature,
     async onFinish({ text, usage }) {
@@ -174,8 +173,8 @@ export async function runAgentStream({
       if (onCompletion) {
         const mapped = usage
           ? {
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens
+              promptTokens: usage.inputTokens ?? 0,
+              completionTokens: usage.outputTokens ?? 0
             }
           : undefined
         await onCompletion(text, mapped)
@@ -188,11 +187,17 @@ export async function runAgentStream({
 
 /**
  * Convert an AsyncIterable<string> text stream → ReadableStream<Uint8Array>.
- * Uses pull() for backpressure. onCancel fires when the client disconnects.
+ *
+ * In ai@7.x, result.textStream is AsyncIterableStream<string> = AsyncIterable<string>
+ * & ReadableStream<string>. The SDK does NOT lock the AsyncIterable interface even
+ * though it internally uses getReader() on the ReadableStream side for onFinish/onChunk.
+ * Using [Symbol.asyncIterator]() works correctly — confirmed with direct tests.
  */
 function textStreamToReadable(
   textStream: AsyncIterable<string>,
   onCancel?: () => void,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _ignored?: unknown,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   const iterator = textStream[Symbol.asyncIterator]()
@@ -351,13 +356,11 @@ async function runAgentStreamWithSpec({
     remainingResponses,
   })
 
-  const payload = [
-    { role: 'system' as const, content: systemPrompt },
-    ...messages.map(m => ({
-      role: m.role as 'system' | 'user' | 'assistant',
-      content: typeof m.content === 'string' ? m.content : '',
-    })),
-  ]
+  // ai@7.x: system messages must go in `system`, not in `messages`
+  const payload = messages.map(m => ({
+    role: m.role as 'user' | 'assistant',
+    content: typeof m.content === 'string' ? m.content : '',
+  }))
 
   // For non-Google providers: pass toolkit as Vercel AI SDK tools so models
   // that support tool calling (Anthropic, OpenAI) can use file_search etc.
@@ -371,8 +374,8 @@ async function runAgentStreamWithSpec({
       if (!executor) continue
       sdkTools[fn.name] = aiTool({
         description: fn.description ?? fn.name,
-        parameters: z.record(z.unknown()),
-        execute: async (args: Record<string, unknown>) => {
+        inputSchema: z.record(z.unknown()),
+        execute: async (args) => {
           try {
             const result = await executor(args as Record<string, any>, { fileContext: toolContext?.fileContext ?? effectiveContext })
             return typeof result === 'string' ? { result } : result
@@ -398,15 +401,14 @@ async function runAgentStreamWithSpec({
     const apiKey = (spec as Extract<import('@vibesboard/contracts').ProviderModelSpec, { kind: 'google' }>).apiKey
     const modelId = spec.modelId
     const geminiMessages = payload
-      .filter(m => m.role !== 'system')
       .map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }))
-    const systemInstruction = payload.find(m => m.role === 'system')?.content
 
     const body: Record<string, unknown> = {
       contents: geminiMessages,
       generationConfig: { temperature },
     }
-    if (systemInstruction) body.system_instruction = { parts: [{ text: systemInstruction }] }
+    // systemPrompt is already extracted from the payload in ai@7.x (no system role in messages)
+    if (systemPrompt) body.system_instruction = { parts: [{ text: systemPrompt }] }
 
     // Use streamGenerateContent so thinking models can think AND produce text.
     // generateContent sometimes produces 0 text when thinking is forced off
@@ -476,7 +478,7 @@ async function runAgentStreamWithSpec({
           ],
           generationConfig: { temperature },
         }
-        if (systemInstruction) (turn2Body as any).system_instruction = { parts: [{ text: systemInstruction }] }
+        if (systemPrompt) (turn2Body as any).system_instruction = { parts: [{ text: systemPrompt }] }
 
         const res2 = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`,
@@ -524,14 +526,15 @@ async function runAgentStreamWithSpec({
 
   const result = await aiStreamText({
     model: buildProviderModel(spec, {}, networkOpts),
+    system: systemPrompt,
     messages: payload,
     temperature,
     tools: Object.keys(sdkTools).length > 0 ? sdkTools : undefined,
-    maxSteps: Object.keys(sdkTools).length > 0 ? 5 : undefined,
+    stopWhen: Object.keys(sdkTools).length > 0 ? stepCountIs(5) : undefined,
     async onFinish({ text, usage }) {
       await safeDispose()
       if (onCompletion) {
-        await onCompletion(text, usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined)
+        await onCompletion(text, usage ? { promptTokens: usage.inputTokens ?? 0, completionTokens: usage.outputTokens ?? 0 } : undefined)
       }
     },
   })
