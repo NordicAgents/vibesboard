@@ -1,4 +1,4 @@
-// HIGH priority — agent CRUD route auth + TENANT ISOLATION (write).
+// HIGH priority — agent CRUD route auth + TENANT ISOLATION (read + write).
 //
 // We mock at the service boundary (@vibesboard/agents/server +
 // @vibesboard/agents/permissions) rather than the DB layer, because the schema
@@ -120,6 +120,22 @@ describe('GET /api/agents/[id]', () => {
     agent = null
     const res = await GET(getReq() as never, ctx('missing'))
     expect(res.status).toBe(404)
+  })
+
+  it('returns 403 for a user from another tenant', async () => {
+    // getAgentById reads through the BYPASSRLS migrate role and filters on the
+    // agent id alone, so RLS does not scope this route — the canEditAgent gate
+    // is the only thing standing between an outsider and another tenant's
+    // agent (whose payload includes accessPasswordHash).
+    authState = { ok: true, user: outsider }
+    const res = await GET(getReq() as never, ctx('agent-1'))
+    expect(res.status).toBe(403)
+  })
+
+  it('does not leak the agent body to a user from another tenant', async () => {
+    authState = { ok: true, user: outsider }
+    const res = await GET(getReq() as never, ctx('agent-1'))
+    expect(await res.text()).not.toContain('Globex Bot')
   })
 })
 

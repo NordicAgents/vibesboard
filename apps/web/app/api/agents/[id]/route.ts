@@ -27,6 +27,20 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
+  // getAgentById reads through the BYPASSRLS migrate role and filters on the
+  // agent id alone, so authentication is not enough here — without this check
+  // any signed-in user could read any agent in any tenant, and the payload
+  // includes accessPasswordHash (see agentRowToVibeAgent). Mirrors the guard
+  // on GET /api/agents/[id]/versions.
+  const canEdit = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
   return NextResponse.json({ agent })
 }
 
