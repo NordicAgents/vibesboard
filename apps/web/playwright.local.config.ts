@@ -16,6 +16,22 @@ const APP_PORT = 3100
 const MOCK_PORT = 4010
 const BASE_URL = `http://localhost:${APP_PORT}`
 
+// Postgres location. Defaults to 5434 (the docker-compose stack brought up with
+// POSTGRES_HOST_PORT=5434), but both URLs are overridable so the suite can also
+// run against a native Postgres — e.g. a Homebrew cluster on the default 5432.
+// See docs/local-e2e.md.
+const DB_URL =
+  process.env.DATABASE_URL ??
+  'postgres://vibesboard_app:vibesboard_app@localhost:5434/vibesboard_dev'
+const DB_MIGRATE_URL =
+  process.env.DATABASE_MIGRATE_URL ??
+  'postgres://vibesboard_migrate:vibesboard_migrate@localhost:5434/vibesboard_dev'
+
+// S3-compatible object storage (MinIO in docker, or a native `minio server`).
+// 127.0.0.1 rather than localhost: Node resolves localhost to IPv6 first and
+// MinIO publishes on IPv4 only.
+const S3_ENDPOINT = process.env.S3_ENDPOINT ?? 'http://127.0.0.1:9000'
+
 // Secrets are read from the environment, falling back to the developer's
 // (gitignored) apps/web/.env.local so the test server signs with the same keys
 // as any existing local DB data. Never inline the values here — .env.local
@@ -58,15 +74,14 @@ const appEnv: Record<string, string> = {
   PORT: String(APP_PORT),
   NEXT_PUBLIC_APP_URL: BASE_URL,
   NEXT_PUBLIC_AUTH_GOOGLE: 'false',
-  // DB — port 5434 (5432/5433 are SSH-tunnelled on this machine)
-  DATABASE_URL: 'postgres://vibesboard_app:vibesboard_app@localhost:5434/vibesboard_dev',
-  DATABASE_MIGRATE_URL: 'postgres://vibesboard_migrate:vibesboard_migrate@localhost:5434/vibesboard_dev',
+  DATABASE_URL: DB_URL,
+  DATABASE_MIGRATE_URL: DB_MIGRATE_URL,
   // Mock OpenAI — deterministic responses, no real API cost
   OPENAI_BASE_URL: `http://localhost:${MOCK_PORT}/v1`,
   OPENAI_API_KEY: 'sk-e2e-stub',
   OPENAI_MODEL: 'gpt-4o',
   // S3 / MinIO
-  S3_ENDPOINT: 'http://127.0.0.1:9000',
+  S3_ENDPOINT,
   S3_REGION: 'us-east-1',
   S3_BUCKET: 'vibesboard-files',
   S3_ACCESS_KEY_ID: 'vibesboard',

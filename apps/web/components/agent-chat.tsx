@@ -346,7 +346,7 @@ export function AgentChat({
               id: `${HANDOFF_INDICATOR_PREFIX}${m.id}`,
               role: 'system',
               content: meta.targetAgentName,
-              parts: [],
+              parts: []
             } as UIMessage)
           } catch {
             // ignore
