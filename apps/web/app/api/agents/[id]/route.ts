@@ -10,6 +10,9 @@ import { getAgentById } from '@vibesboard/agents/server'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
 import { deleteFile } from '@vibesboard/adapter-s3'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
+import { getFilesForAgent } from '@vibesboard/ai/files-store'
+import { deleteFileEmbeddings } from '@vibesboard/ai/rag-store'
+import { toPublicAgentResponse } from '@/lib/public-agent'
 
 export const runtime = 'nodejs'
 
@@ -41,7 +44,7 @@ export async function GET(
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  return NextResponse.json({ agent })
+  return NextResponse.json({ agent: toPublicAgentResponse(agent) })
 }
 
 export async function PATCH(
@@ -206,7 +209,7 @@ export async function PATCH(
     )
   }
 
-  return NextResponse.json({ agent: updated })
+  return NextResponse.json({ agent: toPublicAgentResponse(updated) })
 }
 
 export async function DELETE(
@@ -234,26 +237,36 @@ export async function DELETE(
     return new NextResponse('Forbidden', { status: 403 })
   }
 
-  // Clean up files from storage
-  if (agent.fileKeys && agent.fileKeys.length > 0) {
-    await Promise.all(
-      agent.fileKeys.map(fileKey =>
-        deleteFile(fileKey).catch(err =>
-          console.error(`Error deleting file ${fileKey}:`, err)
-        )
-      )
-    )
-  }
-
-  // Delete the agent row — FK cascade removes conversations/hooks/links.
+  // Embedding source ids are intentionally polymorphic and have no FK to the
+  // files table. Remove all file chunks in the same transaction as the agent
+  // row so deleting an agent cannot strand permanent vector-store rows.
   try {
-    await getMigrateDb().delete(agentsTable).where(eq(agentsTable.id, id))
+    await getMigrateDb().transaction(async tx => {
+      const fileRows = await getFilesForAgent(id, tx as unknown as Db)
+      for (const file of fileRows) {
+        await deleteFileEmbeddings(agent.tenantId, file.id, tx as unknown as Db)
+      }
+
+      // FK cascade removes file rows, conversations, hooks, and links.
+      await tx.delete(agentsTable).where(eq(agentsTable.id, id))
+    })
   } catch (error) {
     return new NextResponse(
       error instanceof Error ? error.message : 'Delete failed',
       { status: 500 }
     )
   }
+
+  // Database state is authoritative. Object deletion is best-effort after the
+  // transaction so a transient S3 failure cannot leave live rows pointing to
+  // already-deleted objects.
+  await Promise.all(
+    (agent.fileKeys ?? []).map(fileKey =>
+      deleteFile(fileKey).catch(err =>
+        console.error(`Error deleting file ${fileKey}:`, err)
+      )
+    )
+  )
 
   return new NextResponse(null, { status: 204 })
 }

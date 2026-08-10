@@ -791,6 +791,7 @@ export default function LlmProvidersPage() {
                       {host}
                       <button
                         type="button"
+                        aria-label={`Remove ${host} from host allowlist`}
                         onClick={() => removeAllowlistEntry(host)}
                         disabled={savingNetwork}
                         className="text-muted-foreground hover:text-foreground"

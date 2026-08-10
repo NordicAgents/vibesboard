@@ -1,7 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'react-hot-toast'
@@ -30,45 +36,61 @@ const SOURCE_LABELS: Record<string, string> = {
   restore: 'Restored',
   backfill: 'Backfill',
   'file-sync': 'File sync',
-  system: 'System',
+  system: 'System'
 }
 
 export function AgentVersionHistoryTab({
   agentId,
   currentVersion,
-  canEdit,
+  canEdit
 }: AgentVersionHistoryTabProps) {
   const router = useRouter()
   const [versions, setVersions] = useState<AgentVersion[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [restoring, setRestoring] = useState<number | null>(null)
 
   const fetchVersions = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await fetch(`/api/agents/${agentId}/versions?limit=50`)
       if (!res.ok) throw new Error('Failed to load versions')
       const data = await res.json()
       setVersions(data.versions ?? [])
     } catch {
-      toast.error('Failed to load version history')
+      const message = 'Failed to load version history'
+      setLoadError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
   }, [agentId])
 
-  useEffect(() => { fetchVersions() }, [fetchVersions])
+  useEffect(() => {
+    fetchVersions()
+  }, [fetchVersions])
 
   const handleRestore = async (versionNo: number) => {
     if (!canEdit) return
-    if (!confirm(`Restore to version ${versionNo}? This will create a new version.`)) return
+    if (
+      !confirm(
+        `Restore to version ${versionNo}? This will create a new version.`
+      )
+    )
+      return
     setRestoring(versionNo)
     try {
-      const res = await fetch(`/api/agents/${agentId}/versions/${versionNo}/restore`, { method: 'POST' })
+      const res = await fetch(
+        `/api/agents/${agentId}/versions/${versionNo}/restore`,
+        { method: 'POST' }
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Restore failed')
       if (data.warnings?.length) {
-        toast.success(`Restored to v${versionNo}. Some file keys were missing: ${data.warnings.join(', ')}`)
+        toast.success(
+          `Restored to v${versionNo}. Some file keys were missing: ${data.warnings.join(', ')}`
+        )
       } else {
         toast.success(`Restored to version ${versionNo}`)
       }
@@ -89,22 +111,48 @@ export function AgentVersionHistoryTab({
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="py-4">
+        <Card role="alert" className="border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-base">
+              Version history unavailable
+            </CardTitle>
+            <CardDescription>{loadError}. Please try again.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" size="sm" onClick={fetchVersions}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 py-4">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Version History</CardTitle>
           <CardDescription>
-            Every configuration change creates a new version. Restoring creates a new forward version.
+            Every configuration change creates a new version. Restoring creates
+            a new forward version.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {versions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No version history yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No version history yet.
+            </p>
           ) : (
             <div className="divide-y">
-              {versions.map((v) => (
-                <div key={v.versionNo} className="flex items-start justify-between gap-4 py-3">
+              {versions.map(v => (
+                <div
+                  key={v.versionNo}
+                  className="flex items-start justify-between gap-4 py-3"
+                >
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                       {v.versionNo}
@@ -115,14 +163,20 @@ export function AgentVersionHistoryTab({
                           {SOURCE_LABELS[v.source] ?? v.source}
                         </Badge>
                         {v.versionNo === currentVersion && (
-                          <Badge className="text-xs bg-green-500 dark:bg-green-600 text-white">Current</Badge>
+                          <Badge className="text-xs bg-green-500 dark:bg-green-600 text-white">
+                            Current
+                          </Badge>
                         )}
                         {v.restoredFrom != null && (
-                          <span className="text-xs text-muted-foreground">← from v{v.restoredFrom}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ← from v{v.restoredFrom}
+                          </span>
                         )}
                       </div>
                       {v.changeNote && (
-                        <p className="mt-1 text-sm text-foreground">{v.changeNote}</p>
+                        <p className="mt-1 text-sm text-foreground">
+                          {v.changeNote}
+                        </p>
                       )}
                       <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />

@@ -22,7 +22,7 @@ import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
-import { buildProviderModel } from '@vibesboard/ai/provider-registry'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
 import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
@@ -263,8 +263,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     : null
 
   let languageModel
-  if (tenantSpec) {
-    languageModel = buildProviderModel(tenantSpec)
+  if (tenantSpec && tenantId) {
+    languageModel = await buildTenantProviderModel(tenantId, tenantSpec)
   } else {
     if (!apiKey) {
       return NextResponse.json(

@@ -97,22 +97,8 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
     .filter((tool): tool is VibeAgentTool => Boolean(tool))
 }
 
-/**
- * Mapper output. `accessPassword` carries the raw access-gate hash, which must
- * never reach a client: it is an unsalted HMAC-SHA256 under one process-wide
- * secret (packages/ai/src/access-gate-crypto.ts), so the same password yields
- * identical bytes for every agent in every tenant — two leaked hashes are
- * enough to prove that two gated agents share a password, and to attack both
- * offline. Clients only ever need the boolean, hence `hasAccessPassword`.
- *
- * Declared here rather than in `VibeAgent` because `@vibesboard/contracts`
- * still models this as `accessPassword`; the intersection keeps both spellings
- * type-safe while the consumers are migrated off the hash.
- */
-type MappedAgent = VibeAgent & {
-  accessPassword?: string | null
-  hasAccessPassword?: boolean
-}
+/** Agent mapper output contains only the public password-presence boolean. */
+type MappedAgent = VibeAgent
 
 /**
  * Map a raw agent record to the VibeAgent interface
@@ -132,7 +118,9 @@ export const mapAgentDoc = (data: Record<string, any>): MappedAgent => ({
   // /api/agents, so echoing the hash back would hand it to every member of the
   // tenant (and to super-admins listing another tenant's agents). No caller of
   // this mapper needs the hash itself.
-  hasAccessPassword: Boolean(data.accessPassword),
+  hasAccessPassword: Boolean(
+    data.hasAccessPassword ?? data.accessPassword ?? data.accessPasswordHash
+  ),
   greetingText: data.greetingText ?? null,
   mode: data.mode ?? 'provider',
   maxResponses: data.maxResponses ?? data.maxMessages ?? null,

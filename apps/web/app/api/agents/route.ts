@@ -18,6 +18,7 @@ import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@vibesboard/agents/schema'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
+import { toPublicAgentResponse } from '@/lib/public-agent'
 
 export const runtime = 'nodejs'
 
@@ -38,7 +39,7 @@ function toAgentRecord(
     fileKeys: row.fileKeys,
     tools: row.tools,
     allowAnonymous: row.allowAnonymous,
-    accessPassword: row.accessPasswordHash,
+    hasAccessPassword: Boolean(row.accessPasswordHash),
     agentUrl: row.slug,
     greetingText: row.greetingText,
     mode: row.mode,
@@ -110,7 +111,7 @@ export async function GET(req: Request) {
     .limit(limit)
 
   const agents = rows.map(r =>
-    mapAgentDoc(toAgentRecord(r.agent, r.tenantSlug))
+    toPublicAgentResponse(mapAgentDoc(toAgentRecord(r.agent, r.tenantSlug)))
   )
 
   return NextResponse.json({
@@ -227,5 +228,5 @@ export async function POST(req: Request) {
     })
   }
 
-  return NextResponse.json({ agent })
+  return NextResponse.json({ agent: toPublicAgentResponse(agent) })
 }

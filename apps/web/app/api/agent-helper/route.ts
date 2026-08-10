@@ -10,7 +10,7 @@ import {
 } from '@vibesboard/adapter-openai'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
-import { buildProviderModel } from '@vibesboard/ai/provider-registry'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
 
 export const runtime = 'nodejs'
 
@@ -73,9 +73,9 @@ Example output format:
 
 Remember: Great agent instructions are specific, actionable, and provide clear boundaries while giving the agent personality and purpose.`
 
-  if (tenantSpec) {
+  if (tenantSpec && tenantId) {
     const result = await aiStreamText({
-      model: buildProviderModel(tenantSpec),
+      model: await buildTenantProviderModel(tenantId, tenantSpec),
       system: systemPrompt, messages: messages,
       temperature: 0.3
     })

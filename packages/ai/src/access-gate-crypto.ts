@@ -13,16 +13,50 @@ export function getSecret(): string {
   return secret
 }
 
-// ─── Password hashing (HMAC-based) ──────────────────────────────────────────
+// ─── Password hashing (versioned, salted HMAC) ──────────────────────────────
+
+const PASSWORD_HASH_VERSION = 'v2'
+const HEX_32_BYTES = /^[0-9a-f]{64}$/i
+const HEX_16_BYTES = /^[0-9a-f]{32}$/i
+
+function passwordDigest(plaintext: string, salt: string): string {
+  return createHmac('sha256', getSecret())
+    .update(`${PASSWORD_HASH_VERSION}:${salt}:`)
+    .update(plaintext)
+    .digest('hex')
+}
+
+function equalHex(left: string, right: string): boolean {
+  if (!HEX_32_BYTES.test(left) || !HEX_32_BYTES.test(right)) return false
+  return timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'))
+}
 
 export function hashPassword(plaintext: string): string {
-  return createHmac('sha256', getSecret()).update(plaintext).digest('hex')
+  const salt = randomBytes(16).toString('hex')
+  return `${PASSWORD_HASH_VERSION}$${salt}$${passwordDigest(plaintext, salt)}`
 }
 
 export function verifyPassword(plaintext: string, hash: string): boolean {
-  const computed = hashPassword(plaintext)
-  if (computed.length !== hash.length) return false
-  return timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'))
+  const [version, salt, digest, extra] = hash.split('$')
+  if (
+    version === PASSWORD_HASH_VERSION &&
+    !extra &&
+    HEX_16_BYTES.test(salt ?? '') &&
+    HEX_32_BYTES.test(digest ?? '')
+  ) {
+    return equalHex(passwordDigest(plaintext, salt), digest)
+  }
+
+  // Backward compatibility: existing rows contain the old unsalted 64-char
+  // HMAC. They remain usable until the owner next changes the access password.
+  if (HEX_32_BYTES.test(hash)) {
+    const legacy = createHmac('sha256', getSecret())
+      .update(plaintext)
+      .digest('hex')
+    return equalHex(legacy, hash)
+  }
+
+  return false
 }
 
 // ─── Token signing (HMAC-signed) ────────────────────────────────────────────

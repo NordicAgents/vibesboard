@@ -44,7 +44,7 @@ export async function POST(
 
   for (const file of indexed) {
     try {
-      await ingestFileForAgent({
+      const result = await ingestFileForAgent({
         tenantId: file.tenantId,
         agentId: file.agentId,
         fileId: file.id,
@@ -52,6 +52,12 @@ export async function POST(
         fileName: file.fileName,
         mimeType: file.mimeType,
       })
+      if (result.chunksInserted === 0) {
+        errors.push(
+          `${file.fileName}: ${result.message ?? 'Ingestion produced no searchable chunks.'}`
+        )
+        continue
+      }
       reembedded++
     } catch (err: any) {
       errors.push(`${file.fileName}: ${err?.message ?? 'unknown error'}`)

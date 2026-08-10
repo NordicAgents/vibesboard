@@ -8,8 +8,15 @@ import type {
 } from '@vibesboard/contracts'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@vibesboard/utils'
 import { CollectionFieldsEditor } from './collection-fields-editor'
@@ -82,14 +89,18 @@ export function AgentSetupTab({
   onLlmConfigIdChange,
   tenantId,
   memoryEnabled,
-  onMemoryEnabledChange,
+  onMemoryEnabledChange
 }: AgentSetupTabProps) {
-  const [llmConfigs, setLlmConfigs] = useState<Array<{ id: string; label: string; kind: string; modelId: string }>>([])
+  const [llmConfigs, setLlmConfigs] = useState<
+    Array<{ id: string; label: string; kind: string; modelId: string }>
+  >([])
 
   useEffect(() => {
     fetch('/api/tenants/llm-configs')
-      .then(r => r.ok ? r.json() : { configs: [] })
-      .then(d => setLlmConfigs((d.configs ?? []).filter((c: any) => c.isEnabled)))
+      .then(r => (r.ok ? r.json() : { configs: [] }))
+      .then(d =>
+        setLlmConfigs((d.configs ?? []).filter((c: any) => c.isEnabled))
+      )
       .catch(() => {})
   }, [])
 
@@ -102,7 +113,9 @@ export function AgentSetupTab({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
+            <Label htmlFor="agent-name">Name</Label>
             <Input
+              id="agent-name"
               value={name}
               disabled={saving || !canEdit}
               onChange={e => onNameChange(e.target.value)}
@@ -147,7 +160,8 @@ export function AgentSetupTab({
           <CardHeader className="pb-3">
             <CardTitle className="text-base">LLM Provider</CardTitle>
             <CardDescription className="text-xs">
-              Override the workspace default for this agent only. Leave as "Workspace default" to follow task routing.
+              Override the workspace default for this agent only. Leave as
+              "Workspace default" to follow task routing.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -174,7 +188,9 @@ export function AgentSetupTab({
           <CardTitle className="text-base">Instructions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <Label htmlFor="agent-instructions">Agent instructions</Label>
           <Textarea
+            id="agent-instructions"
             value={instructions}
             onChange={e => onInstructionsChange(e.target.value)}
             rows={6}
@@ -410,7 +426,8 @@ export function AgentSetupTab({
             <div className="space-y-0.5">
               <p className="text-sm font-medium">Enable agent memory</p>
               <p className="text-xs text-muted-foreground">
-                Agent learns from past conversations and recalls relevant context for each visitor.
+                Agent learns from past conversations and recalls relevant
+                context for each visitor.
               </p>
             </div>
             <Switch

@@ -231,7 +231,8 @@ export function AgentCreatorChat({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 fileName,
-                contentType: file.type || 'application/octet-stream'
+                contentType: file.type || 'application/octet-stream',
+                fileSize: file.size
               })
             })
 
@@ -480,15 +481,17 @@ export function AgentCreatorChat({
               <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto max-w-3xl">
                   <ChatList
-                    messages={(messages as any[]).map(msg => ({
-                      ...msg,
-                      // Remove agentupdate/agentcreated blocks from display
-                      content: msg.content
-                        .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
-                        .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
-                        .trim()
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    })) as any}
+                    messages={
+                      (messages as any[]).map(msg => ({
+                        ...msg,
+                        // Remove agentupdate/agentcreated blocks from display
+                        content: msg.content
+                          .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
+                          .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
+                          .trim()
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      })) as any
+                    }
                   />
                   {isLoading && (
                     <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
@@ -607,6 +610,7 @@ export function AgentCreatorChat({
                     </p>
                     <Button
                       size="sm"
+                      aria-label="Create agent from chat draft"
                       onClick={handleCreateAgent}
                       disabled={isCreating}
                       className="shrink-0"

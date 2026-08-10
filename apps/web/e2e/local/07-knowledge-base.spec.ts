@@ -8,8 +8,8 @@
  * report.
  *
  * Covers:
- *   - POST /files/upload-url signs a PUT for exactly the requested key (400 on
- *     an incomplete payload)
+ *   - POST /files/upload-url mints a canonical agent key and signs an
+ *     exact-length PUT (400 on incomplete metadata, 413 over 10 MB)
  *   - POST /files registers a row, attaches the key to agents.fileKeys, and the
  *     background processor embeds it (status indexed + embeddingProvider set)
  *   - POST /files/ingest — the path the browser actually uses
@@ -31,8 +31,8 @@
  * "the document was actually embedded".
  *
  * Keys are tenant-scoped (packages/adapter-s3/src/keys.ts:
- * tenants/{tenantId}/agents/{agentId}/files/{name}); upload-url enforces that
- * prefix, so an arbitrary key is a 403 — see the note above `fileKeyFor`.
+ * tenants/{tenantId}/agents/{agentId}/files/{name}); upload-url mints this key
+ * server-side, so the caller cannot request an arbitrary object path.
  */
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { STORAGE_STATE } from '../constants.ts'
@@ -61,10 +61,8 @@ let sharedAgentId: string
 const createdAgentIds: string[] = []
 
 /**
- * upload-url now REQUIRES the key to sit under a prefix derived from the agent
- * (app/api/agents/[id]/files/upload-url/route.ts) — it used to sign whatever the
- * client sent, which let any signed-in user overwrite another tenant's objects.
- * This is the canonical scheme from packages/adapter-s3/src/keys.ts.
+ * Canonical scheme minted by the server-side upload-url route. The browser
+ * supplies only a safe file name, MIME type, and exact length.
  */
 const fileKeyFor = (agentId: string, fileName: string) =>
   `tenants/${tenantId}/agents/${agentId}/files/${fileName}`
@@ -92,7 +90,11 @@ async function putObject(
   content: string,
 ) {
   const urlRes = await request.post(`/api/agents/${agentId}/files/upload-url`, {
-    data: { key: fileKey, contentType: 'text/plain' },
+    data: {
+      fileName: fileKey.split('/').pop(),
+      contentType: 'text/plain',
+      fileSize: Buffer.byteLength(content),
+    },
     failOnStatusCode: false,
   })
   expect(urlRes.status(), await urlRes.text()).toBe(200)
@@ -155,43 +157,67 @@ test.afterAll(async ({ request }) => {
 // ─── Upload URLs ─────────────────────────────────────────────────────────────
 
 test.describe('Knowledge Base — presigned upload URLs', () => {
-  test('upload-url signs a PUT for exactly the requested key', async ({ request }) => {
-    const fileKey = fileKeyFor(sharedAgentId, `kb-signing-${Date.now()}.txt`)
+  test('upload-url mints and signs the canonical agent key', async ({ request }) => {
+    const fileName = `kb-signing-${Date.now()}.txt`
+    const fileKey = fileKeyFor(sharedAgentId, fileName)
 
     const res = await request.post(
       `/api/agents/${sharedAgentId}/files/upload-url`,
-      { data: { key: fileKey, contentType: 'text/plain' }, failOnStatusCode: false },
+      {
+        data: { fileName, contentType: 'text/plain', fileSize: 12 },
+        failOnStatusCode: false,
+      },
     )
     expect(res.status(), await res.text()).toBe(200)
 
     const body = await res.json()
     expect(body.uploadUrl, 'response must carry uploadUrl').toBeTruthy()
+    expect(body.fileKey).toBe(fileKey)
 
     // A SigV4 presigned PUT for our key — not just "some truthy string".
     const url = new URL(body.uploadUrl)
     expect(
       url.pathname.endsWith(`/${fileKey}`),
-      `signed URL path ${url.pathname} should end with the requested key`,
+      `signed URL path ${url.pathname} should end with the canonical key`,
     ).toBe(true)
     expect(url.searchParams.get('X-Amz-Signature')).toBeTruthy()
     expect(url.searchParams.get('X-Amz-Credential')).toBeTruthy()
     expect(Number(url.searchParams.get('X-Amz-Expires'))).toBeGreaterThan(0)
   })
 
-  test('upload-url rejects a payload missing key or contentType', async ({ request }) => {
-    const noKey = await request.post(
+  test('upload-url rejects missing metadata and oversized files', async ({ request }) => {
+    const noName = await request.post(
       `/api/agents/${sharedAgentId}/files/upload-url`,
-      { data: { contentType: 'text/plain' }, failOnStatusCode: false },
+      {
+        data: { contentType: 'text/plain', fileSize: 1 },
+        failOnStatusCode: false,
+      },
     )
-    expect(noKey.status()).toBe(400)
-    expect((await noKey.json()).error).toBe('key and contentType are required')
+    expect(noName.status()).toBe(400)
+    expect((await noName.json()).error).toContain('fileName')
 
     const noType = await request.post(
       `/api/agents/${sharedAgentId}/files/upload-url`,
-      { data: { key: fileKeyFor(sharedAgentId, 'no-type.txt') }, failOnStatusCode: false },
+      {
+        data: { fileName: 'no-type.txt', fileSize: 1 },
+        failOnStatusCode: false,
+      },
     )
     expect(noType.status()).toBe(400)
-    expect((await noType.json()).error).toBe('key and contentType are required')
+    expect((await noType.json()).error).toContain('contentType')
+
+    const oversized = await request.post(
+      `/api/agents/${sharedAgentId}/files/upload-url`,
+      {
+        data: {
+          fileName: 'too-large.txt',
+          contentType: 'text/plain',
+          fileSize: 10 * 1024 * 1024 + 1,
+        },
+        failOnStatusCode: false,
+      },
+    )
+    expect(oversized.status()).toBe(413)
   })
 })
 
@@ -497,11 +523,11 @@ test.describe('Knowledge Base — re-embed', () => {
     // Full 1024-dim insert requires a live NVIDIA bge-m3 embedding call —
     // tested in unit tests; here we just verify the API surface is wired.
     const urlRes = await request.post(`/api/agents/${sharedAgentId}/files/upload-url`, {
-      // Must sit under a prefix derived from the agent — upload-url now refuses
-      // arbitrary keys, which is what stopped cross-tenant overwrites.
+      // The route mints the tenant/agent prefix; callers submit only metadata.
       data: {
-        key: fileKeyFor(sharedAgentId, `${Date.now()}-bge-test.txt`),
+        fileName: `${Date.now()}-bge-test.txt`,
         contentType: 'text/plain',
+        fileSize: 1,
       },
     })
     expect(urlRes.ok()).toBeTruthy()

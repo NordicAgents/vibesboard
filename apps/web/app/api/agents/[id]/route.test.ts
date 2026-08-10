@@ -22,6 +22,9 @@ const AGENT = {
   tenantId: 'tenant-b',
   userId: 'owner-b',
   name: 'Globex Bot',
+  hasAccessPassword: true,
+  accessPassword: 'legacy-secret',
+  accessPasswordHash: 'database-secret',
   fileKeys: [] as string[]
 }
 let agent: typeof AGENT | null = AGENT
@@ -65,6 +68,22 @@ vi.mock('@vibesboard/adapter-postgres/client', () => ({
 }))
 vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
 vi.mock('@vibesboard/adapter-s3', () => ({ deleteFile: async () => undefined }))
+const getFilesForAgentMock = vi.fn(async (..._args: unknown[]) => [
+  {
+    id: '10000000-0000-4000-8000-000000000001',
+    tenantId: 'tenant-b',
+    agentId: 'agent-1',
+    fileKey: 'owner/file.txt'
+  }
+])
+vi.mock('@vibesboard/ai/files-store', () => ({
+  getFilesForAgent: (...args: unknown[]) => getFilesForAgentMock(...args)
+}))
+const deleteFileEmbeddingsMock = vi.fn(async (..._args: unknown[]) => undefined)
+vi.mock('@vibesboard/ai/rag-store', () => ({
+  deleteFileEmbeddings: (...args: unknown[]) =>
+    deleteFileEmbeddingsMock(...args)
+}))
 vi.mock('@vibesboard/agents/webhook-utils', () => ({
   assertSafeCallbackUrl: () => undefined
 }))
@@ -96,6 +115,8 @@ beforeEach(() => {
   canEditAgentMock.mockClear()
   updateSpy.mockClear()
   deleteSpy.mockClear()
+  getFilesForAgentMock.mockClear()
+  deleteFileEmbeddingsMock.mockClear()
   recordAgentVersionMock.mockClear()
 })
 
@@ -105,6 +126,9 @@ describe('GET /api/agents/[id]', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.agent.id).toBe('agent-1')
+    expect(body.agent.hasAccessPassword).toBe(true)
+    expect(body.agent).not.toHaveProperty('accessPassword')
+    expect(body.agent).not.toHaveProperty('accessPasswordHash')
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -189,14 +213,19 @@ describe('PATCH /api/agents/[id]', () => {
 })
 
 describe('DELETE /api/agents/[id]', () => {
-  // The happy-path DELETE drives the real Drizzle delete().where() chain plus
-  // S3 file cleanup; faithfully stubbing that chain without rewriting the route
-  // proved too entangled (the route's returned status varies with the stub
-  // shape), so the success path is left to the live/integration layer. The
-  // security-critical isolation case below is fully covered.
-  it.skip('deletes an agent the user can edit (204) — covered by integration', async () => {
+  it('deletes file embeddings before deleting the agent', async () => {
+    agent = { ...AGENT, fileKeys: ['owner/file.txt'] }
     const res = await DELETE(getReq() as never, ctx('agent-1'))
     expect(res.status).toBe(204)
+    expect(getFilesForAgentMock).toHaveBeenCalledWith(
+      'agent-1',
+      expect.anything()
+    )
+    expect(deleteFileEmbeddingsMock).toHaveBeenCalledWith(
+      'tenant-b',
+      '10000000-0000-4000-8000-000000000001',
+      expect.anything()
+    )
     expect(deleteSpy).toHaveBeenCalledOnce()
   })
 

@@ -23,6 +23,12 @@ import {
   IconPlus
 } from '@/components/ui/icons'
 import { cn } from '@vibesboard/utils'
+import {
+  deleteAgentFile,
+  fetchAgentFileKeys
+} from '@/lib/agent-files-client'
+import { getApiErrorMessage } from '@/lib/api-error'
+import { MAX_FILE_UPLOAD_BYTES } from '@/lib/file-upload'
 
 interface ToolsFilesManagerProps {
   agent: VibeAgent
@@ -59,6 +65,20 @@ export function ToolsFilesManager({
   const [isIndexing, setIsIndexing] = useState(false)
   const [hasStaleEmbeddings, setHasStaleEmbeddings] = useState(false)
   const [isReembedding, setIsReembedding] = useState(false)
+
+  const refreshFileKeys = useCallback(async () => {
+    const keys = await fetchAgentFileKeys(agent.id)
+    setFileKeys(keys)
+    return keys
+  }, [agent.id])
+
+  // The files table is authoritative. agent.fileKeys is retained for runtime
+  // compatibility, but it can be stale after a failed or interrupted request.
+  useEffect(() => {
+    void refreshFileKeys().catch(error => {
+      console.error('[ToolsFilesManager] Failed to refresh files:', error)
+    })
+  }, [refreshFileKeys])
 
   // Detect stale embeddings: compare file embedding_provider vs current tenant default provider
   useEffect(() => {
@@ -117,7 +137,7 @@ export function ToolsFilesManager({
     return <IconFile className={iconClass} />
   }
 
-  const updateAgent = async (payload: Partial<VibeAgent>) => {
+  const updateAgent = useCallback(async (payload: Partial<VibeAgent>) => {
     if (!canEdit) {
       toast.error('Read-only: you do not have permission to edit this agent')
       return
@@ -132,7 +152,7 @@ export function ToolsFilesManager({
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        throw new Error(error.error ?? 'Failed to update agent')
+        throw new Error(getApiErrorMessage(error, 'Failed to update agent'))
       }
 
       router.refresh()
@@ -144,7 +164,7 @@ export function ToolsFilesManager({
     } finally {
       setIsSaving(false)
     }
-  }
+  }, [agent.id, canEdit, onUpdate, router])
 
   const handleSaveTools = async () => {
     try {
@@ -174,8 +194,9 @@ export function ToolsFilesManager({
       const fileArray = Array.from(files)
 
       // Validate files
-      const maxSize = 10 * 1024 * 1024 // 10MB
-      const invalidFiles = fileArray.filter(file => file.size > maxSize)
+      const invalidFiles = fileArray.filter(
+        file => file.size > MAX_FILE_UPLOAD_BYTES
+      )
 
       if (invalidFiles.length > 0) {
         toast.error(
@@ -195,7 +216,7 @@ export function ToolsFilesManager({
       try {
         const uploadPromises = fileArray.map(async (file, index) => {
           try {
-            const path = `${agent.userId}/${Date.now()}-${safeFileName(file.name)}`
+            const fileName = `${Date.now()}-${safeFileName(file.name)}`
             const contentType = file.type || 'application/octet-stream'
 
             // Get a signed upload URL from the API
@@ -204,7 +225,7 @@ export function ToolsFilesManager({
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: path, contentType })
+                body: JSON.stringify({ fileName, contentType, fileSize: file.size })
               }
             )
 
@@ -212,7 +233,7 @@ export function ToolsFilesManager({
               throw new Error('Failed to get upload URL')
             }
 
-            const { uploadUrl } = await urlRes.json()
+            const { uploadUrl, fileKey } = await urlRes.json()
 
             // Upload directly to GCS using the signed URL
             const uploadRes = await fetch(uploadUrl, {
@@ -234,7 +255,7 @@ export function ToolsFilesManager({
               )
             )
 
-            return { path, file }
+            return { path: fileKey as string, file }
           } catch (error) {
             // Update progress to error
             setUploadProgress(prev =>
@@ -327,7 +348,7 @@ export function ToolsFilesManager({
         setTimeout(() => setUploadProgress([]), 3000)
       }
     },
-    [agent.id, agent.userId, fileKeys]
+    [agent.id, canEdit, fileKeys, updateAgent]
   )
 
   const handleFileDelete = async (path: string) => {
@@ -337,21 +358,26 @@ export function ToolsFilesManager({
     }
 
     try {
-      // Remove from storage via API
-      await fetch(`/api/agents/${agent.id}/files/delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileKey: path })
-      })
-
-      // Update state and database
-      const newFileKeys = fileKeys.filter(key => key !== path)
-      setFileKeys(newFileKeys)
-      await updateAgent({ fileKeys: newFileKeys })
+      await deleteAgentFile(agent.id, path)
+      try {
+        await refreshFileKeys()
+      } catch (refreshError) {
+        // The successful delete response is authoritative. Fall back to the
+        // local removal if the follow-up list request is temporarily down.
+        setFileKeys(current => current.filter(key => key !== path))
+        console.error(
+          '[ToolsFilesManager] Failed to refresh after delete:',
+          refreshError
+        )
+      }
+      router.refresh()
+      onUpdate?.()
 
       toast.success('File deleted successfully')
     } catch (error) {
-      toast.error('Failed to delete file')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete file'
+      )
     }
   }
 

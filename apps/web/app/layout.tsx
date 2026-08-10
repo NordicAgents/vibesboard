@@ -1,6 +1,6 @@
 import { Metadata, Viewport } from 'next'
 
-import { Toaster } from 'react-hot-toast'
+import { Toaster, ToastBar } from 'react-hot-toast'
 
 import '@/app/globals.css'
 import { fontMono, fontSans } from '@/lib/fonts'
@@ -60,7 +60,19 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         style={tenantTheme?.cssVars as any}
         data-tenant-id={tenantTheme?.tenantId}
       >
-        <Toaster />
+        <Toaster>
+          {toast => (
+            <ToastBar
+              toast={{
+                ...toast,
+                ariaProps: {
+                  role: toast.type === 'error' ? 'alert' : 'status',
+                  'aria-live': toast.type === 'error' ? 'assertive' : 'polite'
+                }
+              }}
+            />
+          )}
+        </Toaster>
         <Providers attribute="class" defaultTheme="system" enableSystem>
           <div className="flex h-dvh flex-col overflow-hidden">
             <AppHeaderController>

@@ -3,7 +3,7 @@ import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@vibesboard/a
 import { chatCompletion } from '@vibesboard/adapter-openai'
 import { generateText } from 'ai'
 import { resolveProviderSpec } from './tenant-llm-config.ts'
-import { buildProviderModel } from './provider-registry.ts'
+import { buildTenantProviderModel } from './provider-registry.ts'
 
 const SUMMARY_SYSTEM_PROMPT =
   'You write <=15 word neutral summaries for chat transcripts. Mention the agent topic if available.'
@@ -29,7 +29,7 @@ export async function summarizeConversation(
       const spec = await resolveProviderSpec(tenantId, null, undefined, 'chat').catch(() => null)
       if (spec) {
         const { text } = await generateText({
-          model: buildProviderModel(spec),
+          model: await buildTenantProviderModel(tenantId, spec),
           messages: [{ role: 'system', content: SUMMARY_SYSTEM_PROMPT }, ...recent],
           maxOutputTokens: 60,
           temperature: 0.2,

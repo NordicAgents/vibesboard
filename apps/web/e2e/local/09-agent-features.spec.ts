@@ -618,12 +618,17 @@ test.describe('Embeddings & Knowledge Base', () => {
     const urlRes = await request.post(
       `/api/agents/${ragAgentId}/files/upload-url`,
       {
-        data: { key: ragFileKey, contentType: 'text/plain' },
+        data: {
+          fileName: ragFileName,
+          contentType: 'text/plain',
+          fileSize: Buffer.byteLength(RAG_CONTENT),
+        },
         failOnStatusCode: false,
       },
     )
     expect(urlRes.status(), await urlRes.text()).toBe(200)
-    const { uploadUrl } = await urlRes.json()
+    const { uploadUrl, fileKey } = await urlRes.json()
+    ragFileKey = fileKey
     expect(uploadUrl, 'upload-url must return a presigned PUT URL').toBeTruthy()
 
     const put = await request.put(uploadUrl, {
@@ -659,13 +664,17 @@ test.describe('Embeddings & Knowledge Base', () => {
     })
   })
 
-  test('upload-url signs a SigV4 PUT for exactly the requested key', async ({
+  test('upload-url signs a SigV4 PUT for the canonical agent key', async ({
     request,
   }) => {
-    const key = `tenants/${tenantId}/agents/${ragAgentId}/files/presign-${RUN}.txt`
+    const fileName = `presign-${RUN}.txt`
+    const key = `tenants/${tenantId}/agents/${ragAgentId}/files/${fileName}`
     const res = await request.post(
       `/api/agents/${ragAgentId}/files/upload-url`,
-      { data: { key, contentType: 'text/plain' }, failOnStatusCode: false },
+      {
+        data: { fileName, contentType: 'text/plain', fileSize: 1 },
+        failOnStatusCode: false,
+      },
     )
     expect(res.status(), await res.text()).toBe(200)
 
@@ -676,7 +685,7 @@ test.describe('Embeddings & Knowledge Base', () => {
     const url = new URL(uploadUrl)
     expect(
       url.pathname.endsWith(`/${key}`),
-      `signed path ${url.pathname} must end with the requested key`,
+      `signed path ${url.pathname} must end with the canonical key`,
     ).toBe(true)
     expect(url.searchParams.get('X-Amz-Signature')).toBeTruthy()
     expect(url.searchParams.get('X-Amz-Credential')).toBeTruthy()

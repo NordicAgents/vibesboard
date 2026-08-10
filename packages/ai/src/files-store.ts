@@ -1,4 +1,4 @@
-import { and, count, asc, eq, inArray } from 'drizzle-orm'
+import { and, count, asc, eq, inArray, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
@@ -25,7 +25,23 @@ export interface InsertFileInput { tenantId: string; agentId: string; userId: st
 /** Bulk-insert file records (status 'pending'); returns created records. */
 export async function insertFiles(inputs: InsertFileInput[], db: Db = getMigrateDb()): Promise<FileRecord[]> {
   if (!inputs.length) return []
-  const rows = await db.insert(files).values(inputs.map((f) => ({ id: uuidv7(), ...f, status: 'pending' as const }))).returning()
+  const uniqueInputs = Array.from(
+    new Map(inputs.map(input => [`${input.agentId}\0${input.fileKey}`, input])).values()
+  )
+  const rows = await db
+    .insert(files)
+    .values(uniqueInputs.map((f) => ({ id: uuidv7(), ...f, status: 'pending' as const })))
+    .onConflictDoUpdate({
+      target: [files.agentId, files.fileKey],
+      set: {
+        fileName: sql`excluded.file_name`,
+        mimeType: sql`excluded.mime_type`,
+        fileSize: sql`excluded.file_size`,
+        userId: sql`excluded.user_id`,
+        updatedAt: new Date(),
+      },
+    })
+    .returning()
   return rows.map(rowToFile)
 }
 export async function listFiles(opts: { tenantId: string; agentId: string; status?: string; page: number; limit: number }, db: Db = getMigrateDb()): Promise<{ files: FileRecord[]; total: number }> {
@@ -54,9 +70,22 @@ export async function getFileByKey(agentId: string, fileKey: string, db: Db = ge
   const rows = await db.select().from(files).where(and(eq(files.agentId, agentId), eq(files.fileKey, fileKey))).limit(1)
   return rows.length ? rowToFile(rows[0]) : null
 }
+/** Fetch every file row for an agent. Intended for transactional cleanup paths. */
+export async function getFilesForAgent(agentId: string, db: Db = getMigrateDb()): Promise<FileRecord[]> {
+  const rows = await db.select().from(files).where(eq(files.agentId, agentId))
+  return rows.map(rowToFile)
+}
 /** Fetch existing file records for a specific set of fileKeys — bounded by the input, no pagination needed. */
 export async function getFilesByKeys(agentId: string, fileKeys: string[], db: Db = getMigrateDb()): Promise<FileRecord[]> {
   if (!fileKeys.length) return []
   const rows = await db.select().from(files).where(and(eq(files.agentId, agentId), inArray(files.fileKey, fileKeys)))
+  return rows.map(rowToFile)
+}
+/** Delete the file row for an agent/key pair and return what was removed. */
+export async function deleteFilesByKey(agentId: string, fileKey: string, db: Db = getMigrateDb()): Promise<FileRecord[]> {
+  const rows = await db
+    .delete(files)
+    .where(and(eq(files.agentId, agentId), eq(files.fileKey, fileKey)))
+    .returning()
   return rows.map(rowToFile)
 }

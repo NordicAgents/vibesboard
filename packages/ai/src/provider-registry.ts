@@ -6,6 +6,7 @@ import type { LanguageModel } from 'ai'
 import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
 import { validateProviderBaseUrl } from './provider-ssrf-guard.ts'
 import { buildNvidiaFetch } from './nvidia-stream-adapter.ts'
+import { resolveTenantNetworkOpts } from './tenant-llm-config.ts'
 
 // NVIDIA API Catalog (build.nvidia.com) hosted endpoint — OpenAI-compatible.
 export const NVIDIA_API_BASE_URL = 'https://integrate.api.nvidia.com/v1'
@@ -82,4 +83,16 @@ export function buildProviderModel(
     ctx: ProviderFactoryContext,
   ) => LanguageModel
   return factory(spec, ctx)
+}
+
+type NetworkOptsResolver = typeof resolveTenantNetworkOpts
+
+/** Build a tenant model with the tenant's private-host and host-allowlist policy. */
+export async function buildTenantProviderModel(
+  tenantId: string,
+  spec: ProviderModelSpec,
+  resolveNetworkOpts: NetworkOptsResolver = resolveTenantNetworkOpts
+): Promise<LanguageModel> {
+  const networkOpts = await resolveNetworkOpts(tenantId)
+  return buildProviderModel(spec, {}, networkOpts)
 }

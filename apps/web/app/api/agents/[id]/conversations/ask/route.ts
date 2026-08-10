@@ -21,7 +21,7 @@ import {
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
-import { buildProviderModel } from '@vibesboard/ai/provider-registry'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
 import { contextWindowForModel } from '@vibesboard/agents/auto-summarize'
 
 export const runtime = 'nodejs'
@@ -203,7 +203,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
   ]
 
   const languageModel = tenantSpec
-    ? buildProviderModel(tenantSpec)
+    ? await buildTenantProviderModel(agent.tenantId, tenantSpec)
     : createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '', baseURL: OPENAI_BASE_URL })(model)
   // See packages/ai/src/runtime.ts: when the response is piped from
   // result.textStream, onFinish's `text` comes back empty — the client gets the

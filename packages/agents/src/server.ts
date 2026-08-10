@@ -9,17 +9,9 @@ import {
 import { agentRowToVibeAgent } from './db.ts'
 import { recordAgentVersion } from './versioning.ts'
 import { type VibeAgent } from '@vibesboard/contracts'
+import { isUuid } from '@vibesboard/utils'
 
 type Db = PostgresJsDatabase<typeof schema>
-
-// agents.id is a Postgres `uuid` column, so comparing it against a malformed id
-// makes the driver raise 22P02 (`invalid input syntax for type uuid`) instead of
-// returning zero rows. Callers treat "no agent" as notFound()/404, so without a
-// guard a stale link, a hand-typed URL or an `undefined` interpolated into
-// /agents/<id> becomes a 500 error card plus a logged unhandled DB exception.
-// Same regex as conversations.ts and apps/web/lib/tenant-context.ts.
-const isUuid = (v: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 
 async function fetchAgent(db: Db, where: any): Promise<VibeAgent | null> {
   const rows = await db
@@ -37,6 +29,7 @@ export async function getAgentForMember(
   agentId: string,
   db: Db = getMigrateDb(),
 ): Promise<VibeAgent | null> {
+  if (!isUuid(tenantId) || !isUuid(agentId)) return null
   return fetchAgent(db, and(eq(agentsTable.id, agentId), eq(agentsTable.tenantId, tenantId)))
 }
 
@@ -46,6 +39,7 @@ export async function getAgentForUser(
   userId: string,
   db: Db = getMigrateDb(),
 ): Promise<VibeAgent | null> {
+  if (!isUuid(tenantId) || !isUuid(agentId)) return null
   const agent = await getAgentForMember(tenantId, agentId, db)
   if (!agent || agent.userId !== userId) return null
   return agent
@@ -67,6 +61,7 @@ export async function getAgentBySlug(
   slug: string,
   db: Db = getMigrateDb(),
 ): Promise<VibeAgent | null> {
+  if (!isUuid(tenantId)) return null
   return fetchAgent(db, and(eq(agentsTable.tenantId, tenantId), eq(agentsTable.slug, slug)))
 }
 
@@ -75,11 +70,13 @@ export async function getAgentNamesByTenant(
   agentIds: string[],
   db: Db = getMigrateDb(),
 ): Promise<Record<string, string>> {
-  if (!agentIds.length) return {}
+  if (!isUuid(tenantId)) return {}
+  const validAgentIds = agentIds.filter(isUuid)
+  if (!validAgentIds.length) return {}
   const rows = await db
     .select({ id: agentsTable.id, name: agentsTable.name })
     .from(agentsTable)
-    .where(and(eq(agentsTable.tenantId, tenantId), inArray(agentsTable.id, agentIds)))
+    .where(and(eq(agentsTable.tenantId, tenantId), inArray(agentsTable.id, validAgentIds)))
   const names: Record<string, string> = {}
   for (const r of rows) names[r.id] = r.name
   return names
@@ -90,6 +87,7 @@ export async function getAgentsForTenant(
   tenantId: string,
   db: Db = getMigrateDb(),
 ): Promise<VibeAgent[]> {
+  if (!isUuid(tenantId)) return []
   const rows = await db
     .select({ agent: agentsTable, tenantSlug: tenantsTable.slug })
     .from(agentsTable)

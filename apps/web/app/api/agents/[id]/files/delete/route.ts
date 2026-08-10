@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { auth } from '@/auth'
 import { deleteFile } from '@vibesboard/adapter-s3'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
-import { getFilesByKeys } from '@vibesboard/ai/files-store'
+import {
+  deleteFilesByKey,
+  getFilesByKeys
+} from '@vibesboard/ai/files-store'
 import { deleteFileEmbeddings } from '@vibesboard/ai/rag-store'
 import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
-import { agents, files } from '@vibesboard/adapter-postgres/schema'
+import { agents } from '@vibesboard/adapter-postgres/schema'
 
 export const runtime = 'nodejs'
 
@@ -69,14 +72,6 @@ export async function POST(
     // All rows for the key, not just the first: nothing enforces one `files`
     // row per (agentId, fileKey), so a re-uploaded key can have several and
     // leaving any of them behind leaves its chunks retrievable.
-    const fileRows = await getFilesByKeys(id, [fileKey])
-    for (const file of fileRows) {
-      // Embeddings reference the file by sourceId with no foreign key, so
-      // deleting the row cascades nothing — the chunks must go explicitly, and
-      // first: a file row without chunks is inert, orphaned chunks are not.
-      await deleteFileEmbeddings(agent.tenantId, file.id)
-    }
-
     await getMigrateDb().transaction(async tx => {
       // Lock the agent row before touching either table so this serializes
       // with the upload path (POST /api/agents/[id]/files) instead of racing
@@ -87,9 +82,22 @@ export async function POST(
         .where(eq(agents.id, id))
         .for('update')
 
-      await tx
-        .delete(files)
-        .where(and(eq(files.agentId, id), eq(files.fileKey, fileKey)))
+      const fileRows = await getFilesByKeys(
+        id,
+        [fileKey],
+        tx as unknown as Db
+      )
+      for (const file of fileRows) {
+        // Embeddings reference the file by sourceId with no foreign key, so
+        // deleting the row cascades nothing — the chunks must go explicitly.
+        await deleteFileEmbeddings(
+          agent.tenantId,
+          file.id,
+          tx as unknown as Db
+        )
+      }
+
+      await deleteFilesByKey(id, fileKey, tx as unknown as Db)
 
       // fileKeys is stripped here rather than left to the client's follow-up
       // PATCH: that PATCH can fail (or never run) after the object is already
@@ -111,15 +119,22 @@ export async function POST(
       })
     })
 
-    await deleteFile(fileKey)
-    return NextResponse.json({ status: 'ok' })
   } catch (error: any) {
-    // Log the key: a failure in the storage step leaves the object behind once
-    // the rows are already committed, and the log is the only trace of it.
-    console.error(`[File Delete] agent=${id} key=${fileKey}`, error)
+    console.error(`[File Delete] database cleanup agent=${id} key=${fileKey}`, error)
     return NextResponse.json(
       { error: error?.message ?? 'Failed to delete file' },
       { status: 500 }
     )
+  }
+
+  // The database is authoritative for visibility and retrieval. A storage
+  // outage after commit must not make the client retain a file that has already
+  // been removed from the agent; log the orphan for a later cleanup retry.
+  try {
+    await deleteFile(fileKey)
+    return NextResponse.json({ status: 'ok', storageDeleted: true })
+  } catch (error) {
+    console.error(`[File Delete] storage cleanup agent=${id} key=${fileKey}`, error)
+    return NextResponse.json({ status: 'ok', storageDeleted: false })
   }
 }
