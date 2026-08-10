@@ -1,5 +1,7 @@
 # Vibesboard — AI Agent Guidelines
 
+> `AGENTS.md` and `CLAUDE.md` mirror each other — edit both files together.
+
 ## Project Overview
 
 Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, configure, and deploy AI agents with features including:
@@ -15,7 +17,7 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 
 - **Frontend:** React 19 + TypeScript on Next.js 16 (App Router); Tailwind CSS + Radix UI primitives
 - **Backend:** Postgres (Drizzle ORM), Better-Auth, and S3-compatible storage (MinIO in dev)
-- **AI:** OpenAI via the Vercel AI SDK (`ai` + `@ai-sdk/openai`); the runtime in `packages/ai/src/runtime.ts` reads `OPENAI_API_KEY` and defaults to GPT models (e.g. `gpt-5.4-nano`). There is no Anthropic SDK wired in.
+- **AI:** Vercel AI SDK (`ai`) with OpenAI, Anthropic, and Google adapters plus NVIDIA and generic OpenAI-compatible endpoints. Workspaces can bring encrypted provider credentials and route by agent or task; `OPENAI_API_KEY`/`OPENAI_MODEL` provide the platform fallback.
 - **Integrations:** Google Calendar (OAuth), WhatsApp, MCP servers
 
 ## Key Directories

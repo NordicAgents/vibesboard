@@ -5,12 +5,12 @@ Two Playwright suites live in this repo:
 | Suite | Config | Specs | Runs in CI? |
 | --- | --- | --- | --- |
 | CI suite | `apps/web/playwright.config.ts` | `apps/web/e2e/*.spec.ts` | yes (`.github/workflows/ci-e2e.yml`) |
-| Local suite | `apps/web/playwright.local.config.ts` | `apps/web/e2e/local/*.spec.ts` | **no** — `testIgnore: '**/local/**'` |
+| Deep suite | `apps/web/playwright.local.config.ts` | `apps/web/e2e/local/*.spec.ts` | yes (`.github/workflows/ci-e2e.yml`) |
 
-The local suite is the deep one (111 tests covering agents, chat, settings, BYO-LLM
+The second suite is the deep one, covering agents, chat, settings, BYO-LLM
 providers, public widget, conversations, knowledge base, sharing, agent features,
-admin panel and tenant flow). It needs a superadmin cookie jar and other state the
-CI `global-setup` does not seed, which is why CI skips it.
+admin panel, API contracts, and tenant isolation. It uses a separate global setup
+because it needs an outsider account, a superadmin cookie jar, and additional state.
 
 Both configs read `E2E_APP_PORT` (default **3100**) and `MOCK_OPENAI_PORT`
 (default **4010**) from `apps/web/e2e/constants.ts`, so they share one running app
@@ -41,8 +41,8 @@ bun run db:migrate
 
 ### Option B — no Docker (native Homebrew)
 
-Verified: all 111 local tests, all 12 CI-suite tests and the full Vitest suite
-pass on this setup. Worth it if Docker Desktop's disk footprint is a problem —
+Both Playwright suites and the full Vitest suite can run on this setup. It is
+useful if Docker Desktop's disk footprint is a problem —
 its images plus build cache can run to tens of GB.
 
 ```bash
@@ -142,7 +142,7 @@ dev server and delete `apps/web/.next` so nothing stale is served.
 ```bash
 cd apps/web
 
-# local suite (111 tests)
+# deep suite
 bun run test:e2e:local
 
 # just the smoke specs
@@ -151,7 +151,7 @@ bun run test:e2e:local:smoke
 # the CI suite, against the same servers
 DATABASE_URL='postgres://vibesboard_app:vibesboard_app@localhost:5434/vibesboard_dev' \
 DATABASE_MIGRATE_URL='postgres://vibesboard_migrate:vibesboard_migrate@localhost:5434/vibesboard_dev' \
-npx playwright test
+bun run test:e2e
 ```
 
 Playwright's `webServer` entries use `reuseExistingServer: true`, so if a dev

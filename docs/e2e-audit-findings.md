@@ -1,5 +1,9 @@
 # E2E suite audit — outstanding findings
 
+> **Looking for what to work on next?** See `docs/things-to-fix.md` — the short,
+> prioritised list. This file is the raw audit it was distilled from, and some of
+> its line references have since shifted.
+
 Generated from a 103-agent audit of `apps/web/e2e/local/` against the app source.
 Every finding below was independently re-verified by a separate agent instructed to refute it;
 13 claims were refuted and dropped. Counts: **83 confirmed** (high 42, medium 35, low 6).
