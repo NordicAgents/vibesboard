@@ -29,7 +29,8 @@ const STUB_REPLY =
 
 // better-auth's session cookie is `better-auth.session_token`, prefixed with
 // `__Secure-` over HTTPS (see apps/web/middleware.ts).
-const isSessionCookie = (name: string) => name.endsWith('better-auth.session_token')
+const isSessionCookie = (name: string) =>
+  name.endsWith('better-auth.session_token')
 
 test('GET /api/health returns exactly { ok: true }', async ({ request }) => {
   const res = await request.get('/api/health')
@@ -49,11 +50,45 @@ test('landing page renders the hero for a logged-out visitor', async ({
   // Copy owned by lib/landing-hero-copy.ts + components/landing/landing-hero.tsx
   // — rendered by this page only, never by the shared layout.
   await expect(
-    page.getByText('Let your agent talk. Get your time back.')
+    page.getByRole('heading', {
+      name: /the agent platform you host yourself/i,
+      level: 1
+    })
   ).toBeVisible()
+  // The primary CTA sends visitors to the self-hosting quickstart rather than
+  // to a signup wall — that is the point of the open-source landing page.
   await expect(
-    page.getByRole('link', { name: 'Get Started', exact: true })
+    page.getByRole('link', { name: 'Start self-hosting', exact: true })
+  ).toHaveAttribute('href', '#quickstart')
+  // Sign-in lives in the header, not in the hero.
+  await expect(
+    page.getByRole('link', { name: 'Sign in', exact: true }).first()
   ).toHaveAttribute('href', '/sign-in')
+})
+
+test('landing header carries only the wordmark, the repo and a sign-in', async ({
+  page
+}) => {
+  await page.goto('/')
+  const header = page.getByRole('banner')
+
+  // The old agency nav is gone: no Products dropdown, no Features/About anchors.
+  await expect(header.getByText('Products')).toHaveCount(0)
+  for (const label of ['Features', 'About', 'Docs', 'Quickstart']) {
+    await expect(
+      header.getByRole('link', { name: label, exact: true })
+    ).toHaveCount(0)
+  }
+
+  // Two actions, both always visible — there is no hamburger to open.
+  await expect(header.getByRole('link', { name: /GitHub/ })).toHaveAttribute(
+    'href',
+    'https://github.com/NordicAgents/vibeagent'
+  )
+  await expect(
+    header.getByRole('link', { name: 'Sign in', exact: true })
+  ).toBeVisible()
+  await expect(header.getByRole('button')).toHaveCount(0)
 })
 
 test('sign-in page renders the sign-in variant of the auth form', async ({
@@ -123,7 +158,9 @@ test('signing in with a wrong password shows the error toast and grants no sessi
 }) => {
   await page.goto('/sign-in')
   await page.locator('input[name="email"]').fill(E2E_USER.email)
-  await page.locator('input[name="password"]').fill('definitely-not-the-password')
+  await page
+    .locator('input[name="password"]')
+    .fill('definitely-not-the-password')
 
   const signInResponse = page.waitForResponse(
     r =>
@@ -169,9 +206,9 @@ test('sign-up page renders the sign-up variant of the auth form', async ({
   ).toBeVisible()
   // Sign-in-only affordances must be absent — this is what distinguishes the
   // two pages, which share one component.
-  await expect(page.getByRole('link', { name: 'Forgot password?' })).toHaveCount(
-    0
-  )
+  await expect(
+    page.getByRole('link', { name: 'Forgot password?' })
+  ).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: 'Sign In', exact: true })
   ).toHaveCount(0)
@@ -194,7 +231,9 @@ test('submitting sign-up reaches the verification-notice screen without signing 
       r.url().includes('/api/auth/sign-up/email') &&
       r.request().method() === 'POST'
   )
-  await page.getByRole('button', { name: 'Create Account', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'Create Account', exact: true })
+    .click()
   const res = await signUpResponse
   expect(res.status(), 'POST /api/auth/sign-up/email').toBe(200)
 
