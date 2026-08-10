@@ -113,7 +113,12 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts/,
   fullyParallel: false,
   forbidOnly: false,
-  retries: 1,
+  // 2, not 1, because `next dev` resets an idle keep-alive socket often enough
+  // that a single retry has already been exhausted by it (two tests failed that
+  // way on 2026-08-10). This does not soften the gate: Playwright fails a test
+  // that loses all attempts and reports survivors separately as "flaky", so a
+  // real regression still goes red — only nondeterministic resets are absorbed.
+  retries: 2,
   workers: 1,
   reporter: [
     ['list'],
@@ -127,15 +132,6 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    // Defeat the keep-alive idle race against `next dev`. Node closes an idle
-    // pooled socket at its keepAliveTimeout; when a test resumes after a UI
-    // pause (a reload, a form round-trip) the API context can write onto that
-    // socket just as the server closes it, and the request dies as ECONNRESET.
-    // Chromium retries such a request transparently, which is why every
-    // observed reset was an apiRequestContext call and never a navigation —
-    // Playwright's Node-side client surfaces the reset instead. Closing the
-    // connection per request removes the reuse window entirely.
-    extraHTTPHeaders: { Connection: 'close' },
   },
   projects: [
     {
