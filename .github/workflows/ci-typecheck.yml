@@ -14,7 +14,9 @@ permissions:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    # Previously continue-on-error: true, which meant a type-check failure could
+    # never block a merge — the job reported green regardless. `bun run
+    # type-check` is clean across all workspace packages, so it now gates.
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 

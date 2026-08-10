@@ -17,13 +17,16 @@ import { toastWithRetry } from '@/lib/toast-helpers'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
+// Mirrors the projection in app/api/agents/route.ts, which is camelCase. These
+// three were declared snake_case, so `agent.createdAt` was always undefined
+// and the "created" line never rendered on any card.
 interface Agent {
   id: string
   name: string
   instructions: string
-  agent_url: string
-  created_at: string
-  tenant_id: string | null
+  agentUrl: string
+  createdAt: string
+  tenantId: string | null
 }
 
 interface Pagination {
@@ -174,9 +177,9 @@ export default function AgentsPage() {
                       <CardDescription className="line-clamp-2 text-sm text-[#445e5f] dark:text-[#c9cbbe]">
                         {agent.instructions || 'No instructions provided'}
                       </CardDescription>
-                      {agent.created_at && (
+                      {agent.createdAt && (
                         <p className="mt-auto pt-2 text-xs text-[#6f7f80] dark:text-[#7e8e8f]">
-                          {new Date(agent.created_at).toLocaleDateString(
+                          {new Date(agent.createdAt).toLocaleDateString(
                             'en-US',
                             {
                               month: 'short',

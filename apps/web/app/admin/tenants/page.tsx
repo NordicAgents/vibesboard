@@ -52,14 +52,26 @@ export default function TenantsPage() {
   const fetchTenants = React.useCallback(async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/tenants')
+      // This page filters and paginates client-side, so it needs the whole
+      // set. Without an explicit limit the API defaults to 10, which meant the
+      // table only ever showed the 10 newest tenants while the status-filter
+      // counts and the paginator were computed from that truncated list.
+      const PAGE_LIMIT = 500
+      const response = await fetch(`/api/admin/tenants?page=1&limit=${PAGE_LIMIT}`)
 
       if (!response.ok) {
         throw new Error('Failed to fetch tenants')
       }
 
       const data = await response.json()
-      setTenants(data.tenants || [])
+      const rows = data.tenants || []
+      setTenants(rows)
+
+      // Say so rather than silently under-reporting if we ever outgrow one page.
+      const total = data.pagination?.total ?? rows.length
+      if (total > rows.length) {
+        toast(`Showing the ${rows.length} newest of ${total} workspaces.`)
+      }
     } catch (error) {
       console.error('Error fetching tenants:', error)
       toast.error('Failed to load tenants')

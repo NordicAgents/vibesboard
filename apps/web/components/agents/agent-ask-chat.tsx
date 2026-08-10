@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { type Message } from '@vibesboard/contracts'
-import { useCompletion } from 'ai/react'
+import { useCompletion } from '@ai-sdk/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
 import {
@@ -63,14 +63,14 @@ export function AgentAskChat({
     id: completionId,
     api: `/api/agents/${agent.id}/conversations/ask`,
     streamProtocol: 'text',
-    onResponse(response) {
+    onResponse(response: Response) {
       const nextSessionId = response.headers.get('x-session-id')
       if (nextSessionId) {
         sessionIdRef.current = nextSessionId
         setActiveSessionId(nextSessionId)
       }
     },
-    onFinish(prompt, result) {
+    onFinish(prompt: string, result: string) {
       const sessionId = sessionIdRef.current
       if (!sessionId) {
         return
@@ -87,7 +87,8 @@ export function AgentAskChat({
       })
       setCompletion('')
     }
-  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
 
   React.useEffect(() => {
     sessionIdRef.current = activeSessionId

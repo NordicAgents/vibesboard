@@ -1,7 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText } from 'ai'
+import { streamText as aiStreamText, createTextStreamResponse } from 'ai'
 
 import { auth } from '@/auth'
+import { OPENAI_BASE_URL } from '@vibesboard/adapter-openai'
 import {
   OPENAI_CHAT_MODEL,
   isResponsesModel,
@@ -9,7 +10,7 @@ import {
 } from '@vibesboard/adapter-openai'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
-import { buildProviderModel } from '@vibesboard/ai/provider-registry'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
 
 export const runtime = 'nodejs'
 
@@ -72,13 +73,13 @@ Example output format:
 
 Remember: Great agent instructions are specific, actionable, and provide clear boundaries while giving the agent personality and purpose.`
 
-  if (tenantSpec) {
+  if (tenantSpec && tenantId) {
     const result = await aiStreamText({
-      model: buildProviderModel(tenantSpec),
-      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+      model: await buildTenantProviderModel(tenantId, tenantSpec),
+      system: systemPrompt, messages: messages,
       temperature: 0.3
     })
-    return result.toTextStreamResponse()
+    return createTextStreamResponse({ stream: result.textStream })
   }
 
   if (!apiKey) {
@@ -96,11 +97,11 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
     return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   }
 
-  const openaiClient = createOpenAI({ apiKey })
+  const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
   const result = await aiStreamText({
     model: openaiClient(model),
-    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    system: systemPrompt, messages: messages,
     temperature: 0.3
   })
-  return result.toTextStreamResponse()
+  return createTextStreamResponse({ stream: result.textStream })
 }

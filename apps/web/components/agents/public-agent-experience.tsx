@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { type Message } from 'ai/react'
+import { type Message } from '@vibesboard/contracts'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { type VibeAgent } from '@vibesboard/contracts'
@@ -139,6 +139,8 @@ export function PublicAgentExperience({
                 {!feedbackRating && (
                   <div className="flex items-center gap-3">
                     <button
+                      type="button"
+                      aria-label="Rate this conversation positively"
                       onClick={() => handleFeedback('positive')}
                       disabled={feedbackSubmitting}
                       className="flex size-10 items-center justify-center rounded-full border border-[#e4e3e3] bg-white transition-colors hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-50 dark:border-[#344348] dark:bg-[#1a2425] dark:hover:border-emerald-600 dark:hover:bg-emerald-900/20"
@@ -146,6 +148,8 @@ export function PublicAgentExperience({
                       <ThumbsUp className="size-4 text-[#445e5f] dark:text-[#c9cbbe]" />
                     </button>
                     <button
+                      type="button"
+                      aria-label="Rate this conversation negatively"
                       onClick={() => handleFeedback('negative')}
                       disabled={feedbackSubmitting}
                       className="flex size-10 items-center justify-center rounded-full border border-[#e4e3e3] bg-white transition-colors hover:border-red-300 hover:bg-red-50 disabled:opacity-50 dark:border-[#344348] dark:bg-[#1a2425] dark:hover:border-red-600 dark:hover:bg-red-900/20"

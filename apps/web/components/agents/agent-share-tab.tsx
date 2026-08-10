@@ -70,6 +70,7 @@ export function AgentShareTab({
             </Button>
             <Button size="sm" variant="ghost" asChild>
               <Link href={share.url} target="_blank" rel="noopener noreferrer">
+                <span className="sr-only">Open public agent in a new tab</span>
                 <IconExternalLink className="size-4" />
               </Link>
             </Button>

@@ -118,7 +118,10 @@ export default function TeamManagementPage() {
       const response = await fetch(`/api/tenants/${tenantId}/config`)
       if (response.ok) {
         const data = await response.json()
-        const personal = Boolean(data.tenant?.is_personal)
+        // The config route returns a TenantDocument, which is camelCase
+        // (lib/tenant-context.ts). Reading `is_personal` always yielded
+        // undefined, so personal workspaces were shown the team UI.
+        const personal = Boolean(data.tenant?.isPersonal)
         setIsPersonal(personal)
         const features = (data.tenant?.features ||
           data.features ||

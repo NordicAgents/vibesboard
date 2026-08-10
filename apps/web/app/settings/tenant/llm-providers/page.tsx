@@ -8,7 +8,86 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/ui/page-header'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Loader2, Star, Pencil, Shield, X } from 'lucide-react'
+import { Plus, Trash2, Loader2, Star, Pencil, Shield, X, ChevronDown, ChevronUp } from 'lucide-react'
+
+// ─── Google Cloud AI Platform URL Builder ────────────────────────────────────
+// Constructs: https://{endpoint}/v1/projects/{projectId}/locations/{region}/endpoints/openapi
+// Used for Google Cloud Model Garden MaaS models (e.g. multilingual-e5-large-instruct-maas)
+function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [endpoint, setEndpoint] = useState('us-central1-aiplatform.googleapis.com')
+  const [region, setRegion] = useState('us-central1')
+  const [projectId, setProjectId] = useState('')
+
+  const builtUrl = endpoint && region && projectId
+    ? `https://${endpoint}/v1/projects/${projectId}/locations/${region}/endpoints/openapi`
+    : ''
+
+  return (
+    <div className="rounded-md border border-border text-xs">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="font-medium">Google Cloud AI Platform URL builder</span>
+        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      </button>
+      {open && (
+        <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
+          <p className="text-muted-foreground">
+            For Google Cloud MaaS models (e.g. <span className="font-mono">intfloat/multilingual-e5-large-instruct-maas</span>).
+            Use a service account key or <span className="font-mono">gcloud auth print-access-token</span> as the API key.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Endpoint host</Label>
+              <Input
+                className="h-7 text-xs mt-0.5"
+                value={endpoint}
+                onChange={e => setEndpoint(e.target.value)}
+                placeholder="us-central1-aiplatform.googleapis.com"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Region</Label>
+              <Input
+                className="h-7 text-xs mt-0.5"
+                value={region}
+                onChange={e => setRegion(e.target.value)}
+                placeholder="us-central1"
+              />
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Project ID</Label>
+            <Input
+              className="h-7 text-xs mt-0.5"
+              value={projectId}
+              onChange={e => setProjectId(e.target.value)}
+              placeholder="your-gcp-project-id"
+            />
+          </div>
+          {builtUrl && (
+            <div className="rounded bg-muted px-2 py-1 font-mono text-[11px] break-all text-muted-foreground">
+              {builtUrl}
+            </div>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 text-xs px-2"
+            disabled={!builtUrl}
+            onClick={() => { onApply(builtUrl); setOpen(false) }}
+          >
+            Apply URL
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 type ProviderKind = 'openai' | 'anthropic' | 'openai_compatible' | 'google' | 'nvidia'
 
@@ -132,6 +211,12 @@ export default function LlmProvidersPage() {
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<Mode>({ type: 'idle' })
   const [form, setForm] = useState<FormState>(emptyForm())
+  // Custom-model mode is tracked explicitly instead of being derived from modelId.
+  // Deriving it (`PROVIDER_MODELS[kind].some(m => m.id === modelId)`) makes every
+  // custom id that starts with a listed id impossible to type: after the second
+  // keystroke of "o3-mini-2025-01-31" the value is "o3" — a listed model — so the
+  // free-text input unmounts mid-typing and the select snaps back to "o3".
+  const [useCustomModel, setUseCustomModel] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -162,7 +247,7 @@ export default function LlmProvidersPage() {
 
   useEffect(() => { load() }, [load])
 
-  const openAdd = () => { setForm(emptyForm()); setMode({ type: 'add' }) }
+  const openAdd = () => { setForm(emptyForm()); setUseCustomModel(false); setMode({ type: 'add' }) }
   const openEdit = (cfg: LlmConfig) => {
     setForm({
       label: cfg.label,
@@ -172,14 +257,21 @@ export default function LlmProvidersPage() {
       baseUrl: cfg.baseUrl ?? '',
       isDefault: cfg.isDefault,
     })
+    // A stored id that isn't in this provider's list (any dated snapshot, e.g.
+    // "gpt-4o-2024-08-06") must reopen in custom mode — otherwise the select has no
+    // matching option and saving would silently rewrite the tenant's model id.
+    const listed = PROVIDER_MODELS[cfg.kind]
+    setUseCustomModel(!!listed && !listed.some(m => m.id === cfg.modelId))
     setMode({ type: 'edit', id: cfg.id })
   }
-  const closeForm = () => { setMode({ type: 'idle' }); setForm(emptyForm()) }
+  const closeForm = () => { setMode({ type: 'idle' }); setForm(emptyForm()); setUseCustomModel(false) }
 
   const handleKindChange = (kind: ProviderKind) => {
     // pre-select the recommended model for the new provider, or the default
     const recommended = PROVIDER_MODELS[kind]?.find(m => m.recommended)
     setForm(f => ({ ...f, kind, modelId: recommended?.id ?? DEFAULT_MODELS[kind] }))
+    // the pre-selected id above is always a listed one, so leave custom mode
+    setUseCustomModel(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -371,7 +463,11 @@ export default function LlmProvidersPage() {
                     <Button variant="ghost" size="sm" onClick={() => handleTest(cfg.id)} disabled={testing === cfg.id}>
                       {testing === cfg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(cfg)}>
+                    <Button
+                      variant="ghost" size="sm"
+                      onClick={() => openEdit(cfg)}
+                      aria-label={`Edit ${cfg.label}`}
+                    >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     {!cfg.isDefault && (
@@ -386,6 +482,7 @@ export default function LlmProvidersPage() {
                       variant="ghost" size="sm"
                       onClick={() => handleDelete(cfg.id)}
                       disabled={deleting === cfg.id}
+                      aria-label={`Delete ${cfg.label}`}
                       className="text-destructive hover:text-destructive"
                     >
                       {deleting === cfg.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -443,11 +540,13 @@ export default function LlmProvidersPage() {
                       <>
                         <select
                           className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                          value={PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) ? form.modelId : '__custom__'}
+                          value={useCustomModel ? '__custom__' : form.modelId}
                           onChange={e => {
-                            if (e.target.value !== '__custom__') {
-                              setForm(f => ({ ...f, modelId: e.target.value }))
-                            }
+                            const value = e.target.value
+                            // Selecting "Custom model ID…" clears modelId so the
+                            // free-text input below becomes visible for the user to type in.
+                            setUseCustomModel(value === '__custom__')
+                            setForm(f => ({ ...f, modelId: value === '__custom__' ? '' : value }))
                           }}
                           required
                         >
@@ -458,8 +557,10 @@ export default function LlmProvidersPage() {
                           ))}
                           <option value="__custom__">Custom model ID…</option>
                         </select>
-                        {/* show text input when "Custom" is selected */}
-                        {!PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) && (
+                        {/* show text input while custom mode is active — never keyed off
+                            the typed value, which would remount the input on every keystroke
+                            that happens to match a listed model id */}
+                        {useCustomModel && (
                           <Input
                             placeholder="Enter model ID"
                             value={form.modelId}
@@ -503,14 +604,63 @@ export default function LlmProvidersPage() {
                 )}
 
                 {form.kind === 'openai_compatible' && (
-                  <div className="space-y-1.5">
-                    <Label>Base URL</Label>
-                    <Input
-                      placeholder="https://api.groq.com/openai/v1"
-                      value={form.baseUrl}
-                      onChange={e => setForm(f => ({ ...f, baseUrl: e.target.value }))}
-                      required
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label>Base URL</Label>
+                      <Input
+                        placeholder="https://api.groq.com/openai/v1"
+                        value={form.baseUrl}
+                        onChange={e => setForm(f => ({ ...f, baseUrl: e.target.value }))}
+                        required
+                      />
+                    </div>
+
+                    {/* Google Cloud AI Platform URL Builder */}
+                    <GoogleCloudUrlBuilder
+                      onApply={url => setForm(f => ({ ...f, baseUrl: url }))}
                     />
+
+                    <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground space-y-1">
+                      <p className="font-medium text-foreground">Embedding model suggestions</p>
+                      <p>When assigning this provider to the <span className="font-mono">Embeddings</span> task, use one of these model IDs:</p>
+                      <ul className="list-disc list-inside space-y-0.5 mt-1">
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'intfloat/multilingual-e5-large-instruct-maas' }))}>
+                            intfloat/multilingual-e5-large-instruct-maas
+                          </button>
+                          {' '}— 384-dim · Google Cloud AI Platform MaaS (use URL builder above)
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'baai/bge-m3' }))}>
+                            baai/bge-m3
+                          </button>
+                          {' '}— 1024-dim · NVIDIA free tier · multilingual · base URL: https://integrate.api.nvidia.com/v1
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'snowflake/arctic-embed-l-v2.0' }))}>
+                            snowflake/arctic-embed-l-v2.0
+                          </button>
+                          {' '}— 1024-dim · NVIDIA free tier · English · base URL: https://integrate.api.nvidia.com/v1
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'nvidia/nv-embed-v2' }))}>
+                            nvidia/nv-embed-v2
+                          </button>
+                          {' '}— 1024-dim · NVIDIA NIM · <span className="font-mono">input_type</span> auto-set · base URL: https://integrate.api.nvidia.com/v1
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'nomic-embed-text' }))}>
+                            nomic-embed-text
+                          </button>
+                          {' '}— 768-dim · Ollama local
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 )}
 
@@ -641,6 +791,7 @@ export default function LlmProvidersPage() {
                       {host}
                       <button
                         type="button"
+                        aria-label={`Remove ${host} from host allowlist`}
                         onClick={() => removeAllowlistEntry(host)}
                         disabled={savingNetwork}
                         className="text-muted-foreground hover:text-foreground"

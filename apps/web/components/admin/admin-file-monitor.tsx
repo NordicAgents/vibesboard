@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -62,11 +62,13 @@ export function AdminFileMonitor() {
   })
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
 
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     setIsLoading(true)
+    setLoadError(null)
     try {
       const params = new URLSearchParams()
       if (statusFilter !== 'all') {
@@ -79,7 +81,9 @@ export function AdminFileMonitor() {
 
       if (!res.ok) {
         // Show specific error message from API (e.g. indexes building)
-        toast.error(data.error || 'Failed to fetch files')
+        const message = data.error || 'Failed to fetch files'
+        setLoadError(message)
+        toast.error(message)
         // Still use any partial data returned (empty defaults)
         if (data.files) setFiles(data.files)
         if (data.stats) setStats(data.stats)
@@ -89,16 +93,18 @@ export function AdminFileMonitor() {
       setFiles(data.files)
       setStats(data.stats)
     } catch (error) {
-      toast.error('Failed to load files')
+      const message = 'Failed to load files'
+      setLoadError(message)
+      toast.error(message)
       console.error(error)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [statusFilter])
 
   useEffect(() => {
     fetchFiles()
-  }, [statusFilter])
+  }, [fetchFiles])
 
   const handleProcessFiles = async (
     type: 'pending' | 'failed' | 'selected'
@@ -201,6 +207,17 @@ export function AdminFileMonitor() {
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-4 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm"
+        >
+          <span>{loadError}</span>
+          <Button variant="outline" size="sm" onClick={fetchFiles}>
+            Try again
+          </Button>
+        </div>
+      )}
       {/* Statistics */}
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
