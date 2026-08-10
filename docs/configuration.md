@@ -64,7 +64,24 @@ a strong `BETTER_AUTH_SECRET`.
 | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` | Google Calendar OAuth and the default credentials for Google Sheets OAuth |
 | `GOOGLE_SHEETS_CLIENT_ID`, `GOOGLE_SHEETS_CLIENT_SECRET` | Optional dedicated Google Sheets OAuth credentials |
 | `VERIFY_TOKEN`, `META_APP_SECRET` | Meta webhook verification and signature validation |
-| `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN` | Platform WhatsApp credentials |
 | `WHATSAPP_INBOX_VERIFY_TOKEN`, `INSTAGRAM_INBOX_VERIFY_TOKEN` | Inbox webhook verification |
+| `NEXT_PUBLIC_META_APP_ID`, `NEXT_PUBLIC_FB_LOGIN_CONFIG_ID` | Meta app identifiers used by the inbox onboarding UI |
 | `CRON_SECRET` | Authenticates scheduled and background endpoints |
-| `GOOGLE_SERVICE_ACCOUNT_KEY`, `GOOGLE_OAUTH_CLIENT_ID` | Google Cross-Account Protection (RISC) registration and token verification |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Service-account JSON used by `scripts/register-risc.ts` to register the RISC event stream |
+| `GOOGLE_OAUTH_CLIENT_ID` | OAuth 2.0 web client ID used to verify the Security Event Token audience |
+
+WhatsApp and Instagram accounts are configured per workspace and stored
+encrypted in the database. Only the webhook verification secrets belong in the
+environment.
+
+`WHATSAPP_ACCESS_TOKEN` is no longer read by application code, but
+`scripts/setup-secrets.sh` and `.github/workflows/deploy-cloudrun.yml` still
+pass it through to Cloud Run, so the secret must continue to exist for deploys
+to succeed.
+
+## Where these files live
+
+The Next.js app reads `apps/web/.env.local`, because `next dev` runs with
+`apps/web` as its working directory. The root `.env` and `.env.local` files
+reach root-level scripts (`db:migrate`, `db:seed`, `scripts/*`) and the E2E
+harness.
