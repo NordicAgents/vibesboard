@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { getLlmConfig, resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { getLlmConfig, resolveProviderSpec, resolveTenantNetworkOpts } from '@vibesboard/ai/tenant-llm-config'
 import { buildProviderModel } from '@vibesboard/ai/provider-registry'
 
 export const runtime = 'nodejs'
@@ -35,9 +35,18 @@ export async function POST(_req: NextRequest, { params }: Params) {
   const spec = await resolveProviderSpec(tenantId, id)
   if (!spec) return NextResponse.json({ error: 'Could not resolve provider spec' }, { status: 400 })
 
+  // buildProviderModel re-runs the SSRF guard, which only permits private/loopback
+  // hosts via allowPrivateHosts / hostAllowlist. PATCH threads these at save time and
+  // the runtime threads them at stream time; without them here an opted-in Ollama /
+  // on-prem baseUrl throws `SSRF guard: ...`, which the catch below flattens into a
+  // misleading "Connection failed" for a config that in fact saves and runs fine.
+  // Fails closed — resolveTenantNetworkOpts returns no-private-hosts defaults if the
+  // tenant row is missing or the lookup errors.
+  const networkOpts = await resolveTenantNetworkOpts(tenantId)
+
   try {
     await generateText({
-      model: buildProviderModel(spec),
+      model: buildProviderModel(spec, {}, networkOpts),
       prompt: 'Reply with the single word: ok',
       maxOutputTokens: 5,
     })

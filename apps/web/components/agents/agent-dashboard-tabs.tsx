@@ -194,7 +194,7 @@ export function AgentDashboardTabs({
             saving={saving}
             canEdit={canEdit}
             agentId={agent.id}
-            hasAccessPassword={!!agent.accessPassword}
+            hasAccessPassword={!!agent.hasAccessPassword}
             llmConfigId={fields.llmConfigId}
             onLlmConfigIdChange={setters.setLlmConfigId}
             tenantId={agent.tenantId}

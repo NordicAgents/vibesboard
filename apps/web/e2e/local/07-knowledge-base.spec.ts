@@ -30,10 +30,9 @@
  * here. `chunksInserted` and `embeddingProvider` are the honest proxies for
  * "the document was actually embedded".
  *
- * Keys are deliberately tenant-scoped (packages/adapter-s3/src/keys.ts:
- * tenants/{tenantId}/agents/{agentId}/files/{name}) so this spec keeps passing
- * once upload-url starts enforcing that prefix — see the note above
- * `fileKeyFor`.
+ * Keys are tenant-scoped (packages/adapter-s3/src/keys.ts:
+ * tenants/{tenantId}/agents/{agentId}/files/{name}); upload-url enforces that
+ * prefix, so an arbitrary key is a 403 — see the note above `fileKeyFor`.
  */
 import { test, expect, type APIRequestContext } from '@playwright/test'
 import { STORAGE_STATE } from '../constants.ts'
@@ -62,9 +61,10 @@ let sharedAgentId: string
 const createdAgentIds: string[] = []
 
 /**
- * upload-url does NOT derive the key server-side today — it signs whatever the
- * client sends (app/api/agents/[id]/files/upload-url/route.ts). Using the app's
- * own tenant-scoped scheme keeps this spec from depending on that leniency.
+ * upload-url now REQUIRES the key to sit under a prefix derived from the agent
+ * (app/api/agents/[id]/files/upload-url/route.ts) — it used to sign whatever the
+ * client sent, which let any signed-in user overwrite another tenant's objects.
+ * This is the canonical scheme from packages/adapter-s3/src/keys.ts.
  */
 const fileKeyFor = (agentId: string, fileName: string) =>
   `tenants/${tenantId}/agents/${agentId}/files/${fileName}`
@@ -497,7 +497,12 @@ test.describe('Knowledge Base — re-embed', () => {
     // Full 1024-dim insert requires a live NVIDIA bge-m3 embedding call —
     // tested in unit tests; here we just verify the API surface is wired.
     const urlRes = await request.post(`/api/agents/${sharedAgentId}/files/upload-url`, {
-      data: { key: `e2e-1024/${Date.now()}-bge-test.txt`, contentType: 'text/plain' },
+      // Must sit under a prefix derived from the agent — upload-url now refuses
+      // arbitrary keys, which is what stopped cross-tenant overwrites.
+      data: {
+        key: fileKeyFor(sharedAgentId, `${Date.now()}-bge-test.txt`),
+        contentType: 'text/plain',
+      },
     })
     expect(urlRes.ok()).toBeTruthy()
     const { uploadUrl } = await urlRes.json()

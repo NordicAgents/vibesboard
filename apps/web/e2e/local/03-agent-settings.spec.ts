@@ -292,15 +292,12 @@ test.describe('Agent Settings — invalid input', () => {
         failOnStatusCode: false,
       })
 
-      // KNOWN APP BUG, asserted as-is so this test stays honest: the handler
-      // calls patchAgentSchema.parse(body) bare (app/api/agents/[id]/route.ts:56),
-      // so the ZodError escapes and Next reports 500. POST /api/agents was
-      // already converted to safeParse → 400; PATCH was not. When PATCH is
-      // fixed the expected status below becomes 400.
+      // PATCH now safeParses like POST /api/agents, so schema-invalid input is
+      // a 400 rather than an escaping ZodError surfacing as 500.
       expect(
         res.status(),
         `PATCH with name=${JSON.stringify(badName)} must be rejected`,
-      ).toBe(500)
+      ).toBe(400)
     }
 
     // The important invariant, independent of the status code: nothing landed.
@@ -331,8 +328,8 @@ test.describe('Agent Settings — invalid input', () => {
       ),
       saveBtn.click(),
     ])
-    // Same known bug as above — the save is refused, currently as a 500.
-    expect(patchRes.status()).toBe(500)
+    // Refused as a 400 (schema-invalid), not a 500.
+    expect(patchRes.status()).toBe(400)
 
     // A toast appears (use-agent-form.ts:212 renders toast.error on failure)...
     await expect(page.locator('[role="status"]').first()).toBeVisible()

@@ -52,8 +52,26 @@ export async function PATCH(
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
-  const body = await req.json()
-  const payload = patchAgentSchema.parse(body)
+  // Both of these used to throw out of the handler (SyntaxError / ZodError),
+  // which Next reports as a 500 with no `error` body — so clearing the name in
+  // the Setup tab (name is min(2)) surfaced a generic "server error" toast and
+  // paged as a server fault. Malformed client input is a 400, same as POST
+  // /api/agents.
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const parsed = patchAgentSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', issues: parsed.error.issues },
+      { status: 400 }
+    )
+  }
+  const payload = parsed.data
 
   // Validate webhook URL against SSRF at save time
   const webhookUrl = payload.notificationConfig?.webhook?.url

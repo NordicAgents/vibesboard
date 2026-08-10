@@ -20,6 +20,31 @@ export async function setAgentAccessPasswordHash(
     .where(and(eq(agents.id, agentId), eq(agents.tenantId, tenantId)))
 }
 
+/**
+ * Reads an agent's access-password hash for server-side verification.
+ *
+ * This exists so the hash never has to ride along on the mapped agent object.
+ * It used to: `agentRowToVibeAgent` exposed it as `accessPassword`, and the
+ * gated pages pass the whole agent into a client component, so an anonymous
+ * visitor received the hash in the RSC payload *before* entering any password.
+ * The hash is an unsalted HMAC-SHA256 under one process-wide secret, so the
+ * same password produces identical bytes for every agent — leaking it is worth
+ * more to an attacker than a single agent's gate.
+ *
+ * Server-only callers (the verify-access route) fetch it explicitly instead.
+ */
+export async function getAgentAccessPasswordHash(
+  agentId: string,
+  db: Db = getMigrateDb(),
+): Promise<string | null> {
+  const [row] = await db
+    .select({ accessPasswordHash: agents.accessPasswordHash })
+    .from(agents)
+    .where(eq(agents.id, agentId))
+    .limit(1)
+  return row?.accessPasswordHash ?? null
+}
+
 /** Clears an agent's access password, scoped by tenant. */
 export async function clearAgentAccessPasswordHash(
   tenantId: string,

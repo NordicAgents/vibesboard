@@ -211,6 +211,12 @@ export default function LlmProvidersPage() {
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<Mode>({ type: 'idle' })
   const [form, setForm] = useState<FormState>(emptyForm())
+  // Custom-model mode is tracked explicitly instead of being derived from modelId.
+  // Deriving it (`PROVIDER_MODELS[kind].some(m => m.id === modelId)`) makes every
+  // custom id that starts with a listed id impossible to type: after the second
+  // keystroke of "o3-mini-2025-01-31" the value is "o3" — a listed model — so the
+  // free-text input unmounts mid-typing and the select snaps back to "o3".
+  const [useCustomModel, setUseCustomModel] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -241,7 +247,7 @@ export default function LlmProvidersPage() {
 
   useEffect(() => { load() }, [load])
 
-  const openAdd = () => { setForm(emptyForm()); setMode({ type: 'add' }) }
+  const openAdd = () => { setForm(emptyForm()); setUseCustomModel(false); setMode({ type: 'add' }) }
   const openEdit = (cfg: LlmConfig) => {
     setForm({
       label: cfg.label,
@@ -251,14 +257,21 @@ export default function LlmProvidersPage() {
       baseUrl: cfg.baseUrl ?? '',
       isDefault: cfg.isDefault,
     })
+    // A stored id that isn't in this provider's list (any dated snapshot, e.g.
+    // "gpt-4o-2024-08-06") must reopen in custom mode — otherwise the select has no
+    // matching option and saving would silently rewrite the tenant's model id.
+    const listed = PROVIDER_MODELS[cfg.kind]
+    setUseCustomModel(!!listed && !listed.some(m => m.id === cfg.modelId))
     setMode({ type: 'edit', id: cfg.id })
   }
-  const closeForm = () => { setMode({ type: 'idle' }); setForm(emptyForm()) }
+  const closeForm = () => { setMode({ type: 'idle' }); setForm(emptyForm()); setUseCustomModel(false) }
 
   const handleKindChange = (kind: ProviderKind) => {
     // pre-select the recommended model for the new provider, or the default
     const recommended = PROVIDER_MODELS[kind]?.find(m => m.recommended)
     setForm(f => ({ ...f, kind, modelId: recommended?.id ?? DEFAULT_MODELS[kind] }))
+    // the pre-selected id above is always a listed one, so leave custom mode
+    setUseCustomModel(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -527,11 +540,13 @@ export default function LlmProvidersPage() {
                       <>
                         <select
                           className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                          value={PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) ? form.modelId : '__custom__'}
+                          value={useCustomModel ? '__custom__' : form.modelId}
                           onChange={e => {
+                            const value = e.target.value
                             // Selecting "Custom model ID…" clears modelId so the
                             // free-text input below becomes visible for the user to type in.
-                            setForm(f => ({ ...f, modelId: e.target.value === '__custom__' ? '' : e.target.value }))
+                            setUseCustomModel(value === '__custom__')
+                            setForm(f => ({ ...f, modelId: value === '__custom__' ? '' : value }))
                           }}
                           required
                         >
@@ -542,8 +557,10 @@ export default function LlmProvidersPage() {
                           ))}
                           <option value="__custom__">Custom model ID…</option>
                         </select>
-                        {/* show text input when "Custom" is selected */}
-                        {!PROVIDER_MODELS[form.kind]!.some(m => m.id === form.modelId) && (
+                        {/* show text input while custom mode is active — never keyed off
+                            the typed value, which would remount the input on every keystroke
+                            that happens to match a listed model id */}
+                        {useCustomModel && (
                           <Input
                             placeholder="Enter model ID"
                             value={form.modelId}

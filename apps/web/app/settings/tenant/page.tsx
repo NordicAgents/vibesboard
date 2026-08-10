@@ -28,13 +28,18 @@ import {
   toCssHslVar
 } from '@/lib/colors'
 
+// Mirrors the TenantDocument returned by GET /api/tenants/[id]/config, which
+// is camelCase (rowToTenantDocument in lib/tenant-context.ts). These fields
+// used to be declared snake_case, so `created_at` rendered "Invalid Date" and
+// `is_personal` was always undefined — personal workspaces kept editable
+// branding / Google Review controls the API then rejected on save.
 interface TenantConfig {
   id: string
   name: string
   slug: string
   status: string
-  created_at: string
-  is_personal?: boolean
+  createdAt: string
+  isPersonal?: boolean
   googlePlaceId?: string | null
   branding?: {
     logoUrl?: string
@@ -328,7 +333,7 @@ export default function TenantSettingsPage() {
     }
   }
 
-  const isPersonal = Boolean(tenant.is_personal)
+  const isPersonal = Boolean(tenant.isPersonal)
   const customBrandingEnabled =
     features.find(f => f.name === 'CUSTOM_BRANDING')?.isEnabled ?? true
   const brandingLocked = isPersonal || !customBrandingEnabled
@@ -625,7 +630,7 @@ export default function TenantSettingsPage() {
                 <div className="space-y-1">
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {new Date(tenant.created_at).toLocaleDateString()}
+                    {new Date(tenant.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>

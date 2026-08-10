@@ -12,6 +12,15 @@ import { type VibeAgent } from '@vibesboard/contracts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
+// agents.id is a Postgres `uuid` column, so comparing it against a malformed id
+// makes the driver raise 22P02 (`invalid input syntax for type uuid`) instead of
+// returning zero rows. Callers treat "no agent" as notFound()/404, so without a
+// guard a stale link, a hand-typed URL or an `undefined` interpolated into
+// /agents/<id> becomes a 500 error card plus a logged unhandled DB exception.
+// Same regex as conversations.ts and apps/web/lib/tenant-context.ts.
+const isUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+
 async function fetchAgent(db: Db, where: any): Promise<VibeAgent | null> {
   const rows = await db
     .select({ agent: agentsTable, tenantSlug: tenantsTable.slug })
@@ -46,6 +55,10 @@ export async function getAgentById(
   agentId: string,
   db: Db = getMigrateDb(),
 ): Promise<VibeAgent | null> {
+  // A non-uuid id can never match a row, so answer "not found" here rather than
+  // letting the query throw — this is the shared entry point for the agent
+  // pages, the widget, the public/share routes and the hook runners.
+  if (!isUuid(agentId)) return null
   return fetchAgent(db, eq(agentsTable.id, agentId))
 }
 
