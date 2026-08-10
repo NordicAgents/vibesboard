@@ -70,7 +70,10 @@ test('landing header carries only the wordmark, the repo and a sign-in', async (
   page
 }) => {
   await page.goto('/')
-  const header = page.getByRole('banner')
+  // Located by element, not by `getByRole('banner')`: app/layout.tsx wraps every
+  // page in <main>, and a <header> nested inside main maps to the generic role
+  // rather than to banner, so the role selector matches nothing here.
+  const header = page.locator('header')
 
   // The old agency nav is gone: no Products dropdown, no Features/About anchors.
   await expect(header.getByText('Products')).toHaveCount(0)
