@@ -97,10 +97,13 @@ const sanitizeTools = (value: unknown): VibeAgentTool[] => {
     .filter((tool): tool is VibeAgentTool => Boolean(tool))
 }
 
+/** Agent mapper output contains only the public password-presence boolean. */
+type MappedAgent = VibeAgent
+
 /**
  * Map a raw agent record to the VibeAgent interface
  */
-export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
+export const mapAgentDoc = (data: Record<string, any>): MappedAgent => ({
   id: data.id,
   userId: data.userId,
   tenantId: data.tenantId,
@@ -111,7 +114,13 @@ export const mapAgentDoc = (data: Record<string, any>): VibeAgent => ({
   agentUrl: data.agentUrl,
   tools: sanitizeTools(data.tools),
   allowAnonymous: data.allowAnonymous ?? false,
-  accessPassword: data.accessPassword ?? null,
+  // Boolean only: this mapper's output is returned verbatim by GET/POST
+  // /api/agents, so echoing the hash back would hand it to every member of the
+  // tenant (and to super-admins listing another tenant's agents). No caller of
+  // this mapper needs the hash itself.
+  hasAccessPassword: Boolean(
+    data.hasAccessPassword ?? data.accessPassword ?? data.accessPasswordHash
+  ),
   greetingText: data.greetingText ?? null,
   mode: data.mode ?? 'provider',
   maxResponses: data.maxResponses ?? data.maxMessages ?? null,
@@ -297,7 +306,7 @@ export const rowToHookJob = (r: HookJob): HookJobDocument => ({
 })
 
 /** Map a Postgres agents row (+ the tenant's slug) to the VibeAgent shape. */
-export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): VibeAgent => ({
+export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): MappedAgent => ({
   id: row.id,
   userId: row.userId ?? '',
   tenantId: row.tenantId,
@@ -308,7 +317,12 @@ export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): VibeAgent =
   agentUrl: row.slug,
   tools: sanitizeTools(row.tools ?? []),
   allowAnonymous: row.allowAnonymous ?? false,
-  accessPassword: row.accessPasswordHash ?? null,
+  // Boolean only — the raw hash is deliberately NOT mapped. The gated pages
+  // ([tenantSlug]/[agentSlug] and widget/[agentId]) pass the whole agent into a
+  // client component, so anything here reaches anonymous visitors in the RSC
+  // payload. The one server-side caller that genuinely needs the hash (the
+  // verify-access route) reads it via getAgentAccessPasswordHash().
+  hasAccessPassword: Boolean(row.accessPasswordHash),
   greetingText: row.greetingText ?? null,
   mode: row.mode ?? 'provider',
   maxResponses: row.maxResponses ?? null,

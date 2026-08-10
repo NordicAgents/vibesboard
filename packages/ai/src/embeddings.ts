@@ -5,9 +5,8 @@ import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { embeddings as embeddingsTable, embeddings1536 } from '@vibesboard/adapter-postgres/schema'
 import { createEmbedding } from '@vibesboard/adapter-openai'
-import { providerFromDimension } from './rag-store.ts'
+import { ALL_EMBEDDING_TABLES, providerFromDimension, selectTable } from './rag-store.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -128,19 +127,17 @@ export async function upsertConversationEmbeddings(
 
   if (!vectors.length) return
 
-  // Route to correct table based on vector dimension (768 → embeddings, 1536 → embeddings_1536)
-  const dim = vectors[0].length
-  const provider = providerFromDimension(dim)
-  const table = provider === 'openai' ? embeddings1536 : embeddingsTable
+  // Route to correct table based on vector dimension
+  // (768 → embeddings, 1536 → embeddings_1536, 384 → embeddings_384)
+  const table = selectTable(providerFromDimension(vectors[0].length))
 
   await db.transaction(async tx => {
-    // Delete from both tables to handle provider switches cleanly
-    await tx.delete(embeddingsTable).where(
-      and(eq(embeddingsTable.tenantId, tenantId), eq(embeddingsTable.sourceType, 'conversation_chunk'), eq(embeddingsTable.sourceId, conversationId))
-    )
-    await tx.delete(embeddings1536).where(
-      and(eq(embeddings1536.tenantId, tenantId), eq(embeddings1536.sourceType, 'conversation_chunk'), eq(embeddings1536.sourceId, conversationId))
-    )
+    // Delete from every table to handle provider switches cleanly
+    for (const t of ALL_EMBEDDING_TABLES) {
+      await tx.delete(t).where(
+        and(eq(t.tenantId, tenantId), eq(t.sourceType, 'conversation_chunk'), eq(t.sourceId, conversationId))
+      )
+    }
     await tx.insert(table).values(
       indexed.map((c, i) => ({
         id: uuidv7(),
@@ -156,18 +153,17 @@ export async function upsertConversationEmbeddings(
   })
 }
 
-/** Delete all conversation_chunk embeddings for a conversation from both tables. */
+/** Delete all conversation_chunk embeddings for a conversation from every table. */
 export async function deleteConversationEmbeddings(
   tenantId: string,
   conversationId: string,
   db: Db = getMigrateDb()
 ): Promise<void> {
-  await Promise.all([
-    db.delete(embeddingsTable).where(
-      and(eq(embeddingsTable.tenantId, tenantId), eq(embeddingsTable.sourceType, 'conversation_chunk'), eq(embeddingsTable.sourceId, conversationId))
-    ),
-    db.delete(embeddings1536).where(
-      and(eq(embeddings1536.tenantId, tenantId), eq(embeddings1536.sourceType, 'conversation_chunk'), eq(embeddings1536.sourceId, conversationId))
-    ),
-  ])
+  await Promise.all(
+    ALL_EMBEDDING_TABLES.map(t =>
+      db.delete(t).where(
+        and(eq(t.tenantId, tenantId), eq(t.sourceType, 'conversation_chunk'), eq(t.sourceId, conversationId))
+      )
+    )
+  )
 }

@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { ingestFileForAgent } from '@vibesboard/ai/file-search'
-import { getFileByKey, insertFiles } from '@vibesboard/ai/files-store'
+import {
+  getFileByKey,
+  insertFiles,
+  setFileStatus
+} from '@vibesboard/ai/files-store'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
@@ -74,10 +78,26 @@ export async function POST(
       fileName: fileName ?? fileRecord.fileName,
       mimeType: mimeType ?? fileRecord.mimeType
     })
+
+    if (result.chunksInserted === 0) {
+      const reason =
+        result.message || 'Ingestion produced no searchable chunks.'
+      await setFileStatus(fileRecord.id, 'failed', { error: reason })
+      return NextResponse.json(
+        { error: reason, chunksInserted: 0 },
+        { status: 422 }
+      )
+    }
+
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Ingestion failed'
+    await setFileStatus(fileRecord.id, 'failed', { error: message }).catch(
+      () => undefined
+    )
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Ingestion failed' },
+      { error: message },
       { status: 500 }
     )
   }

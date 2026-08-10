@@ -5,17 +5,13 @@ import { cosineDistance } from 'drizzle-orm/sql/functions'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import {
-  embeddings,
-  embeddings1536,
-  conversations as conversationsTable
-} from '@vibesboard/adapter-postgres/schema'
+import { conversations as conversationsTable } from '@vibesboard/adapter-postgres/schema'
 import {
   listAgentConversations,
   getConversation
 } from '@vibesboard/agents/conversations'
 import { embedTexts } from './embeddings.ts'
-import { providerFromDimension } from './rag-store.ts'
+import { providerFromDimension, selectTable } from './rag-store.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 interface Deps {
@@ -162,8 +158,7 @@ async function buildVectorContext(
   }
 
   // Route the vector search to the correct table based on query embedding dimension
-  const queryDim = queryEmbedding.length
-  const table = providerFromDimension(queryDim) === 'openai' ? embeddings1536 : embeddings
+  const table = selectTable(providerFromDimension(queryEmbedding.length))
   const distance = cosineDistance(table.embedding, queryEmbedding)
 
   let hits: Array<{ conversationId: string; messageIndex: number }>

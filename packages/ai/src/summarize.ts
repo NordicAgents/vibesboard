@@ -3,7 +3,7 @@ import { OPENAI_CHAT_MODEL, completeText, isResponsesModel } from '@vibesboard/a
 import { chatCompletion } from '@vibesboard/adapter-openai'
 import { generateText } from 'ai'
 import { resolveProviderSpec } from './tenant-llm-config.ts'
-import { buildProviderModel } from './provider-registry.ts'
+import { buildTenantProviderModel } from './provider-registry.ts'
 
 const SUMMARY_SYSTEM_PROMPT =
   'You write <=15 word neutral summaries for chat transcripts. Mention the agent topic if available.'
@@ -12,11 +12,14 @@ export async function summarizeConversation(
   messages: Message[],
   tenantId?: string
 ): Promise<string | null> {
+  // ai v4's Message role union is system | user | assistant | data; the chat
+  // completion APIs only accept the first three, so anything else (currently
+  // just 'data') is folded into 'assistant'.
+  const CHAT_ROLES = ['system', 'user', 'assistant'] as const
   const recent = messages.slice(-8).map(message => ({
-    role: (message.role === 'function' ? 'assistant' : message.role) as
-      | 'system'
-      | 'user'
-      | 'assistant',
+    role: (CHAT_ROLES as readonly string[]).includes(message.role)
+      ? (message.role as (typeof CHAT_ROLES)[number])
+      : ('assistant' as const),
     content: truncate(message.content, 500)
   }))
 
@@ -26,9 +29,9 @@ export async function summarizeConversation(
       const spec = await resolveProviderSpec(tenantId, null, undefined, 'chat').catch(() => null)
       if (spec) {
         const { text } = await generateText({
-          model: buildProviderModel(spec),
+          model: await buildTenantProviderModel(tenantId, spec),
           messages: [{ role: 'system', content: SUMMARY_SYSTEM_PROMPT }, ...recent],
-          maxTokens: 60,
+          maxOutputTokens: 60,
           temperature: 0.2,
         })
         return text.trim() || null

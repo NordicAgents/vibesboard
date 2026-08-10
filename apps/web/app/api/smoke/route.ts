@@ -10,10 +10,15 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const mode = url.searchParams.get('mode') || 'file'
   // Minimal in-memory agent with built-in tools enabled
+  // These must be UUID-shaped: the runtime resolves per-tenant LLM routing and
+  // feature flags by querying uuid columns with them, so the previous
+  // 'smoke-tenant' / 'smoke-user' / 'smoke-agent' strings made Postgres throw
+  // ("invalid input syntax for type uuid") and this route always returned 500.
+  // Sentinel values that match no row, so every lookup falls back to defaults.
   const agent: VibeAgent = {
-    id: 'smoke-agent',
-    userId: 'smoke-user',
-    tenantId: 'smoke-tenant',
+    id: '00000000-0000-4000-8000-000000005a9e',
+    userId: '00000000-0000-4000-8000-000000005115',
+    tenantId: '00000000-0000-4000-8000-0000000005e0',
     name: 'SmokeTest Agent',
     instructions:
       'Follow directions. When the user explicitly asks to call a tool, do so. Keep the final answer concise.',

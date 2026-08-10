@@ -12,5 +12,15 @@ export const E2E_USER = {
   name: 'E2E Tester',
 }
 
+// A second, unrelated account used to prove tenant isolation: it is a member of
+// no tenant the E2E_USER owns, so every cross-tenant request it makes must be
+// refused. Seeded by e2e/local/global-setup.ts.
+export const E2E_OUTSIDER = {
+  email: 'e2e-outsider@vibesboard.local',
+  password: 'E2e-Outsider-Pass-123!',
+  name: 'E2E Outsider',
+}
+
 // Where Playwright saves the authenticated browser state (cookie jar).
 export const STORAGE_STATE = 'e2e/.auth/user.json'
+export const OUTSIDER_STATE = 'e2e/.auth/outsider.json'

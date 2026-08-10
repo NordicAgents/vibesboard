@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
+import { getApiErrorMessage } from '@/lib/api-error'
 import type {
   VibeAgent,
   AgentMode,
@@ -204,7 +205,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       })
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        throw new Error(error.error ?? 'Failed to update')
+        throw new Error(getApiErrorMessage(error, 'Failed to update'))
       }
       toast.success('Changes saved')
       router.refresh()

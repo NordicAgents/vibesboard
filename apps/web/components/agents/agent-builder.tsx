@@ -102,7 +102,8 @@ export function AgentBuilder({ userId }: AgentBuilderProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               fileName,
-              contentType: file.type || 'application/octet-stream'
+              contentType: file.type || 'application/octet-stream',
+              fileSize: file.size
             })
           })
 

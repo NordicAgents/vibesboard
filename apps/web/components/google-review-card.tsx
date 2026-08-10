@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { type Message } from 'ai/react'
+import { type Message } from '@vibesboard/contracts'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 

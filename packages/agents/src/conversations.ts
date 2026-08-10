@@ -13,11 +13,9 @@ import {
 } from '@vibesboard/adapter-postgres/schema'
 import { rowToConversation } from './db.ts'
 import { type VibeAgentConversation } from '@vibesboard/contracts'
+import { isUuid } from '@vibesboard/utils'
 
 type Db = PostgresJsDatabase<typeof schema>
-
-const isUuid = (v: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 
 /** Load a conversation row + its ordered messages + latest feedback, mapped. */
 async function loadConversation(

@@ -135,8 +135,54 @@
       "tag": "0018_embeddings_rls_and_task_configs_rls",
       "breakpoints": true
     },
-    { "idx": 19, "version": "7", "when": 1784073600000, "tag": "0019_agent_memory_enabled", "breakpoints": true },
-    { "idx": 20, "version": "7", "when": 1784077200000, "tag": "0020_hybrid_memory_tables", "breakpoints": true },
-    { "idx": 21, "version": "7", "when": 1784080800000, "tag": "0021_hybrid_memory_rls_policies", "breakpoints": true }
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784073600000,
+      "tag": "0019_agent_memory_enabled",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784077200000,
+      "tag": "0020_hybrid_memory_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784080800000,
+      "tag": "0021_hybrid_memory_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786183391508,
+      "tag": "0022_cultured_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786284904192,
+      "tag": "0023_lucky_shatterstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786371304192,
+      "tag": "0024_embeddings_1024_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786371304193,
+      "tag": "0025_lyrical_sugar_man",
+      "breakpoints": true
+    }
   ]
 }

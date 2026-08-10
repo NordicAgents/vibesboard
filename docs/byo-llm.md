@@ -21,10 +21,10 @@ Click **Add Provider**. Fill in the form:
 | Field | Description |
 |---|---|
 | **Label** | Friendly name shown in the UI (e.g. "Our Anthropic Key") |
-| **Provider** | `OpenAI`, `Anthropic`, `Google Gemini`, or `OpenAI-Compatible` (Groq, Mistral, Together, etc.) |
+| **Provider** | `OpenAI`, `Anthropic`, `Google Gemini`, `NVIDIA`, or `OpenAI-Compatible` (Groq, Mistral, Together, Ollama, etc.) |
 | **Model** | Dropdown of official model IDs for the selected provider (★ = recommended). "Custom model ID…" at the bottom for unlisted models. |
 | **API Key** | Your provider API key — stored encrypted at rest, never returned by the API |
-| **Base URL** | _(OpenAI-Compatible only)_ The provider's endpoint (e.g. `https://api.groq.com/openai/v1`). Private/internal addresses are rejected. |
+| **Base URL** | _(OpenAI-Compatible only)_ The provider's endpoint (e.g. `https://api.groq.com/openai/v1`). Private/internal addresses require an explicit Network Access opt-in. |
 | **Set as default** | When checked, all agents in this workspace use this config unless they have an explicit override |
 
 Click **Save Provider**. The config is stored immediately.
@@ -60,19 +60,25 @@ Toggle a config off to pause its use without deleting it. Disabled configs are s
 
 ---
 
-### 7. Per-agent override _(API only, UI coming)_
+### 7. Per-agent override
 
-Each agent has an optional `llmConfigId` field. When set, that agent always uses the specified config regardless of the workspace default. Useful for routing different agents to different models (e.g. cheap model for high-volume triage, premium model for complex tasks).
+Each agent has an optional provider selector in its **Setup** tab, backed by the `llmConfigId` field. When set, that agent uses the selected config ahead of task and workspace defaults. This is useful for routing different agents to different models (for example, a low-cost model for high-volume triage and a premium model for complex tasks).
 
 ---
 
-### 8. Re-embed files when switching provider
+### 8. Route tasks to different providers
+
+The **Task Routing** table can assign separate enabled configurations to chat, embeddings, the agent-creation assistant, or the `*` wildcard. An exact task assignment wins over the wildcard; both sit below a per-agent override and above the workspace default.
+
+---
+
+### 9. Re-embed files when switching provider
 
 When you change your default provider, existing file embeddings are in a different vector space and will return poor RAG results. The Knowledge tab shows an amber warning when it detects stale embeddings. Click **Re-embed files** to re-index all files using the current provider.
 
 ---
 
-### 9. Delete a config
+### 10. Delete a config
 
 Click the trash icon. The config row is removed. Any agent pointing to this config falls through to the workspace default on next inference.
 
@@ -86,10 +92,11 @@ The BYO-LLM layer is **transparent to end users**. There is no visible change to
 
 | Scenario | Model used |
 |---|---|
-| Workspace has no provider config | Platform default (`OPENAI_CHAT_MODEL` env var) |
+| Workspace has no provider config | Platform default (`OPENAI_MODEL` env var) |
 | Workspace has a default config (enabled) | Tenant's configured model via tenant's API key |
 | Agent has an explicit `llmConfigId` | That specific config's model, regardless of workspace default |
-| Config is disabled / key is invalid | Falls through to platform default |
+| Selected config is disabled or unavailable | Falls through to task, workspace, or platform defaults |
+| Selected config has an invalid key or provider error | The request fails with a sanitized provider error; test configurations before assigning them |
 
 ### Agent Builder
 
@@ -108,33 +115,31 @@ When a workspace admin previews an agent using the **Live Preview** panel, the p
 ```
 runAgentStream(agent, messages)
   │
-  ├─ previewToken set? ──yes──▶ platform model (OPENAI_CHAT_MODEL)
+  ├─ previewToken set? ──yes──▶ platform model (OPENAI_MODEL)
   │
-  └─ no ──▶ resolveProviderSpec(agent.tenantId, agent.llmConfigId)
+  └─ no ──▶ resolveProviderSpec(tenantId, llmConfigId, task='chat')
               │
-              ├─ agent.llmConfigId set + config found + enabled?
-              │     └──yes──▶ use that config's model
-              │
-              ├─ tenant has isDefault=true + enabled config?
-              │     └──yes──▶ use that config's model
-              │
-              └─ no match ──▶ platform model (OPENAI_CHAT_MODEL)
+              ├─ enabled per-agent config
+              ├─ exact task assignment ('chat')
+              ├─ wildcard task assignment ('*')
+              ├─ enabled workspace default
+              └─ no match ──▶ platform model (OPENAI_MODEL)
 ```
 
 ### Embeddings (RAG + file indexing)
 
 ```
-resolveEmbedder(tenantId)
+resolveEmbedder(tenantId, task='embed')
   │
-  ├─ tenant default config is openai/openai_compatible?
+  ├─ assigned/default config is openai/openai_compatible?
   │     └──▶ OpenAI Embeddings API with tenant key
   │
-  ├─ tenant default config is google?
+  ├─ assigned/default config is google?
   │     └──▶ Google text-embedding-004 via native API
   │          (falls back to platform key if embedding model unavailable)
   │
-  ├─ tenant default config is anthropic?
-  │     └──▶ Anthropic has no embedding API — platform key fallback
+  ├─ assigned/default config is anthropic or nvidia?
+  │     └──▶ No compatible embedding API — platform key fallback
   │
   └─ no config ──▶ platform OPENAI_API_KEY
 ```
@@ -160,7 +165,8 @@ Keys are never returned by the API — `GET /api/tenants/llm-configs` omits the 
 | `openai` | ✅ | ✅ `text-embedding-3-small` | Standard OpenAI API |
 | `anthropic` | ✅ | ❌ Platform fallback | Anthropic has no embedding API |
 | `google` | ✅ | ✅ `text-embedding-004` | Some API keys may not have embedding access; falls back to platform key |
-| `openai_compatible` | ✅ | ✅ (if endpoint supports `/embeddings`) | Groq, Mistral, Together AI, Ollama, LM Studio, etc. |
+| `nvidia` | ✅ | ❌ Platform fallback | NVIDIA API Catalog chat models; hosted base URL is supplied automatically |
+| `openai_compatible` | ✅ | ✅ (if endpoint supports `/embeddings`) | Groq, Mistral, Together AI, Ollama, LM Studio, and embedding NIM endpoints |
 
 Override the Google embedding model via `GOOGLE_EMBEDDING_MODEL` env var.
 
@@ -169,7 +175,7 @@ Override the Google embedding model via `GOOGLE_EMBEDDING_MODEL` env var.
 ## Security
 
 ### SSRF protection on baseUrl
-`openai_compatible` configs accept a tenant-supplied `baseUrl`. The API validates it at save time and again at fetch time — private IP ranges (`10.x`, `192.168.x`, `169.254.x` IMDS, localhost, link-local IPv6) are rejected. Only HTTP and HTTPS are accepted.
+`openai_compatible` configs accept a tenant-supplied `baseUrl`. The API validates it at save time and again before model construction. Private IP ranges (`10.x`, `192.168.x`, `169.254.x` IMDS, localhost, and link-local IPv6) are rejected by default. A workspace administrator can explicitly allow private hosts or add specific hosts to the tenant allowlist for on-premise deployments. Only HTTP and HTTPS are accepted.
 
 ### Test-connection error sanitisation
 The `/test` endpoint returns sanitised error messages (e.g. "Authentication failed"). Raw provider error bodies (which could expose internal service content) are logged server-side only.
@@ -184,8 +190,6 @@ BYO-LLM is gated by the `BYO_LLM` feature flag (defaults **on**). Platform admin
 
 ## Follow-ups
 
-- [ ] Per-agent `llmConfigId` picker in the Agent Builder UI
-- [ ] Per-task routing (`chat`, `*` wildcard) so different agent tasks can use different configs
 - [ ] Migrate secret storage to AWS Secrets Manager for production hardening
 - [ ] Add `provider` + `configId` columns to `usage_counters` for per-provider cost attribution
 - [ ] Health metrics (success rate, last error) per config
