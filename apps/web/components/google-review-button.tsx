@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
-import { type Message } from 'ai/react'
+import { type Message } from '@vibesboard/contracts'
 import toast from 'react-hot-toast'
 
 import { Button } from '@/components/ui/button'

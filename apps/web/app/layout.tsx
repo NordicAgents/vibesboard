@@ -1,13 +1,12 @@
 import { Metadata, Viewport } from 'next'
 
-import { Toaster } from 'react-hot-toast'
-
 import '@/app/globals.css'
 import { fontMono, fontSans } from '@/lib/fonts'
 import { cn } from '@vibesboard/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
 import { Header } from '@/components/header'
+import { AppToaster } from '@/components/toaster'
 import { auth } from '@/auth'
 import { getActiveTenantTheme } from '@/lib/tenant-theme'
 
@@ -60,7 +59,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         style={tenantTheme?.cssVars as any}
         data-tenant-id={tenantTheme?.tenantId}
       >
-        <Toaster />
+        <AppToaster />
         <Providers attribute="class" defaultTheme="system" enableSystem>
           <div className="flex h-dvh flex-col overflow-hidden">
             <AppHeaderController>

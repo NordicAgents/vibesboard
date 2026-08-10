@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
@@ -37,6 +37,22 @@ async function seed(adminDb: any) {
 }
 
 describe('agent server reads', () => {
+  it('rejects malformed member lookup ids without querying Postgres', async () => {
+    const db = {
+      select: vi.fn(() => {
+        throw new Error('database should not be queried')
+      }),
+    }
+
+    await expect(
+      getAgentForMember('not-a-tenant-uuid', 'not-an-agent-uuid', db as never),
+    ).resolves.toBeNull()
+    await expect(
+      getAgentForUser(randomUUID(), 'not-an-agent-uuid', randomUUID(), db as never),
+    ).resolves.toBeNull()
+    expect(db.select).not.toHaveBeenCalled()
+  })
+
   it('getAgentForMember maps row + tenantSlug', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seed(adminDb)

@@ -62,6 +62,15 @@ export async function createEmbedding(params: {
   baseUrl?: string
   /** When true, skips the private-host SSRF check (tenant opted in via allowPrivateHosts). */
   allowPrivateHost?: boolean
+  /**
+   * NVIDIA NIM-specific: `input_type` parameter required by models like
+   * `nvidia/nv-embed-v2` and `nvidia/llama-3.2-nv-embedqa-1b-v2`.
+   * - `'passage'`  — for document/file indexing (default when set)
+   * - `'query'`    — for search queries at retrieval time
+   * Third-party models hosted on NVIDIA (baai/bge-m3, snowflake/arctic-embed)
+   * do NOT need this — omit it for those.
+   */
+  inputType?: 'query' | 'passage'
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
   // Defense-in-depth: reject private/loopback baseUrls unless the tenant has
   // explicitly opted in via the per-tenant allowPrivateHosts flag.
@@ -84,7 +93,8 @@ export async function createEmbedding(params: {
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: params.model,
-      input: params.input
+      input: params.input,
+      ...(params.inputType ? { input_type: params.inputType } : {}),
     })
   })
 

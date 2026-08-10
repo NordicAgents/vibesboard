@@ -1,26 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { getSignedDownloadUrl } from '@vibesboard/adapter-s3'
+import { getAgentById } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
 
 /**
  * GET /api/agents/[id]/files/download-url?fileKey=...
- * Returns a signed download URL for a file in storage
+ * Returns a signed download URL for a file attached to this agent.
+ *
+ * The fileKey is caller-supplied, so it must be authorized against the agent
+ * in the path — previously this route signed a URL for ANY key in the bucket
+ * for any authenticated user, which exposed every tenant's knowledge-base
+ * documents.
  */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await params
+  const { id } = await params
   const session = await auth()
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
   const fileKey = req.nextUrl.searchParams.get('fileKey')
   if (!fileKey) {
     return NextResponse.json({ error: 'fileKey is required' }, { status: 400 })
+  }
+
+  const agent = await getAgentById(id)
+  if (!agent) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
+  const canEdit = await canEditAgent({
+    sessionUserId: session.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+  if (!canEdit) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
+  // The key must actually belong to this agent.
+  if (!(agent.fileKeys ?? []).includes(fileKey)) {
+    return new NextResponse('Forbidden', { status: 403 })
   }
 
   try {

@@ -18,6 +18,7 @@ import { AgentMemoryTab } from '@/components/agents/agent-memory-tab'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import { useTenantFeatures } from '@/hooks/use-tenant-features'
+import { isKnownAgentDashboardTab } from '@/lib/agent-dashboard-tabs'
 import type { AgentSharePayload, VibeAgent } from '@vibesboard/contracts'
 import { ArrowLeft } from 'lucide-react'
 import type { ActionCapability } from '@vibesboard/agents/action-config'
@@ -100,8 +101,10 @@ export function AgentDashboardTabs({
   // features are still loading, so a valid actions deep-link isn't bounced on
   // first paint.
   const isTabAvailable = (tab: string): boolean => {
+    if (!isKnownAgentDashboardTab(tab)) return false
     if (tab === 'actions') return actionsEnabled
     if (tab === 'booking-enquiries') return !!agent.bookingConfig?.enabled
+    if (tab === 'memory') return fields.memoryEnabled
     return true
   }
   const effectiveTab =
@@ -146,7 +149,9 @@ export function AgentDashboardTabs({
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="share">Share</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
-          {fields.memoryEnabled && <TabsTrigger value="memory">Memory</TabsTrigger>}
+          {fields.memoryEnabled && (
+            <TabsTrigger value="memory">Memory</TabsTrigger>
+          )}
           {agent.bookingConfig?.enabled && (
             <TabsTrigger value="booking-enquiries">Enquiries</TabsTrigger>
           )}
@@ -194,7 +199,7 @@ export function AgentDashboardTabs({
             saving={saving}
             canEdit={canEdit}
             agentId={agent.id}
-            hasAccessPassword={!!agent.accessPassword}
+            hasAccessPassword={!!agent.hasAccessPassword}
             llmConfigId={fields.llmConfigId}
             onLlmConfigIdChange={setters.setLlmConfigId}
             tenantId={agent.tenantId}

@@ -8,7 +8,7 @@ import {
   useRef,
   useState
 } from 'react'
-import { useChat } from 'ai/react'
+import { useCompatChat } from '@/lib/hooks/use-compat-chat'
 import { type Message } from '@vibesboard/contracts'
 import { ChevronRight } from 'lucide-react'
 
@@ -167,7 +167,7 @@ export function AgentChat({
     isLoading,
     input,
     setInput
-  } = useChat({
+  } = useCompatChat({
     id: chatKey,
     api: endpoint,
     streamProtocol: 'text',
@@ -233,7 +233,7 @@ export function AgentChat({
         setActiveAgentName(agentNameHeader)
       }
     },
-    onFinish(_message) {
+    onFinish(_message: unknown) {
       // Completion detection is handled in useEffect
     }
   })
@@ -402,7 +402,7 @@ export function AgentChat({
     }
 
     const userMessageCount = rawMessages.filter(
-      m =>
+      (m: { role: string; id?: string }) =>
         m.role === 'user' &&
         !m.id?.startsWith(AUTO_START_PREFIX) &&
         !m.id?.startsWith(HANDOFF_CONTINUE_PREFIX)

@@ -96,12 +96,18 @@ export function TenantOverviewTab({
       <CardContent className="space-y-4">
         {/* Tenant ID */}
         <div className="space-y-2">
-          <Label>Tenant ID</Label>
+          <Label htmlFor="tenant-id">Tenant ID</Label>
           <div className="flex items-center gap-2">
-            <Input value={tenant.id} readOnly className="font-mono text-sm" />
+            <Input
+              id="tenant-id"
+              value={tenant.id}
+              readOnly
+              className="font-mono text-sm"
+            />
             <Button
               variant="outline"
               size="sm"
+              aria-label="Copy tenant ID"
               onClick={() => handleCopy(tenant.id)}
             >
               <Copy className="size-4" />

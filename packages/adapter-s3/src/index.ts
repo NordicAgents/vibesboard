@@ -18,11 +18,13 @@ export async function getSignedUploadUrl(
   key: string,
   contentType: string,
   expiresInMs = 15 * 60 * 1000,
+  contentLength?: number,
 ): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: getBucket(),
     Key: key,
     ContentType: contentType,
+    ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
   })
   return getSignedUrl(getS3Client(), command, {
     expiresIn: Math.floor(expiresInMs / 1000),

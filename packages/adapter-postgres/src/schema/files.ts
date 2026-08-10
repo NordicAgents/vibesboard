@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { tenants } from './tenants.ts'
 import { agents } from './agents.ts'
@@ -42,6 +43,7 @@ export const files = pgTable(
   (t) => ({
     byAgent: index('files_agent_idx').on(t.agentId, t.status),
     byKey: index('files_key_idx').on(t.fileKey),
+    agentKeyUnique: uniqueIndex('files_agent_key_uq').on(t.agentId, t.fileKey),
   }),
 )
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText, tool } from 'ai'
+import { streamText as aiStreamText, tool, createTextStreamResponse } from 'ai'
 import { z } from 'zod'
 
 import { uuidv7 } from 'uuidv7'
@@ -22,7 +22,7 @@ import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
-import { buildProviderModel } from '@vibesboard/ai/provider-registry'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
 import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
@@ -253,10 +253,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     }
   }
 
-  const initialMessages = [
-    { role: 'system', content: systemPrompt + fileInfoBlock },
-    ...messageList
-  ]
+  // ai@7.x: system messages must go in `system`, not in `messages`
+  const initialMessages = messageList
 
   // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
   // previewToken skips BYO-LLM (same behaviour as agent runtime).
@@ -265,8 +263,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     : null
 
   let languageModel
-  if (tenantSpec) {
-    languageModel = buildProviderModel(tenantSpec)
+  if (tenantSpec && tenantId) {
+    languageModel = await buildTenantProviderModel(tenantId, tenantSpec)
   } else {
     if (!apiKey) {
       return NextResponse.json(
@@ -302,15 +300,21 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     bookingConfig: bookingConfigSchema.optional()
   })
 
+  // Set by the create_agent tool below and appended to the response stream,
+  // so delivery of the success marker does not depend on the model echoing
+  // a tool result back as text.
+  let toolOutcome: string | null = null
+
   const result = await aiStreamText({
     model: languageModel,
+    system: systemPrompt + fileInfoBlock,
     messages: initialMessages as any,
     temperature: 0.2,
     tools: {
       create_agent: tool({
         description:
           'Creates the agent with all collected fields when user confirms.',
-        parameters: createAgentArgsSchema,
+        inputSchema: createAgentArgsSchema,
         async execute(args) {
           const effectiveFileKeys = (
             args.fileKeys?.length ? args.fileKeys : fileKeys
@@ -409,6 +413,34 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             })
           }
 
+          // Also stash it for the response stream. The value returned here is
+          // a *tool result*: with a single step and toTextStreamResponse /
+          // createTextStreamResponse (text parts only) it never becomes
+          // assistant text, so the client — which parses ~~~agentcreated~~~ out
+          // of the message in onFinish — was told nothing while the agent was
+          // created. See the append below.
+          toolOutcome = `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
+            {
+              name: agentPayload.name,
+              instructions: agentPayload.instructions,
+              greetingText: agentPayload.greetingText ?? '',
+              tools: sanitizedToolIds,
+              allowAnonymous: agentPayload.allowAnonymous,
+              fileKeys: agentPayload.fileKeys,
+              mode: agentPayload.mode,
+              maxResponses,
+              maxAgentResponses,
+              quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+              quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+              retrievalStrategy: agentPayload.retrievalStrategy,
+              ...(agentPayload.bookingConfig !== undefined && {
+                bookingConfig: agentPayload.bookingConfig
+              })
+            },
+            null,
+            2
+          )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: agentId })}\n~~~`
+
           return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
             {
               name: agentPayload.name,
@@ -435,5 +467,31 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     }
   })
 
-  return result.toTextStreamResponse()
+  // Append the tool outcome after the model's own text. Re-wrapped through the
+  // AsyncIterable side (not pipeThrough, which locks the ReadableStream the SDK
+  // subscribes to internally).
+  const withToolOutcome = (source: AsyncIterable<string>): ReadableStream<string> => {
+    const iterator = source[Symbol.asyncIterator]()
+    let flushed = false
+    return new ReadableStream<string>({
+      async pull(controller) {
+        const { value, done } = await iterator.next()
+        if (!done) {
+          controller.enqueue(value)
+          return
+        }
+        if (!flushed && toolOutcome) {
+          flushed = true
+          controller.enqueue(toolOutcome)
+          return
+        }
+        controller.close()
+      },
+      cancel() {
+        iterator.return?.()
+      }
+    })
+  }
+
+  return createTextStreamResponse({ stream: withToolOutcome(result.textStream) })
 }

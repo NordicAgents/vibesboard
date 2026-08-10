@@ -446,10 +446,16 @@ export async function resolveEmbedder(
   if (spec.kind === 'openai' || spec.kind === 'openai_compatible') {
     // openai → use OpenAI's standard embedding model (text-embedding-3-small)
     // openai_compatible → use the config's modelId so Ollama/Groq/etc. can
-    //   serve their own embedding model (e.g. nomic-embed-text on Ollama)
+    //   serve their own embedding model (e.g. nomic-embed-text on Ollama,
+    //   baai/bge-m3 or snowflake/arctic-embed on NVIDIA free tier)
     const embeddingModel = spec.kind === 'openai_compatible' ? spec.modelId : OPENAI_EMBEDDING_MODEL
     // baseUrl is only applicable for openai and openai_compatible; undefined for others
     const baseUrl = (spec.kind === 'openai' || spec.kind === 'openai_compatible') ? spec.baseUrl : undefined
+    // NVIDIA NIM-branded models (nvidia/ prefix) require input_type='passage' for indexing.
+    // Third-party models on NVIDIA catalog (baai/, snowflake/, etc.) do not.
+    const needsInputType =
+      spec.kind === 'openai_compatible' &&
+      embeddingModel.startsWith('nvidia/')
     return async (texts) => {
       const json = await createEmbedding({
         model: embeddingModel,
@@ -457,12 +463,13 @@ export async function resolveEmbedder(
         apiKey: spec.apiKey,
         ...(baseUrl ? { baseUrl } : {}),
         ...(allowPrivateHost ? { allowPrivateHost: true } : {}),
+        ...(needsInputType ? { inputType: 'passage' } : {}),
       })
       return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
     }
   }
 
-  // anthropic / nvidia — no usable embedding API, fall back to platform key
+  // anthropic / nvidia (provider kind) — no usable embedding API, fall back to platform key
   return async (texts) => {
     const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
     return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
