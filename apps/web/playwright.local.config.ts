@@ -127,6 +127,15 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Defeat the keep-alive idle race against `next dev`. Node closes an idle
+    // pooled socket at its keepAliveTimeout; when a test resumes after a UI
+    // pause (a reload, a form round-trip) the API context can write onto that
+    // socket just as the server closes it, and the request dies as ECONNRESET.
+    // Chromium retries such a request transparently, which is why every
+    // observed reset was an apiRequestContext call and never a navigation —
+    // Playwright's Node-side client surfaces the reset instead. Closing the
+    // connection per request removes the reuse window entirely.
+    extraHTTPHeaders: { Connection: 'close' },
   },
   projects: [
     {
