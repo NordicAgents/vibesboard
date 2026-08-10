@@ -37,7 +37,7 @@
     "exceljs": "^4.4.0",
     "jsdom": "^27.2.0",
     "mammoth": "^1.11.0",
-    "nanoid": "^4.0.2",
+    "nanoid": "^5.1.16",
     "pdf-parse": "^2.4.5",
     "server-only": "^0.0.1",
     "uuidv7": "^1.0.2",
