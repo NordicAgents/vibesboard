@@ -299,7 +299,10 @@ test.describe.serial('Admin — Tenant Management', () => {
     // goes back to the API default of 10 while more tenants exist, this fails.
     const expectedAll = Math.min(pagination.total, 500)
     await expect(
-      page.getByRole('button', { name: new RegExp(`^All\\s*${expectedAll}$`) }),
+      page.getByRole('button', {
+        name: `All ${expectedAll}`,
+        exact: true,
+      }),
     ).toBeVisible()
 
     await search.fill(fixtureSlug)

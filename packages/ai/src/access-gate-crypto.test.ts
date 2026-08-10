@@ -82,10 +82,7 @@ describe('verifyPassword', () => {
   })
 
   it('verifies legacy unsalted hashes during migration', () => {
-    const legacy = createHmac(
-      'sha256',
-      'test-secret-for-unit-tests'
-    )
+    const legacy = createHmac('sha256', getSecret())
       .update('legacy-password')
       .digest('hex')
     expect(verifyPassword('legacy-password', legacy)).toBe(true)

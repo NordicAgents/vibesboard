@@ -49,10 +49,6 @@ const TEAM_SLUG = `e2e-team-${RUN}`
 let teamTenantId: string
 let personalTenantId: string
 
-function rx(literal: string): RegExp {
-  return new RegExp(literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-}
-
 async function ownerContext() {
   return playwrightRequest.newContext({
     baseURL: BASE_URL,
@@ -200,10 +196,10 @@ test.describe('Tenant — Workspace Creation', () => {
     // The team created in beforeAll, by its exact per-run name (a stale
     // workspace from another run cannot satisfy this).
     await expect(
-      page.getByRole('menuitem', { name: rx(TEAM_NAME) }),
+      page.getByRole('menuitem', { name: TEAM_NAME, exact: true }),
     ).toHaveCount(1)
     await expect(
-      page.getByRole('menuitem', { name: rx(TEAM_NAME) }),
+      page.getByRole('menuitem', { name: TEAM_NAME, exact: true }),
     ).toBeVisible({ timeout: 5_000 })
     await page.keyboard.press('Escape')
   })
@@ -764,7 +760,9 @@ test.describe('Tenant — Workspace Switching', () => {
 
       // Switch workspaces through the UI.
       await switcher.click()
-      await page.getByRole('menuitem', { name: rx(TEAM_NAME) }).click()
+      await page
+        .getByRole('menuitem', { name: TEAM_NAME, exact: true })
+        .click()
 
       // The trigger label is server-rendered, so this proves the switch was
       // persisted and the tree re-rendered — not just a local state flip.
