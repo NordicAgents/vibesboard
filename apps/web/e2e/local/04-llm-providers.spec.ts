@@ -494,9 +494,11 @@ test.describe('LLM Providers Settings', () => {
     )
 
     // The guard's reason is surfaced to the user (assert first — toasts expire).
+    // AppToaster stamps role="alert" on error toasts; role="status" is the
+    // success/blank variant and would never carry this copy.
     await expect(
       page
-        .getByRole('status')
+        .getByRole('alert')
         .filter({ hasText: 'Private, loopback, and link-local addresses are not allowed' }),
     ).toBeVisible()
 
@@ -854,7 +856,8 @@ test.describe('LLM Providers Settings', () => {
     expect(body.error).toBe('Connection failed — check your provider settings')
     expect(JSON.stringify(body)).not.toContain('e2e-provider.invalid')
 
-    await expect(page.getByRole('status').filter({ hasText: 'Connection failed' })).toBeVisible()
+    // toast.error → role="alert" (see components/toaster.tsx).
+    await expect(page.getByRole('alert').filter({ hasText: 'Connection failed' })).toBeVisible()
   })
 
   // ── delete ─────────────────────────────────────────────────────────────────

@@ -24,7 +24,7 @@
  *     beforeAll in a fresh worker, so leaked workspaces become a 429 that
  *     fails the whole file.
  */
-import { test, expect, request as playwrightRequest } from '@playwright/test'
+import { test, expect, request as playwrightRequest, type Page } from '@playwright/test'
 import {
   BASE_URL,
   STORAGE_STATE,
@@ -48,6 +48,19 @@ const TEAM_SLUG = `e2e-team-${RUN}`
 
 let teamTenantId: string
 let personalTenantId: string
+
+/**
+ * The switcher's row (components/tenants/tenant-switcher.tsx TenantItem) renders
+ * the workspace name AND a member label, so the menuitem's accessible name is
+ * "<workspace> <members>" — matching the bare name with `exact` can never hit.
+ * Match the name span exactly instead: TEAM_NAME carries the per-run timestamp,
+ * so this still cannot be satisfied by a workspace another run leaked.
+ */
+function teamMenuItem(page: Page) {
+  return page
+    .getByRole('menuitem')
+    .filter({ has: page.getByText(TEAM_NAME, { exact: true }) })
+}
 
 async function ownerContext() {
   return playwrightRequest.newContext({
@@ -195,12 +208,8 @@ test.describe('Tenant — Workspace Creation', () => {
     await expect(page.getByRole('menu')).toBeVisible()
     // The team created in beforeAll, by its exact per-run name (a stale
     // workspace from another run cannot satisfy this).
-    await expect(
-      page.getByRole('menuitem', { name: TEAM_NAME, exact: true }),
-    ).toHaveCount(1)
-    await expect(
-      page.getByRole('menuitem', { name: TEAM_NAME, exact: true }),
-    ).toBeVisible({ timeout: 5_000 })
+    await expect(teamMenuItem(page)).toHaveCount(1)
+    await expect(teamMenuItem(page)).toBeVisible({ timeout: 5_000 })
     await page.keyboard.press('Escape')
   })
 
@@ -760,9 +769,7 @@ test.describe('Tenant — Workspace Switching', () => {
 
       // Switch workspaces through the UI.
       await switcher.click()
-      await page
-        .getByRole('menuitem', { name: TEAM_NAME, exact: true })
-        .click()
+      await teamMenuItem(page).click()
 
       // The trigger label is server-rendered, so this proves the switch was
       // persisted and the tree re-rendered — not just a local state flip.

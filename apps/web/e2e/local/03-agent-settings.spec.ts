@@ -184,8 +184,9 @@ test.describe('Agent Settings — Setup tab', () => {
     ])
     expect(patchRes.status()).toBe(200)
 
-    // `[role="status"]` is stamped on EVERY react-hot-toast, error ones
-    // included, so assert the success copy from use-agent-form.ts:209.
+    // AppToaster stamps role="status" on every non-error toast, so the role
+    // alone does not say which one this is — assert the success copy from
+    // use-agent-form.ts.
     await expect(page.getByText('Changes saved')).toBeVisible()
 
     // Persistence, not "no error toast": read the row back.
@@ -331,10 +332,11 @@ test.describe('Agent Settings — invalid input', () => {
     // Refused as a 400 (schema-invalid), not a 500.
     expect(patchRes.status()).toBe(400)
 
-    // A toast appears (use-agent-form.ts:212 renders toast.error on failure)...
-    await expect(page.locator('[role="status"]').first()).toBeVisible()
-    // ...and it must NOT be the success one. Both carry role="status", which is
-    // why asserting the role alone proves nothing.
+    // An error toast appears (use-agent-form.ts renders toast.error on failure).
+    // AppToaster gives error toasts role="alert" and every other toast
+    // role="status", so the role is what separates the two here.
+    await expect(page.getByRole('alert').first()).toBeVisible()
+    // ...and the success copy must be absent.
     await expect(page.getByText('Changes saved')).toHaveCount(0)
 
     const after = await readAgent(page.request, agent.id)

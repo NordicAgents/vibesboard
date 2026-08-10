@@ -421,7 +421,10 @@ test.describe('Knowledge Base — delete & download', () => {
       failOnStatusCode: false,
     })
     expect(deleteRes.status(), await deleteRes.text()).toBe(200)
-    expect(await deleteRes.json()).toEqual({ status: 'ok' })
+    // Storage cleanup runs after the DB commit and reports itself separately:
+    // storageDeleted:false still returns 200 (the row is gone either way), so
+    // assert the true branch — the object really left the bucket.
+    expect(await deleteRes.json()).toEqual({ status: 'ok', storageDeleted: true })
 
     // The object is really gone from the bucket (the signed GET is still valid
     // for an hour, so a 404 here is the storage layer, not the signature).
