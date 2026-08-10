@@ -8,8 +8,7 @@ import {
   useRef,
   useState
 } from 'react'
-import { useChat } from 'ai/react'
-import { type UIMessage } from 'ai'
+import { useCompatChat } from '@/lib/hooks/use-compat-chat'
 import { type Message } from '@vibesboard/contracts'
 import { ChevronRight } from 'lucide-react'
 
@@ -168,7 +167,7 @@ export function AgentChat({
     isLoading,
     input,
     setInput
-  } = useChat({
+  } = useCompatChat({
     id: chatKey,
     api: endpoint,
     streamProtocol: 'text',
@@ -234,7 +233,7 @@ export function AgentChat({
         setActiveAgentName(agentNameHeader)
       }
     },
-    onFinish(_message) {
+    onFinish(_message: unknown) {
       // Completion detection is handled in useEffect
     }
   })
@@ -310,7 +309,7 @@ export function AgentChat({
 
   // Clean completion markers from messages for display, insert handoff indicators
   const messages = useMemo(() => {
-    const cleaned: UIMessage[] = []
+    const cleaned: Message[] = []
 
     for (const m of rawMessages) {
       // Skip auto-start messages
@@ -345,9 +344,8 @@ export function AgentChat({
             cleaned.push({
               id: `${HANDOFF_INDICATOR_PREFIX}${m.id}`,
               role: 'system',
-              content: meta.targetAgentName,
-              parts: []
-            } as UIMessage)
+              content: meta.targetAgentName
+            })
           } catch {
             // ignore
           }
@@ -404,7 +402,7 @@ export function AgentChat({
     }
 
     const userMessageCount = rawMessages.filter(
-      m =>
+      (m: { role: string; id?: string }) =>
         m.role === 'user' &&
         !m.id?.startsWith(AUTO_START_PREFIX) &&
         !m.id?.startsWith(HANDOFF_CONTINUE_PREFIX)

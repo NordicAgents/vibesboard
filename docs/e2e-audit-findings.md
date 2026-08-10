@@ -27,11 +27,16 @@ written, but the HTTP response body is empty**, so the UI is told nothing.
   parses `~~~agentcreated~~~` out of the finished message in `onFinish`. With an
   empty stream that regex never matches, so no success screen and no redirect.
 
-Verified: after one triggered request the response body was `""` while
-`select … from agents` showed the new row. Not fixed here — the repair is either
-`maxSteps: 2` (which makes the marker depend on the model echoing a tool result,
-i.e. fragile) or moving to `toDataStreamResponse()` and changing the client's
-stream protocol. Both need validating against a real model, not the stub.
+Verified twice — once on `ai@4` and again after the `ai@7.x` /
+`@ai-sdk/openai@4.x` upgrade: a triggered request returns a body of length 0
+while `select … from agents` shows the new row. Not fixed here — the repair is
+either a second step (making the marker depend on the model echoing a tool
+result, i.e. fragile) or moving to `toDataStreamResponse()` and changing the
+client's stream protocol. Both need validating against a real model, not the stub.
+
+Note for whoever picks this up: `@ai-sdk/openai@4.x` targets `/v1/responses`,
+not `/chat/completions`. `e2e/mock-openai.mjs` now emits tool calls on **both**
+endpoints, so the path stays reachable whichever the provider is configured for.
 `e2e/local/01-agent-creation.spec.ts` asserts the persistence half and documents
 the gap inline.
 

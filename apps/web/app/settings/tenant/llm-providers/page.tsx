@@ -630,6 +630,13 @@ export default function LlmProvidersPage() {
                         </li>
                         <li>
                           <button type="button" className="underline hover:text-foreground transition-colors"
+                            onClick={() => setForm(f => ({ ...f, modelId: 'nvidia/nv-embed-v2' }))}>
+                            nvidia/nv-embed-v2
+                          </button>
+                          {' '}— 1024-dim · NVIDIA NIM · <span className="font-mono">input_type</span> auto-set · base URL: https://integrate.api.nvidia.com/v1
+                        </li>
+                        <li>
+                          <button type="button" className="underline hover:text-foreground transition-colors"
                             onClick={() => setForm(f => ({ ...f, modelId: 'nomic-embed-text' }))}>
                             nomic-embed-text
                           </button>

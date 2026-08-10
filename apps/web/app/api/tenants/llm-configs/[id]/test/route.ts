@@ -39,7 +39,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
     await generateText({
       model: buildProviderModel(spec),
       prompt: 'Reply with the single word: ok',
-      maxTokens: 5,
+      maxOutputTokens: 5,
     })
     return NextResponse.json({ ok: true })
   } catch (err: any) {

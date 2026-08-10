@@ -31,7 +31,7 @@ export async function summarizeConversation(
         const { text } = await generateText({
           model: buildProviderModel(spec),
           messages: [{ role: 'system', content: SUMMARY_SYSTEM_PROMPT }, ...recent],
-          maxTokens: 60,
+          maxOutputTokens: 60,
           temperature: 0.2,
         })
         return text.trim() || null

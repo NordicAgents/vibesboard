@@ -11,7 +11,7 @@ describe('Message type re-export', () => {
   })
 
   it('ai/react module imports without error', async () => {
-    const aiReact = await import('ai/react')
+    const aiReact = await import('@ai-sdk/react')
     expect(aiReact).toBeTruthy()
   })
 })
@@ -38,12 +38,12 @@ describe('AI SDK v3 export surface', () => {
   })
 
   it('useChat is a function export from "ai/react"', async () => {
-    const { useChat } = await import('ai/react')
+    const { useChat } = await import('@ai-sdk/react')
     expect(typeof useChat).toBe('function')
   })
 
   it('useCompletion is a function export from "ai/react"', async () => {
-    const { useCompletion } = await import('ai/react')
+    const { useCompletion } = await import('@ai-sdk/react')
     expect(typeof useCompletion).toBe('function')
   })
 })

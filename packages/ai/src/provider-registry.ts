@@ -39,7 +39,6 @@ const providerFactories: ProviderFactoryRegistry = {
     createOpenAI({
       apiKey: spec.apiKey,
       baseURL: spec.baseUrl,
-      compatibility: 'compatible',
     })(spec.modelId),
 
   google: (spec) =>
@@ -49,7 +48,6 @@ const providerFactories: ProviderFactoryRegistry = {
     createOpenAI({
       apiKey: spec.apiKey,
       baseURL: spec.baseUrl ?? NVIDIA_API_BASE_URL,
-      compatibility: 'compatible',
       // NVIDIA reasoning models (Nemotron Ultra, DeepSeek V4 Pro, Qwen3 Coder)
       // return text in delta.reasoning_content rather than delta.content.
       // buildNvidiaFetch() promotes reasoning_content → content before the SDK

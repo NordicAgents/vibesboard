@@ -17,9 +17,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^1.2.12",
-    "@ai-sdk/google": "^1.2.22",
-    "@ai-sdk/openai": "^1.3.24",
+    "@ai-sdk/anthropic": "^4.0.36",
+    "@ai-sdk/google": "^4.0.39",
+    "@ai-sdk/openai": "^4.0.36",
     "@vibesboard/adapter-openai": "workspace:*",
     "@vibesboard/hybrid-memory": "workspace:*",
     "@vibesboard/adapter-postgres": "workspace:*",
@@ -32,7 +32,7 @@
     "@vibesboard/retrieval": "workspace:*",
     "@vibesboard/scheduling": "workspace:*",
     "@vibesboard/utils": "workspace:*",
-    "ai": "^4.3.19",
+    "ai": "^7.0.58",
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
     "jsdom": "^27.2.0",
