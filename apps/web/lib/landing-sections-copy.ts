@@ -31,7 +31,7 @@ export const LANDING_WHY_ITEMS: LandingWhyItem[] = [
   {
     need: 'One deployment for many teams or clients',
     answer:
-      'Workspaces, memberships, plans, feature flags, usage metering and PostgreSQL row-level security.'
+      'Workspaces, memberships, plans, feature flags and PostgreSQL row-level security.'
   },
   {
     need: 'Freedom from model lock-in',
@@ -82,7 +82,7 @@ export type LandingCapabilityIcon =
   | 'models'
   | 'tenancy'
   | 'hooks'
-  | 'metering'
+  | 'sharing'
 
 export interface LandingCapability {
   icon: LandingCapabilityIcon
@@ -130,9 +130,9 @@ export const LANDING_CAPABILITIES: LandingCapability[] = [
     body: 'Lifecycle hooks around every run, with configuration history and rollback when a change misfires.'
   },
   {
-    icon: 'metering',
-    title: 'Usage metering',
-    body: 'Per-workspace usage and limits, so one tenant cannot spend another tenant’s budget.'
+    icon: 'sharing',
+    title: 'Sharing & access gates',
+    body: 'A public link and QR code per agent, with an optional password gate whose hash never crosses the API boundary.'
   }
 ]
 
@@ -192,7 +192,7 @@ export const LANDING_DEPLOY_OPTIONS: LandingDeployOption[] = [
       'Nothing to provision — sign in and create an agent',
       'Managed PostgreSQL, storage, upgrades and backups',
       'Platform model credentials included, or bring your own',
-      'Workspace plans, usage metering and limits',
+      'Workspace plans and feature flags',
       'Export and self-host later if you change your mind'
     ],
     cta: { label: 'Sign in', href: LANDING_LINKS.signIn }

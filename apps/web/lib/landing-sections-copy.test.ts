@@ -47,6 +47,26 @@ describe('landing capabilities copy', () => {
   })
 })
 
+describe('landing copy against what the build actually ships', () => {
+  // packages/policy/src/usage.ts is a self-host shim: recordUsage() is a no-op
+  // and checkUsageLimit() always returns allowed with infinite remaining. Until
+  // that is implemented, advertising per-workspace limits promises a spend
+  // guarantee the shipped build does not enforce.
+  it('does not advertise usage metering while the policy shim is a no-op', () => {
+    const copy = [
+      ...LANDING_WHY_ITEMS.map(item => `${item.need} ${item.answer}`),
+      ...LANDING_CAPABILITIES.map(c => `${c.title} ${c.body}`),
+      ...LANDING_DEPLOY_OPTIONS.flatMap(option => [
+        option.summary,
+        ...option.points
+      ])
+    ].join(' ')
+
+    expect(copy).not.toMatch(/usage metering/i)
+    expect(copy).not.toMatch(/usage (and )?limits/i)
+  })
+})
+
 describe('landing channels copy', () => {
   it('leads with the human handoff, which is the hard part', () => {
     const points = LANDING_CHANNELS_POINTS.map(

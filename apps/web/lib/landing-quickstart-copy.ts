@@ -48,10 +48,16 @@ export const LANDING_QUICKSTART_TABS: LandingQuickstartTab[] = [
     description:
       'The standalone image the project ships, on any host you control.',
     command: [
+      'cp .env.example .env',
+      '# point DATABASE_URL and DATABASE_MIGRATE_URL at your Postgres',
+      '',
+      'bun install',
+      'bun run db:migrate',
+      '',
       'docker build -t vibesboard .',
       'docker run -p 8080:8080 --env-file .env vibesboard'
     ].join('\n'),
-    note: 'Bring your own PostgreSQL with pgvector and S3-compatible storage. The container listens on 8080 and runs as a non-root user.',
+    note: 'Bring your own PostgreSQL with pgvector and S3-compatible storage. Migrations run from the checkout, not from the container — the image ships only the standalone server, so it will not create the schema on first boot. It listens on 8080 as a non-root user.',
     docHref: LANDING_LINKS.deployment,
     docLabel: 'Deployment guide'
   }

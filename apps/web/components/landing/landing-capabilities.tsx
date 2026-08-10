@@ -1,11 +1,11 @@
 import {
   BookOpen,
   CalendarCheck,
-  Gauge,
   History,
   Inbox,
   Layers,
   Route,
+  Share2,
   Wrench
 } from 'lucide-react'
 
@@ -27,7 +27,7 @@ const ICONS: Record<LandingCapabilityIcon, React.ElementType> = {
   models: Route,
   tenancy: Layers,
   hooks: History,
-  metering: Gauge
+  sharing: Share2
 }
 
 export function LandingCapabilities() {

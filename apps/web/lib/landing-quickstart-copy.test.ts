@@ -34,6 +34,24 @@ describe('landing quickstart copy', () => {
     }
   })
 
+  // The runner stage of the Dockerfile copies only the standalone Next output
+  // and starts it with `node apps/web/server.js` — nothing migrates on boot. A
+  // self-host path that skips this leaves every auth and data route hitting
+  // tables that do not exist.
+  it('creates the env file and migrates before starting the self-host image', () => {
+    const docker = LANDING_QUICKSTART_TABS.find(tab => tab.id === 'docker')
+    expect(docker).toBeDefined()
+
+    const command = docker!.command
+    expect(command).toMatch(/cp \.env\.example \.env/)
+    expect(command).toMatch(/db:migrate/)
+    // Migrations authenticate as the privileged role, not the request role.
+    expect(command).toMatch(/DATABASE_MIGRATE_URL/)
+    expect(command.indexOf('db:migrate')).toBeLessThan(
+      command.indexOf('docker run')
+    )
+  })
+
   it('states the real runtime requirements', () => {
     expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Bun 1\.2\.18/)
     expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Node 22/)
