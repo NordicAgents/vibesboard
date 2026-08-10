@@ -12,33 +12,29 @@ Every finding below was independently re-verified by a separate agent instructed
 > siblings `files/download-url` and `files/delete` *were* genuinely vulnerable and
 > have been fixed.
 
-## Open: `~~~agentcreated~~~` never reaches the creator chat
+## FIXED: `~~~agentcreated~~~` never reached the creator chat
 
-Found by making the `create_agent` tool path reachable (the mock now emits a tool
-call when a prompt contains `E2E_TRIGGER_CREATE_AGENT`). **The agent row is
-written, but the HTTP response body is empty**, so the UI is told nothing.
+Found by making the `create_agent` tool path reachable (the mock emits a tool
+call when a prompt contains `E2E_TRIGGER_CREATE_AGENT`). The agent row was
+written, but **the HTTP response body was empty**, so the UI was told nothing:
+no success screen, no redirect, while an agent had silently been created.
 
-- `app/api/agent-creator/route.ts` ends with `result.toTextStreamResponse()`,
-  which streams text parts only, and sets no `maxSteps`. In AI SDK v4 that means
-  one step: the model emits a tool call, `tool.execute()` runs and inserts the
-  agent, and the string it returns — carrying `~~~agentcreated~~~` and the new
-  id — is a *tool result*, never converted into assistant text.
-- `components/agents/agent-creator-chat.tsx` uses `streamProtocol: 'text'` and
-  parses `~~~agentcreated~~~` out of the finished message in `onFinish`. With an
-  empty stream that regex never matches, so no success screen and no redirect.
+Cause: `tool.execute()` returns the marker as a *tool result*, and
+`app/api/agent-creator/route.ts` streams with `createTextStreamResponse` (text
+parts only) in a single step — a tool result is never converted into assistant
+text. `components/agents/agent-creator-chat.tsx` uses `streamProtocol: 'text'`
+and parses `~~~agentcreated~~~` out of the finished message in `onFinish`.
 
-Verified twice — once on `ai@4` and again after the `ai@7.x` /
-`@ai-sdk/openai@4.x` upgrade: a triggered request returns a body of length 0
-while `select … from agents` shows the new row. Not fixed here — the repair is
-either a second step (making the marker depend on the model echoing a tool
-result, i.e. fragile) or moving to `toDataStreamResponse()` and changing the
-client's stream protocol. Both need validating against a real model, not the stub.
+Confirmed on both `ai@4` and after the `ai@7.x` upgrade (body length 0 while the
+row existed). **Fixed** by appending the tool outcome to the response stream
+after the model's own text, so delivery is deterministic and does not depend on
+a model echoing a tool result back. Guarded by
+`e2e/local/01-agent-creation.spec.ts`, which asserts the marker is present and
+that its id is the row actually written.
 
-Note for whoever picks this up: `@ai-sdk/openai@4.x` targets `/v1/responses`,
-not `/chat/completions`. `e2e/mock-openai.mjs` now emits tool calls on **both**
-endpoints, so the path stays reachable whichever the provider is configured for.
-`e2e/local/01-agent-creation.spec.ts` asserts the persistence half and documents
-the gap inline.
+Note: `@ai-sdk/openai@4.x` targets `/v1/responses`, not `/chat/completions`;
+`e2e/mock-openai.mjs` emits tool calls on **both** so the path stays reachable
+whichever the provider uses.
 
 Fixed during the session (listed here for completeness, no action needed):
 - `04-llm-providers` delete test deleted the *oldest* provider and asserted only on a toast role react-hot-toast never renders — rewritten to target its own provider by accessible name and verify removal server-side.

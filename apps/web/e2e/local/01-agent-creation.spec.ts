@@ -15,11 +15,12 @@
  *     404 (notFound()) and the error boundary both render at the *same URL*, so
  *     a URL assertion cannot see them
  *
- * Not covered here (see the report): the agent-creator's `create_agent` tool,
- * which is the LLM-driven persistence path. The mock model never emits a
- * tool_calls delta, so `execute` — and the `~~~agentcreated~~~` marker — are
- * unreachable under E2E. The preview-panel "Create Agent" button exercises the
- * other half of that flow (creator page → agent persisted → success screen).
+ * The agent-creator's `create_agent` tool — the LLM-driven persistence path — is
+ * covered: e2e/mock-openai.mjs emits a real tool call when a prompt contains
+ * E2E_TRIGGER_CREATE_AGENT, so `execute` runs and the `~~~agentcreated~~~`
+ * marker is asserted end to end. The preview-panel "Create Agent" button
+ * exercises the other half of the flow (creator page → agent persisted →
+ * success screen).
  */
 import { test, expect, request as playwrightRequest } from '@playwright/test'
 import { BASE_URL, OUTSIDER_STATE, STORAGE_STATE } from '../constants.ts'
@@ -283,16 +284,19 @@ test.describe('Agent Creation — creator API', () => {
     })
     expect(res.status()).toBe(200)
 
-    // NOTE — the agent is created, but this response body comes back EMPTY, so
-    // the ~~~agentcreated~~~ marker is not asserted here. tool.execute() returns
-    // that marker as a *tool result*, and the route ends with
-    // toTextStreamResponse() (text parts only) without setting maxSteps, so the
-    // SDK never takes a second step to turn the result into assistant text.
-    // components/agents/agent-creator-chat.tsx uses streamProtocol: 'text' and
-    // parses ~~~agentcreated~~~ out of the message in onFinish — so the row is
-    // written while the UI is told nothing. Tracked in docs/e2e-audit-findings.md;
-    // deliberately not "fixed" here, because changing the streaming contract
-    // needs validating against a real model, not the stub.
+    // The success marker must reach the client. tool.execute() returns it as a
+    // *tool result*, which a single-step text stream never turns into assistant
+    // text — so this body used to come back EMPTY while the agent was created,
+    // leaving components/agents/agent-creator-chat.tsx (streamProtocol: 'text',
+    // parses ~~~agentcreated~~~ in onFinish) with nothing to act on: no success
+    // screen, no redirect. The route now appends the tool outcome to the stream.
+    const body = await res.text()
+    expect(body).toContain('~~~agentcreated')
+    const markerId = JSON.parse(
+      body.split('~~~agentcreated')[1].split('~~~')[0].trim()
+    ).id
+    expect(markerId).toBeTruthy()
+
     const after = await request.get('/api/agents?page=1&limit=100')
     expect(after.ok()).toBeTruthy()
     const afterBody = await after.json()
@@ -302,6 +306,8 @@ test.describe('Agent Creation — creator API', () => {
       a.name.startsWith('E2E Tool-Created Agent'),
     )
     expect(created, 'the tool call should have persisted an agent').toBeTruthy()
+    // The id in the marker must be the row that was actually written.
+    expect(created.id).toBe(markerId)
 
     try {
       const read = await request.get(`/api/agents/${created.id}`)
