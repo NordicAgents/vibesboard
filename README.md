@@ -1,69 +1,102 @@
+<img src="./.github/assets/header.webp" width="100%" alt="Vibesboard — build agents for vibing with people. Let your agent talk. Get your time back.">
+
 <h1 align="center">Vibesboard</h1>
 
 <p align="center">
-  An open-source, multi-tenant platform for building and operating AI agents across web chat, messaging channels, business data, and scheduling workflows.
+  <strong>Open-source platform for AI agents that answer, act, and book—across web and messaging channels.</strong>
 </p>
 
 <p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#architecture"><strong>Architecture</strong></a> ·
-  <a href="#quick-start"><strong>Quick start</strong></a> ·
-  <a href="#testing"><strong>Testing</strong></a> ·
-  <a href="#configuration"><strong>Configuration</strong></a> ·
-  <a href="#deployment"><strong>Deployment</strong></a>
+  Build once. Deploy to web, WhatsApp, and Instagram. Ground every answer in your data, connect real business actions, and operate multiple workspaces from one self-hosted platform.
 </p>
+
+<p align="center">
+  <a href="#quick-start"><strong>Quick start</strong></a> ·
+  <a href="#why-vibesboard"><strong>Why Vibesboard</strong></a> ·
+  <a href="#features"><strong>Features</strong></a> ·
+  <a href="#documentation"><strong>Documentation</strong></a>
+</p>
+
+<p align="center">
+  <a href="docs/deployment.md"><img src="https://img.shields.io/badge/deployment-self--hosted-0F766E" alt="Self-hosted"></a>
+  <a href="docs/security.md"><img src="https://img.shields.io/badge/tenancy-PostgreSQL%20RLS-4169E1" alt="Multi-tenant with PostgreSQL row-level security"></a>
+  <a href="docs/byo-llm.md"><img src="https://img.shields.io/badge/models-bring%20your%20own-7C3AED" alt="Bring your own model"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-750014" alt="MIT License"></a>
+</p>
+
+<img src="./.github/assets/agent-builder.webp" width="100%" alt="Creating an AI agent in Vibesboard and opening its configuration or public share link">
+
+## What is Vibesboard?
+
+Vibesboard is a self-hosted, multi-tenant platform for building and operating customer-facing AI agents. It combines the agent runtime with the parts teams usually have to stitch together around it: knowledge and memory, messaging channels and inboxes, business tools, scheduling, model routing, access control, and usage management.
+
+Use it to run a support agent on your website, qualify leads in WhatsApp or Instagram, answer from private documents, call tools through MCP or webhooks, and book directly into Google Calendar—all from one workspace-aware control plane.
+
+The focus is not only creating an agent. It is operating agents safely after they meet real users.
+
+## Why Vibesboard?
+
+Many tools make it easy to demo a chatbot. Vibesboard is built for the operational work that starts after the demo.
+
+| If you need…                             | Vibesboard gives you…                                                                                                            |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| More than a chat playground              | A streaming runtime with tools, lifecycle hooks, public deployment, access gates, configuration history, and rollback            |
+| Agents where customers already are       | An embeddable web agent, WhatsApp and Instagram channels, Chatwoot sync, and a unified inbox                                     |
+| Answers that lead to outcomes            | RAG and long-term memory connected to Google Calendar, Google Sheets, webhooks, data actions, and MCP servers                    |
+| One deployment for many teams or clients | Workspaces, memberships, plans, feature flags, usage metering, and PostgreSQL row-level security                                 |
+| Freedom from model lock-in               | OpenAI, Anthropic, Google Gemini, NVIDIA, and OpenAI-compatible providers, routed per agent or task                              |
+| Control of data and inference spend      | Self-hosted application, PostgreSQL and S3-compatible storage, encrypted tenant credentials, and bring-your-own-provider support |
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    C["Web chat<br/>WhatsApp<br/>Instagram<br/>Chatwoot"] --> A["Versioned<br/>agent runtime"]
+    K["Documents<br/>pgvector<br/>Long-term memory"] --> A
+    A <--> T["Google Calendar<br/>Google Sheets<br/>Webhooks<br/>MCP servers"]
+    A --> O["Unified inbox<br/>Usage metering<br/>Workspace admin"]
+```
+
+Every tenant-scoped request runs with workspace context, and PostgreSQL row-level security fails closed when that context is missing.
 
 ## Features
 
-- **Agent builder and runtime** — create versioned agents with streaming chat, tools, hooks, public sharing, access gates, and per-agent settings.
-- **Tenant isolation** — workspace-scoped data backed by PostgreSQL row-level security (RLS), with separate application and migration roles.
-- **Bring your own LLM** — connect OpenAI, Anthropic, Google Gemini, NVIDIA, or an OpenAI-compatible endpoint such as Groq, Mistral, Together AI, or Ollama.
-- **Flexible model routing** — select models per agent or task (`chat`, `embed`, and `agent_creator`), with workspace defaults and a platform OpenAI fallback.
-- **Knowledge and memory** — RAG over uploaded files with pgvector, S3-compatible storage, re-embedding workflows, and an optional hybrid long-term memory engine.
-- **Messaging channels** — WhatsApp and Instagram inboxes plus Chatwoot synchronization.
-- **Actions and integrations** — Google Calendar availability and booking, Google Sheets, custom webhooks, MCP servers, and agent hooks.
-- **Authentication and operations** — Better Auth with Google OAuth, email/password, and magic links; usage metering, feature flags, admin controls, and health checks.
+### Build and ship agents
 
-## Tech stack
+- Create agents with an AI-assisted builder and live preview.
+- Stream conversations through a tool-enabled runtime.
+- Add lifecycle hooks and per-agent settings.
+- Publish through public links or an embeddable web widget.
+- Protect public agents with configurable access gates.
+- Keep version history and restore an earlier configuration.
 
-- [Next.js](https://nextjs.org) 16.2 and React 19
-- TypeScript 5.9, Tailwind CSS, Radix UI, and Lucide icons
-- [Vercel AI SDK](https://ai-sdk.dev) 7 with OpenAI, Anthropic, and Google provider adapters
-- PostgreSQL, pgvector, and [Drizzle ORM](https://orm.drizzle.team)
-- [Better Auth](https://better-auth.com)
-- S3-compatible object storage (MinIO locally; AWS S3, R2, GCS, or compatible services in production)
-- Bun 1.2.18 workspaces, Vitest 4, and Playwright
+### Ground agents in your business
 
-## Architecture
+- Upload documents for retrieval-augmented generation with pgvector.
+- Store files in S3-compatible object storage, with MinIO included for development.
+- Re-embed knowledge when a workspace changes embedding provider.
+- Enable optional long-term memory across conversations.
+- Connect Google Sheets, custom webhook data sources, and agent data actions.
 
-Vibesboard is a Bun monorepo with one Next.js application and 22 workspace packages:
+### Turn conversations into action
 
-```text
-apps/
-  web/                  Next.js UI, server components, and API routes
-packages/
-  adapter-*/            PostgreSQL, S3, Better Auth, Google, and OpenAI adapters
-  agents/               Agent persistence, hooks, notifications, and versioning
-  ai/                   Runtime, provider routing, tools, RAG, and memory integration
-  channel-*/            WhatsApp, Instagram, and Chatwoot channels
-  contracts/            Shared domain types and ports
-  data/                  Google Sheets, webhook connections, and data actions
-  hybrid-memory/         Long-term agent memory engine
-  inbox/                 Unified inbox services
-  policy/                Plans, feature flags, permissions, and usage metering
-  retrieval/             Retrieval strategies
-  scheduling/            Calendar OAuth, availability, and booking
-  tenants/               Workspace and membership services
-  test-helpers/          Shared integration-test infrastructure
-  utils/                 Shared utilities
-```
+- Check Google Calendar availability and create bookings.
+- Generate ICS confirmations and booking enquiries.
+- Connect external tools through MCP servers.
+- Receive and manage WhatsApp and Instagram conversations.
+- Synchronise agents with Chatwoot inboxes.
 
-The Next.js app uses two database connections:
+### Operate multiple workspaces safely
 
-- `DATABASE_URL` connects as `vibesboard_app`. RLS applies, and tenant-scoped work must run through `withTenant`/`withDb` so the correct PostgreSQL session context is set.
-- `DATABASE_MIGRATE_URL` connects as `vibesboard_migrate` with `BYPASSRLS`. It is reserved for migrations, identity operations, and trusted background/admin work.
+- Isolate workspace data with PostgreSQL row-level security—not only application checks.
+- Separate normal application access from privileged migration and admin access.
+- Encrypt model-provider, OAuth, and messaging credentials at rest.
+- Manage memberships, permissions, plans, feature flags, and usage.
+- Authenticate with Google OAuth, verified email and password, or magic links.
 
-Tenant LLM credentials are encrypted at rest. Runtime resolution checks an agent override, a task assignment, the wildcard task assignment, and the workspace default before falling back to the platform OpenAI configuration. Custom provider URLs pass SSRF validation at save time and again before runtime use.
+### Bring your own model
+
+Connect OpenAI, Anthropic, Google Gemini, NVIDIA, or any compatible OpenAI endpoint, including services such as Groq, Mistral, Together AI, and Ollama. Assign providers to individual agents or tasks (`chat`, `embed`, and `agent_creator`), set workspace defaults, and retain a platform fallback.
 
 ## Quick start
 
@@ -74,193 +107,50 @@ Tenant LLM credentials are encrypted at rest. Runtime resolution checks an agent
 - Docker with Compose
 - An OpenAI API key for the platform fallback model
 
-### Install and run
+### Run locally
 
 ```bash
 git clone https://github.com/NordicAgents/vibeagent.git
 cd vibeagent
 
 cp .env.example .env
-# Edit .env and replace placeholder credentials/secrets.
-
 bun install
 bun run db:setup
 bun run dev
 ```
 
-Open <http://localhost:3000>. `db:setup` starts PostgreSQL, Adminer, MinIO, and the MinIO bucket initializer, then applies migrations and seed data.
+Replace the placeholder credentials and secrets in `.env`, then open <http://localhost:3000>. The setup command starts PostgreSQL, Adminer, and MinIO, creates the local bucket, runs migrations, and seeds the database.
 
-Do not commit `.env`; it contains credentials that grant access to your database and external providers.
+For all setup options and troubleshooting, see the [development guide](docs/development.md).
 
-## Development
+## Tech stack
 
-### Common commands
+- **Application:** Next.js 16, React 19, TypeScript, Tailwind CSS, and Radix UI
+- **AI:** Vercel AI SDK with OpenAI, Anthropic, Google, NVIDIA, and compatible-provider adapters
+- **Data:** PostgreSQL, pgvector, Drizzle ORM, and S3-compatible object storage
+- **Authentication:** Better Auth
+- **Tooling:** Bun workspaces, Vitest, Playwright, ESLint, Prettier, Semgrep, and Trivy
 
-```bash
-bun run dev             # Start the Next.js development server
-bun run build           # Create a production build
-bun run start           # Start the production build
-bun run lint            # Lint the web application
-bun run lint:fix        # Apply supported ESLint fixes
-bun run format:check    # Check web-app formatting
-bun run format:write    # Format web-app source
-bun run type-check      # Type-check every workspace package
-```
+## Documentation
 
-### Local infrastructure
+| Guide                                  | What you will find                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| [Development](docs/development.md)     | Local setup, commands, ports, testing, and troubleshooting                       |
+| [Configuration](docs/configuration.md) | Environment variables grouped by concern                                         |
+| [Architecture](docs/architecture.md)   | Monorepo map, database roles, tenant isolation, and model routing                |
+| [Deployment](docs/deployment.md)       | Cloud Run workflow and requirements for other self-hosted environments           |
+| [Security](docs/security.md)           | Tenant isolation, credential handling, outbound request validation, and scanning |
+| [Bring your own LLM](docs/byo-llm.md)  | Provider configuration, task routing, and architecture                           |
+| [Local E2E testing](docs/local-e2e.md) | Deterministic Playwright setup with Docker and no-Docker paths                   |
 
-```bash
-bun run db:up           # Start PostgreSQL, Adminer, and MinIO
-bun run db:down         # Stop local infrastructure
-bun run db:reset        # Recreate volumes, migrate, and seed
-bun run db:migrate      # Apply Drizzle migrations
-bun run db:generate     # Generate a migration from schema changes
-bun run db:seed         # Seed development data
-bun run db:studio       # Open Drizzle Studio
-bun run minio:console   # Open the MinIO console on macOS
-```
+## Contributing
 
-Local service ports:
+Contributions are welcome. Start with the [development guide](docs/development.md), create a feature branch from `dev`, use a conventional commit, and open a pull request back to `dev`. For a substantial change, open an [issue](https://github.com/NordicAgents/vibeagent/issues) first so the approach can be discussed.
 
-| Service | URL or port |
-| --- | --- |
-| Web app | <http://localhost:3000> |
-| PostgreSQL | `localhost:5432` |
-| Adminer | <http://localhost:8888> |
-| MinIO API | <http://localhost:9000> |
-| MinIO console | <http://localhost:9001> |
+## Security
 
-## Testing
-
-The root Vitest configuration discovers the package and application test projects. Database- and storage-backed tests require the local services and migrations.
-
-```bash
-bun run db:up
-bun run db:migrate
-
-bun run test            # Full Vitest suite
-bun run test:coverage   # Vitest with V8 coverage
-bun run test:e2e        # Primary Playwright suite
-```
-
-The deeper local Playwright suite covers agent creation and chat, BYO-LLM, settings, public agents, conversations, knowledge files, administration, API contracts, and cross-tenant isolation:
-
-```bash
-bun run --filter @vibesboard/web test:e2e:local
-```
-
-It uses a deterministic mock OpenAI server, requires five local secrets, and can run against Docker or native PostgreSQL/MinIO. See [`docs/local-e2e.md`](docs/local-e2e.md) for setup details.
-
-Pull requests to `dev` or `main` run lint/format, type-checking, Vitest coverage, both Playwright suites, the production build, Semgrep, Trivy, and complexity analysis. Type-checking is a blocking CI gate.
-
-## Configuration
-
-Start with [`.env.example`](.env.example). The most important groups are:
-
-### Platform AI
-
-| Variable | Purpose |
-| --- | --- |
-| `OPENAI_API_KEY` | Platform fallback key used when a workspace has no applicable provider configuration |
-| `OPENAI_MODEL` | Default chat model |
-| `OPENAI_VISION_MODEL` | Optional model override for vision tasks |
-| `OPENAI_AGENT_CREATOR_MODEL` | Optional model override for the agent-creation assistant |
-| `OPENAI_EMBEDDINGS_MODEL` | Optional OpenAI embedding-model override |
-| `OPENAI_BASE_URL` | Optional OpenAI-compatible gateway, proxy, or test endpoint |
-| `GOOGLE_EMBEDDING_MODEL` | Optional Google embedding-model override for tenant Google providers |
-
-Workspace administrators can configure provider keys and task routing in **Settings → LLM Providers**. Supported provider kinds are `openai`, `anthropic`, `google`, `nvidia`, and `openai_compatible`; no provider-specific tenant keys belong in the process environment.
-
-### Application and auth
-
-| Variable | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_APP_URL` | Canonical application URL and auth callback base |
-| `BETTER_AUTH_SECRET` | Server-side session signing secret; required in production |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | Enable Google sign-in when both are set |
-| `RESEND_API_KEY` | Email delivery for verification, password reset, magic links, and notifications |
-| `NOTIFICATION_EMAIL_FROM` | Sender identity for application email |
-| `ACCESS_GATE_SECRET` | Hashes public-agent access passwords and signs access cookies |
-
-`NEXT_PUBLIC_AUTH_GOOGLE` is retained as a build argument but is not read by application code. Google OAuth is enabled only by `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`.
-
-### Data and storage
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | RLS-enforced application connection |
-| `DATABASE_MIGRATE_URL` | Privileged migration/admin connection |
-| `DATABASE_POOL_MAX` | Optional application pool size; defaults to `10` |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET` | S3-compatible storage location |
-| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Storage credentials |
-| `S3_FORCE_PATH_STYLE` | Use `true` for local MinIO and `false` for virtual-hosted production services |
-| `ENCRYPTION_KEY` | Encrypts tenant provider, OAuth, and channel credentials at rest |
-
-### Integrations
-
-| Variable | Purpose |
-| --- | --- |
-| `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` | Google Calendar OAuth and the default credentials for Google Sheets OAuth |
-| `GOOGLE_SHEETS_CLIENT_ID`, `GOOGLE_SHEETS_CLIENT_SECRET` | Optional dedicated Google Sheets OAuth credentials |
-| `VERIFY_TOKEN`, `META_APP_SECRET` | Meta webhook verification and signature validation |
-| `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN` | Platform WhatsApp credentials |
-| `WHATSAPP_INBOX_VERIFY_TOKEN`, `INSTAGRAM_INBOX_VERIFY_TOKEN` | Inbox webhook verification |
-| `CRON_SECRET` | Authenticates scheduled and background endpoints |
-| `GOOGLE_SERVICE_ACCOUNT_KEY`, `GOOGLE_OAUTH_CLIENT_ID` | Google Cross-Account Protection (RISC) registration and token verification |
-
-Generate local secrets with `openssl rand -hex 32`.
-
-## Authentication
-
-The self-hosted stack supports:
-
-- **Google OAuth** when `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set.
-- **Email and password** with mandatory email verification.
-- **Magic links** through the same Resend integration.
-
-Without `RESEND_API_KEY`, development email URLs are written to the server console. Production deployments should always configure a real mail provider and a strong `BETTER_AUTH_SECRET`.
-
-## Deployment
-
-The maintained deployment path is [`.github/workflows/deploy-cloudrun.yml`](.github/workflows/deploy-cloudrun.yml). A push to `dev` deploys staging and a push to `main` deploys production. The workflow:
-
-1. opens an IAP tunnel and applies database migrations;
-2. builds and pushes the standalone Next.js image to Artifact Registry;
-3. deploys it to Cloud Run with VPC access, environment-specific secrets, PostgreSQL, and S3 configuration.
-
-The container listens on port `8080` and runs as the non-root `nextjs` user.
-
-> `deploy-cloud-run.sh` is a legacy manual path and is not aligned with the current PostgreSQL/S3/Better Auth deployment. It omits required runtime secrets and still carries legacy GCS/Stripe configuration. Use the GitHub Actions workflow until that script is brought back in sync.
-
-`scripts/setup-secrets.sh` can seed the older shared Secret Manager names from a local env file, but the CI workflow also expects environment-specific database, auth, and storage secrets.
-
-## Security notes
-
-- Tenant-owned tables use PostgreSQL RLS and fail closed without tenant context.
-- Provider and integration credentials are encrypted before storage and never returned by read APIs.
-- Tenant-supplied provider and webhook URLs are validated to reduce SSRF exposure; private hosts require an explicit tenant opt-in or host allowlist.
-- CI runs Semgrep and Trivy on changes to protected branches.
-- Keep `DATABASE_MIGRATE_URL` out of normal request code; it bypasses tenant RLS by design.
-
-## Troubleshooting
-
-- **Database configuration error** — copy `.env.example` to `.env`, start the compose services, and verify both database URLs.
-- **Tenant query returns no rows** — ensure the operation is inside `withTenant`/`withDb`; RLS intentionally fails closed otherwise.
-- **Upload or bucket error** — rerun `bun run db:up` so `minio-init` can create `vibesboard-files`, then inspect <http://localhost:9001>.
-- **Stale schema or seed data** — run `bun run db:reset` for a clean local environment.
-- **Port conflict** — free ports 3000, 5432, 8888, 9000, and 9001, or override the applicable service configuration.
-- **Missing nested dependency after install** — run `bun install --force`; see the E2E guide for known Bun 1.2.18 dependency-materialization issues.
-- **Emails not arriving locally** — inspect the server console when `RESEND_API_KEY` is unset.
-
-## Project documentation
-
-- [`docs/byo-llm.md`](docs/byo-llm.md) — tenant provider configuration and routing
-- [`docs/local-e2e.md`](docs/local-e2e.md) — complete local Playwright setup
-- [`packages/adapter-postgres/README.md`](packages/adapter-postgres/README.md) — PostgreSQL, migrations, and RLS
-- [`packages/adapter-s3/README.md`](packages/adapter-s3/README.md) — S3-compatible storage
-- [`packages/adapter-better-auth/README.md`](packages/adapter-better-auth/README.md) — authentication adapter
-- [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) — contributor and release workflow
+Please do not report vulnerabilities in a public issue. Review the [security guide](docs/security.md) and use a [private GitHub security advisory](https://github.com/NordicAgents/vibeagent/security/advisories/new) to contact the maintainers.
 
 ## License
 
-Licensed under the [Apache License 2.0](LICENSE).
+Vibesboard is released under the [MIT License](LICENSE). Copyright © 2025–2026 NordicAgents.
