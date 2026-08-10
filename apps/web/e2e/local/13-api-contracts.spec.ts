@@ -10,7 +10,7 @@
  *     the UI reported "Changes saved"
  */
 import { test, expect } from '@playwright/test'
-import { STORAGE_STATE } from '../constants.ts'
+import { STORAGE_STATE, BASE_URL } from '../constants.ts'
 
 test.use({ storageState: STORAGE_STATE })
 
@@ -73,7 +73,7 @@ test.describe('PATCH /api/agents/[id] persists llmConfigId', () => {
 
   test.beforeAll(async ({ playwright }) => {
     const ctx = await playwright.request.newContext({
-      baseURL: 'http://localhost:3100',
+      baseURL: BASE_URL,
       storageState: STORAGE_STATE,
     })
     try {
@@ -105,7 +105,7 @@ test.describe('PATCH /api/agents/[id] persists llmConfigId', () => {
 
   test.afterAll(async ({ playwright }) => {
     const ctx = await playwright.request.newContext({
-      baseURL: 'http://localhost:3100',
+      baseURL: BASE_URL,
       storageState: STORAGE_STATE,
     })
     try {

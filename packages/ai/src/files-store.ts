@@ -38,6 +38,10 @@ export async function insertFiles(inputs: InsertFileInput[], db: Db = getMigrate
         mimeType: sql`excluded.mime_type`,
         fileSize: sql`excluded.file_size`,
         userId: sql`excluded.user_id`,
+        // Reset to pending so the UI reflects re-ingestion in progress.
+        // Without this a previously-failed or indexed file would keep its old
+        // status through the entire ingestion, showing stale state to the user.
+        status: sql`'pending'`,
         updatedAt: new Date(),
       },
     })

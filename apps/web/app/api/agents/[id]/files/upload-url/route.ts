@@ -57,6 +57,13 @@ export async function POST(
     )
   }
 
+  // Traversal / injection guard runs before any DB access so a malformed
+  // filename can't be used to probe the agent's existence via timing.
+  // (fileName is guaranteed non-empty by the earlier typeof check.)
+  if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+    return NextResponse.json({ error: 'Invalid file name' }, { status: 400 })
+  }
+
   const agent = await getAgentById(id)
   if (!agent) {
     return new NextResponse('Not found', { status: 404 })
@@ -69,16 +76,6 @@ export async function POST(
   })
   if (!canEdit) {
     return new NextResponse('Forbidden', { status: 403 })
-  }
-
-  // The server, not the browser, mints the tenant/agent-scoped key.
-  if (
-    !fileName ||
-    fileName.includes('..') ||
-    fileName.includes('/') ||
-    fileName.includes('\\')
-  ) {
-    return NextResponse.json({ error: 'Invalid file name' }, { status: 400 })
   }
 
   const fileKey = agentFileKey(agent.tenantId, agent.id, fileName)
