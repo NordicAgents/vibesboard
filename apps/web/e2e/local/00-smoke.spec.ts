@@ -86,7 +86,7 @@ test('landing header carries only the wordmark, the repo and a sign-in', async (
   // Two actions, both always visible — there is no hamburger to open.
   await expect(header.getByRole('link', { name: /GitHub/ })).toHaveAttribute(
     'href',
-    'https://github.com/NordicAgents/vibeagent'
+    'https://github.com/NordicAgents/vibesboard'
   )
   await expect(
     header.getByRole('link', { name: 'Sign in', exact: true })

@@ -63,7 +63,7 @@ describe('landing quickstart copy', () => {
       expect(tab.note.length, tab.id).toBeGreaterThan(40)
       expect(tab.command.trim().length, tab.id).toBeGreaterThan(0)
       expect(tab.docHref, tab.id).toMatch(
-        /^https:\/\/github\.com\/NordicAgents\/vibeagent\/blob\/main\/docs\//
+        /^https:\/\/github\.com\/NordicAgents\/vibesboard\/blob\/main\/docs\//
       )
       expect(tab.docLabel.length, tab.id).toBeGreaterThan(0)
     }

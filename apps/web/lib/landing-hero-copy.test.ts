@@ -45,7 +45,7 @@ describe('landing hero copy', () => {
   it('sends the primary CTA to the quickstart, not to a signup wall', () => {
     expect(LANDING_HERO_PRIMARY_CTA.href).toBe('#quickstart')
     expect(LANDING_HERO_SECONDARY_CTA.href).toMatch(
-      /^https:\/\/github\.com\/NordicAgents\/vibeagent/
+      /^https:\/\/github\.com\/NordicAgents\/vibesboard/
     )
     expect(LANDING_HERO_SECONDARY_CTA.external).toBe(true)
   })
