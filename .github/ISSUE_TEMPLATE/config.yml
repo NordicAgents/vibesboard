@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/NordicAgents/vibeagent/security/advisories/new
+    about: Please report security issues privately — never in a public issue.
+  - name: Question or usage help
+    url: https://github.com/NordicAgents/vibeagent/discussions
+    about: Ask about setup, configuration, or how to do something in Vibesboard.
+  - name: Documentation
+    url: https://github.com/NordicAgents/vibeagent/tree/main/docs
+    about: Setup, configuration, deployment, architecture, and security docs.
