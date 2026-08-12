@@ -31,7 +31,7 @@ export const LANDING_QUICKSTART_TABS: LandingQuickstartTab[] = [
       'Full stack on your machine, with Postgres and MinIO in Docker.',
     command: [
       'git clone https://github.com/NordicAgents/vibesboard.git',
-      'cd vibeagent',
+      'cd vibesboard',
       '',
       'cp .env.example .env',
       'bun install',

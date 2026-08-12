@@ -36,7 +36,7 @@ export const LANDING_HERO_SECONDARY_CTA: LandingCta = {
  */
 export const LANDING_HERO_COMMAND = [
   'git clone https://github.com/NordicAgents/vibesboard.git',
-  'cd vibeagent',
+  'cd vibesboard',
   'bun install',
   'bun run db:setup'
 ].join('\n')

@@ -111,7 +111,7 @@ Connect OpenAI, Anthropic, Google Gemini, NVIDIA, or any compatible OpenAI endpo
 
 ```bash
 git clone https://github.com/NordicAgents/vibesboard.git
-cd vibeagent
+cd vibesboard
 
 cp .env.example .env
 bun install

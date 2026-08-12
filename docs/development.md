@@ -11,7 +11,7 @@
 
 ```bash
 git clone https://github.com/NordicAgents/vibesboard.git
-cd vibeagent
+cd vibesboard
 
 cp .env.example .env
 # Edit .env and replace placeholder credentials/secrets.
