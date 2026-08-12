@@ -10,8 +10,8 @@
 ## Install and run
 
 ```bash
-git clone https://github.com/NordicAgents/vibeagent.git
-cd vibeagent
+git clone https://github.com/NordicAgents/vibesboard.git
+cd vibesboard
 
 cp .env.example .env
 # Edit .env and replace placeholder credentials/secrets.

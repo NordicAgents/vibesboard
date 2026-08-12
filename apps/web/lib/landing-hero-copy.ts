@@ -35,8 +35,8 @@ export const LANDING_HERO_SECONDARY_CTA: LandingCta = {
  * prove the project runs locally without turning the hero into a manual.
  */
 export const LANDING_HERO_COMMAND = [
-  'git clone https://github.com/NordicAgents/vibeagent.git',
-  'cd vibeagent',
+  'git clone https://github.com/NordicAgents/vibesboard.git',
+  'cd vibesboard',
   'bun install',
   'bun run db:setup'
 ].join('\n')

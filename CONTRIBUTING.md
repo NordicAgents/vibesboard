@@ -23,7 +23,7 @@ Requirements:
 - An OpenAI API key for the platform fallback model
 
 ```bash
-git clone https://github.com/<your-fork>/vibeagent.git
+git clone https://github.com/<your-fork>/vibesboard.git
 cd vibeagent
 
 cp .env.example .env

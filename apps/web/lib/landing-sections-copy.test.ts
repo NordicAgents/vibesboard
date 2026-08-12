@@ -131,7 +131,7 @@ describe('landing community copy', () => {
     expect(LANDING_COMMUNITY_ACTIONS.length).toBeGreaterThan(2)
     for (const action of LANDING_COMMUNITY_ACTIONS) {
       expect(action.href, action.label).toMatch(
-        /^https:\/\/github\.com\/NordicAgents\/vibeagent/
+        /^https:\/\/github\.com\/NordicAgents\/vibesboard/
       )
     }
   })
