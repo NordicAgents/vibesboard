@@ -61,6 +61,9 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
   globalSetup: path.join(__dirname, 'e2e/global-setup.ts'),
+  // 12 tests that normally finish inside a minute; this only bounds the case
+  // where the dev server stops answering and each one waits out its timeout.
+  globalTimeout: 10 * 60_000,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: {

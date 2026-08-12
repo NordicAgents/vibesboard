@@ -125,6 +125,10 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report-local', open: 'never' }],
   ],
   globalSetup: path.join(__dirname, 'e2e/local/global-setup.ts'),
+  // The whole suite runs in ~10 minutes. 20 caps a wedged `next dev` — where
+  // every test burns its full 90s timeout — while leaving the job's own
+  // 30-minute limit as headroom for setup and the report upload.
+  globalTimeout: 20 * 60_000,
   timeout: 90_000,
   expect: { timeout: 20_000 },
   use: {
