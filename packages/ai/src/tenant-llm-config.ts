@@ -6,6 +6,7 @@ import { tenantLlmConfigs, tenantLlmTaskConfigs, tenants } from '@vibesboard/ada
 import type { LlmProviderKind, LlmTask, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
 import { createEmbedding } from '@vibesboard/adapter-openai'
+import { NVIDIA_API_BASE_URL } from './provider-endpoints.ts'
 
 export type EmbedFn = (texts: string[]) => Promise<number[][]>
 
@@ -352,9 +353,11 @@ function rowToProviderSpec(
 //   openai_compatible → Same endpoint with tenant key + custom baseUrl
 //   google            → Google Generative AI Embeddings (text-embedding-004)
 //   anthropic         → No embedding API — falls back to platform key
-//   nvidia            → Falls back to platform key: NVIDIA's embedding NIMs
-//                       need a non-standard `input_type` param and produce
-//                       1024-dim vectors that don't fit the 768/1536 tables
+//   nvidia            → NVIDIA catalog /embeddings with the config's own modelId.
+//                       NIM-branded models (nvidia/ prefix) also need the
+//                       non-standard `input_type` param; third-party ones
+//                       (baai/, snowflake/) reject it. Dimensions route per
+//                       providerFromDimension — 1024 and 2048 both have tables.
 
 const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
 const GOOGLE_EMBEDDING_MODEL = process.env.GOOGLE_EMBEDDING_MODEL ?? 'text-embedding-004'
@@ -469,7 +472,25 @@ export async function resolveEmbedder(
     }
   }
 
-  // anthropic / nvidia (provider kind) — no usable embedding API, fall back to platform key
+  if (spec.kind === 'nvidia') {
+    // NVIDIA's catalog serves an OpenAI-shaped /embeddings endpoint, so the
+    // config's own modelId is used rather than silently falling back to the
+    // platform OpenAI key (which produced 1536-dim vectors from a provider the
+    // tenant never selected). NIM-branded models (nvidia/ prefix) additionally
+    // require input_type; third-party ones (baai/, snowflake/) reject it.
+    return async (texts) => {
+      const json = await createEmbedding({
+        model: spec.modelId,
+        input: texts,
+        apiKey: spec.apiKey,
+        baseUrl: spec.baseUrl ?? NVIDIA_API_BASE_URL,
+        ...(spec.modelId.startsWith('nvidia/') ? { inputType: 'passage' as const } : {}),
+      })
+      return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
+    }
+  }
+
+  // anthropic — no embedding API, fall back to platform key
   return async (texts) => {
     const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
     return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
