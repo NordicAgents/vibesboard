@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for the report. Please do **not** use this form for security
-        vulnerabilities — see [our security policy](https://github.com/NordicAgents/vibeagent/security/policy)
+        vulnerabilities — see [our security policy](https://github.com/NordicAgents/vibesboard/security/policy)
         and report those privately instead.
 
   - type: textarea
