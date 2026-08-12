@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "vibeagent-monorepo",
+      "name": "vibesboard-monorepo",
       "devDependencies": {
         "@vitest/coverage-v8": "^4.1.7",
         "vitest": "^4.1.7",

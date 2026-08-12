@@ -10,7 +10,7 @@ misuse it.
 Report privately in one of two ways:
 
 1. **GitHub private vulnerability reporting** — preferred. Open the
-   [Security tab](https://github.com/NordicAgents/vibeagent/security) of this
+   [Security tab](https://github.com/NordicAgents/vibesboard/security) of this
    repository and choose **Report a vulnerability**. This creates a private
    thread visible only to you and the maintainers.
 2. **Email** — <hi@vibesboard.com>, with `SECURITY` in the subject line.

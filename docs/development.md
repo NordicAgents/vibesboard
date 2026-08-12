@@ -10,7 +10,7 @@
 ## Install and run
 
 ```bash
-git clone https://github.com/NordicAgents/vibeagent.git
+git clone https://github.com/NordicAgents/vibesboard.git
 cd vibeagent
 
 cp .env.example .env
