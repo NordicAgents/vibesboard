@@ -1,0 +1,85 @@
+name: Bug report
+description: Something works differently than it should.
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do **not** use this form for security
+        vulnerabilities — see [our security policy](https://github.com/NordicAgents/vibeagent/security/policy)
+        and report those privately instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >
+        The smallest sequence that triggers it. If it depends on a particular
+        agent, workspace, or knowledge-base setup, describe that too.
+      placeholder: |
+        1. Create an agent with …
+        2. Open the public share link
+        3. Send "…"
+        4. The reply …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The release tag, or the commit SHA you are running.
+      placeholder: v0.0.2, or 4aea352
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running it?
+      options:
+        - Local development (bun run dev)
+        - Docker / self-hosted
+        - Cloud Run
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Bun and Node versions, operating system, and browser if relevant.
+      placeholder: |
+        Bun 1.2.18, Node 22.11, macOS 15.4, Chrome 140
+    validations:
+      required: false
+
+  - type: textarea
+    id: model
+    attributes:
+      label: Model provider
+      description: >
+        If the bug involves agent responses, which provider and model were in
+        use — the platform fallback, or a workspace's own credentials?
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or errors
+      description: >
+        Relevant server logs, browser console output, or stack traces. **Redact
+        API keys, tokens, and customer data before pasting.**
+      render: shell
+    validations:
+      required: false

@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest a capability or an improvement.
+labels: ["enhancement", "needs triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to do that Vibesboard makes hard or impossible
+        today? Describe the situation rather than the solution — it often leads
+        somewhere better than the feature you had in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to see
+      description: The change you have in mind, and roughly how you would expect it to work.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have tried
+      description: >
+        Workarounds, other tools, or configurations you attempted, and why they
+        fell short.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Agent runtime and tools
+        - Knowledge base and RAG
+        - Channels (WhatsApp, Instagram, Chatwoot, web widget)
+        - Scheduling and calendar
+        - Model providers and routing
+        - Workspaces, roles, and admin
+        - Deployment and self-hosting
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Would you be willing to work on this?
+      options:
+        - label: I would be interested in opening a pull request for it
+          required: false

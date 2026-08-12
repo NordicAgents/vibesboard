@@ -14,12 +14,16 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # GitHub does not expose repository secrets to pull requests from forks, so
+    # every `secrets.*` below is an empty string on an outside contributor's PR.
+    # Each value falls back to a public default so the fork build still compiles
+    # what it can. Nothing here is secret — these are NEXT_PUBLIC_* values that
+    # ship to the browser anyway, and every consumer guards against a missing one.
     env:
-      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL }}
-      NEXT_PUBLIC_AUTH_GOOGLE: ${{ secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_AUTH_GOOGLE: ${{ secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE || 'false' }}
       NEXT_PUBLIC_META_APP_ID: ${{ secrets.STAGING_NEXT_PUBLIC_META_APP_ID }}
       NEXT_PUBLIC_FB_LOGIN_CONFIG_ID: ${{ secrets.STAGING_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 

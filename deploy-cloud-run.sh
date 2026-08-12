@@ -2,10 +2,40 @@
 
 set -euo pipefail
 
+# --- Config helpers ---
+# Values come from the environment first, then from ./.env — nothing
+# deployment-specific is tracked in git. See .env.example for the keys.
+get_env_value() {
+  local key="$1"
+  if [ -n "${!key-}" ]; then
+    printf '%s' "${!key}"
+    return 0
+  fi
+  if [ -f .env ]; then
+    local line
+    line=$(grep -E "^${key}=" .env | tail -n1 || true)
+    if [ -n "${line}" ]; then
+      printf '%s' "${line#${key}=}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+require_env_value() {
+  local key="$1"
+  local val
+  if ! val=$(get_env_value "${key}") || [ -z "${val}" ]; then
+    echo "Error: ${key} is not set. Export it or add it to .env (see .env.example)." >&2
+    exit 1
+  fi
+  printf '%s' "${val}"
+}
+
 # --- Config ---
-PROJECT_ID="vibesboard"
-REGION="europe-north1"
-SERVICE_NAME="vibeagent"
+PROJECT_ID="$(require_env_value GCP_PROJECT_ID)"
+REGION="$(require_env_value GCP_REGION)"
+SERVICE_NAME="$(get_env_value CLOUD_RUN_SERVICE || printf '%s' vibeagent)"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 
 echo "Deploying ${SERVICE_NAME} to Cloud Run in ${PROJECT_ID}/${REGION}..."
@@ -58,24 +88,6 @@ add_build_arg() {
   fi
 }
 
-# Prefer exported env, fallback to .env file
-get_env_value() {
-  local key="$1"
-  if [ -n "${!key-}" ]; then
-    printf '%s' "${!key}"
-    return 0
-  fi
-  if [ -f .env ]; then
-    local line
-    line=$(grep -E "^${key}=" .env | tail -n1 || true)
-    if [ -n "${line}" ]; then
-      printf '%s' "${line#${key}=}"
-      return 0
-    fi
-  fi
-  return 1
-}
-
 # --- Build-time NEXT_PUBLIC_* args ---
 for key in \
   NEXT_PUBLIC_AUTH_GOOGLE \
@@ -95,16 +107,18 @@ ${ENGINE} push "${IMAGE_NAME}"
 
 # --- Non-sensitive runtime env vars ---
 OPENAI_MODEL=$(get_env_value OPENAI_MODEL || echo "gpt-4o-mini")
-GCS_BUCKET_NAME=$(get_env_value GCS_BUCKET_NAME || echo "vibeagent-files")
+GCS_BUCKET_NAME=$(require_env_value GCS_BUCKET_NAME)
 WHATSAPP_PHONE_NUMBER_ID=$(get_env_value WHATSAPP_PHONE_NUMBER_ID || true)
-NEXT_PUBLIC_APP_URL_VAL=$(get_env_value NEXT_PUBLIC_APP_URL || echo "https://www.vibesboard.com")
+NEXT_PUBLIC_APP_URL_VAL=$(require_env_value NEXT_PUBLIC_APP_URL)
 
-NOTIFICATION_EMAIL_FROM_VAL=$(get_env_value NOTIFICATION_EMAIL_FROM || echo "VibeAgent <notifications@vibeagent.com>")
+NOTIFICATION_EMAIL_FROM_VAL=$(get_env_value NOTIFICATION_EMAIL_FROM || true)
 
 ENV_VARS="OPENAI_MODEL=${OPENAI_MODEL}"
 ENV_VARS+=",GCS_BUCKET_NAME=${GCS_BUCKET_NAME}"
 ENV_VARS+=",NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL_VAL}"
-ENV_VARS+=",NOTIFICATION_EMAIL_FROM=${NOTIFICATION_EMAIL_FROM_VAL}"
+if [ -n "${NOTIFICATION_EMAIL_FROM_VAL}" ]; then
+  ENV_VARS+=",NOTIFICATION_EMAIL_FROM=${NOTIFICATION_EMAIL_FROM_VAL}"
+fi
 if [ -n "${WHATSAPP_PHONE_NUMBER_ID}" ]; then
   ENV_VARS+=",WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}"
 fi
@@ -148,9 +162,10 @@ echo "Service deployed: ${SERVICE_URL}"
 echo ""
 
 # --- Cloud Scheduler for WhatsApp queue processing ---
-# Cloud Scheduler is not available in all regions; use the nearest supported one.
-SCHEDULER_REGION="europe-west1"
-JOB_NAME="vibeagent-process-whatsapp-queue"
+# Cloud Scheduler is not available in every region; set SCHEDULER_REGION to a
+# nearby supported one when your deploy region lacks it.
+SCHEDULER_REGION=$(get_env_value SCHEDULER_REGION || printf '%s' "${REGION}")
+JOB_NAME="${SERVICE_NAME}-process-whatsapp-queue"
 echo "Setting up Cloud Scheduler cron job: ${JOB_NAME} (location: ${SCHEDULER_REGION})..."
 
 CRON_TOKEN=$(gcloud secrets versions access latest --secret=cron-secret --project="${PROJECT_ID}")
@@ -182,7 +197,7 @@ fi
 echo "Cloud Scheduler job configured: every 30 minutes"
 
 # --- Cloud Scheduler for billing cycle reset (free plan) ---
-BILLING_JOB_NAME="vibeagent-billing-reset"
+BILLING_JOB_NAME="${SERVICE_NAME}-billing-reset"
 echo ""
 echo "Setting up Cloud Scheduler cron job: ${BILLING_JOB_NAME} (location: ${SCHEDULER_REGION})..."
 
