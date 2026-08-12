@@ -160,7 +160,7 @@ export default function TenantsPage() {
                 {tenant.isPersonal && (
                   <Badge
                     variant="secondary"
-                    className="text-[10px] px-1.5 py-0"
+                    className="px-1.5 py-0 text-[10px]"
                   >
                     Personal
                   </Badge>
@@ -318,7 +318,7 @@ export default function TenantsPage() {
       />
 
       {!loading && tenants.length > 0 && (
-        <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1 w-fit">
+        <div className="flex w-fit items-center gap-1 rounded-lg border bg-muted/50 p-1">
           {[
             { value: 'all' as const, label: 'All', count: tenants.length },
             {

@@ -183,6 +183,20 @@
       "when": 1786371304193,
       "tag": "0025_lyrical_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786559041599,
+      "tag": "0026_yummy_cerise",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1786559208617,
+      "tag": "0027_even_skullbuster",
+      "breakpoints": true
     }
   ]
 }

@@ -38,11 +38,11 @@ export function generateIcs(params: {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//VibeAgent//SimpleBooking//EN',
+    'PRODID:-//Vibesboard//SimpleBooking//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:REQUEST',
     'BEGIN:VEVENT',
-    `UID:${params.uid}@vibeagent`,
+    `UID:${params.uid}@vibesboard`,
     `SUMMARY:${escText(params.summary)}`,
     `DESCRIPTION:${escText(params.description)}`,
     `DTSTART;TZID=${params.timezone}:${fmtLocal(params.startDatetime)}`,

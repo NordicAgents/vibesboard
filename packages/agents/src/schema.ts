@@ -176,7 +176,7 @@ export const upsertAgentSchema = z.object({
   instructions: z.string().min(10).max(20_000),
   fileKeys: z.array(z.string()).default([]),
   tools: z.array(agentToolSchema).default([]),
-  allowAnonymous: z.boolean().default(true),
+  allowAnonymous: z.boolean().default(false),
   greetingText: z.string().nullable().optional(),
   mode: agentModeSchema.default('provider'),
   maxResponses: z.number().int().min(1).max(500).nullable().optional(),

@@ -43,7 +43,7 @@ Many tools make it easy to demo a chatbot. Vibesboard is built for the operation
 | More than a chat playground              | A streaming runtime with tools, lifecycle hooks, public deployment, access gates, configuration history, and rollback            |
 | Agents where customers already are       | An embeddable web agent, WhatsApp and Instagram channels, Chatwoot sync, and a unified inbox                                     |
 | Answers that lead to outcomes            | RAG and long-term memory connected to Google Calendar, Google Sheets, webhooks, data actions, and MCP servers                    |
-| One deployment for many teams or clients | Workspaces, memberships, plans, feature flags, usage metering, and PostgreSQL row-level security                                 |
+| One deployment for many teams or clients | Workspaces, memberships, feature flags, usage metering, optional soft caps, and PostgreSQL row-level security                  |
 | Freedom from model lock-in               | OpenAI, Anthropic, Google Gemini, NVIDIA, and OpenAI-compatible providers, routed per agent or task                              |
 | Control of data and inference spend      | Self-hosted application, PostgreSQL and S3-compatible storage, encrypted tenant credentials, and bring-your-own-provider support |
 
@@ -91,7 +91,7 @@ Every tenant-scoped request runs with workspace context, and PostgreSQL row-leve
 - Isolate workspace data with PostgreSQL row-level security—not only application checks.
 - Separate normal application access from privileged migration and admin access.
 - Encrypt model-provider, OAuth, and messaging credentials at rest.
-- Manage memberships, permissions, plans, feature flags, and usage.
+- Manage memberships, permissions, feature flags, usage tracking, and optional soft caps.
 - Authenticate with Google OAuth, verified email and password, or magic links.
 
 ### Bring your own model
@@ -155,4 +155,7 @@ Please do not report vulnerabilities in a public issue. [SECURITY.md](SECURITY.m
 
 ## License
 
-Vibesboard is released under the [MIT License](LICENSE). Copyright © 2025–2026 NordicAgents.
+NordicAgents' original Vibesboard work is released under the [MIT
+License](LICENSE). The repository also contains Apache-2.0-derived template
+code and Inter fonts under the SIL Open Font License. See [NOTICE](NOTICE) and
+[LICENSES](LICENSES) for the applicable copyright and licence texts.

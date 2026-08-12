@@ -104,7 +104,7 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
   if (!memoryEnabled) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-        <Brain className="h-10 w-10 text-muted-foreground/40" />
+        <Brain className="size-10 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">
           Memory is disabled for this agent. Enable it in the Setup tab.
         </p>
@@ -150,19 +150,19 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
                 return (
                   <div key={m.id} className="flex items-start justify-between gap-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant={op === 'delete' ? 'destructive' : op === 'add' ? 'default' : 'secondary'}
                           className="text-xs capitalize">{op}</Badge>
-                        {key && <span className="text-xs font-mono text-muted-foreground">{key}</span>}
+                        {key && <span className="font-mono text-xs text-muted-foreground">{key}</span>}
                         {m.subScopeId && (
                           <span className="text-xs text-muted-foreground">visitor: {m.subScopeId.slice(0, 12)}…</span>
                         )}
                       </div>
                       {content && (
-                        <p className="mt-1 text-sm line-clamp-2">{content}</p>
+                        <p className="mt-1 line-clamp-2 text-sm">{content}</p>
                       )}
                       <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="size-3" />
                         <span>{new Date(m.createdAt).toLocaleString()}</span>
                       </div>
                     </div>
@@ -171,20 +171,20 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 border-green-500/50 text-green-700 dark:text-green-400 hover:bg-green-500/10"
+                          className="h-7 border-green-500/50 text-green-700 hover:bg-green-500/10 dark:text-green-400"
                           disabled={acting === m.id}
                           onClick={() => handleMutation(m.id, 'approve')}
                         >
-                          <Check className="h-3 w-3" />
+                          <Check className="size-3" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 border-red-500/50 text-red-700 dark:text-red-400 hover:bg-red-500/10"
+                          className="h-7 border-red-500/50 text-red-700 hover:bg-red-500/10 dark:text-red-400"
                           disabled={acting === m.id}
                           onClick={() => handleMutation(m.id, 'reject')}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                       </div>
                     )}
@@ -222,8 +222,8 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
             <div className="divide-y">
               {memories.map((mem) => (
                 <div key={mem.id} className="py-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono text-muted-foreground">{mem.key}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">{mem.key}</span>
                     <Badge className={`text-xs ${PRESENCE_COLORS[mem.presenceClass] ?? ''}`}>
                       {mem.presenceClass}
                     </Badge>
@@ -234,7 +234,7 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
                   {mem.description && (
                     <p className="mt-0.5 text-xs text-muted-foreground">{mem.description}</p>
                   )}
-                  <p className="mt-1 text-sm line-clamp-3">{mem.content}</p>
+                  <p className="mt-1 line-clamp-3 text-sm">{mem.content}</p>
                 </div>
               ))}
             </div>

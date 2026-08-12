@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 
 // Better Auth's session cookie. On secure (HTTPS) connections it is prefixed
 // with `__Secure-`; on plain http (local dev) it is not. Check both so the
-// middleware recognizes the session in production as well as locally.
+// proxy recognizes the session in production as well as locally.
 const SESSION_COOKIE_NAMES = [
   '__Secure-better-auth.session_token',
   'better-auth.session_token'
@@ -31,7 +31,7 @@ const RESERVED_SLUGS = new Set([
   'public'
 ])
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const res = NextResponse.next()
   const pathname = req.nextUrl.pathname
 
@@ -96,7 +96,7 @@ export async function middleware(req: NextRequest) {
   // the auth() helper. In middleware we do a lightweight cookie-presence check
   // and defer to a server-side verification for role-gated routes.
   if (sessionCookie) {
-    // Verifying the session + roles requires DB/Node APIs that Edge middleware
+    // Verifying the session + roles requires DB/Node APIs that the proxy
     // cannot run, so for admin/settings routes we use a lightweight approach:
     // the session cookie's presence is checked
     // here, and detailed RBAC is enforced in the server component / API route layer.

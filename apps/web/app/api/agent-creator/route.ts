@@ -18,11 +18,16 @@ import {
   upsertAgentSchema
 } from '@vibesboard/agents/schema'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
+import {
+  OPENAI_BASE_URL,
+  OPENAI_CHAT_MODEL,
+  isResponsesModel
+} from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
@@ -55,7 +60,7 @@ function buildAgentInsertValues(input: {
     slug: input.slug,
     instructions: payload.instructions ?? '',
     mode: payload.mode ?? 'provider',
-    allowAnonymous: payload.allowAnonymous ?? true,
+    allowAnonymous: payload.allowAnonymous ?? false,
     greetingText: payload.greetingText ?? null,
     quickSuggestionsMode: payload.quickSuggestionsMode ?? 'smart',
     quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
@@ -145,7 +150,7 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - name (2-120 chars, friendly and clear)
 - instructions (detailed guidance on behavior, tone, and purpose)
 - greetingText (warm, welcoming first message users will see)
-- allowAnonymous (default: true, ask only if relevant)
+- allowAnonymous (default: false; only enable after the user explicitly asks for a public link or embed)
 - tools (suggest relevant tools based on needs, use tool IDs from the list above)
 - quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
 - quickSuggestionsCount (default: 4; options: 1–5)
@@ -258,8 +263,8 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
   // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
   // previewToken skips BYO-LLM (same behaviour as agent runtime).
-  const tenantSpec = !previewToken && tenantId
-    ? await resolveProviderSpec(tenantId, null, undefined, 'agent_creator').catch(() => null)
+  const tenantSpec = shouldResolveTenantProvider({ tenantId, previewToken })
+    ? await resolveProviderSpec(tenantId!, null, undefined, 'agent_creator').catch(() => null)
     : null
 
   let languageModel
@@ -275,7 +280,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
     const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
     const model = isResponsesModel(preferredModel) ? DEFAULT_AGENT_CREATOR_MODEL : preferredModel
-    languageModel = createOpenAI({ apiKey })(model)
+    languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })(model)
   }
 
   const createAgentArgsSchema = z.object({
@@ -356,7 +361,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             name: args.name,
             instructions: args.instructions,
             greetingText: args.greetingText,
-            allowAnonymous: args.allowAnonymous ?? true,
+            allowAnonymous: args.allowAnonymous ?? false,
             fileKeys: effectiveFileKeys,
             tools: toolsPayload,
             sourceUrls: allDetectedUrls,

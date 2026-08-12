@@ -238,7 +238,7 @@ export function AgentHooksSettings({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0"
+                        className="size-7 p-0"
                         title={
                           hook.status === 'active'
                             ? 'Disable hook'
@@ -257,7 +257,7 @@ export function AgentHooksSettings({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0"
+                            className="size-7 p-0"
                             title="Delete hook"
                           >
                             <Trash2 className="size-3.5 text-muted-foreground" />

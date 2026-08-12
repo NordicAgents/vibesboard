@@ -42,6 +42,7 @@ export const sharedCoverage = {
     '**/*.test.ts',
     '**/*.test.tsx',
     '**/__tests__/**',
+    '**/*.disabled',
     '**/drizzle/**',
     '**/*.d.ts',
     '**/node_modules/**',

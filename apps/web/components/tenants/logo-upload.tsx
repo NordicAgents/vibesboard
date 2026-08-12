@@ -165,7 +165,7 @@ export function LogoUpload({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled || isUploading}
-              className="flex w-full cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors hover:border-accent-orange/50 hover:bg-accent-orange/5 disabled:cursor-not-allowed disabled:opacity-50"
+              className="hover:border-accent-orange/50 hover:bg-accent-orange/5 flex w-full cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-border p-6 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isUploading ? (
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />

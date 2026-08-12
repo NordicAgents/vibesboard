@@ -71,7 +71,7 @@ export function AccessGateForm({
           <img
             src={logoUrl}
             alt=""
-            className="mx-auto mb-4 h-12 w-12 rounded-full object-cover"
+            className="mx-auto mb-4 size-12 rounded-full object-cover"
           />
         )}
         <h1 className="font-sans text-2xl font-normal text-[#222f30] dark:text-[#f5f8f7]">

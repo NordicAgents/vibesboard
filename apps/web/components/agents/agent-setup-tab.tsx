@@ -166,7 +166,7 @@ export function AgentSetupTab({
           </CardHeader>
           <CardContent>
             <select
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               value={llmConfigId ?? ''}
               onChange={e => onLlmConfigIdChange(e.target.value || null)}
               disabled={saving || !canEdit}

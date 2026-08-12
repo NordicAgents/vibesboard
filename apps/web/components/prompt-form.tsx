@@ -20,7 +20,7 @@ export interface AttachedFile {
 
 export interface PromptProps {
   input: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   setInput: (value: any) => void
   onSubmit: (value: string) => Promise<void>
   isLoading: boolean

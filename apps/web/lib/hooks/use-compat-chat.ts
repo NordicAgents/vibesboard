@@ -15,7 +15,7 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, TextStreamChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type AnyRecord = Record<string, any>
 
 interface CompatChatOptions {
@@ -28,19 +28,19 @@ interface CompatChatOptions {
   /** Extra body fields forwarded to the API */
   body?: AnyRecord
   /** Initial messages in legacy Message format (id, role, content) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   initialMessages?: any[]
   /** Called when the API response arrives — receives the raw Response for header inspection */
   onResponse?: (response: Response) => void
   /** Called when a message stream finishes — receives message-like object with content: string */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onFinish?: (message: any) => void
   /** Called on error */
   onError?: (error: Error) => void
 }
 
 /** Extract plain text content from a UIMessage (ai@7.x) or legacy Message (has content) */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function extractContent(m: any): string {
   if (typeof m?.content === 'string') return m.content
   if (Array.isArray(m?.parts)) {
@@ -53,7 +53,7 @@ function extractContent(m: any): string {
 }
 
 // Convert legacy Message[] → UIMessage[] so the SDK can accept initialMessages
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function toUIMessages(msgs: any[] | undefined): UIMessage[] | undefined {
   if (!msgs?.length) return undefined
   return msgs.map(m => ({
@@ -91,7 +91,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
       api,
       // Transform UIMessage[] → legacy Message[] format expected by our server routes.
       // ai@7.x sends UIMessage (with parts) by default; our server expects { messages: [{ role, content }] }.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       prepareSendMessagesRequest: async (opts: any) => {
         const legacyMessages = (opts.messages as UIMessage[]).map(m => ({
           id: m.id,
@@ -119,7 +119,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
       return new TextStreamChatTransport(transportOptions)
     }
     return new DefaultChatTransport(transportOptions)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [api, streamProtocol])
 
   const uiInitialMessages = useMemo(
@@ -136,7 +136,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
     status,
     error,
     setMessages,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
   } = (useChat as any)({
     id,
     messages: uiInitialMessages,
@@ -152,7 +152,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
   })
 
   // Normalize rawUIMessages to legacy Message format (with content: string)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const messages = useMemo(
     () =>
       (rawUIMessages ?? []).map((m: any) => ({
@@ -167,7 +167,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
 
   // append: legacy API — takes { id, role, content } and sends it
   const append = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     async (message: any, _opts?: any) => {
       const text = typeof message === 'string' ? message : extractContent(message)
       return sendMessage?.({ text })

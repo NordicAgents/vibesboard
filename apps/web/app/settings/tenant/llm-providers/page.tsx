@@ -27,14 +27,14 @@ function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) 
     <div className="rounded-md border border-border text-xs">
       <button
         type="button"
-        className="w-full flex items-center justify-between px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+        className="flex w-full items-center justify-between px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
         onClick={() => setOpen(o => !o)}
       >
         <span className="font-medium">Google Cloud AI Platform URL builder</span>
-        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        {open ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
       </button>
       {open && (
-        <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
+        <div className="space-y-2 border-t border-border px-3 pb-3 pt-2">
           <p className="text-muted-foreground">
             For Google Cloud MaaS models (e.g. <span className="font-mono">intfloat/multilingual-e5-large-instruct-maas</span>).
             Use a service account key or <span className="font-mono">gcloud auth print-access-token</span> as the API key.
@@ -43,7 +43,7 @@ function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) 
             <div>
               <Label className="text-xs">Endpoint host</Label>
               <Input
-                className="h-7 text-xs mt-0.5"
+                className="mt-0.5 h-7 text-xs"
                 value={endpoint}
                 onChange={e => setEndpoint(e.target.value)}
                 placeholder="us-central1-aiplatform.googleapis.com"
@@ -52,7 +52,7 @@ function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) 
             <div>
               <Label className="text-xs">Region</Label>
               <Input
-                className="h-7 text-xs mt-0.5"
+                className="mt-0.5 h-7 text-xs"
                 value={region}
                 onChange={e => setRegion(e.target.value)}
                 placeholder="us-central1"
@@ -62,14 +62,14 @@ function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) 
           <div>
             <Label className="text-xs">Project ID</Label>
             <Input
-              className="h-7 text-xs mt-0.5"
+              className="mt-0.5 h-7 text-xs"
               value={projectId}
               onChange={e => setProjectId(e.target.value)}
               placeholder="your-gcp-project-id"
             />
           </div>
           {builtUrl && (
-            <div className="rounded bg-muted px-2 py-1 font-mono text-[11px] break-all text-muted-foreground">
+            <div className="break-all rounded bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
               {builtUrl}
             </div>
           )}
@@ -77,7 +77,7 @@ function GoogleCloudUrlBuilder({ onApply }: { onApply: (url: string) => void }) 
             type="button"
             size="sm"
             variant="outline"
-            className="h-6 text-xs px-2"
+            className="h-6 px-2 text-xs"
             disabled={!builtUrl}
             onClick={() => { onApply(builtUrl); setOpen(false) }}
           >
@@ -434,7 +434,7 @@ export default function LlmProvidersPage() {
       <div className="space-y-4">
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            <Loader2 className="size-4 animate-spin" /> Loading…
           </div>
         ) : configs.length === 0 && !isFormOpen ? (
           <Card>
@@ -447,28 +447,28 @@ export default function LlmProvidersPage() {
             <Card key={cfg.id} className={cfg.isEnabled ? '' : 'opacity-60'}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-2">
                     <CardTitle className="text-base">{cfg.label}</CardTitle>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KIND_COLORS[cfg.kind]}`}>
                       {KIND_LABELS[cfg.kind]}
                     </span>
                     {cfg.isDefault && (
                       <Badge variant="secondary" className="gap-1">
-                        <Star className="h-3 w-3" /> Default
+                        <Star className="size-3" /> Default
                       </Badge>
                     )}
                     {!cfg.isEnabled && <Badge variant="outline">Disabled</Badge>}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex shrink-0 items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={() => handleTest(cfg.id)} disabled={testing === cfg.id}>
-                      {testing === cfg.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+                      {testing === cfg.id ? <Loader2 className="size-3 animate-spin" /> : 'Test'}
                     </Button>
                     <Button
                       variant="ghost" size="sm"
                       onClick={() => openEdit(cfg)}
                       aria-label={`Edit ${cfg.label}`}
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="size-3.5" />
                     </Button>
                     {!cfg.isDefault && (
                       <Button variant="ghost" size="sm" onClick={() => handleSetDefault(cfg.id)}>
@@ -485,7 +485,7 @@ export default function LlmProvidersPage() {
                       aria-label={`Delete ${cfg.label}`}
                       className="text-destructive hover:text-destructive"
                     >
-                      {deleting === cfg.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      {deleting === cfg.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                     </Button>
                   </div>
                 </div>
@@ -520,7 +520,7 @@ export default function LlmProvidersPage() {
                   <div className="space-y-1.5">
                     <Label>Provider</Label>
                     <select
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                       value={form.kind}
                       onChange={e => handleKindChange(e.target.value as ProviderKind)}
                     >
@@ -539,7 +539,7 @@ export default function LlmProvidersPage() {
                     {PROVIDER_MODELS[form.kind] ? (
                       <>
                         <select
-                          className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                           value={useCustomModel ? '__custom__' : form.modelId}
                           onChange={e => {
                             const value = e.target.value
@@ -580,7 +580,7 @@ export default function LlmProvidersPage() {
                     )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label>API Key{isEditMode && <span className="ml-1 text-muted-foreground font-normal">(leave blank to keep current)</span>}</Label>
+                    <Label>API Key{isEditMode && <span className="ml-1 font-normal text-muted-foreground">(leave blank to keep current)</span>}</Label>
                     <Input
                       type="password"
                       placeholder={isEditMode ? '••••••••' : form.kind === 'nvidia' ? 'nvapi-…' : 'sk-…'}
@@ -620,40 +620,40 @@ export default function LlmProvidersPage() {
                       onApply={url => setForm(f => ({ ...f, baseUrl: url }))}
                     />
 
-                    <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground space-y-1">
+                    <div className="space-y-1 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                       <p className="font-medium text-foreground">Embedding model suggestions</p>
                       <p>When assigning this provider to the <span className="font-mono">Embeddings</span> task, use one of these model IDs:</p>
-                      <ul className="list-disc list-inside space-y-0.5 mt-1">
+                      <ul className="mt-1 list-inside list-disc space-y-0.5">
                         <li>
-                          <button type="button" className="underline hover:text-foreground transition-colors"
+                          <button type="button" className="underline transition-colors hover:text-foreground"
                             onClick={() => setForm(f => ({ ...f, modelId: 'intfloat/multilingual-e5-large-instruct-maas' }))}>
                             intfloat/multilingual-e5-large-instruct-maas
                           </button>
                           {' '}— 384-dim · Google Cloud AI Platform MaaS (use URL builder above)
                         </li>
                         <li>
-                          <button type="button" className="underline hover:text-foreground transition-colors"
+                          <button type="button" className="underline transition-colors hover:text-foreground"
                             onClick={() => setForm(f => ({ ...f, modelId: 'baai/bge-m3' }))}>
                             baai/bge-m3
                           </button>
                           {' '}— 1024-dim · NVIDIA free tier · multilingual · base URL: https://integrate.api.nvidia.com/v1
                         </li>
                         <li>
-                          <button type="button" className="underline hover:text-foreground transition-colors"
+                          <button type="button" className="underline transition-colors hover:text-foreground"
                             onClick={() => setForm(f => ({ ...f, modelId: 'snowflake/arctic-embed-l-v2.0' }))}>
                             snowflake/arctic-embed-l-v2.0
                           </button>
                           {' '}— 1024-dim · NVIDIA free tier · English · base URL: https://integrate.api.nvidia.com/v1
                         </li>
                         <li>
-                          <button type="button" className="underline hover:text-foreground transition-colors"
+                          <button type="button" className="underline transition-colors hover:text-foreground"
                             onClick={() => setForm(f => ({ ...f, modelId: 'nvidia/nv-embed-v2' }))}>
                             nvidia/nv-embed-v2
                           </button>
                           {' '}— 1024-dim · NVIDIA NIM · <span className="font-mono">input_type</span> auto-set · base URL: https://integrate.api.nvidia.com/v1
                         </li>
                         <li>
-                          <button type="button" className="underline hover:text-foreground transition-colors"
+                          <button type="button" className="underline transition-colors hover:text-foreground"
                             onClick={() => setForm(f => ({ ...f, modelId: 'nomic-embed-text' }))}>
                             nomic-embed-text
                           </button>
@@ -670,16 +670,16 @@ export default function LlmProvidersPage() {
                     id="isDefault"
                     checked={form.isDefault}
                     onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))}
-                    className="h-4 w-4 rounded border-input"
+                    className="size-4 rounded border-input"
                   />
-                  <Label htmlFor="isDefault" className="font-normal cursor-pointer">
+                  <Label htmlFor="isDefault" className="cursor-pointer font-normal">
                     Set as default provider for this workspace
                   </Label>
                 </div>
 
                 <div className="flex gap-2 pt-2">
                   <Button type="submit" disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
                     {isEditMode ? 'Update Provider' : 'Save Provider'}
                   </Button>
                   <Button type="button" variant="ghost" onClick={closeForm}>Cancel</Button>
@@ -694,16 +694,16 @@ export default function LlmProvidersPage() {
           <div className="mt-6 space-y-3">
             <div>
               <h3 className="text-sm font-medium">Task Routing</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Assign a specific provider to each task. Unassigned tasks use the Default provider.
               </p>
             </div>
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-border">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40">
                   <tr>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground w-1/3">Task</th>
-                    <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Provider</th>
+                    <th className="w-1/3 px-4 py-2.5 text-left font-medium text-muted-foreground">Task</th>
+                    <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Provider</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -719,7 +719,7 @@ export default function LlmProvidersPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <select
-                              className="h-8 rounded-md border border-input bg-background px-2 text-sm flex-1 max-w-xs"
+                              className="h-8 max-w-xs flex-1 rounded-md border border-input bg-background px-2 text-sm"
                               value={assigned ?? ''}
                               disabled={savingTask === task}
                               onChange={e => handleTaskAssign(task, e.target.value || null)}
@@ -731,7 +731,7 @@ export default function LlmProvidersPage() {
                                 </option>
                               ))}
                             </select>
-                            {savingTask === task && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                            {savingTask === task && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
                           </div>
                         </td>
                       </tr>
@@ -748,7 +748,7 @@ export default function LlmProvidersPage() {
           <Card className="mt-2">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-muted-foreground" />
+                <Shield className="size-4 text-muted-foreground" />
                 <CardTitle className="text-base">Network Access</CardTitle>
               </div>
               <CardDescription className="text-xs">
@@ -760,7 +760,7 @@ export default function LlmProvidersPage() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium">Allow private / local hosts</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Permits base URLs with private IP ranges (10.x, 192.168.x, localhost, etc.).
                     Use for on-device or LAN-deployed models.
                   </p>
@@ -775,7 +775,7 @@ export default function LlmProvidersPage() {
                     allowPrivateHosts ? 'bg-primary' : 'bg-input'
                   }`}
                 >
-                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-lg transition-transform mt-0.5 ${allowPrivateHosts ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <span className={`pointer-events-none mt-0.5 inline-block size-5 rounded-full bg-white shadow-lg transition-transform ${allowPrivateHosts ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
 
@@ -785,9 +785,9 @@ export default function LlmProvidersPage() {
                 <p className="text-xs text-muted-foreground">
                   Specific hostnames always permitted regardless of the toggle above (e.g. <code className="text-xs">gpu-box.internal</code>, <code className="text-xs">192.168.1.50</code>).
                 </p>
-                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                <div className="flex min-h-[28px] flex-wrap gap-1.5">
                   {hostAllowlist.map(host => (
-                    <span key={host} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-mono">
+                    <span key={host} className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 font-mono text-xs">
                       {host}
                       <button
                         type="button"
@@ -796,12 +796,12 @@ export default function LlmProvidersPage() {
                         disabled={savingNetwork}
                         className="text-muted-foreground hover:text-foreground"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="size-3" />
                       </button>
                     </span>
                   ))}
                   {hostAllowlist.length === 0 && (
-                    <span className="text-xs text-muted-foreground italic">No hosts allowlisted</span>
+                    <span className="text-xs italic text-muted-foreground">No hosts allowlisted</span>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -810,7 +810,7 @@ export default function LlmProvidersPage() {
                     value={newAllowlistEntry}
                     onChange={e => setNewAllowlistEntry(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAllowlistEntry())}
-                    className="h-8 text-sm font-mono flex-1"
+                    className="h-8 flex-1 font-mono text-sm"
                   />
                   <Button size="sm" variant="outline" onClick={addAllowlistEntry} disabled={savingNetwork || !newAllowlistEntry.trim()}>
                     Add
@@ -822,8 +822,8 @@ export default function LlmProvidersPage() {
         )}
 
         {!isFormOpen && (
-          <Button variant="outline" onClick={openAdd} className="gap-2 mt-2">
-            <Plus className="h-4 w-4" /> Add Provider
+          <Button variant="outline" onClick={openAdd} className="mt-2 gap-2">
+            <Plus className="size-4" /> Add Provider
           </Button>
         )}
       </div>

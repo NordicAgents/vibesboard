@@ -11,6 +11,7 @@ import {
 import { getActiveTenant } from '@/lib/tenant-context'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 
 export const runtime = 'nodejs'
 
@@ -29,9 +30,15 @@ export async function POST(req: Request) {
 
   // Resolve tenant BYO-LLM for agent_creator task
   const tenantId = !previewToken ? await getActiveTenant(session.user.id).catch(() => null) : null
-  const tenantSpec = tenantId
-    ? await resolveProviderSpec(tenantId, null, undefined, 'agent_creator').catch(() => null)
-    : null
+  const tenantSpec =
+    tenantId && shouldResolveTenantProvider({ tenantId, previewToken })
+      ? await resolveProviderSpec(
+          tenantId,
+          null,
+          undefined,
+          'agent_creator'
+        ).catch(() => null)
+      : null
 
   const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
 
