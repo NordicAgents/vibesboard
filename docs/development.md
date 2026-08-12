@@ -128,3 +128,5 @@ contributor and release workflow.
   issues.
 - **Emails not arriving locally** — inspect the server console when
   `RESEND_API_KEY` is unset.
+
+<!-- CI control: baseline E2E run on unmodified dev, no app changes. Delete after. -->
