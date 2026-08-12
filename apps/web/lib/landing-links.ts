@@ -7,7 +7,7 @@
  */
 
 export const GITHUB_OWNER = 'NordicAgents'
-export const GITHUB_REPO = 'vibeagent'
+export const GITHUB_REPO = 'vibesboard'
 export const GITHUB_SLUG = `${GITHUB_OWNER}/${GITHUB_REPO}`
 
 export const REPO_URL = `https://github.com/${GITHUB_SLUG}`

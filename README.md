@@ -110,8 +110,8 @@ Connect OpenAI, Anthropic, Google Gemini, NVIDIA, or any compatible OpenAI endpo
 ### Run locally
 
 ```bash
-git clone https://github.com/NordicAgents/vibeagent.git
-cd vibeagent
+git clone https://github.com/NordicAgents/vibesboard.git
+cd vibesboard
 
 cp .env.example .env
 bun install
@@ -145,11 +145,13 @@ For all setup options and troubleshooting, see the [development guide](docs/deve
 
 ## Contributing
 
-Contributions are welcome. Start with the [development guide](docs/development.md), create a feature branch from `dev`, use a conventional commit, and open a pull request back to `dev`. For a substantial change, open an [issue](https://github.com/NordicAgents/vibeagent/issues) first so the approach can be discussed.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the checks your pull request has to pass, and how the branches work. In short: branch from `dev`, use a conventional commit, and open a pull request back to `dev`. For a substantial change, open an [issue](https://github.com/NordicAgents/vibesboard/issues) first so the approach can be discussed.
+
+Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security
 
-Please do not report vulnerabilities in a public issue. Review the [security guide](docs/security.md) and use a [private GitHub security advisory](https://github.com/NordicAgents/vibeagent/security/advisories/new) to contact the maintainers.
+Please do not report vulnerabilities in a public issue. [SECURITY.md](SECURITY.md) explains what is in scope and what to expect after you report; use a [private GitHub security advisory](https://github.com/NordicAgents/vibesboard/security/advisories/new) or email <hi@vibesboard.com> to reach the maintainers. The [security guide](docs/security.md) covers the tenancy model and isolation guarantees.
 
 ## License
 

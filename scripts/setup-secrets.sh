@@ -8,10 +8,7 @@
 
 set -euo pipefail
 
-PROJECT_ID="vibesboard"
-
 echo "=== Secret Manager Setup ==="
-echo "Project: ${PROJECT_ID}"
 echo ""
 
 # --- Preflight ---
@@ -32,8 +29,6 @@ fi
 echo "Reading from: ${ENV_FILE}"
 echo ""
 
-gcloud config set project "${PROJECT_ID}" --quiet
-
 # Read a value from .env by key
 read_env() {
   local key="$1"
@@ -41,6 +36,18 @@ read_env() {
   val=$(grep -E "^${key}=" "${ENV_FILE}" | head -n1 | sed "s/^${key}=//")
   printf '%s' "${val}"
 }
+
+# The target project comes from the environment or the env file — it is not
+# tracked in git (see .env.example).
+PROJECT_ID="${GCP_PROJECT_ID:-$(read_env GCP_PROJECT_ID || true)}"
+if [ -z "${PROJECT_ID}" ]; then
+  echo "Error: GCP_PROJECT_ID is not set. Export it or add it to ${ENV_FILE}." >&2
+  exit 1
+fi
+echo "Project: ${PROJECT_ID}"
+echo ""
+
+gcloud config set project "${PROJECT_ID}" --quiet
 
 # Create or update a secret
 upsert_secret() {

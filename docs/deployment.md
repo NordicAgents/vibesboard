@@ -16,6 +16,26 @@ The workflow:
 Authentication uses Workload Identity Federation. The container listens on port
 `8080` and runs as the non-root `nextjs` user.
 
+### Repository variables
+
+Environment-specific resource names live in GitHub **Actions variables**
+(Settings → Secrets and variables → Actions → Variables), not in the tracked
+workflow, so the repository carries no map of any particular deployment. The
+workflow fails with a named error if one is missing. Required:
+
+| Variable                  | Meaning                                                    |
+| ------------------------- | ---------------------------------------------------------- |
+| `CLOUD_RUN_REGION`        | Region the Cloud Run service deploys to                    |
+| `PG_VM_ZONE`              | Zone of the Postgres compute VMs                           |
+| `PROD_PG_VM_NAME`         | Name of the production Postgres VM (IAP tunnel target)     |
+| `STAGING_PG_VM_NAME`      | Name of the staging Postgres VM (IAP tunnel target)        |
+| `PROD_S3_BUCKET`          | Production storage bucket                                  |
+| `STAGING_S3_BUCKET`       | Staging storage bucket                                     |
+| `NOTIFICATION_EMAIL_FROM` | From-header for notification email, e.g. `App <no-reply@…>` |
+
+Credentials and endpoints (WIF provider, project id, database URLs, app URLs)
+remain in Actions **secrets**, as before.
+
 ## Secrets
 
 `scripts/setup-secrets.sh` can seed the older shared Secret Manager names from a
