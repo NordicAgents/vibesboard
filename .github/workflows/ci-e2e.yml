@@ -88,6 +88,44 @@ jobs:
         run: bun run test:e2e
         working-directory: apps/web
 
+      - name: Stop the first suite's dev server before the second one starts
+        # `next dev` allows only one instance per project directory — a second
+        # one exits with "Another next dev server is already running", whatever
+        # port it was given. Both suites run `bun run --filter @vibesboard/web
+        # dev` on the same directory and port, and Playwright's teardown does
+        # not always reap the `next dev` grandchild behind the bun wrapper.
+        #
+        # When an orphan survives, the deep suite's own server exits on the
+        # directory lock, but Playwright's `url` health check still gets a 200
+        # from the orphan and proceeds. The suite then runs against a
+        # torn-down process: routes the first suite already compiled keep
+        # answering, while any first-hit compile hangs until the test times
+        # out. That is the "forgot-password / create-chat / api-smoke hang for
+        # 90s while /, /sign-in and /agents pass" failure, and why it comes and
+        # goes between branches.
+        #
+        # Killing the leftovers and waiting for the ports makes the deep suite
+        # boot a server it actually owns. A no-op when teardown worked.
+        if: always()
+        run: |
+          pkill -f "next dev" || true
+          pkill -f "next-server" || true
+          pkill -f "mock-openai.mjs" || true
+          for port in 3100 4010; do
+            for _ in $(seq 1 30); do
+              if curl -s -o /dev/null --max-time 2 "http://localhost:$port"; then
+                sleep 1
+              else
+                break
+              fi
+            done
+            if curl -s -o /dev/null --max-time 2 "http://localhost:$port"; then
+              echo "::error::port $port still answering after 30s; a stale server would silently break the deep suite"
+              exit 1
+            fi
+            echo "port $port is free"
+          done
+
       - name: Run local Playwright E2E (deep suite)
         # The e2e/local/ suite is the deep one — agents, chat, settings, BYO-LLM,
         # public widget, conversations, knowledge base, sharing, admin panel,
