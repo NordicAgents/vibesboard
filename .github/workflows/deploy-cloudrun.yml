@@ -44,12 +44,17 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       - name: Open IAP tunnel to the target Postgres VM
+        # VM names and zone come from repository variables so the tracked file
+        # carries no map of our infrastructure (see docs/deployment.md).
         env:
-          PG_VM: ${{ github.ref_name == 'main' && 'vibesboard-prod-pg' || 'vibesboard-staging-pg' }}
+          PG_VM: ${{ github.ref_name == 'main' && vars.PROD_PG_VM_NAME || vars.STAGING_PG_VM_NAME }}
+          PG_VM_ZONE: ${{ vars.PG_VM_ZONE }}
           GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
+          : "${PG_VM:?Repository variable PROD_PG_VM_NAME / STAGING_PG_VM_NAME is not set}"
+          : "${PG_VM_ZONE:?Repository variable PG_VM_ZONE is not set}"
           gcloud compute start-iap-tunnel "$PG_VM" 5432 \
-            --local-host-port=localhost:5432 --zone=us-central1-a \
+            --local-host-port=localhost:5432 --zone="$PG_VM_ZONE" \
             --project="$GCP_PROJECT" &
           for i in $(seq 1 30); do (echo > /dev/tcp/localhost/5432) >/dev/null 2>&1 && break; sleep 1; done
       - name: Run migrations
@@ -72,7 +77,11 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           PROD_CLOUD_RUN_SERVICE: ${{ secrets.PROD_CLOUD_RUN_SERVICE }}
           STAGING_CLOUD_RUN_SERVICE: ${{ secrets.STAGING_CLOUD_RUN_SERVICE }}
+          CLOUD_RUN_REGION: ${{ vars.CLOUD_RUN_REGION }}
+          S3_BUCKET: ${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || vars.STAGING_S3_BUCKET }}
         run: |
+          : "${CLOUD_RUN_REGION:?Repository variable CLOUD_RUN_REGION is not set}"
+          : "${S3_BUCKET:?Repository variable PROD_S3_BUCKET / STAGING_S3_BUCKET is not set}"
           if [ "$REF_NAME" = "main" ]; then
             echo "ENV=prod" >> "$GITHUB_ENV"
             echo "CLOUD_RUN_SERVICE=$PROD_CLOUD_RUN_SERVICE" >> "$GITHUB_ENV"
@@ -111,7 +120,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@251330ba9a8a34bfbc1622895f42e1d53fd14522 # v2.7.6
         with:
           service: ${{ env.CLOUD_RUN_SERVICE }}
-          region: europe-north1
+          region: ${{ vars.CLOUD_RUN_REGION }}
           image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
           # Direct VPC egress so the service can reach the private-IP Postgres VM
           # (both staging and prod run a private VM in the default network).
@@ -120,10 +129,10 @@ jobs:
             OPENAI_MODEL=gpt-4o-mini
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
-            NOTIFICATION_EMAIL_FROM=VibeAgent <notifications@vibeagent.com>
+            NOTIFICATION_EMAIL_FROM=${{ vars.NOTIFICATION_EMAIL_FROM }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_REGION=us-east-1' || '' }}
-            S3_BUCKET=${{ github.ref_name == 'main' && 'vibeagent-files' || (github.ref_name == 'dev' && 'vibesboard-staging-files') || '' }}
+            S3_BUCKET=${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || (github.ref_name == 'dev' && vars.STAGING_S3_BUCKET) || '' }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_FORCE_PATH_STYLE=false' || '' }}
             ${{ github.ref_name == 'main' && format('BETTER_AUTH_URL={0}', secrets.PROD_NEXT_PUBLIC_APP_URL) || (github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL)) || '' }}
           secrets: |
