@@ -2,12 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import { getAgents } from '@/app/actions'
-import { LandingHeader } from '@/components/landing/landing-header'
-import { LandingHero } from '@/components/landing/landing-hero'
-import { LandingShowcase } from '@/components/landing/landing-showcase'
-import { LandingServices } from '@/components/landing/landing-services'
-import { LandingAbout } from '@/components/landing/landing-about'
-import { LandingFooter } from '@/components/landing/landing-footer'
+import { LandingPage } from '@/components/landing/landing-page'
 
 export const runtime = 'nodejs'
 
@@ -15,16 +10,7 @@ export default async function IndexPage() {
   const session = await auth()
 
   if (!session?.user) {
-    return (
-      <div className="h-full overflow-y-auto bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
-        <LandingHeader />
-        <LandingHero />
-        <LandingShowcase />
-        <LandingServices />
-        <LandingAbout />
-        <LandingFooter />
-      </div>
-    )
+    return <LandingPage />
   }
 
   const agents = await getAgents(session.user.id)

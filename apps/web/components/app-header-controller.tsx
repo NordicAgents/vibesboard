@@ -31,8 +31,14 @@ export function AppHeaderController({
   // e.g. /user-WlgbEdFb/calcbuddy
   const isPublicAgentPage = !isSystemPath && segments.length === 2
 
-  // Hide on landing page (has its own header) and routes with their own nav
-  const isLandingPage = pathname === '/' || pathname === '/landing'
+  // Hide on the marketing surface (those pages render LandingHeader themselves,
+  // so keeping the app header stacks two headers) and on routes with their own
+  // navigation.
+  const isLandingPage =
+    pathname === '/' ||
+    pathname === '/landing' ||
+    pathname === '/privacy-policy' ||
+    pathname === '/terms-of-service'
   const hasOwnNavigation = pathname?.startsWith('/agents')
 
   if (isPublicAgentPage || isLandingPage || hasOwnNavigation) {

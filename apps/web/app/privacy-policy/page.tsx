@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="min-h-screen bg-beige-bg text-black-primary selection:bg-black-primary selection:text-beige-bg dark:bg-background dark:text-foreground dark:selection:bg-white dark:selection:text-black">
+    <main className="dark h-full overflow-y-auto bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <LandingHeader />
       <div className="container mx-auto px-4 py-24 sm:px-6 sm:py-32">
         <h1 className="mb-8 font-switzer text-4xl font-bold sm:text-5xl">

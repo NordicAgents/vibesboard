@@ -1,37 +1,42 @@
-export type LandingHeroConversationRole = 'customer' | 'agent'
+import { LANDING_LINKS } from './landing-links'
 
-export interface LandingHeroConversationMessage {
-  id: string
-  role: LandingHeroConversationRole
-  text: string
-  time: string
+export interface LandingCta {
+  label: string
+  href: string
+  external?: boolean
 }
 
-export const LANDING_HERO_TAGLINE = 'Let your agent talk. Get your time back.'
-
-export const LANDING_HERO_CONVERSATION: LandingHeroConversationMessage[] = [
-  {
-    id: 'customer-consultation-request',
-    role: 'customer',
-    text: 'Can I book a consultation tomorrow afternoon?',
-    time: '9:41 AM'
-  },
-  {
-    id: 'agent-consultation-slot',
-    role: 'agent',
-    text: 'Yes - 2:30 PM is open. I can book it and send the confirmation now.',
-    time: '9:41 AM'
-  },
-  {
-    id: 'customer-booking-confirm',
-    role: 'customer',
-    text: 'Book 2:30 for Maya.',
-    time: '9:42 AM'
-  },
-  {
-    id: 'agent-booking-confirmation',
-    role: 'agent',
-    text: 'Booked. Confirmation sent, calendar updated, and the team has the details.',
-    time: '9:42 AM'
-  }
+/** Chips above the headline: the three facts a self-hoster checks first. */
+export const LANDING_HERO_BADGES = [
+  'MIT licensed',
+  'Self-hosted',
+  'Bring your own model'
 ]
+
+export const LANDING_HERO_HEADING_LEAD = 'The agent platform'
+export const LANDING_HERO_HEADING_HIGHLIGHT = 'you host yourself.'
+
+export const LANDING_HERO_SUBHEADING =
+  'One agent, every channel. Grounded in your data, connected to your tools, running on your servers.'
+
+export const LANDING_HERO_PRIMARY_CTA: LandingCta = {
+  label: 'Start self-hosting',
+  href: '#quickstart'
+}
+
+export const LANDING_HERO_SECONDARY_CTA: LandingCta = {
+  label: 'Read the docs',
+  href: LANDING_LINKS.docs,
+  external: true
+}
+
+/**
+ * The hero terminal. Three lines lifted from the README quickstart — enough to
+ * prove the project runs locally without turning the hero into a manual.
+ */
+export const LANDING_HERO_COMMAND = [
+  'git clone https://github.com/NordicAgents/vibeagent.git',
+  'cd vibeagent',
+  'bun install',
+  'bun run db:setup'
+].join('\n')

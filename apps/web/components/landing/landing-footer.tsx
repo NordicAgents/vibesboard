@@ -1,93 +1,164 @@
-'use client'
-
 import Link from 'next/link'
-import { FadeIn } from './fade-in'
+import { ArrowUpRight } from 'lucide-react'
+
+import { LANDING_LINKS, LANDING_PRODUCT_LINKS } from '@/lib/landing-links'
+
+interface FooterColumn {
+  title: string
+  links: { label: string; href: string; external?: boolean }[]
+}
+
+const COLUMNS: FooterColumn[] = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Quickstart', href: '#quickstart' },
+      { label: 'Capabilities', href: '#capabilities' },
+      { label: 'Self-host or cloud', href: '#deploy' },
+      { label: 'Sign in', href: LANDING_LINKS.signIn }
+    ]
+  },
+  {
+    title: 'Docs',
+    links: [
+      { label: 'All documentation', href: LANDING_LINKS.docs, external: true },
+      { label: 'Development', href: LANDING_LINKS.development, external: true },
+      { label: 'Deployment', href: LANDING_LINKS.deployment, external: true },
+      {
+        label: 'Configuration',
+        href: LANDING_LINKS.configuration,
+        external: true
+      },
+      {
+        label: 'Bring your own model',
+        href: LANDING_LINKS.byoLlm,
+        external: true
+      },
+      { label: 'Security', href: LANDING_LINKS.security, external: true }
+    ]
+  },
+  {
+    title: 'Project',
+    links: [
+      { label: 'GitHub', href: LANDING_LINKS.repo, external: true },
+      { label: 'Issues', href: LANDING_LINKS.issues, external: true },
+      {
+        label: 'Good first issues',
+        href: LANDING_LINKS.goodFirstIssues,
+        external: true
+      },
+      { label: 'Releases', href: LANDING_LINKS.releases, external: true },
+      {
+        label: 'Contributors',
+        href: LANDING_LINKS.contributors,
+        external: true
+      },
+      { label: 'MIT license', href: LANDING_LINKS.license, external: true }
+    ]
+  },
+  {
+    title: 'More from us',
+    links: [
+      ...LANDING_PRODUCT_LINKS,
+      { label: 'hi@vibesboard.com', href: LANDING_LINKS.email }
+    ]
+  }
+]
+
+const SOCIALS = [
+  { label: 'X', href: LANDING_LINKS.x },
+  { label: 'LinkedIn', href: LANDING_LINKS.linkedin },
+  { label: 'Instagram', href: LANDING_LINKS.instagram },
+  { label: 'YouTube', href: LANDING_LINKS.youtube }
+]
 
 export function LandingFooter() {
+  const year = new Date().getFullYear()
+
   return (
-    <footer className="safe-area-inset-bottom border-t border-white/10 bg-[#111918] px-4 py-12 text-[#f5f8f7] sm:px-6 sm:py-16 lg:py-20">
+    <footer className="safe-area-inset-bottom dark border-t border-white/10 bg-background px-4 py-12 text-foreground sm:px-6 sm:py-16">
       <div className="container mx-auto">
-        <div className="mb-12 flex flex-col items-start justify-between sm:mb-16 md:flex-row lg:mb-20">
-          <div className="w-full max-w-2xl">
-            <FadeIn delay={0.1}>
-              <h2 className="mb-6 font-switzer text-[12vw] font-bold leading-[0.9] tracking-[-0.08em] text-[#f5f8f7] sm:mb-8 sm:text-[10vw] md:text-[8vw]">
-                START VIBING <br className="hidden sm:block" /> TODAY
-              </h2>
-            </FadeIn>
-            <FadeIn delay={0.2}>
-              <a
-                href="mailto:hi@vibesboard.com"
-                className="inline-block border-b border-white/20 pb-2 text-xl transition-colors hover:text-[#cef79e] sm:text-2xl md:text-3xl lg:text-4xl"
-              >
-                hi@vibesboard.com
-              </a>
-            </FadeIn>
-          </div>
-
-          <div className="mt-8 flex flex-col gap-4 sm:mt-12 md:mt-0">
-            <FadeIn delay={0.3}>
-              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#c9cbbe] sm:text-sm">
-                [SOCIALS]
-              </span>
-              <div className="mt-2 flex flex-row flex-wrap gap-4 sm:gap-2 md:flex-col">
-                <Link
-                  href="https://www.instagram.com/vibesboard_ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm transition-colors hover:text-[#cef79e] sm:text-base"
-                >
-                  Instagram
-                </Link>
-                <Link
-                  href="https://x.com/vibesboard_ai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm transition-colors hover:text-[#cef79e] sm:text-base"
-                >
-                  Twitter
-                </Link>
-                <Link
-                  href="https://www.linkedin.com/company/vibesboard-ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm transition-colors hover:text-[#cef79e] sm:text-base"
-                >
-                  LinkedIn
-                </Link>
-                <Link
-                  href="https://www.youtube.com/@vibesboard_ai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm transition-colors hover:text-[#cef79e] sm:text-base"
-                >
-                  YouTube
-                </Link>
-              </div>
-            </FadeIn>
-          </div>
-        </div>
-
-        <FadeIn delay={0.4}>
-          <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-[#c9cbbe] sm:flex-row sm:gap-0 sm:pt-8 sm:text-sm">
-            <p className="text-center sm:text-left">
-              © 2025 vibesboard. All rights reserved.
+        <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)] lg:gap-8">
+          <div className="max-w-sm">
+            <span className="font-switzer text-2xl font-bold tracking-[-0.08em]">
+              vibesboard
+            </span>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              The agent platform you host yourself — agents grounded in your
+              data, connected to your tools, and deployed to any channel. Bring
+              your own model, keep your data.
             </p>
-            <div className="flex gap-4 sm:gap-8">
-              <Link
-                href="/privacy-policy"
-                className="transition-colors hover:text-[#cef79e]"
-              >
-                Privacy Policy
-              </Link>
-              <Link
-                href="/terms-of-service"
-                className="transition-colors hover:text-[#cef79e]"
-              >
-                Terms of Service
-              </Link>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {['MIT licensed', 'Self-hosted', 'Postgres RLS'].map(chip => (
+                <span
+                  key={chip}
+                  className="rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
+                >
+                  {chip}
+                </span>
+              ))}
             </div>
           </div>
-        </FadeIn>
+
+          {COLUMNS.map(column => (
+            <div key={column.title}>
+              <h3 className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                {column.title}
+              </h3>
+              <ul className="mt-4 space-y-2.5">
+                {column.links.map(link => (
+                  <li key={`${column.title}-${link.label}`}>
+                    <Link
+                      href={link.href}
+                      target={link.external ? '_blank' : undefined}
+                      rel={link.external ? 'noopener noreferrer' : undefined}
+                      className="group inline-flex items-center gap-1 text-sm text-foreground/80 transition-colors hover:text-primary"
+                    >
+                      {link.label}
+                      {link.external && (
+                        <ArrowUpRight
+                          className="size-3 opacity-0 transition-opacity group-hover:opacity-100"
+                          aria-hidden
+                        />
+                      )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-muted-foreground sm:flex-row sm:gap-0">
+          <p className="text-center sm:text-left">
+            © {year} Vibesboard · Released under the MIT license
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            {SOCIALS.map(social => (
+              <Link
+                key={social.label}
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-primary"
+              >
+                {social.label}
+              </Link>
+            ))}
+            <Link
+              href={LANDING_LINKS.privacy}
+              className="transition-colors hover:text-primary"
+            >
+              Privacy
+            </Link>
+            <Link
+              href={LANDING_LINKS.terms}
+              className="transition-colors hover:text-primary"
+            >
+              Terms
+            </Link>
+          </div>
+        </div>
       </div>
     </footer>
   )
