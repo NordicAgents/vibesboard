@@ -33,6 +33,38 @@ fi
 # means renaming it here or the check silently stops being required.
 CHECKS='["lint","typecheck","test","e2e","build","security-analysis","complexity-analysis"]'
 
+# A required context that never reports leaves every PR permanently pending —
+# there is no timeout, and the only escape is an admin edit of the protection
+# rule. That is not hypothetical here: the Security & Quality workflow spent a
+# day in `startup_failure` (Actions "allow select actions" refused a
+# `uses: docker://…` step), during which both of its contexts would have
+# blocked all merges had they been required. So verify each context has
+# actually reported on the default branch before requiring it.
+verify_contexts_report() {
+  local branch head missing=()
+  branch=$(gh api "repos/$REPO" --jq .default_branch)
+  head=$(gh api "repos/$REPO/commits/$branch" --jq .sha)
+  local reported
+  reported=$(gh api "repos/$REPO/commits/$head/check-runs" --jq '.check_runs[].name' 2>/dev/null || true)
+
+  local ctx
+  while read -r ctx; do
+    [ -z "$ctx" ] && continue
+    grep -qxF "$ctx" <<<"$reported" || missing+=("$ctx")
+  done < <(jq -r '.[]' <<<"$CHECKS")
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "WARNING: these contexts did not report on $branch@${head:0:8}:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    echo "Requiring them now would block every merge until they run." >&2
+    echo "Fix the workflow first, or drop them from CHECKS. Continue anyway? [y/N]" >&2
+    read -r reply
+    [[ "$reply" =~ ^[Yy]$ ]] || exit 1
+  fi
+}
+
+verify_contexts_report
+
 protect_branch() {
   local branch="$1"
   local reviewers="$2"
