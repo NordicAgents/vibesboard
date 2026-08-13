@@ -1,0 +1,172 @@
+---
+title: 'Public links & access gates'
+description: 'Share an agent publicly and control who can reach it.'
+---
+
+# Public links & access gates
+
+Every agent has a public URL at `/{tenantSlug}/{agentUrl}`. Whether a stranger can
+open that URL and start chatting is controlled per-agent by the **Allow anonymous
+chat** toggle on the agent's Setup tab. When it's off, visitors have to clear an
+access gate — a shared password, an invite code, or both — before the chat UI loads.
+Tenant admins can additionally publish stable "agent link" redirects under
+`/{tenantSlug}/l/{slug}`.
+
+## The public agent URL
+
+The Share tab on an agent (`AgentShareTab`) shows the canonical public URL and a QR
+code, backed by `GET /api/agents/{id}/share`. That route requires an authenticated
+session with edit rights on the agent (`canEditAgent`) — it's for the owner to copy
+the link, not a public endpoint. It builds the URL from the request's
+`x-forwarded-host`/`host` headers (falling back to `NEXT_PUBLIC_APP_URL`), so the
+link reflects whatever host the app is actually served from.
+
+The public page itself (`/{tenantSlug}/{agentSlug}`) resolves the tenant and agent
+server-side and renders one of two things:
+
+- **`allowAnonymous: true`** — the chat UI (`PublicAgentExperience`) loads directly.
+- **`allowAnonymous: false`** — a gate form renders first (`GatedAgentPage`), unless
+  the visitor already has a valid access cookie from a previous visit.
+
+The same `allowAnonymous` check gates the [embeddable widget](/docs/deploy/web-widget)
+at `/widget/{agentId}`.
+
+## Access gate mechanisms
+
+When an agent requires access, two independent mechanisms are available and can be
+used together — the gate form is a single input field that tries the value as a
+password first, then as an invite code:
+
+### Access password
+
+One shared password per agent, managed from the Setup tab (via `InviteCodeManager`)
+and stored as a hash on the agent row.
+
+- `PUT /api/agents/{id}/access-password` — body `{ "password": string }` (1–200
+  chars), sets the password. Requires edit rights on the agent.
+- `DELETE /api/agents/{id}/access-password` — removes it.
+
+Passwords are hashed with a salted, versioned HMAC keyed by the `ACCESS_GATE_SECRET`
+environment variable (see [environment variables](/docs/self-host/environment-variables)),
+not stored in plaintext. The hash is never included in the agent payload sent to the
+browser — the verification route reads it server-side on demand specifically so an
+anonymous visitor can't see it in the page's data before they've authenticated.
+
+### Invite codes
+
+Multiple, independently revocable codes per agent.
+
+- `GET /api/agents/{id}/invite-codes` — list codes for the agent.
+- `POST /api/agents/{id}/invite-codes` — create one. Body:
+
+  | Field       | Type                                | Notes                                                                                                               |
+  | ----------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+  | `code`      | string, optional                    | 3–50 chars. Omit to auto-generate (`VIBE-XXXXXX`, using an alphabet that excludes `I`/`O`/`0`/`1` for readability). |
+  | `expiresAt` | ISO date string or `null`, optional | No expiry if omitted/`null`.                                                                                        |
+  | `maxUses`   | number ≥ 1 or `null`, optional      | Unlimited if omitted/`null`.                                                                                        |
+
+- `PATCH /api/agents/{id}/invite-codes/{codeId}` — revokes the code (soft delete;
+  it's marked `revoked`, not removed).
+
+Both list and mutate endpoints require edit rights on the agent. Each code tracks
+`usedCount` and up to 100 redemption records (`redeemedAt` + an anonymized
+per-visitor session id) inline; codes stop working once revoked, past `expiresAt`,
+or once `usedCount` reaches `maxUses`.
+
+An invite code can be shared as a bare code for visitors to type in, or baked into
+the URL as `/{tenantSlug}/{agentUrl}?code={CODE}` — the gate form auto-submits a
+`code` query param on load, so the link itself grants access with no typing.
+
+### Verifying access
+
+`POST /api/public/agents/{agentId}/verify-access` is the public endpoint the gate
+form calls. Body: `{ "value": string }` (1–200 chars) — the password or invite code
+the visitor entered. It:
+
+1. Returns `400` if the agent actually allows anonymous access (nothing to verify).
+2. Checks `value` against the access password hash, if one is set.
+3. Falls back to redeeming `value` as an invite code, scoped to the agent's tenant.
+4. On success, sets an HMAC-signed, `httpOnly`, session-lifetime cookie
+   (`va_access_{agentId}`, no `maxAge`, so it clears when the browser closes) and
+   returns `{ "ok": true }`.
+
+Invite-code failures come back as `403` with a `code` field so the UI can show a
+specific reason:
+
+| `code`             | Meaning                                             |
+| ------------------ | --------------------------------------------------- |
+| `invalid`          | Value didn't match the password or any invite code. |
+| `revoked`          | Code exists but was revoked.                        |
+| `expired`          | Past its `expiresAt`.                               |
+| `max_uses_reached` | Hit its `maxUses` limit.                            |
+
+Requests from an embedded widget send an `x-embed: true` header, which makes the
+access cookie `SameSite=None` instead of `Lax` so it survives being set from inside
+a cross-origin iframe.
+
+<Callout type="note">
+  Invite-code redemptions are tracked per anonymous visitor using a separate
+  30-day `va_ext` session cookie, not by account — there's no login involved in
+  clearing a password/invite-code gate, only in editing the agent itself.
+</Callout>
+
+## Agent links (stable redirect URLs)
+
+Beyond an agent's own URL, a tenant admin can publish additional short links under
+`/{tenantSlug}/l/{slug}` from **Settings → Agent Links**. An agent link stores a
+slug → agent mapping that can be repointed to a different agent later without
+changing the published URL or QR code — useful for things like a printed front-desk
+QR code you want to be able to redirect independently of which agent it currently
+targets.
+
+- Gated by the tenant feature flag `AGENT_LINKS` (on by default; toggle it from the
+  tenant Features settings). The list, create, and update endpoints check this flag
+  and 403 if it's off (fetching or deleting a link by id doesn't re-check it); the
+  public `/l/{slug}` page checks it too and 404s if it's off.
+- Managed via `GET`/`POST /api/tenants/{tenantId}/agent-links` and
+  `PATCH`/`DELETE /api/tenants/{tenantId}/agent-links/{linkId}`, all requiring
+  tenant-admin rights (`requireTenantAdmin`). Fields: `slug`, `agentId`, `name`,
+  optional `description`, and `isActive` (deactivating a link 404s the public page
+  without deleting it).
+- The slug is fixed at creation — editing a link can change which agent it points
+  to, its name, and its description, but not the slug itself, so previously
+  distributed URLs/QR codes keep working.
+
+<Callout type="warning" title="Agent links don't render the access gate form">
+  The `/{tenantSlug}/l/{slug}` page checks `allowAnonymous` on the connected
+  agent, but if it's `false` it does not show the password/invite-code form — it
+  renders a static "this agent requires an invitation... contact the owner"
+  message instead. Only the agent's own URL (`/{tenantSlug}/{agentUrl}`) and the
+  embeddable widget render the actual gate form. If you need an invite-code or
+  password flow, share the agent's direct URL, not an agent link.
+</Callout>
+
+## Choosing a setup
+
+- **Fully public** (kiosk, marketing page): leave **Allow anonymous chat** on.
+- **Semi-private, self-serve** (e.g. an internal tool shared with a known group):
+  turn anonymous chat off and set an access password everyone can share.
+- **Per-recipient tracking or expiry** (e.g. a link sent to specific customers, or
+  one that should stop working after a launch event): use invite codes with
+  `expiresAt` and/or `maxUses` instead of, or alongside, a password.
+- **A stable, repointable URL for print/signage**: create an agent link, and make
+  sure the agent it targets allows anonymous access — since the link page itself
+  can't collect a password or code.
+
+<Cards>
+  <Card href="/docs/deploy/web-widget" title="Web widget">
+    Embed a gated or open agent as a chat widget on another site.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How secrets like ACCESS_GATE_SECRET are stored and used.
+  </Card>
+  <Card
+    href="/docs/self-host/environment-variables"
+    title="Environment variables"
+  >
+    Full reference for ACCESS_GATE_SECRET and other required env vars.
+  </Card>
+</Cards>

@@ -26,7 +26,7 @@ export const LANDING_WHY_ITEMS: LandingWhyItem[] = [
   {
     need: 'Answers that lead to outcomes',
     answer:
-      'RAG and long-term memory wired to Google Calendar, Google Sheets, webhooks, data actions and MCP servers.'
+      'RAG and long-term memory wired to Google Calendar, Google Sheets, webhooks and data actions.'
   },
   {
     need: 'One deployment for many teams or clients',
@@ -107,7 +107,7 @@ export const LANDING_CAPABILITIES: LandingCapability[] = [
   {
     icon: 'tools',
     title: 'Tools & actions',
-    body: 'MCP servers, webhooks, Google Sheets and data actions — real calls, not canned answers.'
+    body: 'Webhooks, Google Sheets and data actions — real calls, not canned answers.'
   },
   {
     icon: 'scheduling',
@@ -180,8 +180,7 @@ export const LANDING_DEPLOY_OPTIONS: LandingDeployOption[] = [
     ],
     cta: {
       label: 'Read the deployment guide',
-      href: LANDING_LINKS.deployment,
-      external: true
+      href: LANDING_LINKS.deployment
     }
   },
   {

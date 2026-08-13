@@ -62,9 +62,8 @@ describe('landing quickstart copy', () => {
     for (const tab of LANDING_QUICKSTART_TABS) {
       expect(tab.note.length, tab.id).toBeGreaterThan(40)
       expect(tab.command.trim().length, tab.id).toBeGreaterThan(0)
-      expect(tab.docHref, tab.id).toMatch(
-        /^https:\/\/github\.com\/NordicAgents\/vibesboard\/blob\/main\/docs\//
-      )
+      // Docs are served from this app at /docs, not linked out to GitHub.
+      expect(tab.docHref, tab.id).toMatch(/^\/docs\//)
       expect(tab.docLabel.length, tab.id).toBeGreaterThan(0)
     }
   })

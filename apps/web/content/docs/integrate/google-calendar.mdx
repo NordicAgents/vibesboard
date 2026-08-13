@@ -1,0 +1,144 @@
+---
+title: 'Google Calendar'
+description: 'Check availability and book meetings from a conversation.'
+---
+
+# Google Calendar
+
+Connecting Google Calendar gives a tenant a stored, per-workspace OAuth credential that agent tools use to check free/busy time and create, move, or cancel calendar events. The connection itself is provider-agnostic in the schema (`CalendarProvider` is `'google_calendar' | 'cal_com'`), but only Google Calendar is actually implemented — `createProvider()` throws `Unsupported calendar provider` for anything else, so treat Cal.com as reserved-but-not-built and confirm against `packages/scheduling/src/providers/index.ts` before relying on it.
+
+<Callout type="warning" title="Off by default">
+  The scheduling routes are gated by the `AGENT_ACTIONS` feature flag, disabled
+  by default for new tenants. With it off, `/api/scheduling/auth/google`,
+  `/api/scheduling/connections`, and `/api/scheduling/connections/[id]` all
+  return 403.
+</Callout>
+
+## What a connection is
+
+A calendar connection (`calendar_connections` table, one row per connected Google account) stores:
+
+- An AES-encrypted access token and refresh token (`ENCRYPTION_KEY` — see [Environment variables](/docs/self-host/environment-variables))
+- The `calendarId` the connection writes to (defaults to the account's primary calendar)
+- The connected account's email, the granted OAuth scopes, and a `status` of `active`, `expired`, or `disconnected`
+
+Nothing agent-specific lives on the connection — it's a tenant-level credential. Individual agents (via the Appointments action) or individual bookable resources (via the Booking action) each reference a connection by ID and pick which of that account's writable calendars to actually use.
+
+## Connecting a calendar
+
+The "Connect Google Calendar" button in an agent's scheduling settings (`agent-scheduling-settings.tsx`, `agent-calendar-availability-settings.tsx`) sends the browser to `GET /api/scheduling/auth/google`, which:
+
+1. Requires an authenticated user and an active tenant with `AGENT_ACTIONS` enabled.
+2. Generates a random CSRF nonce, stores it in an httpOnly `oauth_csrf_nonce` cookie (10-minute expiry), and embeds it in the OAuth `state` parameter along with the tenant ID and user ID.
+3. Redirects to Google's consent screen requesting three scopes: `calendar`, `calendar.events`, and `userinfo.email`, with `access_type=offline` and `prompt=consent` so a refresh token is always issued.
+
+`GET /api/scheduling/auth/google/callback` handles the return trip:
+
+1. Validates the nonce in `state` against the cookie (rejects on mismatch — CSRF protection on the callback), and confirms the authenticated user matches the `userId` in `state`. The tenant ID is re-resolved from the current session, not trusted from `state`.
+2. Exchanges the authorization code for tokens, fetches the account's email, and lists its writable calendars (`minAccessRole=writer`).
+3. Picks the account's primary calendar (or the first calendar returned if none is marked primary) and stores it as the connection's `calendarId`. There's no picker at connect time — if you want a different calendar, change it afterward per-agent/resource via the calendars endpoint below.
+4. Redirects back to the agent page with `?scheduling_connected=true`, or `?scheduling_error=<code>` on failure — `missing_params`, `not_authenticated`, `invalid_state`, `invalid_nonce`, `user_mismatch`, `no_tenant`, `no_calendars`, `oauth_failed`, or Google's own `error` value passed straight through if the user denies consent. Check `apps/web/app/api/scheduling/auth/google/callback/route.ts` for the current list before building UI copy around a specific code.
+
+The `returnTo` query param controls where the callback sends the browser back to, but it's constrained to `/agents` or `/agents/*` paths (`getSafeSchedulingReturnTo`) — anything else is dropped, which prevents the OAuth flow from being used as an open redirect.
+
+<Callout type="note" title="One Google account per connection">
+  Each OAuth round-trip creates a new connection row tied to whichever calendars
+  that Google account can write to. There's no re-auth-to-refresh-scopes flow —
+  reconnecting the same account runs the same flow again and creates another
+  row.
+</Callout>
+
+## Managing connections
+
+| Endpoint                                         | Behavior                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/scheduling/connections`                | Lists the tenant's connections. Strips encrypted tokens — returns `id`, `provider`, `name`, `calendarId`, `email`, `status`, `connectedBy`, `connectedAt`, `createdAt`.                                                                                                                                                                                   |
+| `GET /api/scheduling/connections/[id]/calendars` | Resolves a valid access token (refreshing if needed) and returns every calendar the connected account can write to — used to let an agent or bookable resource target a non-primary calendar. Returns `401 TOKEN_EXPIRED`, `403 PERMISSION_DENIED`, or `503 TIMEOUT` with a `code` field the UI branches on, depending on how the Google API call failed. |
+| `DELETE /api/scheduling/connections/[id]`        | Deletes the connection, then calls `disableAgentsForConnection()`, which turns off the Appointments action (`schedulingConfig`) and the legacy single-resource Availability config (`calendarAvailabilityConfig`) for any agent referencing the connection. That disable step is best-effort: a failure there is logged but doesn't fail the delete.      |
+
+Access tokens are refreshed transparently and lazily: `getValidAccessToken()` checks expiry (with a 60s buffer) before every provider call and refreshes via the stored refresh token if needed, persisting the new token. If the refresh itself fails, the connection's status is set to `expired` and the caller gets an error — the UI then prompts to reconnect.
+
+<Callout
+  type="warning"
+  title="Booking resources aren't covered by the disable cascade"
+>
+  `disableAgentsForConnection()` only inspects the top-level
+  `calendarConnectionId` on `schedulingConfig` and `calendarAvailabilityConfig`.
+  It does not look inside `bookingConfig.resources[]`, so deleting a connection
+  that a Booking action's resource still points to leaves that resource enabled
+  with a dead connection ID instead of disabling it — confirm against
+  `packages/agents/src/server.ts` before telling an owner that deleting a
+  connection is always safe.
+</Callout>
+
+## What consumes a connection
+
+Two separate agent-action types build tools on top of a calendar connection. Both live under the agent builder's **Actions** tab and are independent of each other.
+
+### Appointments — single-resource meeting scheduling
+
+Configured per agent (`AppointmentsConfig`: timezone, available hours/days, buffer minutes, default duration, meeting title template, `createMeetLink`). Tools built by `buildAppointmentsTools()` (`packages/ai/src/actions/appointments/tools.ts`):
+
+- **`check_availability`** — queries the Google Calendar `/freeBusy` endpoint for the requested date, slices it into `durationMinutes`-sized slots (respecting `bufferMinutes` between them), and returns up to 8 open slots.
+- **`book_appointment`** — calls the Google Calendar API to create the event directly (attendee added to the event, `sendUpdates=all` so **Google itself emails the calendar invite to the attendee** — Vibesboard does not generate or send an ICS file for this path). If `createMeetLink` is on, a Google Meet link is requested via `conferenceData` and returned in the confirmation. The booking is also recorded in the `bookings` table, idempotent on `(agentId, startTime, attendeeEmail)` so a retried tool call can't double-book.
+- **`reschedule_appointment`** / **`cancel_appointment`** — look up the existing booking by attendee email + original start time, then `PATCH`/`DELETE` the underlying Google event (again with `sendUpdates=all`) and update the booking row's status.
+- **`list_appointments`** — reads back bookings from the `bookings` table for a given day, optionally filtered by attendee email.
+
+### Booking — multi-resource booking, in one of two modes
+
+Configured per agent (`BookingConfig`: `mode`, a list of `resources` each with its own `calendarConnectionId`/`calendarId`, event title template, `overlapProtection`). Tools built by `buildBookingTools()` (`packages/ai/src/actions/booking/tools.ts`); `check_booking_availability` and `create_booking` are always present, `list_bookings` / `update_booking` / `cancel_booking` only in direct mode.
+
+- **Enquiry mode** (`create_booking` with guest name/email/phone) does **not** touch Google Calendar at all. It writes a row to the `booking_enquiries` table via `@vibesboard/booking-enquiries` and, if `RESEND_API_KEY` is configured, emails the **agent owner** (not the guest) a notification with a generated `.ics` file attached — the host imports it manually if they want it on their calendar. The guest gets only a text confirmation from the agent ("the host will review and contact you"); no invite is sent to them. Enquiries are reviewed under an agent's Booking Enquiries tab (`GET /api/booking-enquiries?agentId=...`).
+- **Direct mode** (`create_booking` with check-in/check-out dates, guest name/count) creates a Google Calendar event on the resource's calendar via `createCalendarEvent()`. Unlike Appointments, this path collects no guest email, adds no attendee to the event, and does not pass `sendUpdates` — so **nothing is emailed to the guest**, and there's no Google-side invite or Vibesboard-generated ICS either. It's a calendar block (title + description built from a template) with `overlapProtection` optionally checking for conflicting events first. `update_booking` and `cancel_booking` work the same way — direct `PATCH`/`DELETE` against the event, no notification side effect.
+
+<Callout
+  type="danger"
+  title="Booking a meeting doesn't always mean the guest is notified"
+>
+  Only the Appointments action's `book_appointment`/`reschedule_appointment`
+  path results in Google emailing the attendee (via `sendUpdates=all`).
+  Booking-enquiry submissions notify the host by email with an ICS attachment,
+  not the guest. Direct-mode bookings notify no one — confirm this against the
+  three code paths above before telling a customer their guests will "get a
+  calendar invite."
+</Callout>
+
+## Setup checklist
+
+<Steps>
+  <Step title="Create OAuth credentials">
+    In Google Cloud Console, create an OAuth 2.0 Client ID (Web application) and enable the Google Calendar API for the project. Add `<your-app-origin>/api/scheduling/auth/google/callback` as an authorized redirect URI.
+  </Step>
+  <Step title="Set environment variables">
+    Set `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, and `ENCRYPTION_KEY` on the app server — see [Environment variables](/docs/self-host/environment-variables). `getGoogleAuthUrl`/`exchangeCode`/`refreshAccessToken` throw immediately if the client ID/secret aren't set; the scheduling package also logs a fatal warning at startup if `ENCRYPTION_KEY` is missing.
+  </Step>
+  <Step title="Enable AGENT_ACTIONS for the tenant">
+    Turn on the `AGENT_ACTIONS` feature flag from tenant settings. Without it, the connect button's endpoint and the connections API 403.
+  </Step>
+  <Step title="Connect and pick a calendar">
+    From an agent's scheduling settings, click Connect, complete Google's consent screen, then optionally switch off the primary calendar to a different writable calendar via the calendars picker.
+  </Step>
+  <Step title="Enable an action">
+    Turn on the Appointments action (single meeting calendar) or the Booking action (multiple named resources, enquiry or direct mode) and point it at the connection.
+  </Step>
+</Steps>
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/build/data-actions-and-tools" title="Data actions & tools">
+    How the tool-injection mechanism these actions share actually works.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How OAuth tokens and other tenant secrets are encrypted and isolated.
+  </Card>
+  <Card
+    href="/docs/self-host/environment-variables"
+    title="Environment variables"
+  >
+    Full list of required and optional env vars, including scheduling and email.
+  </Card>
+</Cards>
