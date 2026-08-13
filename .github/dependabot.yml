@@ -1,7 +1,7 @@
 version: 2
 
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
@@ -10,14 +10,9 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
-    groups:
-      minor-and-patch:
-        update-types:
-          - minor
-          - patch
 
   - package-ecosystem: npm
-    directory: /functions
+    directory: /
     schedule:
       interval: weekly
       day: monday

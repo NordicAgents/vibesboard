@@ -30,6 +30,9 @@ tenant keys belong in the process environment. See [`byo-llm.md`](byo-llm.md).
 | `RESEND_API_KEY` | Email delivery for verification, password reset, magic links, and notifications |
 | `NOTIFICATION_EMAIL_FROM` | Sender identity for application email |
 | `ACCESS_GATE_SECRET` | Hashes public-agent access passwords and signs access cookies |
+| `RATE_LIMIT_SALT` | HMAC salt used before anonymous request identifiers are stored; use a distinct value per environment |
+| `MONTHLY_MESSAGE_LIMIT` | Optional soft monthly message cap per workspace; omitted means unlimited |
+| `SMOKE_TEST_SECRET` | Enables the model-backed `/api/smoke` diagnostic route; leave unset in production |
 
 `NEXT_PUBLIC_AUTH_GOOGLE` is retained as a build argument but is not read by
 application code. Google OAuth is enabled only by `AUTH_GOOGLE_ID` and
@@ -63,7 +66,7 @@ a strong `BETTER_AUTH_SECRET`.
 | --- | --- |
 | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` | Google Calendar OAuth and the default credentials for Google Sheets OAuth |
 | `GOOGLE_SHEETS_CLIENT_ID`, `GOOGLE_SHEETS_CLIENT_SECRET` | Optional dedicated Google Sheets OAuth credentials |
-| `VERIFY_TOKEN`, `META_APP_SECRET` | Meta webhook verification and signature validation |
+| `META_APP_SECRET` | Meta webhook signature validation |
 | `WHATSAPP_INBOX_VERIFY_TOKEN`, `INSTAGRAM_INBOX_VERIFY_TOKEN` | Inbox webhook verification |
 | `NEXT_PUBLIC_META_APP_ID`, `NEXT_PUBLIC_FB_LOGIN_CONFIG_ID` | Meta app identifiers used by the inbox onboarding UI |
 | `CRON_SECRET` | Authenticates scheduled and background endpoints |
@@ -74,10 +77,11 @@ WhatsApp and Instagram accounts are configured per workspace and stored
 encrypted in the database. Only the webhook verification secrets belong in the
 environment.
 
-`WHATSAPP_ACCESS_TOKEN` is no longer read by application code, but
-`scripts/setup-secrets.sh` and `.github/workflows/deploy-cloudrun.yml` still
-pass it through to Cloud Run, so the secret must continue to exist for deploys
-to succeed.
+Public chat and review generation use durable fixed-window Postgres limits.
+Their defaults can be overridden with `PUBLIC_CHAT_*_RATE_LIMIT` and
+`PUBLIC_REVIEW_*_RATE_LIMIT`; see [`.env.example`](../.env.example) for the
+complete set. Rate-limit rows contain only HMACed identifiers, never raw IP
+addresses or session cookies.
 
 ## Where these files live
 

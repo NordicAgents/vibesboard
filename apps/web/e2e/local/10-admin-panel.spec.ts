@@ -7,7 +7,7 @@
  *   - Tenant list (pagination envelope + the rows the page actually renders)
  *   - Tenant create / update / delete, each verified by reading the row back
  *   - Tenant detail: name heading, all six tabs, overview fields, agents tab
- *   - Tenant usage endpoint (the documented zero shape)
+ *   - Tenant usage endpoint (the zero-valued monthly rollup)
  *   - Platform branding settings (round-tripped through GET, and through the
  *     form inputs the branding page renders)
  *   - File processing monitor (rendered stats compared against the API)
@@ -354,7 +354,7 @@ test.describe.serial('Admin — Tenant Management', () => {
     expect((await missing.json()).error).toBe('Tenant not found')
   })
 
-  test('GET /api/admin/tenants/[id]/usage returns the documented zero shape', async ({
+  test('GET /api/admin/tenants/[id]/usage returns a zero-valued monthly rollup', async ({
     request,
   }) => {
     const res = await request.get(`/api/admin/tenants/${fixtureId}/usage`, {
@@ -363,7 +363,17 @@ test.describe.serial('Admin — Tenant Management', () => {
     expect(res.status()).toBe(200)
     const body = await res.json()
     expect(body.subscription).toBeNull()
-    expect(body.rollup).toBeNull()
+    expect(body.rollup).toMatchObject({
+      tenantId: fixtureId,
+      totalMessages: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      byAgent: {},
+      bySource: {},
+      byModel: {},
+      byUser: {},
+    })
+    expect(new Date(body.rollup.updatedAt).toString()).not.toBe('Invalid Date')
     expect(body.agentNames).toEqual({})
     expect(body.userNames).toEqual({})
     expect(body.dailyUsage).toEqual([])
@@ -967,12 +977,15 @@ test.describe.serial('Admin — Agent Viewer', () => {
     await expect(page.locator(`a[href="/admin/tenants/${agentTenantId}"]`)).toBeVisible()
     // Instructions are rendered verbatim in the viewer.
     await expect(page.getByText(INSTRUCTIONS)).toBeVisible()
-    // upsertAgentSchema defaults allowAnonymous to true (packages/agents
-    // schema.ts), so this fixture IS publicly shareable and the viewer offers
-    // the share action — sharePath is gated on agent.allowAnonymous.
+    // New agents are private by default, so the admin viewer must not advertise
+    // a public page until the owner explicitly enables anonymous access.
+    const anonymousAccess = page
+      .getByText('Allow Anonymous', { exact: true })
+      .locator('..')
+    await expect(anonymousAccess).toContainText('No')
     await expect(
       page.getByRole('link', { name: 'Open Public Page' }),
-    ).toBeVisible()
+    ).toHaveCount(0)
   })
 
   test('an unknown agent id renders a 404', async ({ page }) => {

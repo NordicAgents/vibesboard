@@ -153,17 +153,17 @@ export function AgentVersionHistoryTab({
                   key={v.versionNo}
                   className="flex items-start justify-between gap-4 py-3"
                 >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                       {v.versionNo}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="secondary" className="text-xs">
                           {SOURCE_LABELS[v.source] ?? v.source}
                         </Badge>
                         {v.versionNo === currentVersion && (
-                          <Badge className="text-xs bg-green-500 dark:bg-green-600 text-white">
+                          <Badge className="bg-green-500 text-xs text-white dark:bg-green-600">
                             Current
                           </Badge>
                         )}
@@ -179,7 +179,7 @@ export function AgentVersionHistoryTab({
                         </p>
                       )}
                       <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="size-3" />
                         <span>{new Date(v.createdAt).toLocaleString()}</span>
                         {v.createdByName && <span>· {v.createdByName}</span>}
                       </div>
@@ -193,7 +193,7 @@ export function AgentVersionHistoryTab({
                       disabled={restoring === v.versionNo}
                       onClick={() => handleRestore(v.versionNo)}
                     >
-                      <RotateCcw className="mr-1.5 h-3 w-3" />
+                      <RotateCcw className="mr-1.5 size-3" />
                       {restoring === v.versionNo ? 'Restoring…' : 'Restore'}
                     </Button>
                   )}

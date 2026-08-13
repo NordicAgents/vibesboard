@@ -10,6 +10,7 @@ import {
   APP_PORT,
   BASE_URL,
   MOCK_OPENAI_PORT,
+  SMOKE_TEST_SECRET,
   STORAGE_STATE
 } from './e2e/constants.ts'
 
@@ -30,6 +31,8 @@ const appEnv: Record<string, string> = {
   DATABASE_MIGRATE_URL: dbMigrateUrl,
   OPENAI_BASE_URL: `http://localhost:${MOCK_OPENAI_PORT}/v1`,
   OPENAI_API_KEY: 'sk-e2e-stub',
+  E2E_FORCE_PLATFORM_LLM: 'true',
+  SMOKE_TEST_SECRET,
   // S3 / MinIO (file upload flows)
   S3_ENDPOINT: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
   S3_REGION: process.env.S3_REGION ?? 'us-east-1',
@@ -81,14 +84,16 @@ export default defineConfig({
     {
       command: 'node e2e/mock-openai.mjs',
       url: `http://localhost:${MOCK_OPENAI_PORT}/healthz`,
-      reuseExistingServer: !process.env.CI,
+      // Reusing this port can silently route tests through a stale mock with a
+      // different reply (or, worse, a manually started app with real providers).
+      reuseExistingServer: false,
       timeout: 30_000,
       env: { MOCK_OPENAI_PORT: String(MOCK_OPENAI_PORT) }
     },
     {
       command: 'bun run --filter @vibesboard/web dev',
       url: BASE_URL,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 180_000,
       cwd: path.resolve(__dirname, '../../'),
       env: appEnv

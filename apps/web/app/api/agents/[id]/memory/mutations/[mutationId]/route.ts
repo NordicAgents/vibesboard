@@ -8,7 +8,10 @@ import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { HybridEngram } from '@vibesboard/hybrid-memory'
 import { PostgresHybridStore } from '@vibesboard/hybrid-memory/adapters/postgres'
-import { OpenAILLMProvider, OpenAIEmbedder } from '@vibesboard/hybrid-memory/adapters/openai'
+import {
+  OpenAILLMProvider,
+  OpenAIEmbedder
+} from '@vibesboard/hybrid-memory/adapters/openai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,15 +22,27 @@ function getEngine() {
     store: new PostgresHybridStore(getMigrateDb()),
     llm: new OpenAILLMProvider({ apiKey }),
     embedder: new OpenAIEmbedder({ apiKey }),
-    options: { autoApprove: false },
+    options: { autoApprove: false }
   })
 }
 
 async function guardAgent(userId: string, agentId: string) {
   const agent = await getAgentById(agentId)
-  if (!agent) return { ok: false as const, response: NextResponse.json({ error: 'Agent not found' }, { status: 404 }) }
-  const canEdit = await canEditAgent({ sessionUserId: userId, agentOwnerId: agent.userId, tenantId: agent.tenantId })
-  if (!canEdit) return { ok: false as const, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+  if (!agent)
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+    }
+  const canEdit = await canEditAgent({
+    sessionUserId: userId,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+  if (!canEdit)
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   return { ok: true as const, agent }
 }
 
@@ -35,7 +50,7 @@ async function guardAgent(userId: string, agentId: string) {
 // body: { action: 'approve' | 'reject' }
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string; mutationId: string }> },
+  { params }: { params: Promise<{ id: string; mutationId: string }> }
 ) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
@@ -48,7 +63,10 @@ export async function POST(
   const action = body?.action
 
   if (action !== 'approve' && action !== 'reject') {
-    return NextResponse.json({ error: 'action must be "approve" or "reject"' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'action must be "approve" or "reject"' },
+      { status: 400 }
+    )
   }
 
   const engine = getEngine()
@@ -57,7 +75,10 @@ export async function POST(
   const pending = await engine.getPending({ scopeId: id })
   const mutation = pending.find(m => m.id === mutationId)
   if (!mutation) {
-    return NextResponse.json({ error: 'Mutation not found or already resolved' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Mutation not found or already resolved' },
+      { status: 404 }
+    )
   }
 
   try {

@@ -16,6 +16,7 @@ import {
 } from '@vibesboard/adapter-openai'
 import { resolveProviderSpec, resolveTenantNetworkOpts } from './tenant-llm-config.ts'
 import { buildProviderModel, type ProviderNetworkOpts } from './provider-registry.ts'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -48,7 +49,12 @@ export async function runAgentStream({
   let tenantSpec = null
   let networkOpts: ProviderNetworkOpts = {}
 
-  if (!previewToken && agent.tenantId) {
+  if (
+    shouldResolveTenantProvider({
+      tenantId: agent.tenantId,
+      previewToken,
+    })
+  ) {
     const [spec, netOpts] = await Promise.all([
       resolveProviderSpec(agent.tenantId, agent.llmConfigId, undefined, 'chat').catch((err) => {
         console.error('[runtime] Failed to resolve tenant LLM config — falling back to platform model:', err)
@@ -170,8 +176,14 @@ export async function runAgentStream({
   // persistence can never disagree with what the user saw.
   let streamed = ''
 
+  // `.chat()` — NOT `openaiClient(model)`. On @ai-sdk/openai@4 the bare call
+  // resolves to createResponsesModel, so this branch hit /responses even though
+  // it is by definition the "not a Responses model" branch (isResponsesModel is
+  // false here). That 404s on OpenAI-compatible gateways such as Gemini's
+  // (generativelanguage.googleapis.com/v1beta/openai), which serve
+  // /chat/completions but not /responses.
   const result = await aiStreamText({
-    model: openaiClient(model),
+    model: openaiClient.chat(model),
     system: systemPromptLegacy,
     messages: payload,
     temperature,

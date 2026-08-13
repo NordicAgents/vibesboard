@@ -11,23 +11,29 @@ interface QrCodeProps {
 }
 
 export function QrCode({ value, dataUrl, size = 200 }: QrCodeProps) {
-  const [qr, setQr] = useState<string | null>(dataUrl ?? null)
+  const [generated, setGenerated] = useState<string | null>(null)
+
+  // A caller-supplied `dataUrl` wins outright, and a missing `value` means
+  // there is nothing to show. Deriving during render keeps both cases out of
+  // the effect, which would otherwise setState synchronously on every prop
+  // change and force a second render pass.
+  const qr = dataUrl ?? (value ? generated : null)
 
   useEffect(() => {
-    if (dataUrl) {
-      setQr(dataUrl)
-      return
-    }
+    if (dataUrl || !value) return
 
-    if (!value) {
-      setQr(null)
-      return
-    }
-
+    // Generation is async, so a fast prop change can land an older QR code
+    // after a newer one. Ignore results from a superseded run.
+    let cancelled = false
     QRCode.toDataURL(value, {
       margin: 1,
       width: size
-    }).then(setQr)
+    }).then(next => {
+      if (!cancelled) setGenerated(next)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [value, dataUrl, size])
 
   if (!qr) {

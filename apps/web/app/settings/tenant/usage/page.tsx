@@ -151,7 +151,10 @@ export default function TenantUsagePage() {
             <UsageProgress used={used} limit={limit} planId={planId} />
           ) : (
             <p className="text-sm text-[#6f7f80]">
-              Usage metering is not yet active for this workspace.
+              {rollup?.totalMessages.toLocaleString() ?? 0} messages tracked
+              this month. This self-hosted build has no billing plan; set
+              <code className="mx-1">MONTHLY_MESSAGE_LIMIT</code> to enforce a
+              soft workspace cap.
             </p>
           )}
         </CardContent>

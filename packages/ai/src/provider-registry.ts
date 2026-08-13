@@ -38,10 +38,9 @@ const providerFactories: ProviderFactoryRegistry = {
   anthropic: (spec) =>
     createAnthropic({ apiKey: spec.apiKey })(spec.modelId),
 
-  // .chat(), not the bare callable: in @ai-sdk/openai 4.x the callable resolves
-  // to the Responses API (POST /responses). Third-party OpenAI-compatible
-  // endpoints (Groq, Ollama, Vertex AI's openapi surface, …) implement
-  // /chat/completions only, so the default would 400 on every request.
+  // `.chat()` — a gateway is "OpenAI-compatible" precisely because it serves
+  // /chat/completions; almost none implement /responses, which is where the
+  // bare call would land on @ai-sdk/openai@4.
   openai_compatible: (spec) =>
     createOpenAI({
       apiKey: spec.apiKey,
@@ -64,6 +63,7 @@ const providerFactories: ProviderFactoryRegistry = {
       // return text in delta.reasoning_content rather than delta.content, which
       // the SDK's chunk schema drops; buildNvidiaFetch() promotes it to content.
       fetch: buildNvidiaFetch(),
+      // `.chat()` — NVIDIA's API serves /chat/completions only.
     }).chat(spec.modelId),
 }
 

@@ -71,6 +71,15 @@ export async function createEmbedding(params: {
    * do NOT need this — omit it for those.
    */
   inputType?: 'query' | 'passage'
+  /**
+   * Output vector width. Only sent when set, because not every model accepts
+   * it. Needed for models whose native width is not one of the pgvector table
+   * widths (384/768/1024/1536) — e.g. gemini-embedding-001 returns 3072 by
+   * default, which providerFromDimension would misfile into the 768 table.
+   * Verified against Gemini's OpenAI-compatible gateway: dimensions=1536
+   * returns exactly 1536.
+   */
+  dimensions?: number
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
   // Defense-in-depth: reject private/loopback baseUrls unless the tenant has
   // explicitly opted in via the per-tenant allowPrivateHosts flag.
@@ -95,6 +104,7 @@ export async function createEmbedding(params: {
       model: params.model,
       input: params.input,
       ...(params.inputType ? { input_type: params.inputType } : {}),
+      ...(params.dimensions ? { dimensions: params.dimensions } : {}),
     })
   })
 

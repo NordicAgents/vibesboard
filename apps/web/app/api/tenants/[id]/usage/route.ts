@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireTenantMember } from '@/lib/auth/route-handler'
+import { getUsageRollup } from '@vibesboard/policy/usage'
 
 export const runtime = 'nodejs'
 
@@ -11,10 +12,9 @@ type RouteParams = {
  * GET /api/tenants/[id]/usage
  * Returns usage data for the current billing cycle.
  *
- * The legacy `usageRollups`/`usageLogs` rollups and the tenant
- * `subscription` field are no longer written (self-host `recordUsage` is a
- * no-op shim, and Postgres `tenants` has no subscription column). The route
- * stays alive returning a truthful empty/zero shape so the UI does not 500.
+ * Self-hosted deployments track monthly message/token totals in Postgres.
+ * Billing/subscription data remains null because this repository does not
+ * include a billing provider.
  */
 export async function GET(req: Request, { params }: RouteParams) {
   const { id: tenantId } = await params
@@ -24,10 +24,18 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const now = new Date()
   const billingCycleId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const usage = await getUsageRollup({ tenantId, now })
 
   return NextResponse.json({
     subscription: null,
-    rollup: null,
+    rollup: {
+      tenantId,
+      billingCycleId,
+      ...usage,
+      byModel: {},
+      byUser: {},
+      updatedAt: now.toISOString()
+    },
     dailyUsage: [],
     billingCycleId
   })

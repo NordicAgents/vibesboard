@@ -16,15 +16,22 @@ export const runtime = 'nodejs'
  */
 export async function POST(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
   const agent = await getAgentById(id)
-  if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
-  if (!await canEditAgent({ sessionUserId: authResult.user.id, agentOwnerId: agent.userId, tenantId: agent.tenantId })) {
+  if (!agent)
+    return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+  if (
+    !(await canEditAgent({
+      sessionUserId: authResult.user.id,
+      agentOwnerId: agent.userId,
+      tenantId: agent.tenantId
+    }))
+  ) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -36,7 +43,10 @@ export async function POST(
 
   const indexed = agentFiles.filter(f => f.status === 'indexed')
   if (!indexed.length) {
-    return NextResponse.json({ reembedded: 0, message: 'No indexed files to re-embed.' })
+    return NextResponse.json({
+      reembedded: 0,
+      message: 'No indexed files to re-embed.'
+    })
   }
 
   let reembedded = 0
@@ -50,7 +60,7 @@ export async function POST(
         fileId: file.id,
         fileKey: file.fileKey,
         fileName: file.fileName,
-        mimeType: file.mimeType,
+        mimeType: file.mimeType
       })
       if (result.chunksInserted === 0) {
         errors.push(
@@ -70,6 +80,6 @@ export async function POST(
     errors,
     message: errors.length
       ? `Re-embedded ${reembedded}/${indexed.length} files. ${errors.length} failed.`
-      : `Successfully re-embedded ${reembedded} file(s).`,
+      : `Successfully re-embedded ${reembedded} file(s).`
   })
 }

@@ -125,7 +125,11 @@ export function AgentChat({
         ? []
         : [
             {
-              id: nanoid(),
+              // Derived from `chatKey` rather than a fresh `nanoid()`: the id
+              // still changes when the chat does, but is now stable across
+              // re-renders of the same chat — and `chatKey` becomes a genuine
+              // dependency instead of one listed purely to bust this memo.
+              id: `${chatKey}-greeting`,
               role: 'assistant',
               content: agent.greetingText || defaultGreeting
             }

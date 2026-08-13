@@ -268,7 +268,9 @@ test.describe('Agent Settings — Setup tab', () => {
     expect(body.agentUrl).toMatch(/^e2e-read-\d+/)
     // Schema defaults applied at insert time (packages/agents/src/schema.ts:174-205).
     expect(body.mode).toBe('provider')
-    expect(body.allowAnonymous).toBe(true)
+    // New agents are private by default; owners must explicitly opt into a
+    // public page or anonymous chat.
+    expect(body.allowAnonymous).toBe(false)
     expect(body.quickSuggestionsMode).toBe('smart')
     expect(body.quickSuggestionsCount).toBe(4)
     expect(body.llmConfigId).toBeNull()

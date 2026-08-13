@@ -8,7 +8,10 @@ import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { HybridEngram } from '@vibesboard/hybrid-memory'
 import { PostgresHybridStore } from '@vibesboard/hybrid-memory/adapters/postgres'
-import { OpenAILLMProvider, OpenAIEmbedder } from '@vibesboard/hybrid-memory/adapters/openai'
+import {
+  OpenAILLMProvider,
+  OpenAIEmbedder
+} from '@vibesboard/hybrid-memory/adapters/openai'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,24 +22,30 @@ function getEngine() {
     store: new PostgresHybridStore(getMigrateDb()),
     llm: new OpenAILLMProvider({ apiKey }),
     embedder: new OpenAIEmbedder({ apiKey }),
-    options: { autoApprove: false },
+    options: { autoApprove: false }
   })
 }
 
 // GET /api/agents/[id]/memory/mutations — list pending mutations
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
   const { id } = await params
   const agent = await getAgentById(id)
-  if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+  if (!agent)
+    return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
 
-  const canEdit = await canEditAgent({ sessionUserId: authResult.user.id, agentOwnerId: agent.userId, tenantId: agent.tenantId })
-  if (!canEdit) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const canEdit = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+  if (!canEdit)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   if (!agent.memoryEnabled) return NextResponse.json({ mutations: [] })
 

@@ -1,11 +1,9 @@
 /**
- * Self-host shim — re-export the no-op usage functions for any consumer
- * that imported the "core" module historically.
+ * Re-export Postgres-backed usage functions for consumers that imported the
+ * historical "core" module.
  *
- * The pure rollup field-building helpers (buildRollupUpdateFields,
- * buildRollupSetFields, coerceTokenCount) are no longer needed since
- * recordUsage is a no-op, but they are exported here as stubs so any
- * remaining caller continues to compile.
+ * The old document-store field-building helpers are retained as compatibility
+ * stubs; Postgres rollups no longer use their return values.
  */
 export {
   logUsage,

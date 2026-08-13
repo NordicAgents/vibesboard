@@ -9,7 +9,7 @@ export interface UrlContentResult {
   error?: string
 }
 
-const USER_AGENT = 'Mozilla/5.0 (compatible; VibeAgent/1.0)'
+const USER_AGENT = 'Mozilla/5.0 (compatible; Vibesboard/1.0)'
 const FETCH_TIMEOUT_MS = 10000
 const MAX_TEXT_CHARS = 8000
 const MAX_REDIRECTS = 3

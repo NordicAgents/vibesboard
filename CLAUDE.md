@@ -25,22 +25,9 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 - `apps/web/app/` — Next.js App Router application source (layouts, pages, `api/` route handlers, `[tenantSlug]` route group)
 - `packages/` — Shared workspace packages and database adapters (e.g. `adapter-postgres`, `adapter-better-auth`, `adapter-s3`, `adapter-openai`, `ai`, `agents`)
 
-## AI Dev Tooling (Superpowers skills)
+## AI Dev Tooling
 
-This project's AGENTS workflow leans on [Superpowers](https://github.com/obra/superpowers) — an agentic skills framework for planning, TDD, debugging, and code review. Useful skills include:
-
-- `superpowers:brainstorming` — use before any new feature work
-- `superpowers:writing-plans` — break work into 2-5 minute tasks
-- `superpowers:test-driven-development` — RED-GREEN-REFACTOR cycles
-- `superpowers:systematic-debugging` — root-cause analysis workflows
-- `superpowers:subagent-driven-development` — parallel agent execution
-- `superpowers:verification-before-completion` — confirm fixes are real
-- `superpowers:finishing-a-development-branch` — branch cleanup workflow
-- `superpowers:using-git-worktrees` — isolated parallel development
-
-Superpowers is no longer vendored in this repo. The `superpowers` git submodule (formerly at `.claude/plugins/superpowers`) was removed (commit "chore: remove superpowers git submodule"); there is no `.gitmodules`, and `.claude/plugins/` is empty. So there is no `git submodule update --init` / `--remote` step for it, and no in-repo update path.
-
-**Needs confirmation:** the exact mechanism that now provides these skills (e.g. a globally installed Claude Code plugin / marketplace install vs. the harness loading them at session start) is not determinable from the repository contents.
+Development here historically used the [Superpowers](https://github.com/obra/superpowers) skills framework (brainstorming, planning, TDD, systematic debugging, worktree workflows). It is not vendored in this repo — install it as a Claude Code plugin if you want the same skills; the guidelines below stand on their own.
 
 ## Development Guidelines
 
@@ -81,7 +68,7 @@ PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Bun 1.2.18 via
 
 - **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
 - **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). This job used to set `continue-on-error: true`, which meant a type-check failure could not block a merge; that has been removed and it now gates.
-- **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `bun run test:coverage` (`vitest run --coverage`, a single unified Vitest run across all workspace projects with v8 coverage; coverage is reported as an artifact, no failing threshold). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `bun run db:migrate` before tests. Each package has its own `vitest.config.ts` (and `"test": "vitest run"`); packages without one are simply absent from the root `projects` glob.
+- **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `bun run test:coverage` (`vitest run --coverage`, a single unified Vitest run across all workspace projects with v8 coverage; coverage is reported as an artifact and gated by a ratchet threshold in `vitest.shared.mts`). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `bun run db:migrate` before tests. Each package has its own `vitest.config.mts` (and `"test": "vitest run"`); packages without one are simply absent from the root `projects` glob.
 - **E2E** (`.github/workflows/ci-e2e.yml`, "E2E") — runs **two** Playwright suites against one Postgres + MinIO stack, with the Chromium browser installed first. Both boot a deterministic mock OpenAI server plus `next dev` with `OPENAI_BASE_URL` pointed at the mock, so the model is stubbed at the network boundary.
   - `bun run test:e2e` — the specs directly under `apps/web/e2e/`; `globalSetup` seeds an E2E user/tenant.
   - `bun run test:e2e:local` — the deep suite under `apps/web/e2e/local/` (agents, chat, settings, BYO-LLM, public widget, conversations, knowledge base, sharing, admin panel, tenant flow, cross-tenant isolation). Its `globalSetup` additionally seeds an outsider account and a superadmin. See `docs/local-e2e.md` for running it locally, including the no-Docker path.

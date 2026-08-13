@@ -5,6 +5,7 @@ import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-opena
 import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
 import { replaceFileChunks, providerFromDimension } from '@vibesboard/ai/rag-store'
 import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
 import { eq } from 'drizzle-orm'
@@ -353,7 +354,9 @@ export const ingestFileForAgent = async (args: {
   }
 
   const chunks = chunkText(text)
-  const spec = await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
+  const spec = shouldResolveTenantProvider({ tenantId })
+    ? await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
+    : null
   const providerKind = spec?.kind ?? 'openai'
   const embed = await resolveEmbedder(tenantId)
 

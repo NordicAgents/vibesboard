@@ -8,9 +8,11 @@ import { Providers } from '@/components/providers'
 import { Header } from '@/components/header'
 import { AppToaster } from '@/components/toaster'
 import { auth } from '@/auth'
+import { resolveAppUrl } from '@/lib/app-url'
 import { getActiveTenantTheme } from '@/lib/tenant-theme'
 
 export const metadata: Metadata = {
+  metadataBase: resolveAppUrl(process.env.NEXT_PUBLIC_APP_URL),
   title: {
     default: 'vibesboard agent',
     template: `%s - vibesboard -conversation agent builder`

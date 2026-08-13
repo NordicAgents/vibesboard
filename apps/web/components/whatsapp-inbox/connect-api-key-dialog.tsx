@@ -127,7 +127,7 @@ export function ConnectApiKeyDialog({
           <button
             type="button"
             onClick={() => setShowGuide(!showGuide)}
-            className="flex w-full items-center justify-between rounded-lg border border-border bg-bg-hover/50 px-3 py-2 text-left text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors"
+            className="bg-bg-hover/50 flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
           >
             <span>How do I get these values?</span>
             {showGuide ? (
@@ -142,7 +142,7 @@ export function ConnectApiKeyDialog({
               <ol className="space-y-3">
                 {SETUP_STEPS.map((step, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-orange/10 text-xs font-semibold text-accent-orange">
+                    <span className="bg-accent-orange/10 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-accent-orange">
                       {i + 1}
                     </span>
                     <div className="space-y-1">

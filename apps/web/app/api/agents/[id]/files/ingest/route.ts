@@ -22,8 +22,10 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}))
   const fileKey = String(body?.fileKey ?? '').trim()
-  const fileName = typeof body?.fileName === 'string' ? body.fileName : undefined
-  const mimeType = typeof body?.mimeType === 'string' ? body.mimeType : undefined
+  const fileName =
+    typeof body?.fileName === 'string' ? body.fileName : undefined
+  const mimeType =
+    typeof body?.mimeType === 'string' ? body.mimeType : undefined
   const fileSize = typeof body?.fileSize === 'number' ? body.fileSize : 0
 
   if (!fileKey) {
@@ -57,15 +59,17 @@ export async function POST(
   if (!fileRecord) {
     const resolvedName = fileName ?? fileKey.split('/').pop() ?? fileKey
     const resolvedMime = mimeType ?? 'application/octet-stream'
-    const created = await insertFiles([{
-      tenantId: agent.tenantId,
-      agentId: id,
-      userId: authResult.user.id,
-      fileKey,
-      fileName: resolvedName,
-      mimeType: resolvedMime,
-      fileSize,
-    }])
+    const created = await insertFiles([
+      {
+        tenantId: agent.tenantId,
+        agentId: id,
+        userId: authResult.user.id,
+        fileKey,
+        fileName: resolvedName,
+        mimeType: resolvedMime,
+        fileSize
+      }
+    ])
     fileRecord = created[0]
   }
 
@@ -91,14 +95,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Ingestion failed'
+    const message = error instanceof Error ? error.message : 'Ingestion failed'
     await setFileStatus(fileRecord.id, 'failed', { error: message }).catch(
       () => undefined
     )
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
