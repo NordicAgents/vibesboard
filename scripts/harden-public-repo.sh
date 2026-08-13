@@ -28,10 +28,11 @@ if [ "$visibility" != "PUBLIC" ]; then
   exit 1
 fi
 
-# Status check contexts that must pass before a PR can merge. These are the job
-# names reported by the workflows in .github/workflows/; renaming a job there
+# Status check contexts that must pass before a PR can merge. GitHub matches
+# these against the job *names* (the `name:` field each job reports as a check
+# run), NOT the workflow-file job ids; renaming a job in .github/workflows/
 # means renaming it here or the check silently stops being required.
-CHECKS='["lint","typecheck","test","e2e","build","security-analysis","complexity-analysis"]'
+CHECKS='["Lint and format","TypeScript","Unit and integration tests","Playwright suites","Build web application","Secrets, SAST, and vulnerabilities","Complexity regression"]'
 
 # A required context that never reports leaves every PR permanently pending —
 # there is no timeout, and the only escape is an admin edit of the protection
@@ -128,9 +129,14 @@ gh api -X PUT "repos/$REPO/actions/permissions/workflow" --input - >/dev/null <<
 }
 JSON
 
-echo "==> Requiring approval for all outside-contributor workflow runs"
+echo "==> Blocking other repositories from using this repo's workflows"
 gh api -X PUT "repos/$REPO/actions/permissions/access" --input - >/dev/null <<'JSON'
 { "access_level": "none" }
+JSON
+
+echo "==> Requiring approval for workflow runs from all outside collaborators"
+gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" --input - >/dev/null <<'JSON'
+{ "approval_policy": "all_external_contributors" }
 JSON
 
 echo
@@ -142,6 +148,7 @@ for b in main dev; do
     --jq '{checks: .required_status_checks.contexts, force_push: .allow_force_pushes.enabled, deletions: .allow_deletions.enabled, approvals: .required_pull_request_reviews.required_approving_review_count}'
 done
 echo
-echo "Done. Remaining manual step: in Settings > General, confirm the default"
-echo "branch is 'main' and that 'Allow merge commits' is enabled (dev -> main"
-echo "must be a merge commit, not a squash — see CLAUDE.md)."
+echo "Done. Remaining manual step: in Settings > General, confirm that 'Allow"
+echo "merge commits' is enabled (dev -> main must be a merge commit, not a"
+echo "squash — see CLAUDE.md). The default branch stays 'dev' (the PR target);"
+echo "only switch it once that decision is made deliberately."
