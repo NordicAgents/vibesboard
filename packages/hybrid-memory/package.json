@@ -1,5 +1,6 @@
 {
   "name": "@vibesboard/hybrid-memory",
+  "private": true,
   "version": "0.1.0",
   "description": "Hybrid memory engine for AI agents — extended engram with cross-conversation reconciliation, presence classes, and approval-gated mutations",
   "type": "module",
