@@ -34,6 +34,10 @@ fi
 # means renaming it here or the check silently stops being required.
 CHECKS='["Lint and format","TypeScript","Unit and integration tests","Playwright suites","Build web application","Secrets, SAST, and vulnerabilities","Complexity regression"]'
 
+# Pin each required check to the GitHub Actions app (app_id 15368) so a
+# same-named check reported by any other installed app cannot satisfy the rule.
+CHECKS_RS=$(jq -c '[.[] | {context: ., app_id: 15368}]' <<<"$CHECKS")
+
 # A required context that never reports leaves every PR permanently pending —
 # there is no timeout, and the only escape is an admin edit of the protection
 # rule. That is not hypothetical here: the Security & Quality workflow spent a
@@ -42,11 +46,18 @@ CHECKS='["Lint and format","TypeScript","Unit and integration tests","Playwright
 # blocked all merges had they been required. So verify each context has
 # actually reported on the default branch before requiring it.
 verify_contexts_report() {
-  local branch head missing=()
-  branch=$(gh api "repos/$REPO" --jq .default_branch)
-  head=$(gh api "repos/$REPO/commits/$branch" --jq .sha)
+  local head missing=()
+  # PR-triggered workflows attach their check runs to the PR *head* SHA. The
+  # commit that lands on the default branch is a fresh squash-merge SHA that
+  # only push-triggered workflows (Security & Quality, deploys) ever ran on,
+  # so checking the branch head would report most contexts "missing" on a
+  # perfectly healthy repo. Verify against the last merged PR's head instead.
+  head=$(gh pr list -R "$REPO" --state merged --limit 1 --json headRefOid --jq '.[0].headRefOid' 2>/dev/null || true)
+  if [ -z "$head" ] || [ "$head" = "null" ]; then
+    head=$(gh api "repos/$REPO/commits/$(gh api "repos/$REPO" --jq .default_branch)" --jq .sha)
+  fi
   local reported
-  reported=$(gh api "repos/$REPO/commits/$head/check-runs" --jq '.check_runs[].name' 2>/dev/null || true)
+  reported=$(gh api "repos/$REPO/commits/$head/check-runs" --paginate --jq '.check_runs[].name' 2>/dev/null || true)
 
   local ctx
   while read -r ctx; do
@@ -55,11 +66,11 @@ verify_contexts_report() {
   done < <(jq -r '.[]' <<<"$CHECKS")
 
   if [ ${#missing[@]} -gt 0 ]; then
-    echo "WARNING: these contexts did not report on $branch@${head:0:8}:" >&2
+    echo "WARNING: these contexts did not report on ${head:0:8} (last merged PR head):" >&2
     printf '  - %s\n' "${missing[@]}" >&2
     echo "Requiring them now would block every merge until they run." >&2
     echo "Fix the workflow first, or drop them from CHECKS. Continue anyway? [y/N]" >&2
-    read -r reply
+    read -r reply || reply=""
     [[ "$reply" =~ ^[Yy]$ ]] || exit 1
   fi
 }
@@ -73,7 +84,7 @@ protect_branch() {
   gh api -X PUT "repos/$REPO/branches/$branch/protection" \
     --input - >/dev/null <<JSON
 {
-  "required_status_checks": { "strict": true, "contexts": $CHECKS },
+  "required_status_checks": { "strict": true, "checks": $CHECKS_RS },
   "enforce_admins": false,
   "required_pull_request_reviews": {
     "required_approving_review_count": $reviewers,
@@ -129,15 +140,33 @@ gh api -X PUT "repos/$REPO/actions/permissions/workflow" --input - >/dev/null <<
 }
 JSON
 
-echo "==> Blocking other repositories from using this repo's workflows"
-gh api -X PUT "repos/$REPO/actions/permissions/access" --input - >/dev/null <<'JSON'
-{ "access_level": "none" }
-JSON
-
 echo "==> Requiring approval for workflow runs from all outside collaborators"
 gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" --input - >/dev/null <<'JSON'
 { "approval_policy": "all_external_contributors" }
 JSON
+
+# `actions/permissions/access` governs cross-repo reuse of this repo's
+# workflows and only exists for PRIVATE repositories — on a public repo GitHub
+# rejects the call. Keep it non-fatal (and after the fork-PR approval above,
+# which is the control that actually matters) so a rejection can never abort
+# the hardening run under `set -e`.
+echo "==> Blocking other repositories from using this repo's workflows (private-repo setting)"
+if ! gh api -X PUT "repos/$REPO/actions/permissions/access" -f access_level=none >/dev/null 2>&1; then
+  echo "    skipped: not applicable to public repositories"
+fi
+
+echo "==> Enabling Discussions (issue templates link to it) and auto branch deletion"
+gh api -X PATCH "repos/$REPO" -F has_discussions=true -F delete_branch_on_merge=true >/dev/null
+
+echo "==> Verifying the Actions allow-list still permits required third-party actions"
+# "allowed_actions: selected" once put Security & Quality in startup_failure
+# for a day (see the comment above CHECKS). If either pattern disappears, the
+# workflows that use it stop even starting — and produce no logs.
+allowed=$(gh api "repos/$REPO/actions/permissions/selected-actions" --jq '.patterns_allowed[]?' 2>/dev/null || true)
+for pattern in "Uno-Takashi/Lizard-Runner" "treosh/lighthouse-ci-action"; do
+  grep -qF "$pattern" <<<"$allowed" \
+    || echo "WARNING: Actions allow-list no longer permits $pattern — workflows using it will fail at startup with no logs." >&2
+done
 
 echo
 echo "=== Resulting state ==="
@@ -148,7 +177,10 @@ for b in main dev; do
     --jq '{checks: .required_status_checks.contexts, force_push: .allow_force_pushes.enabled, deletions: .allow_deletions.enabled, approvals: .required_pull_request_reviews.required_approving_review_count}'
 done
 echo
-echo "Done. Remaining manual step: in Settings > General, confirm that 'Allow"
-echo "merge commits' is enabled (dev -> main must be a merge commit, not a"
-echo "squash — see CLAUDE.md). The default branch stays 'dev' (the PR target);"
-echo "only switch it once that decision is made deliberately."
+echo "Done. Remaining manual steps:"
+echo "  - Settings > Environments > production: add required reviewers and keep"
+echo "    the deployment branch policy restricted (see docs/deployment.md)."
+echo "  - Settings > General: confirm 'Allow merge commits' is enabled"
+echo "    (dev -> main must be a merge commit, not a squash — see CLAUDE.md)."
+echo "  - The default branch stays 'dev' (the PR target); only switch it once"
+echo "    that decision is made deliberately."

@@ -30,11 +30,11 @@ describe('@vibesboard/contracts barrel', () => {
     expect(Collections).toBeTypeOf('object')
   })
 
-  it('exposes Collections as its only runtime (value) export', () => {
+  it('exposes only the expected runtime (value) exports', () => {
     // Type-only re-exports are erased at runtime, so the namespace should carry
-    // exactly the one real value the package defines. If this changes, a new
+    // exactly the real values the package defines. If this changes, a new
     // runtime export was added and must get its own behavioral coverage.
     const runtimeKeys = Object.keys(contracts).filter((k) => k !== '__esModule')
-    expect(runtimeKeys).toEqual(['Collections'])
+    expect(runtimeKeys.sort()).toEqual(['Collections', 'toPublicAgent'])
   })
 })

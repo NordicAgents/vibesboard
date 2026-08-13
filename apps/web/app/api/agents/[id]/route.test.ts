@@ -67,7 +67,11 @@ vi.mock('@vibesboard/adapter-postgres/client', () => ({
   getMigrateDb: () => dbMock
 }))
 vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
-vi.mock('@vibesboard/adapter-s3', () => ({ deleteFile: async () => undefined }))
+vi.mock('@vibesboard/adapter-s3', () => ({
+  deleteFile: async () => undefined,
+  isCrossTenantFileKey: (key: string, tenantId: string) =>
+    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`)
+}))
 const getFilesForAgentMock = vi.fn(async (..._args: unknown[]) => [
   {
     id: '10000000-0000-4000-8000-000000000001',

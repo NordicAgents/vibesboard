@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { AccessGateForm } from '@/components/agents/access-gate-form'
-import type { VibeAgent } from '@vibesboard/contracts'
+import type { PublicAgent } from '@vibesboard/contracts'
 
 interface GatedAgentPageProps {
-  agent: VibeAgent
+  agent: PublicAgent
   googleReviewPlaceId: string | null
   logoUrl: string | null
   hasExistingAccess: boolean

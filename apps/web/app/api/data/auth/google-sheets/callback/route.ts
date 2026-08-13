@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import {
@@ -8,6 +8,8 @@ import {
   listSpreadsheets
 } from '@vibesboard/data/google-sheets-auth'
 import { createDataConnection } from '@vibesboard/data/connections'
+import { getCanonicalOrigin } from '@/lib/app-url'
+import { SHEETS_OAUTH_NONCE_COOKIE } from '../route'
 
 export const runtime = 'nodejs'
 
@@ -16,9 +18,12 @@ async function getAppOrigin(fallback: string): Promise<string> {
   const host = (h.get('x-forwarded-host') || h.get('host'))
     ?.split(',')[0]
     ?.trim()
-  const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
-  if (host) return `${proto}://${host}`
-  return fallback
+  const headerOrigin = host ? `${proto(h)}://${host}` : fallback
+  return getCanonicalOrigin(headerOrigin)
+}
+
+function proto(h: Headers): string {
+  return (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim() || 'https'
 }
 
 /**
@@ -54,12 +59,24 @@ export async function GET(req: Request) {
     )
   }
 
-  let state: { tenantId: string; userId: string }
+  let state: { tenantId: string; userId: string; nonce?: string }
   try {
     state = JSON.parse(stateParam)
   } catch {
     return NextResponse.redirect(
       new URL('/agents?data_error=invalid_state', appOrigin)
+    )
+  }
+
+  // Verify the CSRF nonce — must match the cookie set at initiation. Clear it
+  // unconditionally (single-use). Runs before the code exchange so a tampered
+  // or replayed callback is rejected before any account linking.
+  const cookieStore = await cookies()
+  const storedNonce = cookieStore.get(SHEETS_OAUTH_NONCE_COOKIE)?.value
+  cookieStore.delete(SHEETS_OAUTH_NONCE_COOKIE)
+  if (!storedNonce || !state.nonce || storedNonce !== state.nonce) {
+    return NextResponse.redirect(
+      new URL('/agents?data_error=invalid_nonce', appOrigin)
     )
   }
 
