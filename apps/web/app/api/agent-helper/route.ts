@@ -116,8 +116,10 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
   }
 
   const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
+  // `.chat()` — the bare call resolves to createResponsesModel on
+  // @ai-sdk/openai@4, which 404s on gateways that only serve /chat/completions.
   const result = await aiStreamText({
-    model: openaiClient(model),
+    model: openaiClient.chat(model),
     system: systemPrompt,
     messages: messages,
     temperature: 0.3
