@@ -1,0 +1,74 @@
+---
+title: 'Quickstart'
+description: 'Run Vibesboard locally with Docker Compose in a few minutes.'
+---
+
+# Quickstart
+
+This gets a local Vibesboard instance running with Docker Compose: Postgres, MinIO for object storage, and the Next.js app.
+
+## Requirements
+
+- [Bun](https://bun.sh) 1.2.18
+- Node.js 22
+- Docker with Compose
+- An OpenAI API key for the platform fallback model
+
+## Install and run
+
+<Steps>
+  <Step title="Clone the repository">
+    <CodeGroup>
+      <CodeGroupItem label="bun">
+        ```bash
+        git clone https://github.com/NordicAgents/vibeagent.git
+        cd vibeagent
+        bun install
+        ```
+      </CodeGroupItem>
+    </CodeGroup>
+  </Step>
+  <Step title="Configure environment variables">
+    Copy the example environment file and fill in the placeholder credentials and secrets, including your OpenAI API key.
+
+    ```bash
+    cp .env.example .env
+    ```
+
+  </Step>
+  <Step title="Start infrastructure and seed the database">
+    This starts Postgres and MinIO, creates the local bucket, runs migrations, and seeds the database.
+
+    ```bash
+    bun run db:setup
+    ```
+
+  </Step>
+  <Step title="Start the app">
+    ```bash
+    bun run dev
+    ```
+
+    Open [http://localhost:3000](http://localhost:3000).
+
+  </Step>
+</Steps>
+
+<Callout type="note" title="Full environment reference">
+  See [Environment variables](/docs/self-host/environment-variables) for every
+  configuration value and what it's for.
+</Callout>
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/get-started/core-concepts" title="Core concepts">
+    Understand workspaces, agents, knowledge, and memory before building.
+  </Card>
+  <Card
+    href="/docs/get-started/creating-your-first-agent"
+    title="Create your first agent"
+  >
+    Build, preview, and publish an agent with the AI-assisted builder.
+  </Card>
+</Cards>

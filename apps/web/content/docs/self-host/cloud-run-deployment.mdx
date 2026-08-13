@@ -1,0 +1,230 @@
+---
+title: 'Google Cloud Run'
+description: 'The maintained path for running Vibesboard in production.'
+---
+
+# Google Cloud Run
+
+Vibesboard's own staging and production environments run on
+[`.github/workflows/deploy-cloudrun.yml`](https://github.com/NordicAgents/vibesboard/blob/main/.github/workflows/deploy-cloudrun.yml).
+A push to `dev` deploys staging; a push to `main` deploys production. This is
+the maintained deployment path — the one exercised on every merge — so it's
+the fastest way to stand up a production-grade instance if you're already on
+GCP. If you're deploying somewhere else, see
+[Self-hosting elsewhere](#self-hosting-elsewhere) below.
+
+The workflow only triggers on pushes that touch `apps/web/**`, `packages/**`,
+`package.json`, `bun.lock`, `tsconfig.base.json`, or `Dockerfile` — plus a
+manual `workflow_dispatch` for redeploys that don't need a code change. Runs
+are grouped by branch with `cancel-in-progress: true`, so pushing again before
+a deploy finishes cancels the one already in flight rather than queuing behind
+it.
+
+## What a deploy does
+
+Two jobs run in sequence — `deploy` only starts if `migrate` succeeds, so a
+broken migration blocks the rollout instead of shipping app code the schema
+doesn't support yet.
+
+<Steps>
+  <Step title="Migrate the database">
+    Opens an IAP TCP tunnel to the target environment's Postgres VM (using the
+    `PG_VM_ZONE` and `PROD_PG_VM_NAME` / `STAGING_PG_VM_NAME` repository
+    variables), waits for the tunnel to accept a local connection, then runs
+    `bun run db:migrate` against `DATABASE_MIGRATE_URL`.
+  </Step>
+  <Step title="Build and push the image">
+    Builds the standalone Next.js image from the repo's `Dockerfile` with Docker
+    Buildx and pushes it to Artifact Registry, tagged `us-docker.pkg.dev/
+    {project}/vibeagent/app:{commit - sha}`. `NEXT_PUBLIC_*` values are baked in
+    at build time as Docker build args, since they end up in the client bundle.
+  </Step>
+  <Step title="Deploy to Cloud Run">
+    Uses `google-github-actions/deploy-cloudrun` to roll out that image, with
+    direct VPC egress (`--network=default --subnet=default
+    --vpc-egress=private-ranges-only`) so the service can reach the private-IP
+    Postgres VM, plus the environment's `env_vars` and Secret Manager
+    references.
+  </Step>
+</Steps>
+
+On `dev`, a third job runs Lighthouse against the deployed staging URL (3
+runs) and fails the workflow if the performance score drops below 50, posting
+a summary as a commit comment.
+
+## Authentication
+
+There's no long-lived service-account key in CI. The
+[`gcp-auth`](https://github.com/NordicAgents/vibesboard/blob/main/.github/actions/gcp-auth)
+composite action exchanges the workflow's GitHub OIDC token for GCP
+credentials via Workload Identity Federation, using the `WIF_PROVIDER` and
+`WIF_SERVICE_ACCOUNT` repository secrets.
+
+<Callout type="warning" title="The WIF provider condition is not in this repo">
+  The workload identity provider's attribute condition must match
+  `assertion.repository == 'NordicAgents/vibesboard'`. That condition lives in
+  GCP IAM, not in the tracked workflow — a repository rename or fork will not
+  update it automatically, and the failure mode is silent until authentication
+  starts rejecting the run.
+</Callout>
+
+## Container image
+
+The [`Dockerfile`](https://github.com/NordicAgents/vibesboard/blob/main/Dockerfile)
+is a multi-stage build producing Next.js
+[standalone output](https://nextjs.org/docs/pages/api-reference/next-config-js/output):
+
+- **Base/deps/builder stages** run on `node:22-slim`, with the pinned Bun
+  binary copied in to install dependencies and orchestrate the build
+  (`bun run --filter @vibesboard/web build`). The build still executes under
+  real Node — the `oven/bun` image's own `node` shim isn't compatible with
+  Next.js 16's production metadata build.
+- **Runtime stage** is also `node:22-slim`, with `npm`, `npx`, `corepack`, and
+  `yarn` removed (the standalone server doesn't need a package manager, and
+  it shrinks the image's attack surface). It copies in `.next/standalone`,
+  `.next/static`, and `public/`, then runs as a non-root `nextjs` user
+  (uid/gid 1001) with `PORT=8080`, `HOSTNAME=0.0.0.0`, and
+  `CMD ["node", "apps/web/server.js"]`.
+
+Cloud Run's container port is expected to be `8080`, which is why the image
+sets it explicitly rather than relying on Next's default of `3000`.
+
+## Environments
+
+Each job binds to a GitHub deployment environment —
+`staging` for pushes to `dev`, `production` for pushes to `main` — which is
+where per-environment secrets are scoped and where you'd configure required
+reviewers or a deployment branch policy (Settings → Environments) to gate
+production. The repo doesn't ship any reviewers by default; add them once
+your GitHub plan supports environment protection rules on a private (or
+public-with-a-paid-plan) repo.
+
+## Repository variables
+
+Environment-specific resource names live in GitHub **Actions variables**
+(Settings → Secrets and variables → Actions → Variables), not in the tracked
+workflow, so the repository itself carries no map of any real deployment's
+infrastructure. Most are read with `${VAR:?message}`, so a missing one fails
+the run with a named error instead of deploying with an empty value —
+`NOTIFICATION_EMAIL_FROM` and `MONTHLY_MESSAGE_LIMIT` are passed through
+unchecked, which is how `MONTHLY_MESSAGE_LIMIT` stays optional.
+
+| Variable                  | Meaning                                                               |
+| ------------------------- | --------------------------------------------------------------------- |
+| `CLOUD_RUN_REGION`        | Region the Cloud Run service deploys to                               |
+| `PG_VM_ZONE`              | Zone of the Postgres compute VMs                                      |
+| `PROD_PG_VM_NAME`         | Name of the production Postgres VM (IAP tunnel target)                |
+| `STAGING_PG_VM_NAME`      | Name of the staging Postgres VM (IAP tunnel target)                   |
+| `PROD_S3_BUCKET`          | Production storage bucket                                             |
+| `STAGING_S3_BUCKET`       | Staging storage bucket                                                |
+| `NOTIFICATION_EMAIL_FROM` | From-header for notification email, e.g. `App <no-reply@example.com>` |
+| `MONTHLY_MESSAGE_LIMIT`   | Optional soft monthly workspace message cap; blank means unlimited    |
+
+Credentials and endpoints — the WIF provider, GCP project id, Cloud Run
+service names, database connection strings, and app URLs — stay in Actions
+**secrets** rather than variables, since they're sensitive.
+
+## Secrets
+
+Runtime credentials are environment-scoped in Google Secret Manager, named
+with a `-staging` or `-prod` suffix, and referenced in the workflow as
+`{name}-{staging|prod}:latest`. Provision them from a local env file with:
+
+```bash
+./scripts/setup-secrets.sh staging .env.staging
+./scripts/setup-secrets.sh production .env.production
+```
+
+The script is idempotent — it creates the secret if missing and adds a new
+version only when the corresponding env var has a value — and covers every
+secret the workflow deploys with:
+
+| Secret Manager base name                                                                                                       | Sourced from                             |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `openai-api-key`, `encryption-key`, `rate-limit-salt`, `cron-secret`, `access-gate-secret`, `better-auth-secret`               | Platform AI, crypto, and auth secrets    |
+| `database-url`, `database-migrate-url`, `s3-access-key-id`, `s3-secret-access-key`                                             | Data and storage connections             |
+| `whatsapp-inbox-verify-token`, `instagram-inbox-verify-token`, `meta-app-secret`, `resend-api-key`                             | Channel and email integrations           |
+| `google-calendar-client-id`, `google-calendar-client-secret`, `google-oauth-client-id`, `auth-google-id`, `auth-google-secret` | Google Calendar and Google sign-in OAuth |
+
+See [Environment variables](/docs/self-host/environment-variables) for what
+each underlying variable does.
+
+<Callout type="warning" title="Never seed both environments from one file">
+  The script creates names ending in `-staging` or `-prod` from whatever env
+  file you point it at — seeding both environments from the same credential file
+  means staging and production silently share a secret.
+</Callout>
+
+<Callout type="danger" title="Secrets are mounted as versions/latest">
+  Every secret is deployed at `:latest`, which resolves on cold start. Disabling
+  a Secret Manager version that's still mounted will crash-loop the service the
+  next time it cold-starts — which can surface as a delayed outage rather than
+  an immediate one, since a warm instance keeps serving on its already-resolved
+  value until it's recycled.
+</Callout>
+
+GitHub Actions secrets that aren't managed by `setup-secrets.sh` (`WIF_PROVIDER`,
+`WIF_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`, the per-environment Cloud Run service
+name, the app URL, and the `NEXT_PUBLIC_*` build args) are provisioned
+directly in the GitHub repository settings rather than through the script.
+
+## Storage bucket CORS
+
+If the browser talks to the storage bucket directly — signed upload/download
+URLs — the bucket needs a CORS policy naming your app origins:
+
+```json
+[
+  {
+    "origin": ["https://your-app.example", "http://localhost:3000"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": ["Content-Type", "Authorization"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+```bash
+gcloud storage buckets update gs://YOUR_BUCKET --cors-file=cors.json
+```
+
+## Self-hosting elsewhere
+
+Nothing about the application requires Cloud Run specifically. It builds to a
+standalone Next.js output and runs anywhere that can provide:
+
+- PostgreSQL with the `pgvector` extension, and the `vibesboard_app` /
+  `vibesboard_migrate` roles described in
+  [Architecture](/docs/contribute/architecture);
+- S3-compatible object storage;
+- the environment variables described in
+  [Environment variables](/docs/self-host/environment-variables).
+
+The repo's [`docker-compose.dev.yml`](https://github.com/NordicAgents/vibesboard/blob/main/docker-compose.dev.yml)
+brings up Postgres and MinIO for **local development only** — see
+[Docker Compose](/docs/self-host/docker-compose) — it isn't a production
+deployment topology. For production you provide your own Postgres and
+S3-compatible storage and build the same `Dockerfile` this workflow uses.
+
+## Related
+
+<Cards>
+  <Card
+    href="/docs/self-host/environment-variables"
+    title="Environment variables"
+  >
+    Every configuration value the application reads, and what it's for.
+  </Card>
+  <Card href="/docs/self-host/docker-compose" title="Docker Compose">
+    The local infrastructure stack — Postgres, MinIO, and the app.
+  </Card>
+  <Card href="/docs/self-host/troubleshooting" title="Troubleshooting">
+    Common self-hosting failure modes and how to diagnose them.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How tenant secrets, sessions, and access tokens are stored and encrypted.
+  </Card>
+</Cards>

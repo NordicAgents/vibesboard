@@ -97,7 +97,7 @@ bun run db:migrate
 
 ## 2. Secrets
 
-`playwright.local.config.ts` resolves five secrets from `process.env`, falling
+`playwright.local.config.ts` resolves four secrets from `process.env`, falling
 back to the gitignored `apps/web/.env.local`, and **throws** if any is missing:
 
 `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, `ACCESS_GATE_SECRET`
@@ -156,9 +156,9 @@ DATABASE_MIGRATE_URL='postgres://vibesboard_migrate:vibesboard_migrate@localhost
 bun run test:e2e
 ```
 
-Playwright's `webServer` entries use `reuseExistingServer: true`, so if a dev
-server is already listening on 3100 and the mock on 4010, both are reused instead
-of being respawned.
+Playwright's `webServer` entries use `reuseExistingServer: false`, so if a dev
+server is already listening on 3100 or the mock on 4010, the run fails outright
+on a port conflict instead of reusing it — free those ports first.
 
 ## 5. Test state
 

@@ -39,7 +39,8 @@ export function AppHeaderController({
     pathname === '/landing' ||
     pathname === '/privacy-policy' ||
     pathname === '/terms-of-service'
-  const hasOwnNavigation = pathname?.startsWith('/agents')
+  const hasOwnNavigation =
+    pathname?.startsWith('/agents') || pathname?.startsWith('/docs')
 
   if (isPublicAgentPage || isLandingPage || hasOwnNavigation) {
     return null

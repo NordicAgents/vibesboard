@@ -15,6 +15,7 @@ const RESERVED_SLUGS = new Set([
   'agents',
   'api',
   'chat',
+  'docs',
   'invite',
   'landing',
   'privacy-policy',
@@ -42,6 +43,11 @@ export async function proxy(req: NextRequest) {
 
   // Allow public access to widget pages (embedded iframe)
   if (pathname.startsWith('/widget/')) {
+    return res
+  }
+
+  // Allow public access to the documentation site
+  if (pathname === '/docs' || pathname.startsWith('/docs/')) {
     return res
   }
 
