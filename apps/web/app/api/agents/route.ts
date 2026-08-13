@@ -17,6 +17,7 @@ import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@vibesboard/agents/schema'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
+import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
 import { toPublicAgentResponse } from '@/lib/public-agent'
 
@@ -162,6 +163,16 @@ export async function POST(req: Request) {
 
   const tenant = await getTenantById(tenantId)
   const tenantSlug = tenant?.slug ?? 'unknown'
+
+  // fileKeys is caller-supplied. The agent id does not exist yet, so legitimate
+  // keys are same-tenant staging/canonical keys; refuse anything addressing
+  // another tenant's namespace before it is persisted or processed.
+  if ((payload.fileKeys ?? []).some(k => isCrossTenantFileKey(k, tenantId))) {
+    return NextResponse.json(
+      { error: 'fileKeys contains keys outside this tenant' },
+      { status: 400 }
+    )
+  }
 
   const slug = await ensureUniqueSlug(createAgentSlug(payload.name), tenantId)
   const newId = uuidv7()
