@@ -9,6 +9,25 @@ export const OPENAI_CHAT_MODEL = baseModel
 export const OPENAI_VISION_MODEL =
   cleanEnv(process.env.OPENAI_VISION_MODEL) ?? 'gpt-5.4-nano'
 
+// Embedding model used whenever we embed with the PLATFORM key. Overridable
+// because the model name is provider-specific: OpenAI serves
+// text-embedding-3-small, Gemini's gateway 404s on that name and wants
+// gemini-embedding-001. Deliberately NOT applied to a tenant's own `openai`
+// provider — that key talks to real OpenAI, so it keeps the OpenAI name.
+export const PLATFORM_EMBEDDING_MODEL =
+  cleanEnv(process.env.OPENAI_EMBEDDINGS_MODEL) ?? 'text-embedding-3-small'
+
+// Requested output width for platform embeddings. Left undefined for OpenAI,
+// whose text-embedding-3-small is natively 1536. Set it for any model whose
+// native width is not a pgvector table width (384/768/1024/1536) —
+// gemini-embedding-001 defaults to 3072 and must be pinned to 1536.
+export const PLATFORM_EMBEDDING_DIMENSIONS = ((): number | undefined => {
+  const raw = cleanEnv(process.env.OPENAI_EMBEDDINGS_DIMENSIONS)
+  if (!raw) return undefined
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+})()
+
 // Base URL for the OpenAI-compatible API. Defaults to the public OpenAI API,
 // but can be overridden (e.g. for a local mock in E2E, an Azure/OpenAI proxy,
 // or a self-hosted gateway) via OPENAI_BASE_URL. Trailing slashes are trimmed.

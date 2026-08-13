@@ -36,11 +36,14 @@ const providerFactories: ProviderFactoryRegistry = {
   anthropic: (spec) =>
     createAnthropic({ apiKey: spec.apiKey })(spec.modelId),
 
+  // `.chat()` — a gateway is "OpenAI-compatible" precisely because it serves
+  // /chat/completions; almost none implement /responses, which is where the
+  // bare call would land on @ai-sdk/openai@4.
   openai_compatible: (spec) =>
     createOpenAI({
       apiKey: spec.apiKey,
       baseURL: spec.baseUrl,
-    })(spec.modelId),
+    }).chat(spec.modelId),
 
   google: (spec) =>
     createGoogleGenerativeAI({ apiKey: spec.apiKey })(spec.modelId),
@@ -55,7 +58,8 @@ const providerFactories: ProviderFactoryRegistry = {
       // Zod parser strips it. Flagged for removal when @ai-sdk/openai is upgraded
       // to 4.x, which handles reasoning_content natively.
       fetch: buildNvidiaFetch(),
-    })(spec.modelId),
+      // `.chat()` — NVIDIA's API serves /chat/completions only.
+    }).chat(spec.modelId),
 }
 
 export interface ProviderNetworkOpts {
