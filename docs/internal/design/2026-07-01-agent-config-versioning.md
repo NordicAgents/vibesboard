@@ -1,11 +1,10 @@
 # Agent Config Versioning — Design Spec
 
 - **Date:** 2026-07-01
-- **Branch:** `feat/agent-versioning` (worktree off `dev`)
-- **Status:** Backend implemented (schema, migration + backfill, versioning module,
-  wired write paths, versions API, tests — all type-checked and passing on a local
-  Postgres). UI (§6) deferred to a follow-up. Restore re-triggers embeddings sync and
-  warns on files missing from storage (§10 decision resolved).
+- **Status:** Historical design record — backend shipped (schema, migration +
+  backfill, versioning module, wired write paths, versions API, tests). UI (§6)
+  deferred to a follow-up. Restore re-triggers embeddings sync and warns on files
+  missing from storage (§10 decision resolved).
 
 ## 1. Context & Current State
 

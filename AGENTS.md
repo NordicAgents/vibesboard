@@ -9,7 +9,7 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 - RAG (Retrieval-Augmented Generation) for knowledge bases
 - Calendar availability & scheduling
 - WhatsApp integration
-- MCP (Model Context Protocol) server support
+- Outbound webhooks and data actions
 - Agent hooks system
 - Usage metering
 
@@ -18,29 +18,16 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 - **Frontend:** React 19 + TypeScript on Next.js 16 (App Router); Tailwind CSS + Radix UI primitives
 - **Backend:** Postgres (Drizzle ORM), Better-Auth, and S3-compatible storage (MinIO in dev)
 - **AI:** Vercel AI SDK (`ai`) with OpenAI, Anthropic, and Google adapters plus NVIDIA and generic OpenAI-compatible endpoints. Workspaces can bring encrypted provider credentials and route by agent or task; `OPENAI_API_KEY`/`OPENAI_MODEL` provide the platform fallback.
-- **Integrations:** Google Calendar (OAuth), WhatsApp, MCP servers
+- **Integrations:** Google Calendar (OAuth), WhatsApp, Instagram, Chatwoot, Google Sheets, outbound webhooks
 
 ## Key Directories
 
 - `apps/web/app/` — Next.js App Router application source (layouts, pages, `api/` route handlers, `[tenantSlug]` route group)
 - `packages/` — Shared workspace packages and database adapters (e.g. `adapter-postgres`, `adapter-better-auth`, `adapter-s3`, `adapter-openai`, `ai`, `agents`)
 
-## AI Dev Tooling (Superpowers skills)
+## AI Dev Tooling
 
-This project's AGENTS workflow leans on [Superpowers](https://github.com/obra/superpowers) — an agentic skills framework for planning, TDD, debugging, and code review. Useful skills include:
-
-- `superpowers:brainstorming` — use before any new feature work
-- `superpowers:writing-plans` — break work into 2-5 minute tasks
-- `superpowers:test-driven-development` — RED-GREEN-REFACTOR cycles
-- `superpowers:systematic-debugging` — root-cause analysis workflows
-- `superpowers:subagent-driven-development` — parallel agent execution
-- `superpowers:verification-before-completion` — confirm fixes are real
-- `superpowers:finishing-a-development-branch` — branch cleanup workflow
-- `superpowers:using-git-worktrees` — isolated parallel development
-
-Superpowers is no longer vendored in this repo. The `superpowers` git submodule (formerly at `.claude/plugins/superpowers`) was removed (commit "chore: remove superpowers git submodule"); there is no `.gitmodules`, and `.claude/plugins/` is empty. So there is no `git submodule update --init` / `--remote` step for it, and no in-repo update path.
-
-**Needs confirmation:** the exact mechanism that now provides these skills (e.g. a globally installed Claude Code plugin / marketplace install vs. the harness loading them at session start) is not determinable from the repository contents.
+Development here historically used the [Superpowers](https://github.com/obra/superpowers) skills framework (brainstorming, planning, TDD, systematic debugging, worktree workflows). It is not vendored in this repo — install it as a Claude Code plugin if you want the same skills; the guidelines below stand on their own.
 
 ## Development Guidelines
 

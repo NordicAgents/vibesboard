@@ -1,8 +1,8 @@
 # Comprehensive Test Suite — Design Spec
 
 - **Date:** 2026-05-29
-- **Branch:** `test/comprehensive-suite` (worktree off `dev`)
-- **Status:** Approved — implementing
+- **Status:** Historical design record — the suite described here has since been
+  built and runs in CI.
 
 ## 1. Context & Current State
 
