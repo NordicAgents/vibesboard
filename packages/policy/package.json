@@ -12,6 +12,7 @@
     "./features": "./src/features.ts",
     "./usage": "./src/usage.ts",
     "./usage-core": "./src/usage-core.ts",
+    "./rate-limit": "./src/rate-limit.ts",
     "./plans": "./src/plans.ts",
     "./agent-links": "./src/agent-links/index.ts",
     "./agent-links/db": "./src/agent-links/db.ts",

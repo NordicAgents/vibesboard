@@ -19,7 +19,8 @@ export const FEATURE_FLAG_NAMES = [
   'AGENT_NOTIFICATIONS_EMAIL',
   'AGENT_NOTIFICATIONS_WEBHOOK',
   'AGENT_HANDOFF',
-  'AGENT_ACTIONS'
+  'AGENT_ACTIONS',
+  'BYO_LLM'
 ] as const
 
 export type FeatureFlagName = (typeof FEATURE_FLAG_NAMES)[number]
@@ -49,7 +50,8 @@ export const FEATURE_FLAG_DESCRIPTIONS: Record<FeatureFlagName, string> = {
   AGENT_NOTIFICATIONS_EMAIL: 'Send agent notifications by email.',
   AGENT_NOTIFICATIONS_WEBHOOK: 'Send agent notifications to a webhook.',
   AGENT_HANDOFF: 'Hand off conversations from an agent to a human.',
-  AGENT_ACTIONS: 'Allow agents to run actions and tools.'
+  AGENT_ACTIONS: 'Allow agents to run actions and tools.',
+  BYO_LLM: 'Bring your own LLM provider (Anthropic, OpenAI-compatible, etc.).'
 }
 
 /**

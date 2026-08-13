@@ -9,6 +9,12 @@ import {
 } from '@vibesboard/adapter-postgres/schema'
 import { maybeAutoSummarize } from '../auto-summarize.ts'
 
+// Default context window for unknown models is 8_192 tokens.
+// Summarization fires at 50% → promptTokens >= 4_096.
+const ABOVE_THRESHOLD = 5_000   // 5000/8192 = 61% → triggers
+const BELOW_THRESHOLD = 1_000   // 1000/8192 = 12% → no-op
+const RESUMMARIZE_DELTA = 2_500 // 25% of 8192 ≈ 2048; use 2500 to clear the bar
+
 async function seedConv(adminDb: any) {
   const u = randomUUID()
   const t = randomUUID()
@@ -35,7 +41,7 @@ async function seedConv(adminDb: any) {
 }
 
 describe('maybeAutoSummarize (pg)', () => {
-  it('writes summary when threshold met', async () => {
+  it('writes summary when context >= 50% full', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       await maybeAutoSummarize(
@@ -45,21 +51,21 @@ describe('maybeAutoSummarize (pg)', () => {
           conversationId,
           messages: [
             { id: '1', role: 'user', content: 'q1' },
-            { id: '2', role: 'assistant', content: 'a1' },
-            { id: '3', role: 'assistant', content: 'a2' },
-            { id: '4', role: 'assistant', content: 'a3' }
-          ]
+            { id: '2', role: 'assistant', content: 'a1' }
+          ],
+          tokenUsage: { promptTokens: ABOVE_THRESHOLD }
         },
         { db: adminDb, summarize: async () => 'a summary' }
       )
       const [row] = await adminDb.select().from(conversations)
       expect(row.summary).toBe('a summary')
-      expect(row.summaryResponseCount).toBe(3)
+      // summaryResponseCount now stores the prompt token count used as the re-summarize marker
+      expect(row.summaryResponseCount).toBe(ABOVE_THRESHOLD)
       expect(row.summaryGeneratedAt).toBeTruthy()
     })
   })
 
-  it('no-op below MIN_RESPONSES_FOR_SUMMARY', async () => {
+  it('no-op when context below 50%', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       await maybeAutoSummarize(
@@ -67,7 +73,8 @@ describe('maybeAutoSummarize (pg)', () => {
           tenantId,
           agentId,
           conversationId,
-          messages: [{ id: '1', role: 'assistant', content: 'a1' }]
+          messages: [{ id: '1', role: 'assistant', content: 'a1' }],
+          tokenUsage: { promptTokens: BELOW_THRESHOLD }
         },
         { db: adminDb, summarize: async () => 'unused' }
       )
@@ -76,7 +83,7 @@ describe('maybeAutoSummarize (pg)', () => {
     })
   })
 
-  it('does not call summarize when below the threshold', async () => {
+  it('no-op when no tokenUsage provided', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       let called = 0
@@ -89,6 +96,7 @@ describe('maybeAutoSummarize (pg)', () => {
             { id: '1', role: 'user', content: 'q' },
             { id: '2', role: 'assistant', content: 'a1' }
           ]
+          // no tokenUsage → usageRatio = 0 → no-op
         },
         {
           db: adminDb,
@@ -115,7 +123,8 @@ describe('maybeAutoSummarize (pg)', () => {
             { id: '1', role: 'assistant', content: 'a1' },
             { id: '2', role: 'assistant', content: 'a2' },
             { id: '3', role: 'assistant', content: 'a3' }
-          ]
+          ],
+          tokenUsage: { promptTokens: ABOVE_THRESHOLD }
         },
         {
           db: adminDb,
@@ -129,50 +138,21 @@ describe('maybeAutoSummarize (pg)', () => {
     })
   })
 
-  it('counts responses from responseCounts (+1) instead of message roles', async () => {
+  it('skips re-summarizing until token count grows by 25% since last summary', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, conversationId } = await seedConv(adminDb)
       let called = 0
-      // Only one assistant message, but responseCounts already sums to 2,
-      // so totalResponses = 2 + 1 = 3 → at the MIN threshold → summarizes.
+      // currentSummary was written at promptTokens=5000; new total is 5500.
+      // delta (5500-5000=500) < contextWindow*0.25 (~2048) → no re-summarize.
       await maybeAutoSummarize(
         {
           tenantId,
           agentId,
           conversationId,
           messages: [{ id: '1', role: 'assistant', content: 'a1' }],
-          responseCounts: { [agentId]: 2 }
-        },
-        {
-          db: adminDb,
-          summarize: async () => {
-            called += 1
-            return 'sum'
-          }
-        }
-      )
-      expect(called).toBe(1)
-      const [row] = await adminDb.select().from(conversations)
-      expect(row.summary).toBe('sum')
-      expect(row.summaryResponseCount).toBe(3)
-    })
-  })
-
-  it('skips re-summarizing until RE_SUMMARIZE_DELTA new responses accrue', async () => {
-    await withTestDb(async ({ adminDb }) => {
-      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
-      let called = 0
-      // currentSummary present at summaryResponseCount=3; new total = 3+1 = 4.
-      // delta (4-3=1) < RE_SUMMARIZE_DELTA(5) → no re-summarize.
-      await maybeAutoSummarize(
-        {
-          tenantId,
-          agentId,
-          conversationId,
-          messages: [{ id: '1', role: 'assistant', content: 'a1' }],
-          responseCounts: { [agentId]: 3 },
           currentSummary: 'old summary',
-          summaryResponseCount: 3
+          summaryResponseCount: ABOVE_THRESHOLD,    // token marker from last summary
+          tokenUsage: { promptTokens: ABOVE_THRESHOLD + 500 }  // only 500 tokens more
         },
         {
           db: adminDb,
@@ -183,6 +163,35 @@ describe('maybeAutoSummarize (pg)', () => {
         }
       )
       expect(called).toBe(0)
+    })
+  })
+
+  it('re-summarizes when token count grows by > 25% since last summary', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, conversationId } = await seedConv(adminDb)
+      let called = 0
+      // Previous summary at 5000 tokens; now at 5000 + RESUMMARIZE_DELTA → triggers.
+      await maybeAutoSummarize(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages: [{ id: '1', role: 'assistant', content: 'a1' }],
+          currentSummary: 'old summary',
+          summaryResponseCount: ABOVE_THRESHOLD,
+          tokenUsage: { promptTokens: ABOVE_THRESHOLD + RESUMMARIZE_DELTA }
+        },
+        {
+          db: adminDb,
+          summarize: async () => {
+            called += 1
+            return 'new summary'
+          }
+        }
+      )
+      expect(called).toBe(1)
+      const [row] = await adminDb.select().from(conversations)
+      expect(row.summary).toBe('new summary')
     })
   })
 
@@ -198,7 +207,8 @@ describe('maybeAutoSummarize (pg)', () => {
             { id: '1', role: 'assistant', content: 'a1' },
             { id: '2', role: 'assistant', content: 'a2' },
             { id: '3', role: 'assistant', content: 'a3' }
-          ]
+          ],
+          tokenUsage: { promptTokens: ABOVE_THRESHOLD }
         },
         { db: adminDb, summarize: async () => null }
       )

@@ -1,0 +1,18 @@
+title = "Vibesboard Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+# These values are fixed test fixtures or visibly abbreviated documentation
+# examples. Keep this list exact so new credentials in the same files still fail.
+[[allowlists]]
+description = "Non-production test and documentation fixtures"
+regexTarget = "secret"
+regexes = [
+  '''ci-e2e-encryption-key-0123456789''',
+  '''e2e-smoke-test-secret-0123456789''',
+  '''pw-1234567890''',
+  '''wrong-key-32-characters-long-xxx''',
+  '''test-encryption-key-1234567890''',
+  '''vb_live_8x2Kd9\.\.\.''',
+]

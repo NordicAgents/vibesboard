@@ -1,61 +1,140 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { randomUUID } from 'node:crypto'
+
+import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
+import { agents, tenants, users } from '@vibesboard/adapter-postgres/schema'
 import {
-  recordUsage,
-  checkUsageLimit,
-  logUsage,
-  getUsage,
   checkLimit,
+  checkUsageLimit,
+  getUsage,
   getUsageRollup,
+  recordUsage
 } from './usage.ts'
 
-// usage.ts is the self-host shim: recording is a no-op and every limit check
-// reports unlimited/allowed. These tests pin that contract.
-describe('usage: self-host shim contract', () => {
-  it('recordUsage is a no-op that returns undefined and does not throw', () => {
-    expect(
-      recordUsage({
-        tenantId: 't1',
-        agentId: 'a1',
-        conversationId: null,
-        userId: null,
-        source: 'web' as any,
-        model: 'gpt-5-nano',
-      }),
-    ).toBe(undefined)
+async function seedAgent(adminDb: any) {
+  const userId = randomUUID()
+  const tenantId = randomUUID()
+  const agentId = randomUUID()
+  await adminDb.insert(users).values({
+    id: userId,
+    email: `usage-${userId}@example.com`,
+    name: 'Usage owner'
   })
-
-  it('checkUsageLimit always allows with infinite remaining', async () => {
-    const res = await checkUsageLimit('t1')
-    expect(res.allowed).toBe(true)
-    expect(res.remaining).toBe(Number.POSITIVE_INFINITY)
-    expect(res.limit).toBe(Number.POSITIVE_INFINITY)
-    expect(res.used).toBe(0)
-    expect(res.planId).toBe('free')
+  await adminDb.insert(tenants).values({
+    id: tenantId,
+    name: 'Usage tenant',
+    slug: `usage-${tenantId.slice(0, 8)}`,
+    createdBy: userId,
+    isPersonal: false
   })
-
-  it('logUsage resolves to undefined', async () => {
-    expect(await logUsage({})).toBe(undefined)
+  await adminDb.insert(agents).values({
+    id: agentId,
+    tenantId,
+    userId,
+    name: 'Usage agent',
+    slug: `usage-agent-${agentId.slice(0, 8)}`
   })
+  return { tenantId, agentId }
+}
 
-  it('getUsage reports zero messages against an infinite limit', async () => {
-    expect(await getUsage({})).toEqual({
-      messages: 0,
-      limit: Number.POSITIVE_INFINITY,
+afterEach(() => {
+  delete process.env.MONTHLY_MESSAGE_LIMIT
+})
+
+describe('usage metering (postgres)', () => {
+  it('records messages, tokens, sources, and agent totals', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId } = await seedAgent(adminDb)
+      await recordUsage(
+        {
+          tenantId,
+          agentId,
+          conversationId: null,
+          userId: null,
+          source: 'public_chat',
+          model: 'test-model',
+          inputTokens: 12,
+          outputTokens: 4
+        },
+        adminDb
+      )
+      await recordUsage(
+        {
+          tenantId,
+          agentId,
+          conversationId: null,
+          userId: null,
+          source: 'embed',
+          model: 'test-model',
+          inputTokens: 8,
+          outputTokens: 3
+        },
+        adminDb
+      )
+
+      expect(await getUsage({ tenantId, db: adminDb })).toEqual({
+        messages: 2,
+        limit: Number.POSITIVE_INFINITY
+      })
+      expect(await getUsageRollup({ tenantId, db: adminDb })).toEqual({
+        totalMessages: 2,
+        totalInputTokens: 20,
+        totalOutputTokens: 7,
+        byAgent: { [agentId]: 2 },
+        bySource: { public_chat: 1, embed: 1 }
+      })
     })
   })
 
-  it('checkLimit always allows with infinite remaining', async () => {
-    expect(await checkLimit({})).toEqual({
-      allowed: true,
-      remaining: Number.POSITIVE_INFINITY,
+  it('updates a counter atomically under concurrency', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId } = await seedAgent(adminDb)
+      await Promise.all(
+        Array.from({ length: 10 }, () =>
+          recordUsage(
+            {
+              tenantId,
+              agentId,
+              conversationId: null,
+              userId: null,
+              source: 'chat',
+              model: 'test-model',
+              inputTokens: 1,
+              outputTokens: 1
+            },
+            adminDb
+          )
+        )
+      )
+
+      const rollup = await getUsageRollup({ tenantId, db: adminDb })
+      expect(rollup.totalMessages).toBe(10)
+      expect(rollup.bySource).toEqual({ chat: 10 })
     })
   })
 
-  it('getUsageRollup reports all-zero totals', async () => {
-    expect(await getUsageRollup({})).toEqual({
-      totalMessages: 0,
-      totalInputTokens: 0,
-      totalOutputTokens: 0,
+  it('enforces the optional monthly message limit', async () => {
+    process.env.MONTHLY_MESSAGE_LIMIT = '1'
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId } = await seedAgent(adminDb)
+      expect((await checkUsageLimit(tenantId, adminDb)).allowed).toBe(true)
+
+      await recordUsage(
+        {
+          tenantId,
+          agentId,
+          conversationId: null,
+          userId: null,
+          source: 'chat',
+          model: 'test-model'
+        },
+        adminDb
+      )
+
+      expect(await checkLimit({ tenantId, db: adminDb })).toEqual({
+        allowed: false,
+        remaining: 0
+      })
     })
   })
 })

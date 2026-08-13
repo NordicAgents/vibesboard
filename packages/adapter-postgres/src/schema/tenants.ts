@@ -8,6 +8,7 @@ import {
   primaryKey,
   index,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from './users.ts'
 
 type TenantBrandingJson = {
@@ -29,6 +30,12 @@ export const tenants = pgTable('tenants', {
   isPersonal: boolean('is_personal').notNull().default(false),
   googlePlaceId: text('google_place_id'),
   branding: jsonb('branding').$type<TenantBrandingJson>(),
+  // LLM network access controls — allow local/private endpoints for on-prem models
+  llmAllowPrivateHosts: boolean('llm_allow_private_hosts').notNull().default(false),
+  llmHostAllowlist: text('llm_host_allowlist')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })

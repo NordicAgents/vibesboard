@@ -98,7 +98,7 @@ export function FocusForm({
             </Label>
             <Tooltip>
               <TooltipTrigger asChild>
-                <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
+                <HelpCircle className="size-3.5 cursor-help text-[#9d9790]" />
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-[220px]">
                 Define your agent&apos;s personality, knowledge scope, and
@@ -127,7 +127,7 @@ export function FocusForm({
             </Label>
             <Tooltip>
               <TooltipTrigger asChild>
-                <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
+                <HelpCircle className="size-3.5 cursor-help text-[#9d9790]" />
               </TooltipTrigger>
               <TooltipContent side="right" className="max-w-[220px]">
                 The greeting visitors see when they open a chat. Make it
@@ -156,7 +156,7 @@ export function FocusForm({
               </Label>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle className="size-3.5 text-[#9d9790] cursor-help" />
+                  <HelpCircle className="size-3.5 cursor-help text-[#9d9790]" />
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[220px]">
                   AI-generated clickable suggestions appear after each agent

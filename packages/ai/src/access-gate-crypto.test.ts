@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createHmac } from 'node:crypto'
 
 // Set the required env var before importing the module
 process.env.ACCESS_GATE_SECRET = 'test-secret-for-unit-tests'
@@ -30,12 +31,11 @@ describe('getSecret', () => {
 })
 
 describe('hashPassword', () => {
-  it('produces consistent hex output for same input', () => {
+  it('uses a different stored salt for the same password', () => {
     const hash1 = hashPassword('mypassword')
     const hash2 = hashPassword('mypassword')
-    expect(hash1).toBe(hash2)
-    // HMAC-SHA256 produces 64 hex characters
-    expect(hash1).toMatch(/^[0-9a-f]{64}$/)
+    expect(hash1).not.toBe(hash2)
+    expect(hash1).toMatch(/^v2\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
   })
 
   it('produces different hashes for different inputs', () => {
@@ -79,6 +79,14 @@ describe('verifyPassword', () => {
     const lastChar = hash[hash.length - 1]
     const tampered = hash.slice(0, -1) + (lastChar === '0' ? '1' : '0')
     expect(verifyPassword('mypassword', tampered)).toBe(false)
+  })
+
+  it('verifies legacy unsalted hashes during migration', () => {
+    const legacy = createHmac('sha256', getSecret())
+      .update('legacy-password')
+      .digest('hex')
+    expect(verifyPassword('legacy-password', legacy)).toBe(true)
+    expect(verifyPassword('wrong-password', legacy)).toBe(false)
   })
 })
 

@@ -2,17 +2,23 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { type UseChatHelpers } from 'ai/react'
-
 import { type AgentMode } from '@vibesboard/contracts'
 import { PromptForm } from '@/components/prompt-form'
 import { ChatCompletionBanner } from '@/components/chat-completion'
 import { QuickSuggestions } from '@/components/quick-suggestions'
 
-export interface ChatPanelProps extends Pick<
-  UseChatHelpers,
-  'append' | 'isLoading' | 'reload' | 'messages' | 'stop' | 'input' | 'setInput'
-> {
+type AnyFn = (...args: any[]) => any
+
+export interface ChatPanelProps {
+  append: AnyFn
+  isLoading: boolean
+  reload: AnyFn
+
+  messages: any[]
+  stop: AnyFn
+  input: string
+
+  setInput: (v: any) => void
   isChatComplete?: boolean
   isAgentDisabled?: boolean
   agentMode?: AgentMode

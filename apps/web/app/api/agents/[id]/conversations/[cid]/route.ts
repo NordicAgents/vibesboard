@@ -35,6 +35,17 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
+  // PATCH and DELETE below already gate on canEditAgent; GET did not, so any
+  // signed-in user could read another tenant's visitor transcript by id.
+  const allowed = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+  if (!allowed) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   const conversation = await getConversation(agent.tenantId, agent.id, cid)
   if (!conversation) {
     return new NextResponse('Not found', { status: 404 })

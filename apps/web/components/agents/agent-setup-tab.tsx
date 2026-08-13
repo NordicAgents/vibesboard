@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import type {
   AgentMode,
   CollectionField,
@@ -7,8 +8,15 @@ import type {
 } from '@vibesboard/contracts'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@vibesboard/utils'
 import { CollectionFieldsEditor } from './collection-fields-editor'
@@ -42,6 +50,11 @@ interface AgentSetupTabProps {
   canEdit: boolean
   agentId: string
   hasAccessPassword: boolean
+  llmConfigId?: string | null
+  onLlmConfigIdChange?: (id: string | null) => void
+  tenantId?: string
+  memoryEnabled: boolean
+  onMemoryEnabledChange: (value: boolean) => void
 }
 
 export function AgentSetupTab({
@@ -71,8 +84,26 @@ export function AgentSetupTab({
   saving,
   canEdit,
   agentId,
-  hasAccessPassword
+  hasAccessPassword,
+  llmConfigId,
+  onLlmConfigIdChange,
+  tenantId,
+  memoryEnabled,
+  onMemoryEnabledChange
 }: AgentSetupTabProps) {
+  const [llmConfigs, setLlmConfigs] = useState<
+    Array<{ id: string; label: string; kind: string; modelId: string }>
+  >([])
+
+  useEffect(() => {
+    fetch('/api/tenants/llm-configs')
+      .then(r => (r.ok ? r.json() : { configs: [] }))
+      .then(d =>
+        setLlmConfigs((d.configs ?? []).filter((c: any) => c.isEnabled))
+      )
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="space-y-5 pb-8">
       {/* Agent card */}
@@ -82,7 +113,9 @@ export function AgentSetupTab({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
+            <Label htmlFor="agent-name">Name</Label>
             <Input
+              id="agent-name"
               value={name}
               disabled={saving || !canEdit}
               onChange={e => onNameChange(e.target.value)}
@@ -121,13 +154,43 @@ export function AgentSetupTab({
         </CardContent>
       </Card>
 
+      {/* LLM Provider override */}
+      {llmConfigs.length > 0 && onLlmConfigIdChange && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">LLM Provider</CardTitle>
+            <CardDescription className="text-xs">
+              Override the workspace default for this agent only. Leave as
+              &quot;Workspace default&quot; to follow task routing.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={llmConfigId ?? ''}
+              onChange={e => onLlmConfigIdChange(e.target.value || null)}
+              disabled={saving || !canEdit}
+            >
+              <option value="">— Workspace default (task routing) —</option>
+              {llmConfigs.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.label} ({c.kind} · {c.modelId})
+                </option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Instructions */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Instructions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <Label htmlFor="agent-instructions">Agent instructions</Label>
           <Textarea
+            id="agent-instructions"
             value={instructions}
             onChange={e => onInstructionsChange(e.target.value)}
             rows={6}
@@ -350,6 +413,29 @@ export function AgentSetupTab({
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Memory */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Memory</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Enable agent memory</p>
+              <p className="text-xs text-muted-foreground">
+                Agent learns from past conversations and recalls relevant
+                context for each visitor.
+              </p>
+            </div>
+            <Switch
+              checked={memoryEnabled}
+              onCheckedChange={onMemoryEnabledChange}
+              disabled={!canEdit}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

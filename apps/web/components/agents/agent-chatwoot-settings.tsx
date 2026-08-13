@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Card,
   CardContent,
@@ -94,11 +94,10 @@ export function AgentChatwootSettings({
     useState<ChatwootConnection | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
 
-  useEffect(() => {
-    loadConnections()
-  }, [agentId])
-
-  const loadConnections = async () => {
+  // Declared before the effect that lists it: a dependency array is evaluated
+  // during render, so a `const` defined afterwards would still be in its
+  // temporal dead zone.
+  const loadConnections = useCallback(async () => {
     try {
       setLoading(true)
       const res = await fetch(`/api/agents/${agentId}/chatwoot/connections`)
@@ -110,7 +109,11 @@ export function AgentChatwootSettings({
     } finally {
       setLoading(false)
     }
-  }
+  }, [agentId])
+
+  useEffect(() => {
+    loadConnections()
+  }, [loadConnections])
 
   const resetSetupModal = () => {
     setSetupStep('credentials')

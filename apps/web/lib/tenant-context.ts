@@ -13,6 +13,7 @@ import {
   type TenantDocument,
   type TenantBrandingDocument
 } from '@vibesboard/contracts'
+import { isUuid } from '@vibesboard/utils'
 
 /** Lightweight member summary for display in the tenant switcher */
 export interface MemberSummary {
@@ -61,9 +62,6 @@ function rowToTenantDocument(row: {
   }
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export async function getActiveTenantId(): Promise<string | null> {
   const cookieStore = await cookies()
   const value = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value || null
@@ -71,7 +69,7 @@ export async function getActiveTenantId(): Promise<string | null> {
   // left over from a pre-Postgres session). tenant_id is a uuid column, so a
   // non-uuid value would otherwise throw on every query and 500 every page
   // with no way to recover. Treat it as absent and let callers re-resolve.
-  if (value && !UUID_RE.test(value)) return null
+  if (value && !isUuid(value)) return null
   return value
 }
 
@@ -165,6 +163,7 @@ export async function getManageableTenants(
 export async function getTenantById(
   tenantId: string
 ): Promise<TenantDocument | null> {
+  if (!isUuid(tenantId)) return null
   const rows = await getMigrateDb()
     .select({
       id: tenantsTable.id,

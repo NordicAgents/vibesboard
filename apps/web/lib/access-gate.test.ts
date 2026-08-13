@@ -3,11 +3,7 @@
 // @/lib/access-gate from @vibesboard/ai/access-gate-crypto, which requires
 // ACCESS_GATE_SECRET — set it before importing the module under test.
 //
-// NOTE on the real implementation (verified against source): hashPassword is a
-// deterministic, keyed HMAC-SHA256 over the plaintext, returned as a 64-char
-// hex digest (NOT a randomized salt:hash). verifyPassword recomputes the HMAC
-// and compares in constant time (length check guards timingSafeEqual). These
-// tests assert that genuine behaviour, not an assumed salted format.
+// Password hashes use a versioned random salt plus the process secret.
 process.env.ACCESS_GATE_SECRET ??= 'test-access-gate-secret'
 
 import { describe, it, expect } from 'vitest'
@@ -19,13 +15,13 @@ describe('hashPassword / verifyPassword', () => {
     expect(verifyPassword('hunter2', stored)).toBe(true)
   })
 
-  it('produces a 64-char hex digest', () => {
+  it('produces a versioned salt and digest', () => {
     const stored = hashPassword('hunter2')
-    expect(stored).toMatch(/^[0-9a-f]{64}$/)
+    expect(stored).toMatch(/^v2\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
   })
 
-  it('is deterministic for the same input (keyed HMAC)', () => {
-    expect(hashPassword('hunter2')).toBe(hashPassword('hunter2'))
+  it('does not correlate identical passwords across agents', () => {
+    expect(hashPassword('hunter2')).not.toBe(hashPassword('hunter2'))
   })
 
   it('produces different digests for different passwords', () => {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { streamText as aiStreamText } from 'ai'
+import { streamText as aiStreamText, createTextStreamResponse } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 
 import { requireAuth } from '@/lib/auth/route-handler'
@@ -14,11 +14,16 @@ import { summarizeConversation } from '@vibesboard/ai/summarize'
 import { buildAskAiConversationContext } from '@vibesboard/ai/conversation-rag'
 import {
   OPENAI_CHAT_MODEL,
+  OPENAI_BASE_URL,
   isResponsesModel,
   streamText
 } from '@vibesboard/adapter-openai'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
+import { contextWindowForModel } from '@vibesboard/agents/auto-summarize'
 
 export const runtime = 'nodejs'
 
@@ -30,13 +35,6 @@ export async function POST(
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
   const { user } = authResult
-
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: 'OPENAI_API_KEY is not configured.' },
-      { status: 500 }
-    )
-  }
 
   const agent = await getAgentById(id)
 
@@ -67,7 +65,9 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const payload = agentAskRequestSchema.parse({
+  // A bare .parse() here threw a ZodError straight out of the handler, which
+  // Next surfaces as a 500 — invalid client input is a 400.
+  const parsed = agentAskRequestSchema.safeParse({
     question:
       typeof json?.question === 'string'
         ? (json.question as string)
@@ -75,6 +75,13 @@ export async function POST(
     contextConversationId: json?.contextConversationId as string | undefined,
     sessionId: json?.sessionId as string | undefined
   })
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', issues: parsed.error.issues },
+      { status: 400 }
+    )
+  }
+  const payload = parsed.data
 
   const askConversation = await ensureConversation({
     tenantId: agent.tenantId,
@@ -123,6 +130,11 @@ Conversation snippets:
 ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const model = OPENAI_CHAT_MODEL
+  const tenantSpec = shouldResolveTenantProvider({ tenantId: agent.tenantId })
+    ? await resolveProviderSpec(agent.tenantId, null, undefined, 'chat').catch(
+        () => null
+      )
+    : null
 
   const saveAndRecord = async (
     completion: string,
@@ -132,7 +144,13 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       ...pendingMessages,
       { id: nanoid(), role: 'assistant' as const, content: completion }
     ]
-    const summary = await summarizeConversation(nextMessages)
+    // Summarize only when context reaches 50% — same logic as public chat
+    const promptTokens = tokenUsage?.inputTokens ?? 0
+    const contextWindow = contextWindowForModel(tenantSpec?.modelId ?? '')
+    const summary =
+      promptTokens > 0 && promptTokens / contextWindow >= 0.5
+        ? await summarizeConversation(nextMessages, agent?.tenantId)
+        : null
     await updateConversationMessages({
       tenantId: agent.tenantId,
       agentId: agent.id,
@@ -140,7 +158,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       messages: nextMessages,
       summary
     })
-    recordUsage({
+    await recordUsage({
       tenantId: agent.tenantId,
       agentId: agent.id,
       conversationId: askConversation.id,
@@ -178,11 +196,11 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     })
   }
 
+  // ai@7.x: system messages must go in `system` (not in `messages` array)
   const chatMessages: Array<{
-    role: 'system' | 'user' | 'assistant'
+    role: 'user' | 'assistant'
     content: string
   }> = [
-    { role: 'system', content: systemPrompt },
     ...existingMessages.map(m => ({
       role: m.role as 'user' | 'assistant',
       content: m.content
@@ -190,25 +208,61 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     { role: 'user', content: payload.question }
   ]
 
-  const openaiClient = createOpenAI({
-    apiKey: process.env.OPENAI_API_KEY ?? ''
-  })
+  // `.chat()` — the bare call resolves to createResponsesModel on
+  // @ai-sdk/openai@4, which 404s on gateways that only serve /chat/completions.
+  const languageModel = tenantSpec
+    ? await buildTenantProviderModel(agent.tenantId, tenantSpec)
+    : createOpenAI({
+        apiKey: process.env.OPENAI_API_KEY ?? '',
+        baseURL: OPENAI_BASE_URL
+      }).chat(model)
+  // See packages/ai/src/runtime.ts: when the response is piped from
+  // result.textStream, onFinish's `text` comes back empty — the client gets the
+  // reply while the persisted assistant message is "". Accumulate what is
+  // actually streamed and prefer it.
+  let streamed = ''
+
   const result = await aiStreamText({
-    model: openaiClient(model),
+    model: languageModel,
+    system: systemPrompt,
     messages: chatMessages,
     temperature: 0.2,
     async onFinish({ text, usage }) {
-      await saveAndRecord(text, {
-        inputTokens: usage?.promptTokens,
-        outputTokens: usage?.completionTokens
+      await saveAndRecord(text && text.length > 0 ? text : streamed, {
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens
       })
     }
   })
 
-  return new Response(result.textStream, {
+  // Re-wrap through the AsyncIterable side (not pipeThrough, which would lock
+  // the ReadableStream the SDK subscribes to internally) so we can observe each
+  // chunk while still handing createTextStreamResponse a ReadableStream<string>.
+  const tap = (source: AsyncIterable<string>): ReadableStream<string> => {
+    const iterator = source[Symbol.asyncIterator]()
+    return new ReadableStream<string>({
+      async pull(controller) {
+        const { value, done } = await iterator.next()
+        if (done) {
+          controller.close()
+          return
+        }
+        streamed += value
+        controller.enqueue(value)
+      },
+      cancel() {
+        iterator.return?.()
+      }
+    })
+  }
+
+  // createTextStreamResponse takes AsyncIterable<string> — this interface is not locked
+  // by the SDK's internal subscriptions (unlike ReadableStream which is locked via getReader)
+  return createTextStreamResponse({
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'x-session-id': askConversation.id
-    }
+    },
+    stream: tap(result.textStream)
   })
 }

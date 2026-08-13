@@ -370,6 +370,17 @@
     color: var(--text-tertiary);
   }
 
+  /* Art-directed landing media: the desktop and mobile cuts have different
+     aspect ratios, so reserve the right box per breakpoint and avoid CLS. */
+  .landing-media {
+    aspect-ratio: var(--landing-media-ratio-mobile);
+  }
+  @media (min-width: 768px) {
+    .landing-media {
+      aspect-ratio: var(--landing-media-ratio-desktop);
+    }
+  }
+
   /* Shimmer skeleton loading */
   .skeleton {
     background: linear-gradient(

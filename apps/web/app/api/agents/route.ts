@@ -3,7 +3,7 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 
 import { requireAuth } from '@/lib/auth/route-handler'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
 import {
   agents as agentsTable,
   tenants as tenantsTable
@@ -17,6 +17,8 @@ import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@vibesboard/agents/schema'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
+import { recordAgentVersion } from '@vibesboard/agents/versioning'
+import { toPublicAgentResponse } from '@/lib/public-agent'
 
 export const runtime = 'nodejs'
 
@@ -37,7 +39,7 @@ function toAgentRecord(
     fileKeys: row.fileKeys,
     tools: row.tools,
     allowAnonymous: row.allowAnonymous,
-    accessPassword: row.accessPasswordHash,
+    hasAccessPassword: Boolean(row.accessPasswordHash),
     agentUrl: row.slug,
     greetingText: row.greetingText,
     mode: row.mode,
@@ -109,7 +111,7 @@ export async function GET(req: Request) {
     .limit(limit)
 
   const agents = rows.map(r =>
-    mapAgentDoc(toAgentRecord(r.agent, r.tenantSlug))
+    toPublicAgentResponse(mapAgentDoc(toAgentRecord(r.agent, r.tenantSlug)))
   )
 
   return NextResponse.json({
@@ -129,8 +131,23 @@ export async function POST(req: Request) {
 
   const user = authResult.user
 
-  const body = await req.json()
-  const payload = upsertAgentSchema.parse(body)
+  // Both of these used to throw out of the handler (SyntaxError / ZodError),
+  // which Next reports as a 500 — malformed client input is a 400.
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const parsed = upsertAgentSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', issues: parsed.error.issues },
+      { status: 400 }
+    )
+  }
+  const payload = parsed.data
 
   const tenantId = await getActiveTenant(user.id)
   if (!tenantId) {
@@ -182,11 +199,15 @@ export async function POST(req: Request) {
 
   let inserted: typeof agentsTable.$inferSelect
   try {
-    const rows = await getMigrateDb()
-      .insert(agentsTable)
-      .values(insertValues)
-      .returning()
-    inserted = rows[0]
+    inserted = await getMigrateDb().transaction(async tx => {
+      const rows = await tx.insert(agentsTable).values(insertValues).returning()
+      // v1 snapshot, atomic with the agent insert.
+      await recordAgentVersion(tx as unknown as Db, rows[0].id, {
+        source: 'create',
+        actor: user.id
+      })
+      return rows[0]
+    })
   } catch (error) {
     return NextResponse.json(
       {
@@ -207,5 +228,5 @@ export async function POST(req: Request) {
     })
   }
 
-  return NextResponse.json({ agent })
+  return NextResponse.json({ agent: toPublicAgentResponse(agent) })
 }

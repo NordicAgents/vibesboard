@@ -6,7 +6,8 @@ import {
   Building2,
   Link2,
   BarChart3,
-  ArrowLeft
+  ArrowLeft,
+  BrainCircuit
 } from 'lucide-react'
 import { cn } from '@vibesboard/utils'
 import { SettingsMobileSidebar } from './settings-mobile-sidebar'
@@ -56,15 +57,19 @@ export default async function SettingsLayout({
   const isActivePersonal = Boolean(activeTenant?.isPersonal)
   let teamCollaborationEnabled = true
   let agentLinksEnabled = false
+  let byoLlmEnabled = false
   if (activeTenantId) {
     try {
-      ;[teamCollaborationEnabled, agentLinksEnabled] = await Promise.all([
-        isFeatureEnabled(activeTenantId, 'TEAM_COLLABORATION'),
-        isFeatureEnabled(activeTenantId, 'AGENT_LINKS')
-      ])
+      ;[teamCollaborationEnabled, agentLinksEnabled, byoLlmEnabled] =
+        await Promise.all([
+          isFeatureEnabled(activeTenantId, 'TEAM_COLLABORATION'),
+          isFeatureEnabled(activeTenantId, 'AGENT_LINKS'),
+          isFeatureEnabled(activeTenantId, 'BYO_LLM')
+        ])
     } catch {
       teamCollaborationEnabled = true
       agentLinksEnabled = false
+      byoLlmEnabled = false
     }
   }
 
@@ -102,6 +107,16 @@ export default async function SettingsLayout({
             href: '/settings/tenant/agent-links',
             icon: Link2,
             iconName: 'Link2' as const
+          }
+        ]
+      : []),
+    ...(byoLlmEnabled
+      ? [
+          {
+            title: 'LLM Providers',
+            href: '/settings/tenant/llm-providers',
+            icon: BrainCircuit,
+            iconName: 'BrainCircuit' as const
           }
         ]
       : [])

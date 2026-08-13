@@ -176,7 +176,7 @@ export const upsertAgentSchema = z.object({
   instructions: z.string().min(10).max(20_000),
   fileKeys: z.array(z.string()).default([]),
   tools: z.array(agentToolSchema).default([]),
-  allowAnonymous: z.boolean().default(true),
+  allowAnonymous: z.boolean().default(false),
   greetingText: z.string().nullable().optional(),
   mode: agentModeSchema.default('provider'),
   maxResponses: z.number().int().min(1).max(500).nullable().optional(),
@@ -199,10 +199,15 @@ export const upsertAgentSchema = z.object({
   schedulingConfig: schedulingConfigSchema.optional(),
   dataConfig: dataConfigSchema.optional(),
   calendarAvailabilityConfig: calendarAvailabilityConfigSchema.optional(),
-  bookingConfig: bookingConfigSchema.optional()
+  bookingConfig: bookingConfigSchema.optional(),
+  memoryEnabled: z.boolean().default(false),
+  llmConfigId: z.string().uuid().nullable().optional()
 })
 
-export const patchAgentSchema = upsertAgentSchema.partial()
+export const patchAgentSchema = upsertAgentSchema.partial().extend({
+  // Optional free-text note attached to the version this edit creates.
+  changeNote: z.string().max(500).optional()
+})
 
 export const agentChatMessageSchema = z.object({
   id: z.string().optional(),

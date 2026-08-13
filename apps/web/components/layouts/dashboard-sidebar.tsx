@@ -106,7 +106,7 @@ export function DashboardSidebarItem({
       }}
       data-mobile-menu-close="true"
       className={cn(
-        'rounded-2xl px-3 py-2 text-left font-switzer text-sm transition-colors cursor-pointer',
+        'cursor-pointer rounded-2xl px-3 py-2 text-left font-switzer text-sm transition-colors',
         active
           ? 'bg-black-primary text-purewhite-bg'
           : 'hover:bg-beige-bg/50 text-black-primary dark:text-foreground dark:hover:bg-white/5',

@@ -113,7 +113,12 @@ export function AgentDataSettings({
   }
 
   const handleConnectGoogleSheets = () => {
-    window.location.href = '/api/data/auth/google-sheets'
+    // A full document navigation, not a client-side route change: this API
+    // route answers with a 302 to Google's consent screen, which the Next.js
+    // router cannot follow. An absolute URL keeps the destination unambiguous.
+    window.location.assign(
+      new URL('/api/data/auth/google-sheets', window.location.origin).toString()
+    )
   }
 
   const handleDisconnect = async (connectionId: string) => {
