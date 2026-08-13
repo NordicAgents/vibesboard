@@ -44,9 +44,9 @@ export function IntegrationCard({
     <Card
       className={cn(
         'cursor-pointer transition-all duration-150',
-        isSelected && 'ring-2 ring-primary/30 border-primary/40',
-        isComingSoon && 'opacity-60 cursor-default',
-        !isComingSoon && 'hover:shadow-md hover:-translate-y-0.5'
+        isSelected && 'border-primary/40 ring-2 ring-primary/30',
+        isComingSoon && 'cursor-default opacity-60',
+        !isComingSoon && 'hover:-translate-y-0.5 hover:shadow-md'
       )}
       onClick={() => {
         if (!isComingSoon) onSelect()

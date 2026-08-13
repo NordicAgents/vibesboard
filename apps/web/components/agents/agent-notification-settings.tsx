@@ -175,7 +175,7 @@ export function AgentNotificationSettings({
 
               {/* Email */}
               {subFlags.AGENT_NOTIFICATIONS_EMAIL && (
-                <div className="rounded-lg border p-3 space-y-3">
+                <div className="space-y-3 rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">Email</p>
@@ -214,7 +214,7 @@ export function AgentNotificationSettings({
 
               {/* Webhook */}
               {subFlags.AGENT_NOTIFICATIONS_WEBHOOK && (
-                <div className="rounded-lg border p-3 space-y-3">
+                <div className="space-y-3 rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">Webhook</p>

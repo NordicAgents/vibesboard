@@ -576,9 +576,25 @@ test.describe('Knowledge Base — UI', () => {
     const agentId = await createAgent(request, 'UiList')
     const fileName = `kb-ui-${Date.now()}.txt`
     const fileKey = fileKeyFor(agentId, fileName)
-    // The list renders agents.fileKeys directly, so attaching the key is enough
-    // to drive it — no storage object required.
-    await attachFileKeys(request, agentId, [fileKey])
+    const content = 'Vibesboard knowledge-tab file listing probe.'
+
+    // The files table is authoritative for the UI. Upload and register a real
+    // row instead of populating only the legacy agents.fileKeys mirror.
+    await putObject(request, agentId, fileKey, content)
+    const registerRes = await request.post(`/api/agents/${agentId}/files`, {
+      data: {
+        files: [
+          {
+            fileKey,
+            fileName,
+            fileSize: content.length,
+            mimeType: 'text/plain',
+          },
+        ],
+      },
+      failOnStatusCode: false,
+    })
+    expect(registerRes.status(), await registerRes.text()).toBe(200)
 
     await page.goto(`/agents/${agentId}?tab=knowledge`)
     await expect(page).not.toHaveURL(/sign-in/)

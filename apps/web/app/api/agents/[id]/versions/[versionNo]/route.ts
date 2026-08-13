@@ -18,7 +18,10 @@ export async function GET(
   const { id, versionNo: versionNoRaw } = await params
   const versionNo = Number.parseInt(versionNoRaw, 10)
   if (!Number.isInteger(versionNo) || versionNo < 1) {
-    return NextResponse.json({ error: 'Invalid version number' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid version number' },
+      { status: 400 }
+    )
   }
 
   const authResult = await requireAuth()

@@ -15,11 +15,11 @@ import { NextRequest } from 'next/server'
 const runMemoryObserveMock = vi.fn()
 
 vi.mock('@vibesboard/ai/agent-memory', () => ({
-  runMemoryObserve: (...args: unknown[]) => runMemoryObserveMock(...args),
+  runMemoryObserve: (...args: unknown[]) => runMemoryObserveMock(...args)
 }))
 
 vi.mock('@vibesboard/adapter-postgres/client', () => ({
-  getMigrateDb: () => ({}),
+  getMigrateDb: () => ({})
 }))
 
 const { POST } = await import('./route.ts')
@@ -29,7 +29,7 @@ const { POST } = await import('./route.ts')
 function makeRequest(headers: Record<string, string> = {}): NextRequest {
   return new NextRequest('http://localhost/api/cron/memory-observe', {
     method: 'POST',
-    headers,
+    headers
   })
 }
 

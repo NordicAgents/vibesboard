@@ -289,7 +289,7 @@ describe('createChatwootAgentBot', () => {
     expect(calls[0]!.method).toBe('POST')
     expect(calls[0]!.body).toEqual({
       name: 'Bot',
-      description: 'AI agent powered by VibeAgent',
+      description: 'AI agent powered by Vibesboard',
     })
   })
 

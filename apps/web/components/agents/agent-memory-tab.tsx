@@ -1,7 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'react-hot-toast'
@@ -35,9 +41,12 @@ interface PendingMutation {
 }
 
 const PRESENCE_COLORS: Record<string, string> = {
-  omnipresent: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 ring-purple-500/30 ring-1',
-  pattern: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-blue-500/30 ring-1',
-  'on-demand': 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 ring-zinc-500/30 ring-1',
+  omnipresent:
+    'bg-purple-500/15 text-purple-700 dark:text-purple-300 ring-purple-500/30 ring-1',
+  pattern:
+    'bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-blue-500/30 ring-1',
+  'on-demand':
+    'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 ring-zinc-500/30 ring-1'
 }
 
 interface AgentMemoryTabProps {
@@ -46,7 +55,11 @@ interface AgentMemoryTabProps {
   canEdit: boolean
 }
 
-export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryTabProps) {
+export function AgentMemoryTab({
+  agentId,
+  memoryEnabled,
+  canEdit
+}: AgentMemoryTabProps) {
   const [memories, setMemories] = useState<HybridMemory[]>([])
   const [mutations, setMutations] = useState<PendingMutation[]>([])
   const [loadingMemories, setLoadingMemories] = useState(true)
@@ -58,8 +71,11 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
     try {
       const res = await fetch(`/api/agents/${agentId}/memory`)
       if (res.ok) setMemories((await res.json()).memories ?? [])
-    } catch { /* silent */ }
-    finally { setLoadingMemories(false) }
+    } catch {
+      /* silent */
+    } finally {
+      setLoadingMemories(false)
+    }
   }, [agentId])
 
   const fetchMutations = useCallback(async () => {
@@ -67,8 +83,11 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
     try {
       const res = await fetch(`/api/agents/${agentId}/memory/mutations`)
       if (res.ok) setMutations((await res.json()).mutations ?? [])
-    } catch { /* silent */ }
-    finally { setLoadingMutations(false) }
+    } catch {
+      /* silent */
+    } finally {
+      setLoadingMutations(false)
+    }
   }, [agentId])
 
   useEffect(() => {
@@ -81,17 +100,25 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
     }
   }, [memoryEnabled, fetchMemories, fetchMutations])
 
-  const handleMutation = async (mutationId: string, action: 'approve' | 'reject') => {
+  const handleMutation = async (
+    mutationId: string,
+    action: 'approve' | 'reject'
+  ) => {
     setActing(mutationId)
     try {
-      const res = await fetch(`/api/agents/${agentId}/memory/mutations/${mutationId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      })
+      const res = await fetch(
+        `/api/agents/${agentId}/memory/mutations/${mutationId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        }
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed')
-      toast.success(action === 'approve' ? 'Mutation approved' : 'Mutation rejected')
+      toast.success(
+        action === 'approve' ? 'Mutation approved' : 'Mutation rejected'
+      )
       fetchMutations()
       if (action === 'approve') fetchMemories()
     } catch (err) {
@@ -104,7 +131,7 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
   if (!memoryEnabled) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-        <Brain className="h-10 w-10 text-muted-foreground/40" />
+        <Brain className="size-10 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">
           Memory is disabled for this agent. Enable it in the Setup tab.
         </p>
@@ -121,7 +148,8 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
             <div>
               <CardTitle className="text-base">Pending Mutations</CardTitle>
               <CardDescription className="mt-1">
-                Proposed memory changes extracted from conversations. Review and approve or reject each one.
+                Proposed memory changes extracted from conversations. Review and
+                approve or reject each one.
               </CardDescription>
             </div>
             {mutations.length > 0 && (
@@ -133,36 +161,59 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
           {loadingMutations ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : mutations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No pending mutations.</p>
+            <p className="text-sm text-muted-foreground">
+              No pending mutations.
+            </p>
           ) : (
             <div className="divide-y">
-              {mutations.map((m) => {
+              {mutations.map(m => {
                 const op = m.mutation.operation
-                const content = op === 'add'
-                  ? m.mutation.memory?.content
-                  : op === 'modify'
-                    ? m.mutation.patch?.content
-                    : `Delete memory ${m.mutation.memoryId?.slice(0, 8)}…`
-                const key = op === 'add'
-                  ? m.mutation.memory?.key
-                  : m.mutation.patch?.key ?? m.mutation.memoryId
+                const content =
+                  op === 'add'
+                    ? m.mutation.memory?.content
+                    : op === 'modify'
+                      ? m.mutation.patch?.content
+                      : `Delete memory ${m.mutation.memoryId?.slice(0, 8)}…`
+                const key =
+                  op === 'add'
+                    ? m.mutation.memory?.key
+                    : (m.mutation.patch?.key ?? m.mutation.memoryId)
 
                 return (
-                  <div key={m.id} className="flex items-start justify-between gap-4 py-3">
+                  <div
+                    key={m.id}
+                    className="flex items-start justify-between gap-4 py-3"
+                  >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={op === 'delete' ? 'destructive' : op === 'add' ? 'default' : 'secondary'}
-                          className="text-xs capitalize">{op}</Badge>
-                        {key && <span className="text-xs font-mono text-muted-foreground">{key}</span>}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge
+                          variant={
+                            op === 'delete'
+                              ? 'destructive'
+                              : op === 'add'
+                                ? 'default'
+                                : 'secondary'
+                          }
+                          className="text-xs capitalize"
+                        >
+                          {op}
+                        </Badge>
+                        {key && (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {key}
+                          </span>
+                        )}
                         {m.subScopeId && (
-                          <span className="text-xs text-muted-foreground">visitor: {m.subScopeId.slice(0, 12)}…</span>
+                          <span className="text-xs text-muted-foreground">
+                            visitor: {m.subScopeId.slice(0, 12)}…
+                          </span>
                         )}
                       </div>
                       {content && (
-                        <p className="mt-1 text-sm line-clamp-2">{content}</p>
+                        <p className="mt-1 line-clamp-2 text-sm">{content}</p>
                       )}
                       <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="size-3" />
                         <span>{new Date(m.createdAt).toLocaleString()}</span>
                       </div>
                     </div>
@@ -171,20 +222,20 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 border-green-500/50 text-green-700 dark:text-green-400 hover:bg-green-500/10"
+                          className="h-7 border-green-500/50 text-green-700 hover:bg-green-500/10 dark:text-green-400"
                           disabled={acting === m.id}
                           onClick={() => handleMutation(m.id, 'approve')}
                         >
-                          <Check className="h-3 w-3" />
+                          <Check className="size-3" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 border-red-500/50 text-red-700 dark:text-red-400 hover:bg-red-500/10"
+                          className="h-7 border-red-500/50 text-red-700 hover:bg-red-500/10 dark:text-red-400"
                           disabled={acting === m.id}
                           onClick={() => handleMutation(m.id, 'reject')}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="size-3" />
                         </Button>
                       </div>
                     )}
@@ -220,21 +271,29 @@ export function AgentMemoryTab({ agentId, memoryEnabled, canEdit }: AgentMemoryT
             </p>
           ) : (
             <div className="divide-y">
-              {memories.map((mem) => (
+              {memories.map(mem => (
                 <div key={mem.id} className="py-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-mono text-muted-foreground">{mem.key}</span>
-                    <Badge className={`text-xs ${PRESENCE_COLORS[mem.presenceClass] ?? ''}`}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {mem.key}
+                    </span>
+                    <Badge
+                      className={`text-xs ${PRESENCE_COLORS[mem.presenceClass] ?? ''}`}
+                    >
                       {mem.presenceClass}
                     </Badge>
                     {mem.subScopeId && (
-                      <Badge variant="outline" className="text-xs">visitor</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        visitor
+                      </Badge>
                     )}
                   </div>
                   {mem.description && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{mem.description}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {mem.description}
+                    </p>
                   )}
-                  <p className="mt-1 text-sm line-clamp-3">{mem.content}</p>
+                  <p className="mt-1 line-clamp-3 text-sm">{mem.content}</p>
                 </div>
               ))}
             </div>

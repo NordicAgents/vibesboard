@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1
 
-# Multi-stage build for Next.js (bun) targeting Cloud Run
+# Multi-stage build for Next.js targeting Cloud Run
 # Uses standalone output for smaller images
 
-# Debian (glibc) Bun image — NOT alpine/musl. Bun 1.2.18 segfaults (SIGILL)
-# running Next's build under musl on larger builds; on glibc it's stable, which
-# is exactly the environment ci-build uses. Keep the whole image on glibc so the
-# standalone output and the Node runtime stay libc-consistent.
-FROM oven/bun:1.2.18 AS base
+# Copy the pinned Bun package manager into a real Node 22/glibc build image.
+# The oven/bun image's `node` fallback runs Bun, which is not compatible with
+# Next.js 16's production metadata build. Next must execute under Node.
+FROM oven/bun:1.2.18@sha256:2cdd9c93006af1b433c214016d72a3c60d7aa2c75691cb44dfd5250aa379986b AS bun
+FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS base
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 
@@ -39,9 +40,10 @@ COPY packages/policy/package.json ./packages/policy/
 COPY packages/retrieval/package.json ./packages/retrieval/
 COPY packages/scheduling/package.json ./packages/scheduling/
 COPY packages/tenants/package.json ./packages/tenants/
+COPY packages/test-helpers/package.json ./packages/test-helpers/
 COPY packages/utils/package.json ./packages/utils/
 # Install all deps including dev (needed for build)
-RUN bun install
+RUN bun install --frozen-lockfile
 
 # Build application
 # Start from the deps stage so the installed node_modules + manifests
@@ -59,12 +61,12 @@ ENV NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
     NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
-# Build Next.js (standalone output) with Bun on glibc — matches ci-build.
+# Bun orchestrates the workspace script; the `next` executable uses real Node.
 RUN bun run --filter @vibesboard/web build
 
 # Production runner (standalone — no separate node_modules needed).
 # Debian (glibc) slim to match the glibc build image above.
-FROM node:20-slim AS runner
+FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=8080 \
@@ -72,6 +74,14 @@ ENV NODE_ENV=production \
 WORKDIR /app
 RUN groupadd --gid 1001 nodejs \
     && useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin nextjs
+
+# The standalone server only needs Node. Remove package managers from the
+# runtime image to reduce its attack surface (and avoid shipping npm's bundled
+# dependency tree, which is not used by the application).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /opt/yarn-v1.22.22 \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 # Copy standalone build (includes server + minimal node_modules)
 # Next.js standalone in a monorepo places the server under apps/web/

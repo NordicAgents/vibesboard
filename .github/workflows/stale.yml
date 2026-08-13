@@ -5,15 +5,22 @@ on:
     - cron: "0 9 * * 1"  # Every Monday at 09:00 UTC
   workflow_dispatch:
 
+concurrency:
+  group: stale-maintenance
+  cancel-in-progress: false
+
 permissions:
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   stale:
+    name: Mark inactive issues and pull requests
     runs-on: ubuntu-latest
+    permissions:
+      issues: write # Required to label, comment on, and close stale issues.
+      pull-requests: write # Required to label, comment on, and close stale PRs.
     steps:
-      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
           stale-issue-message: "This issue has been automatically marked as stale due to 30 days of inactivity. It will be closed in 7 days if no further activity occurs."
           stale-pr-message: "This PR has been automatically marked as stale due to 14 days of inactivity. It will be closed in 7 days if no further activity occurs."

@@ -341,10 +341,7 @@ export default function TenantSettingsPage() {
   const googleReviewEnabled =
     features.find(f => f.name === 'GOOGLE_REVIEW')?.isEnabled ?? false
   const googleReviewLocked = isPersonal || !googleReviewEnabled
-  const showGoogleReview = canShowGoogleReview(
-    isPersonal,
-    googleReviewEnabled
-  )
+  const showGoogleReview = canShowGoogleReview(isPersonal, googleReviewEnabled)
 
   // Whether each field is inherited from base
   const isFieldInherited = (field: BrandingField): boolean => {

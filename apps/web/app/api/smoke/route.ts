@@ -1,12 +1,35 @@
 import { NextResponse } from 'next/server'
 import { type Message } from '@vibesboard/contracts'
+import { timingSafeEqual } from 'node:crypto'
 
 import { runAgentStream } from '@vibesboard/ai/runtime'
 import { type VibeAgent } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 
+function isAuthorized(req: Request): boolean {
+  const expected = process.env.SMOKE_TEST_SECRET
+  if (!expected || expected.length < 32) return false
+
+  const authorization = req.headers.get('authorization')
+  if (!authorization?.startsWith('Bearer ')) return false
+  const supplied = authorization.slice('Bearer '.length)
+
+  const expectedBytes = Buffer.from(expected)
+  const suppliedBytes = Buffer.from(supplied)
+  return (
+    expectedBytes.length === suppliedBytes.length &&
+    timingSafeEqual(expectedBytes, suppliedBytes)
+  )
+}
+
 export async function GET(req: Request) {
+  // The endpoint invokes the platform fallback model and therefore must never
+  // be a public health check. A missing/short secret disables it entirely.
+  if (!isAuthorized(req)) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
   const url = new URL(req.url)
   const mode = url.searchParams.get('mode') || 'file'
   // Minimal in-memory agent with built-in tools enabled

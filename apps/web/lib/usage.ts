@@ -6,7 +6,7 @@
 // handlers call this helper directly (e.g. apps/web/app/api/agents/[id]/
 // chat/route.ts:59). Their imports `import { usageLimitResponse } from
 // '@/lib/usage'` resolve to this file unchanged. The pure helpers
-// (checkUsageLimit, recordUsage, etc.) come from policy.
+// (checkUsageLimit, recordUsage, etc.) are Postgres-backed in policy.
 //
 // Deleted in Phase 12 once usageLimitResponse moves into the API route
 // handlers or behind an IUsageRecorder port.

@@ -4,6 +4,7 @@ import { chatCompletion } from '@vibesboard/adapter-openai'
 import { generateText } from 'ai'
 import { resolveProviderSpec } from './tenant-llm-config.ts'
 import { buildTenantProviderModel } from './provider-registry.ts'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
 
 const SUMMARY_SYSTEM_PROMPT =
   'You write <=15 word neutral summaries for chat transcripts. Mention the agent topic if available.'
@@ -25,7 +26,7 @@ export async function summarizeConversation(
 
   try {
     // Prefer tenant BYO-LLM config
-    if (tenantId) {
+    if (tenantId && shouldResolveTenantProvider({ tenantId })) {
       const spec = await resolveProviderSpec(tenantId, null, undefined, 'chat').catch(() => null)
       if (spec) {
         const { text } = await generateText({

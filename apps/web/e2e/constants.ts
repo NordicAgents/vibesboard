@@ -2,6 +2,7 @@
 export const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3100)
 export const BASE_URL = `http://localhost:${APP_PORT}`
 export const MOCK_OPENAI_PORT = Number(process.env.MOCK_OPENAI_PORT ?? 4010)
+export const SMOKE_TEST_SECRET = 'e2e-smoke-test-secret-0123456789'
 
 // Deterministic E2E account, created in global-setup via the sign-up endpoint
 // (which also auto-provisions a personal tenant via the on-user-create hook).

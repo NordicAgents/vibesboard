@@ -60,11 +60,12 @@ export default async function SettingsLayout({
   let byoLlmEnabled = false
   if (activeTenantId) {
     try {
-      ;[teamCollaborationEnabled, agentLinksEnabled, byoLlmEnabled] = await Promise.all([
-        isFeatureEnabled(activeTenantId, 'TEAM_COLLABORATION'),
-        isFeatureEnabled(activeTenantId, 'AGENT_LINKS'),
-        isFeatureEnabled(activeTenantId, 'BYO_LLM')
-      ])
+      ;[teamCollaborationEnabled, agentLinksEnabled, byoLlmEnabled] =
+        await Promise.all([
+          isFeatureEnabled(activeTenantId, 'TEAM_COLLABORATION'),
+          isFeatureEnabled(activeTenantId, 'AGENT_LINKS'),
+          isFeatureEnabled(activeTenantId, 'BYO_LLM')
+        ])
     } catch {
       teamCollaborationEnabled = true
       agentLinksEnabled = false

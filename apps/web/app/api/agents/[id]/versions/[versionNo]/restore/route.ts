@@ -23,7 +23,10 @@ export async function POST(
   const { id, versionNo: versionNoRaw } = await params
   const versionNo = Number.parseInt(versionNoRaw, 10)
   if (!Number.isInteger(versionNo) || versionNo < 1) {
-    return NextResponse.json({ error: 'Invalid version number' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid version number' },
+      { status: 400 }
+    )
   }
 
   const authResult = await requireAuth()
@@ -67,7 +70,9 @@ export async function POST(
     const known = new Set(knownFiles.map(f => f.fileKey))
 
     const keysToCheck = reAdded.filter(key => !known.has(key))
-    const existsResults = await Promise.all(keysToCheck.map(key => fileExists(key)))
+    const existsResults = await Promise.all(
+      keysToCheck.map(key => fileExists(key))
+    )
     const toProcess: string[] = []
     keysToCheck.forEach((key, i) => {
       if (existsResults[i]) {

@@ -651,10 +651,9 @@ test.describe('Tenant — Usage Stats', () => {
     await expect(page.getByText('Could not determine active tenant')).toHaveCount(0)
     await expect(page.getByText('Failed to load usage data')).toHaveCount(0)
 
-    // The route returns an empty (but truthful) shape today — the page must
-    // render that rather than blowing up.
+    // A workspace with no traffic still gets a real zero-valued monthly rollup.
     await expect(
-      page.getByText('Usage metering is not yet active for this workspace.'),
+      page.getByText(/0 messages tracked this month\./),
     ).toBeVisible()
     await expect(page.getByText('No usage data yet.').first()).toBeVisible()
   })
@@ -669,12 +668,22 @@ test.describe('Tenant — Usage Stats', () => {
 
     const now = new Date()
     const expectedCycle = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    expect(await res.json()).toEqual({
-      subscription: null,
-      rollup: null,
-      dailyUsage: [],
+    const body = await res.json()
+    expect(body.subscription).toBeNull()
+    expect(body.dailyUsage).toEqual([])
+    expect(body.billingCycleId).toBe(expectedCycle)
+    expect(body.rollup).toMatchObject({
+      tenantId: teamTenantId,
       billingCycleId: expectedCycle,
+      totalMessages: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      byAgent: {},
+      bySource: {},
+      byModel: {},
+      byUser: {},
     })
+    expect(new Date(body.rollup.updatedAt).toString()).not.toBe('Invalid Date')
   })
 })
 

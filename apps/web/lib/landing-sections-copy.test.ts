@@ -48,11 +48,9 @@ describe('landing capabilities copy', () => {
 })
 
 describe('landing copy against what the build actually ships', () => {
-  // packages/policy/src/usage.ts is a self-host shim: recordUsage() is a no-op
-  // and checkUsageLimit() always returns allowed with infinite remaining. Until
-  // that is implemented, advertising per-workspace limits promises a spend
-  // guarantee the shipped build does not enforce.
-  it('does not advertise usage metering while the policy shim is a no-op', () => {
+  // Postgres records monthly usage and an operator can set a soft workspace
+  // cap, but the self-hosted build intentionally has no paid plan ceiling.
+  it('does not imply that self-hosting has a paid plan ceiling', () => {
     const copy = [
       ...LANDING_WHY_ITEMS.map(item => `${item.need} ${item.answer}`),
       ...LANDING_CAPABILITIES.map(c => `${c.title} ${c.body}`),
@@ -62,8 +60,8 @@ describe('landing copy against what the build actually ships', () => {
       ])
     ].join(' ')
 
-    expect(copy).not.toMatch(/usage metering/i)
     expect(copy).not.toMatch(/usage (and )?limits/i)
+    expect(copy).toMatch(/no usage ceiling/i)
   })
 })
 

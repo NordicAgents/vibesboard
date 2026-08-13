@@ -22,6 +22,7 @@ import { canEditAgent } from '@vibesboard/agents/permissions'
 import { checkUsageLimit, recordUsage, usageLimitResponse } from '@/lib/usage'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 import { contextWindowForModel } from '@vibesboard/agents/auto-summarize'
 
 export const runtime = 'nodejs'
@@ -129,7 +130,11 @@ Conversation snippets:
 ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const model = OPENAI_CHAT_MODEL
-  const tenantSpec = await resolveProviderSpec(agent.tenantId, null, undefined, 'chat').catch(() => null)
+  const tenantSpec = shouldResolveTenantProvider({ tenantId: agent.tenantId })
+    ? await resolveProviderSpec(agent.tenantId, null, undefined, 'chat').catch(
+        () => null
+      )
+    : null
 
   const saveAndRecord = async (
     completion: string,
@@ -142,9 +147,10 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     // Summarize only when context reaches 50% — same logic as public chat
     const promptTokens = tokenUsage?.inputTokens ?? 0
     const contextWindow = contextWindowForModel(tenantSpec?.modelId ?? '')
-    const summary = promptTokens > 0 && promptTokens / contextWindow >= 0.5
-      ? await summarizeConversation(nextMessages, agent?.tenantId)
-      : null
+    const summary =
+      promptTokens > 0 && promptTokens / contextWindow >= 0.5
+        ? await summarizeConversation(nextMessages, agent?.tenantId)
+        : null
     await updateConversationMessages({
       tenantId: agent.tenantId,
       agentId: agent.id,
@@ -152,7 +158,7 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
       messages: nextMessages,
       summary
     })
-    recordUsage({
+    await recordUsage({
       tenantId: agent.tenantId,
       agentId: agent.id,
       conversationId: askConversation.id,
@@ -204,7 +210,10 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
 
   const languageModel = tenantSpec
     ? await buildTenantProviderModel(agent.tenantId, tenantSpec)
-    : createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? '', baseURL: OPENAI_BASE_URL })(model)
+    : createOpenAI({
+        apiKey: process.env.OPENAI_API_KEY ?? '',
+        baseURL: OPENAI_BASE_URL
+      })(model)
   // See packages/ai/src/runtime.ts: when the response is piped from
   // result.textStream, onFinish's `text` comes back empty — the client gets the
   // reply while the persisted assistant message is "". Accumulate what is
@@ -248,7 +257,10 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
   // createTextStreamResponse takes AsyncIterable<string> — this interface is not locked
   // by the SDK's internal subscriptions (unlike ReadableStream which is locked via getReader)
   return createTextStreamResponse({
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'x-session-id': askConversation.id },
-    stream: tap(result.textStream),
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'x-session-id': askConversation.id
+    },
+    stream: tap(result.textStream)
   })
 }

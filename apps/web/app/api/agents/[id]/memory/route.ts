@@ -14,17 +14,23 @@ export const dynamic = 'force-dynamic'
 // GET /api/agents/[id]/memory — list stored memories for this agent (admin view)
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth()
   if (!authResult.ok) return authResult.response
 
   const { id } = await params
   const agent = await getAgentById(id)
-  if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
+  if (!agent)
+    return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
 
-  const canEdit = await canEditAgent({ sessionUserId: authResult.user.id, agentOwnerId: agent.userId, tenantId: agent.tenantId })
-  if (!canEdit) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const canEdit = await canEditAgent({
+    sessionUserId: authResult.user.id,
+    agentOwnerId: agent.userId,
+    tenantId: agent.tenantId
+  })
+  if (!canEdit)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   if (!agent.memoryEnabled) return NextResponse.json({ memories: [] })
 

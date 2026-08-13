@@ -9,7 +9,7 @@
 
   var agentId = script.getAttribute('data-agent-id')
   if (!agentId) {
-    console.warn('VibeAgent: missing data-agent-id attribute')
+    console.warn('Vibesboard: missing data-agent-id attribute')
     return
   }
 

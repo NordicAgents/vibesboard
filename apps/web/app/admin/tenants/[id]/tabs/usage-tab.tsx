@@ -65,15 +65,15 @@ function UserAgentBreakdown({
   agentNames: Record<string, string>
 }) {
   return (
-    <div className="border-l-2 border-muted pl-4 py-2">
+    <div className="border-l-2 border-muted py-2 pl-4">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-muted-foreground text-xs">
-            <th className="text-left py-1 font-medium">Agent</th>
-            <th className="text-right py-1 font-medium">Messages</th>
-            <th className="text-right py-1 font-medium">Input Tokens</th>
-            <th className="text-right py-1 font-medium">Output Tokens</th>
-            <th className="text-right py-1 font-medium">Total Tokens</th>
+          <tr className="text-xs text-muted-foreground">
+            <th className="py-1 text-left font-medium">Agent</th>
+            <th className="py-1 text-right font-medium">Messages</th>
+            <th className="py-1 text-right font-medium">Input Tokens</th>
+            <th className="py-1 text-right font-medium">Output Tokens</th>
+            <th className="py-1 text-right font-medium">Total Tokens</th>
           </tr>
         </thead>
         <tbody>
@@ -89,16 +89,16 @@ function UserAgentBreakdown({
                 <td className="py-1.5">
                   {agentNames[agentId] || agentId.slice(0, 8)}
                 </td>
-                <td className="text-right py-1.5">
+                <td className="py-1.5 text-right">
                   {usage.messages.toLocaleString()}
                 </td>
-                <td className="text-right py-1.5">
+                <td className="py-1.5 text-right">
                   {usage.inputTokens.toLocaleString()}
                 </td>
-                <td className="text-right py-1.5">
+                <td className="py-1.5 text-right">
                   {usage.outputTokens.toLocaleString()}
                 </td>
-                <td className="text-right py-1.5">
+                <td className="py-1.5 text-right">
                   {(usage.inputTokens + usage.outputTokens).toLocaleString()}
                 </td>
               </tr>
@@ -209,7 +209,7 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
           <span
             className={
               row.id === '_anonymous' || row.id.startsWith('ext:')
-                ? 'text-muted-foreground italic'
+                ? 'italic text-muted-foreground'
                 : ''
             }
           >
@@ -359,7 +359,7 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
                     {userUsageRows.map(row => (
                       <React.Fragment key={row.id}>
                         <tr
-                          className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                          className="cursor-pointer border-b transition-colors hover:bg-muted/50"
                           onClick={() => toggleUser(row.id)}
                         >
                           {userColumns.map(col => (
@@ -378,7 +378,7 @@ export function TenantUsageTab({ tenantId }: TenantUsageTabProps) {
                             <tr>
                               <td
                                 colSpan={userColumns.length}
-                                className="px-4 py-2 bg-muted/25"
+                                className="bg-muted/25 px-4 py-2"
                               >
                                 <UserAgentBreakdown
                                   byAgent={row.byAgent}

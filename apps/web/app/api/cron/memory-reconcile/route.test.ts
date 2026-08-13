@@ -11,11 +11,11 @@ import { NextRequest } from 'next/server'
 const runMemoryReconcileMock = vi.fn()
 
 vi.mock('@vibesboard/ai/agent-memory', () => ({
-  runMemoryReconcile: (...args: unknown[]) => runMemoryReconcileMock(...args),
+  runMemoryReconcile: (...args: unknown[]) => runMemoryReconcileMock(...args)
 }))
 
 vi.mock('@vibesboard/adapter-postgres/client', () => ({
-  getMigrateDb: () => ({}),
+  getMigrateDb: () => ({})
 }))
 
 const { POST } = await import('./route.ts')
@@ -25,7 +25,7 @@ const { POST } = await import('./route.ts')
 function makeRequest(headers: Record<string, string> = {}): NextRequest {
   return new NextRequest('http://localhost/api/cron/memory-reconcile', {
     method: 'POST',
-    headers,
+    headers
   })
 }
 

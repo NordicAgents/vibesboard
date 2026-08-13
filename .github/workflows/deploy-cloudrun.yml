@@ -18,25 +18,29 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   migrate:
+    name: Migrate database
     # Applies Drizzle migrations to the target env's Postgres VM over an IAP TCP
     # tunnel before the service deploys. Runs for both staging (dev) and prod (main).
     if: github.ref_name == 'dev' || github.ref_name == 'main'
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     permissions:
       contents: read
-      id-token: write
+      id-token: write # Required for keyless GCP Workload Identity authentication.
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.2.18
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
       - run: bun install --frozen-lockfile
       - name: Authenticate to GCP
         uses: ./.github/actions/gcp-auth
@@ -63,14 +67,25 @@ jobs:
         run: bun run db:migrate
 
   deploy:
+    name: Build and deploy
     needs: [migrate]
-    # migrate is skipped on main (prod) — still allow prod to deploy.
-    if: always() && (needs.migrate.result == 'success' || needs.migrate.result == 'skipped')
+    # Never interpret an arbitrary workflow-dispatch branch as staging.
+    if: >-
+      always() &&
+      (github.ref_name == 'dev' || github.ref_name == 'main') &&
+      needs.migrate.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for keyless GCP Workload Identity authentication.
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
       PREFIX: ${{ github.ref_name == 'main' && 'PROD' || 'STAGING' }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set environment
         env:
@@ -100,10 +115,10 @@ jobs:
         run: gcloud auth configure-docker us-docker.pkg.dev --quiet
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
@@ -117,7 +132,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@251330ba9a8a34bfbc1622895f42e1d53fd14522 # v2.7.6
+        uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3
         with:
           service: ${{ env.CLOUD_RUN_SERVICE }}
           region: ${{ vars.CLOUD_RUN_REGION }}
@@ -130,29 +145,85 @@ jobs:
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
             NOTIFICATION_EMAIL_FROM=${{ vars.NOTIFICATION_EMAIL_FROM }}
+            MONTHLY_MESSAGE_LIMIT=${{ vars.MONTHLY_MESSAGE_LIMIT }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_REGION=us-east-1' || '' }}
             S3_BUCKET=${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || (github.ref_name == 'dev' && vars.STAGING_S3_BUCKET) || '' }}
             ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_FORCE_PATH_STYLE=false' || '' }}
             ${{ github.ref_name == 'main' && format('BETTER_AUTH_URL={0}', secrets.PROD_NEXT_PUBLIC_APP_URL) || (github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL)) || '' }}
           secrets: |
-            OPENAI_API_KEY=openai-api-key:latest
-            WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest
-            VERIFY_TOKEN=whatsapp-verify-token:latest
-            ENCRYPTION_KEY=encryption-key:latest
-            CRON_SECRET=cron-secret:latest
-            META_APP_SECRET=meta-app-secret:latest
-            WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest
-            INSTAGRAM_INBOX_VERIFY_TOKEN=instagram-inbox-verify-token:latest
-            RESEND_API_KEY=resend-api-key:latest
-            GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest
-            GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest
-            GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
-            AUTH_GOOGLE_ID=${{ github.ref_name == 'main' && 'google-oauth-client-id-prod:latest' || 'google-oauth-client-id:latest' }}
-            AUTH_GOOGLE_SECRET=${{ github.ref_name == 'main' && 'google-oauth-client-secret-prod:latest' || 'google-oauth-client-secret:latest' }}
-            ACCESS_GATE_SECRET=access-gate-secret:latest
+            OPENAI_API_KEY=${{ github.ref_name == 'main' && 'openai-api-key-prod:latest' || 'openai-api-key-staging:latest' }}
+            ENCRYPTION_KEY=${{ github.ref_name == 'main' && 'encryption-key-prod:latest' || 'encryption-key-staging:latest' }}
+            RATE_LIMIT_SALT=${{ github.ref_name == 'main' && 'rate-limit-salt-prod:latest' || 'rate-limit-salt-staging:latest' }}
+            CRON_SECRET=${{ github.ref_name == 'main' && 'cron-secret-prod:latest' || 'cron-secret-staging:latest' }}
+            WHATSAPP_INBOX_VERIFY_TOKEN=${{ github.ref_name == 'main' && 'whatsapp-inbox-verify-token-prod:latest' || 'whatsapp-inbox-verify-token-staging:latest' }}
+            INSTAGRAM_INBOX_VERIFY_TOKEN=${{ github.ref_name == 'main' && 'instagram-inbox-verify-token-prod:latest' || 'instagram-inbox-verify-token-staging:latest' }}
+            META_APP_SECRET=${{ github.ref_name == 'main' && 'meta-app-secret-prod:latest' || 'meta-app-secret-staging:latest' }}
+            RESEND_API_KEY=${{ github.ref_name == 'main' && 'resend-api-key-prod:latest' || 'resend-api-key-staging:latest' }}
+            GOOGLE_CALENDAR_CLIENT_ID=${{ github.ref_name == 'main' && 'google-calendar-client-id-prod:latest' || 'google-calendar-client-id-staging:latest' }}
+            GOOGLE_CALENDAR_CLIENT_SECRET=${{ github.ref_name == 'main' && 'google-calendar-client-secret-prod:latest' || 'google-calendar-client-secret-staging:latest' }}
+            GOOGLE_OAUTH_CLIENT_ID=${{ github.ref_name == 'main' && 'google-oauth-client-id-prod:latest' || 'google-oauth-client-id-staging:latest' }}
+            AUTH_GOOGLE_ID=${{ github.ref_name == 'main' && 'auth-google-id-prod:latest' || 'auth-google-id-staging:latest' }}
+            AUTH_GOOGLE_SECRET=${{ github.ref_name == 'main' && 'auth-google-secret-prod:latest' || 'auth-google-secret-staging:latest' }}
+            ACCESS_GATE_SECRET=${{ github.ref_name == 'main' && 'access-gate-secret-prod:latest' || 'access-gate-secret-staging:latest' }}
             DATABASE_URL=${{ github.ref_name == 'main' && 'database-url-prod:latest' || (github.ref_name == 'dev' && 'database-url-staging:latest') || '' }}
             DATABASE_MIGRATE_URL=${{ github.ref_name == 'main' && 'database-migrate-url-prod:latest' || (github.ref_name == 'dev' && 'database-migrate-url-staging:latest') || '' }}
             BETTER_AUTH_SECRET=${{ github.ref_name == 'main' && 'better-auth-secret-prod:latest' || (github.ref_name == 'dev' && 'better-auth-secret-staging:latest') || '' }}
             S3_ACCESS_KEY_ID=${{ github.ref_name == 'main' && 's3-access-key-id-prod:latest' || (github.ref_name == 'dev' && 's3-access-key-id-staging:latest') || '' }}
             S3_SECRET_ACCESS_KEY=${{ github.ref_name == 'main' && 's3-secret-access-key-prod:latest' || (github.ref_name == 'dev' && 's3-secret-access-key-staging:latest') || '' }}
+
+  lighthouse:
+    name: Audit staging deployment
+    needs: [deploy]
+    if: github.ref_name == 'dev' && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    permissions:
+      contents: write # Required to post the Lighthouse result as a commit comment.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # v12.6.2
+        with:
+          urls: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL }}
+          runs: 3
+          configPath: .github/lighthouse/lighthouserc.json
+
+      - name: Format results
+        if: always()
+        id: results
+        run: |
+          if [ -f ".lighthouseci/lhr-0.json" ]; then
+            PERF=$(jq '.categories.performance.score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            A11Y=$(jq '.categories.accessibility.score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            BP=$(jq '.categories["best-practices"].score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            SEO=$(jq '.categories.seo.score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            echo "PERF=$PERF" >> "$GITHUB_OUTPUT"
+            echo "A11Y=$A11Y" >> "$GITHUB_OUTPUT"
+            echo "BP=$BP" >> "$GITHUB_OUTPUT"
+            echo "SEO=$SEO" >> "$GITHUB_OUTPUT"
+            echo "summary=Performance: $PERF | Accessibility: $A11Y | Best Practices: $BP | SEO: $SEO" >> "$GITHUB_OUTPUT"
+            if [ "$PERF" -lt 50 ]; then
+              echo "::error::Performance score $PERF is below threshold of 50"
+              exit 1
+            fi
+          fi
+
+      - name: Post commit comment
+        if: always() && steps.results.outputs.summary
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          LIGHTHOUSE_SUMMARY: ${{ steps.results.outputs.summary }}
+        with:
+          script: |
+            const summary = process.env.LIGHTHOUSE_SUMMARY;
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `### Lighthouse Audit Results\n\n${summary}\n\n[View full report](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            });

@@ -36,36 +36,54 @@ import {
   reserveAgentResponseSlot
 } from '@vibesboard/agents/limits'
 import { OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
+import {
+  consumeRateLimit,
+  getRateLimitSalt,
+  getTrustedClientAddress,
+  type RateLimitResult
+} from '@vibesboard/policy/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-/**
- * Bump the active agent's lifetime response counter (fire-and-forget).
- * Near the cap, reserve a slot atomically (conditional UPDATE) to avoid
- * serving over the limit under concurrency; otherwise a plain atomic increment.
+function positiveIntegerEnv(name: string, fallback: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? '', 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function rateLimitResponse(result: RateLimitResult) {
+  const retryAfter = Math.max(
+    1,
+    Math.ceil((result.resetAt.getTime() - Date.now()) / 1_000)
+  )
+  return NextResponse.json(
+    {
+      error: 'rate_limit_reached',
+      message: 'Too many requests. Please try again shortly.'
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(retryAfter),
+        'X-RateLimit-Limit': String(result.limit),
+        'X-RateLimit-Remaining': String(result.remaining),
+        'Cache-Control': 'no-store'
+      }
+    }
+  )
+}
+
+/** Increment uncapped agents after a response completes. Capped agents reserve
+ * their slot synchronously before inference so concurrent requests cannot race.
  */
-function bumpActiveAgentResponseCount(activeAgent: {
+function incrementUncappedAgentResponseCount(activeAgent: {
   id: string
   tenantId?: string | null
-  totalResponseCount?: number | null
-  maxAgentResponses?: number | null
 }): void {
   const tenantId = activeAgent.tenantId!
   const onError = (e: unknown) =>
     console.error('[chat] Failed to increment response count:', e)
-  const nearCap =
-    activeAgent.maxAgentResponses &&
-    (activeAgent.totalResponseCount ?? 0) + 5 >= activeAgent.maxAgentResponses
-  if (nearCap) {
-    reserveAgentResponseSlot(
-      tenantId,
-      activeAgent.id,
-      activeAgent.maxAgentResponses!
-    ).catch(onError)
-  } else {
-    incrementAgentResponseCount(tenantId, activeAgent.id).catch(onError)
-  }
+  incrementAgentResponseCount(tenantId, activeAgent.id).catch(onError)
 }
 
 export async function POST(
@@ -91,7 +109,7 @@ export async function POST(
 
     // Check agent-level response limit
     if (
-      agent.maxAgentResponses &&
+      agent.maxAgentResponses != null &&
       (agent.totalResponseCount ?? 0) >= agent.maxAgentResponses
     ) {
       return NextResponse.json(
@@ -118,6 +136,45 @@ export async function POST(
       ...message,
       id: message.id ?? nanoid()
     })) as Message[]
+
+    const rateLimitSalt = getRateLimitSalt()
+    const rateLimitWindowMs = positiveIntegerEnv(
+      'PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS',
+      60_000
+    )
+    const clientAddress = getTrustedClientAddress(req.headers)
+    const rateLimitChecks = [
+      consumeRateLimit({
+        scope: `public-chat-session:${agent.id}`,
+        identifier: externalId,
+        salt: rateLimitSalt,
+        limit: positiveIntegerEnv('PUBLIC_CHAT_SESSION_RATE_LIMIT', 12),
+        windowMs: rateLimitWindowMs
+      }),
+      consumeRateLimit({
+        scope: 'public-chat-agent',
+        identifier: agent.id,
+        salt: rateLimitSalt,
+        limit: positiveIntegerEnv('PUBLIC_CHAT_AGENT_RATE_LIMIT', 300),
+        windowMs: rateLimitWindowMs
+      })
+    ]
+    if (clientAddress) {
+      rateLimitChecks.push(
+        consumeRateLimit({
+          scope: `public-chat-address:${agent.id}`,
+          identifier: clientAddress,
+          salt: rateLimitSalt,
+          limit: positiveIntegerEnv('PUBLIC_CHAT_ADDRESS_RATE_LIMIT', 30),
+          windowMs: rateLimitWindowMs
+        })
+      )
+    }
+
+    const rejectedRateLimit = (await Promise.all(rateLimitChecks)).find(
+      result => !result.allowed
+    )
+    if (rejectedRateLimit) return rateLimitResponse(rejectedRateLimit)
 
     const conversation = await ensureConversation({
       tenantId,
@@ -215,13 +272,31 @@ export async function POST(
     // Check active agent's lifetime limit
     if (
       activeAgent.id !== agent.id &&
-      activeAgent.maxAgentResponses &&
+      activeAgent.maxAgentResponses != null &&
       (activeAgent.totalResponseCount ?? 0) >= activeAgent.maxAgentResponses
     ) {
       return NextResponse.json(
         { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
         { status: 403 }
       )
+    }
+
+    const hasLifetimeResponseCap = activeAgent.maxAgentResponses != null
+    if (hasLifetimeResponseCap) {
+      const slotReserved = await reserveAgentResponseSlot(
+        tenantId,
+        activeAgent.id,
+        activeAgent.maxAgentResponses!
+      )
+      if (!slotReserved) {
+        return NextResponse.json(
+          {
+            error: 'Agent response limit reached',
+            code: 'AGENT_LIMIT_REACHED'
+          },
+          { status: 403 }
+        )
+      }
     }
 
     // Resolve handoff target names for the active agent's system prompt
@@ -235,17 +310,26 @@ export async function POST(
     // Memory recall — inject context if this agent has memory enabled (never throws)
     let memoryContext = ''
     if (activeAgent.memoryEnabled) {
-      const lastUserMsg = normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
+      const lastUserMsg =
+        normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
       memoryContext = await recallMemory(getMigrateDb(), lastUserMsg, {
         conversationId: conversation.id,
         scopeId: activeAgent.id,
-        subScopeId: externalId,
+        subScopeId: externalId
       })
     }
 
     const systemPrefixes = [
-      handoffContext ? { id: nanoid(), role: 'system' as const, content: handoffContext } : null,
-      memoryContext ? { id: nanoid(), role: 'system' as const, content: `## Relevant Memory\n${memoryContext}` } : null,
+      handoffContext
+        ? { id: nanoid(), role: 'system' as const, content: handoffContext }
+        : null,
+      memoryContext
+        ? {
+            id: nanoid(),
+            role: 'system' as const,
+            content: `## Relevant Memory\n${memoryContext}`
+          }
+        : null
     ].filter(Boolean) as Array<{ id: string; role: 'system'; content: string }>
 
     const agentMessages = systemPrefixes.length
@@ -287,9 +371,16 @@ export async function POST(
 
         // Memory ingest — fire-and-forget, never throws or blocks
         if (activeAgent.memoryEnabled) {
-          const memCtx = { conversationId: conversation.id, scopeId: activeAgent.id, subScopeId: externalId }
-          const lastUser = normalizedMessages.filter(m => m.role === 'user').at(-1)
-          if (lastUser) ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
+          const memCtx = {
+            conversationId: conversation.id,
+            scopeId: activeAgent.id,
+            subScopeId: externalId
+          }
+          const lastUser = normalizedMessages
+            .filter(m => m.role === 'user')
+            .at(-1)
+          if (lastUser)
+            ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
           // Use visitor subScopeId for assistant responses too — prevents GROUP BY producing
           // a null-subScopeId ref that causes listMessagesByConversation to leak visitor
           // content into org-scoped observations during Stage 1 processing
@@ -304,7 +395,12 @@ export async function POST(
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
           responseCounts: conversation.responseCounts,
-          tokenUsage: usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined,
+          tokenUsage: usage
+            ? {
+                promptTokens: usage.promptTokens,
+                completionTokens: usage.completionTokens
+              }
+            : undefined
         }).catch(err =>
           console.error('[public-chat] Auto-summarize failed:', err)
         )
@@ -338,11 +434,14 @@ export async function POST(
           }
         }
 
-        // Increment active agent's lifetime response counter (fire-and-forget).
-        bumpActiveAgentResponseCount(activeAgent)
+        // Capped agents reserved their slot before inference. Uncapped agents
+        // are counted after completion because there is no limit to race.
+        if (!hasLifetimeResponseCap) {
+          incrementUncappedAgentResponseCount(activeAgent)
+        }
 
         // Record usage for metering (fire-and-forget)
-        recordUsage({
+        await recordUsage({
           tenantId,
           agentId: activeAgent.id,
           conversationId: conversation.id,

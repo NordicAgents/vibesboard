@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -79,21 +79,22 @@ export function AgentBuilderFormPreview({
   className,
   onClose
 }: AgentBuilderFormPreviewProps) {
-  const [animatedFields, setAnimatedFields] = useState<Set<string>>(new Set())
-
-  // Animate fields when they get populated by AI
-  useEffect(() => {
-    const newFields = new Set<string>()
-    if (formData.name) newFields.add('name')
-    if (formData.instructions) newFields.add('instructions')
-    if (formData.greetingText) newFields.add('greetingText')
-    if (formData.tools?.length) newFields.add('tools')
-    if (formData.mode) newFields.add('mode')
-    if (formData.quickSuggestionsMode) newFields.add('quickSuggestions')
-    if (formData.sourceUrls?.length) newFields.add('sourceUrls')
-    if (formData.bookingConfig) newFields.add('bookingConfig')
-
-    setAnimatedFields(newFields)
+  // Animate fields when they get populated by AI.
+  // Purely a function of `formData`, so it is computed during render rather
+  // than pushed into state from an effect — the effect version rendered every
+  // form keystroke twice, once with the stale highlight set and once with the
+  // fresh one.
+  const animatedFields = useMemo(() => {
+    const fields = new Set<string>()
+    if (formData.name) fields.add('name')
+    if (formData.instructions) fields.add('instructions')
+    if (formData.greetingText) fields.add('greetingText')
+    if (formData.tools?.length) fields.add('tools')
+    if (formData.mode) fields.add('mode')
+    if (formData.quickSuggestionsMode) fields.add('quickSuggestions')
+    if (formData.sourceUrls?.length) fields.add('sourceUrls')
+    if (formData.bookingConfig) fields.add('bookingConfig')
+    return fields
   }, [formData])
 
   const isValid =

@@ -134,7 +134,9 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [llmConfigId, setLlmConfigId] = useState<string | null>(
     agent.llmConfigId ?? null
   )
-  const [memoryEnabled, setMemoryEnabled] = useState(agent.memoryEnabled ?? false)
+  const [memoryEnabled, setMemoryEnabled] = useState(
+    agent.memoryEnabled ?? false
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -194,7 +196,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       calendarAvailabilityConfig,
       bookingConfig,
       llmConfigId,
-      memoryEnabled,
+      memoryEnabled
     }
 
     try {
@@ -293,7 +295,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       calendarAvailabilityConfig,
       bookingConfig,
       llmConfigId,
-      memoryEnabled,
+      memoryEnabled
     },
     setters: {
       setName,
@@ -316,7 +318,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       setCalendarAvailabilityConfig,
       setBookingConfig,
       setLlmConfigId,
-      setMemoryEnabled,
+      setMemoryEnabled
     },
     hasChanges,
     saving,

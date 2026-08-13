@@ -4,48 +4,81 @@ import { eq } from 'drizzle-orm'
 import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { listLlmConfigs, createLlmConfig } from '@vibesboard/ai/tenant-llm-config'
+import {
+  listLlmConfigs,
+  createLlmConfig
+} from '@vibesboard/ai/tenant-llm-config'
 import { validateProviderBaseUrl } from '@vibesboard/ai/provider-ssrf-guard'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { tenants } from '@vibesboard/adapter-postgres/schema'
 
 export const runtime = 'nodejs'
 
-const createSchema = z.object({
-  label: z.string().min(1).max(100),
-  kind: z.enum(['openai', 'anthropic', 'openai_compatible', 'google', 'nvidia']),
-  modelId: z.string().min(1),
-  apiKey: z.string().min(1),
-  baseUrl: z.string().url().optional(),
-  isDefault: z.boolean().optional(),
-}).superRefine((v, ctx) => {
-  if (v.kind === 'openai_compatible' && !v.baseUrl) {
-    ctx.addIssue({ code: 'custom', path: ['baseUrl'], message: 'baseUrl is required for openai_compatible providers' })
-  }
-})
+const createSchema = z
+  .object({
+    label: z.string().min(1).max(100),
+    kind: z.enum([
+      'openai',
+      'anthropic',
+      'openai_compatible',
+      'google',
+      'nvidia'
+    ]),
+    modelId: z.string().min(1),
+    apiKey: z.string().min(1),
+    baseUrl: z.string().url().optional(),
+    isDefault: z.boolean().optional()
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'openai_compatible' && !v.baseUrl) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['baseUrl'],
+        message: 'baseUrl is required for openai_compatible providers'
+      })
+    }
+  })
 
 async function guardAdminAndFlag(userId: string) {
   const tenantId = await getActiveTenant(userId)
-  if (!tenantId) return { ok: false as const, response: NextResponse.json({ error: 'No active tenant' }, { status: 400 }) }
+  if (!tenantId)
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { error: 'No active tenant' },
+        { status: 400 }
+      )
+    }
 
   const adminResult = await requireTenantAdmin(tenantId)
-  if (!adminResult.ok) return { ok: false as const, response: adminResult.response }
+  if (!adminResult.ok)
+    return { ok: false as const, response: adminResult.response }
 
   const enabled = await isFeatureEnabled(tenantId, 'BYO_LLM')
-  if (!enabled) return { ok: false as const, response: NextResponse.json({ error: 'BYO_LLM is not enabled for this workspace' }, { status: 403 }) }
+  if (!enabled)
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { error: 'BYO_LLM is not enabled for this workspace' },
+        { status: 403 }
+      )
+    }
 
   return { ok: true as const, tenantId }
 }
 
 async function loadNetworkSettings(tenantId: string) {
   const [row] = await getMigrateDb()
-    .select({ llmAllowPrivateHosts: tenants.llmAllowPrivateHosts, llmHostAllowlist: tenants.llmHostAllowlist })
+    .select({
+      llmAllowPrivateHosts: tenants.llmAllowPrivateHosts,
+      llmHostAllowlist: tenants.llmHostAllowlist
+    })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
     .limit(1)
   return {
     allowPrivateHosts: row?.llmAllowPrivateHosts ?? false,
-    hostAllowlist: (row?.llmHostAllowlist ?? []) as string[],
+    hostAllowlist: (row?.llmHostAllowlist ?? []) as string[]
   }
 }
 
@@ -78,7 +111,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input', issues: parsed.error.issues }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid input', issues: parsed.error.issues },
+      { status: 400 }
+    )
   }
 
   // SSRF check — respect per-tenant network access settings

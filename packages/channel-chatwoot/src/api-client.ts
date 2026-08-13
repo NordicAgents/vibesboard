@@ -238,7 +238,7 @@ export async function createChatwootAgentBot(
       method: 'POST',
       body: JSON.stringify({
         name: options.name,
-        description: options.description ?? `AI agent powered by VibeAgent`
+        description: options.description ?? `AI agent powered by Vibesboard`
       })
     }
   )
