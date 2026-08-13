@@ -1,0 +1,141 @@
+---
+title: 'Create your first agent'
+description: 'Build, preview, and publish an agent with the AI-assisted builder.'
+---
+
+# Create your first agent
+
+The AI-assisted builder at `/agents/create-chat` is the normal way to create an agent:
+describe what you want in a chat panel while a live preview on the right fills in as
+you talk, then create the agent when it looks right. You can also skip the chat
+entirely and type straight into the preview form. Either way, nothing is saved to
+your workspace until you explicitly create the agent.
+
+<Callout type="note" title="Sign-in and a workspace are required">
+  Both `/agents/new` (which just redirects to `/agents/create-chat`) and
+  `/agents/create-chat` require a signed-in session — an unauthenticated visitor
+  is redirected to sign in first. Creation also needs an active workspace
+  (tenant); see [core concepts](/docs/get-started/core-concepts) if you haven't
+  created one yet.
+</Callout>
+
+## Build with the assistant
+
+<Steps>
+<Step title="Start from a prompt, a URL, or files">
+On the empty builder screen, either pick a starter prompt ("Customer support agent
+for my business", "Lead collection bot that captures visitor info", "FAQ assistant
+that answers from my documents", "Feedback collection bot for visitor reviews"),
+type your own description, paste a website URL, or attach files from the message
+composer.
+
+Pasting a URL fetches the page server-side and adds its title, description, and
+extracted text to the assistant's context automatically, so you don't need to
+summarize the site yourself. Attaching files accepts up to 5 files, 5 MB each, of
+type `.pdf .txt .doc .docx .md .json .csv .png .jpg .jpeg .gif .webp .xlsx .xls` —
+each is uploaded to object storage immediately, and its key is passed to the
+assistant.
+
+</Step>
+
+<Step title="Answer the follow-up question">
+The assistant asks one or two clarifying questions based on what you gave it — what
+the agent should focus on for a URL, what kind of questions the files should answer,
+or what tone it should use for a plain description.
+</Step>
+<Step title="Review the proposed draft">
+The assistant replies with a suggested name, instructions, and greeting, and streams
+an update that fills in the live preview panel on the right in real time — you don't
+have to copy anything over by hand. It also proposes tools and, when your uploaded
+files are large or numerous, switches the retrieval strategy to RAG instead of
+loading files directly into context.
+</Step>
+<Step title="Edit anything directly">
+Every field in the preview panel is editable on its own — name, instructions,
+greeting, tool toggles, source URLs, retrieval strategy, mode, response limits, quick
+suggestions, and the anonymous-access switch. You can keep chatting to have the
+assistant refine things, adjust fields by hand, or mix both.
+</Step>
+<Step title="Create the agent">
+Two ways to trigger creation:
+
+- Say so explicitly in the chat — phrases like "create it", "make the agent", or "go
+  ahead and create" work; the assistant is instructed not to create on vague
+  agreement like "sounds good" or "looks good" alone, so it will ask you to confirm
+  first.
+- Click **Create Agent** in the preview panel once the required fields are filled: a
+  name (2+ characters), instructions (10+ characters), and a greeting message.
+
+Either path inserts the agent into your workspace and, if you attached files,
+kicks off background processing to index them for retrieval.
+
+</Step>
+<Step title="Share or configure">
+On success you land on a confirmation screen with two shortcuts: **Share Link**
+(`/agents/:id?tab=share`) and **Configure** (`/agents/:id?tab=setup`). You can also
+just start chatting with the new agent directly from its page.
+</Step>
+</Steps>
+
+## What the live preview controls
+
+| Field                                 | What it does                                                                                                                                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name                                  | 2–120 characters.                                                                                                                                                                                               |
+| Instructions                          | System prompt / behavior — 10+ characters required.                                                                                                                                                             |
+| Greeting Message                      | First message visitors see when they open a chat.                                                                                                                                                               |
+| Tools                                 | Built-in tools the agent can call: **Web Fetch**, **File Search**, **Bash** (shell commands over a sandboxed view of the agent's uploaded files).                                                               |
+| Source URLs                           | Up to 5 URLs whose fetched content is kept as context; add or remove them here.                                                                                                                                 |
+| File Retrieval Strategy               | `Direct` (load whole files into context), `RAG` (vector search on demand), or `Bash` (query structured files — CSV/JSON/YAML — via shell commands). See [knowledge base & RAG](/docs/build/knowledge-base-rag). |
+| Agent Mode                            | `Info Provider` (answers questions) or `Info Collector` (walks a structured field list).                                                                                                                        |
+| Max responses per session / per agent | Optional caps on AI replies; blank means unlimited.                                                                                                                                                             |
+| Quick suggestions                     | `Off`, `Smart`, or `Always`, plus how many suggestion chips (1–5) to show.                                                                                                                                      |
+| Allow anonymous chat                  | Whether visitors can chat without signing in.                                                                                                                                                                   |
+
+<Callout type="warning" title="Anonymous chat is on by default">
+  The builder pre-checks **Allow anonymous chat**, so a freshly created agent is
+  reachable by anyone with its link, no sign-in required. Turn it off in the
+  preview (or later in the agent's Configure tab) if the agent should stay
+  private, and see [public links and access
+  gates](/docs/deploy/public-links-and-access-gates) for password- and
+  invite-gated alternatives.
+</Callout>
+
+## Booking managers
+
+If you describe an owner-facing booking assistant for rooms, cabins, villas, or
+similar rentals, the assistant can draft a booking configuration alongside the rest
+of the form. That draft starts with no resources mapped — after creating the agent
+you still need to open its Actions tab, add each room's calendar as a bookable
+resource, and turn on booking before it can actually manage reservations.
+
+## Model used to build
+
+The builder chat runs on your workspace's configured LLM provider when one is set for
+the `agent_creator` task (see
+[bring your own LLM](/docs/platform/bring-your-own-llm)), and falls back to the
+platform's `OPENAI_API_KEY` otherwise. If neither is available, the builder returns
+an error asking you to add a provider in **Settings → LLM Providers**.
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/build/knowledge-base-rag" title="Knowledge base & RAG">
+    Upload more files and tune how the agent retrieves them.
+  </Card>
+  <Card href="/docs/deploy/web-widget" title="Web widget">
+    Embed the agent on your site as a chat widget.
+  </Card>
+  <Card
+    href="/docs/deploy/public-links-and-access-gates"
+    title="Public links and access gates"
+  >
+    Control who can reach a shared agent link.
+  </Card>
+  <Card
+    href="/docs/build/agent-versioning-and-rollback"
+    title="Agent versioning and rollback"
+  >
+    See how configuration changes are tracked over time.
+  </Card>
+</Cards>

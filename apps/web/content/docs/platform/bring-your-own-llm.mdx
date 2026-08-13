@@ -1,0 +1,155 @@
+---
+title: 'Bring your own LLM'
+description: 'Connect any provider and route models per agent or task.'
+---
+
+# Bring your own LLM
+
+Each workspace can connect its own LLM provider and API key. Agents in that workspace then run on the tenant's credentials instead of the platform default model, and — for supported providers — embeddings for RAG (file indexing and search) route through the same credentials. Without a tenant config, everything falls back to the platform default (`OPENAI_MODEL` / `OPENAI_API_KEY`).
+
+BYO-LLM is gated by the `BYO_LLM` feature flag, which is **on by default**. A workspace admin can disable it per tenant from the workspace's Features tab; when disabled, the LLM Providers nav item is hidden and every `/api/tenants/llm-configs*` route returns `403`.
+
+## Supported providers
+
+| Kind                | Chat | Embeddings                                                | Notes                                                                                                                                               |
+| ------------------- | ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openai`            | Yes  | Yes — `text-embedding-3-small` (pinned)                   | Standard OpenAI API                                                                                                                                 |
+| `anthropic`         | Yes  | No — platform fallback                                    | Anthropic has no embeddings API                                                                                                                     |
+| `google`            | Yes  | Yes — `text-embedding-004`, falls back to `embedding-001` | Not every API key has embedding access; falls back to the platform key if neither model works                                                       |
+| `nvidia`            | Yes  | No — platform fallback                                    | NVIDIA API Catalog chat models; hosted base URL (`https://integrate.api.nvidia.com/v1`) is supplied automatically unless overridden                 |
+| `openai_compatible` | Yes  | Yes, if the endpoint serves `/embeddings`                 | Groq, Mistral, Together AI, Ollama, LM Studio, and embedding NIM endpoints — anything that speaks the OpenAI chat/completions and embeddings shapes |
+
+For `openai_compatible` configs, the embedding call uses the config's own `modelId` (so Ollama's `nomic-embed-text` or an NVIDIA NIM's `nvidia/`-prefixed model works as-is); for a tenant's real `openai` provider, the embedding call is pinned to `text-embedding-3-small` regardless of the chat `modelId`. A tenant's Google config tries `text-embedding-004` then falls back to `embedding-001`, in that order, and falls back further to the platform's OpenAI key if neither works for the tenant's key.
+
+<Callout type="note">
+  `anthropic` and `nvidia` configs have no usable embeddings API. Chat still
+  runs on the tenant's key; embeddings for those workspaces silently fall back
+  to the platform's OpenAI key.
+</Callout>
+
+## Configuring a provider
+
+<Steps>
+<Step title="Open LLM Providers settings">
+
+Go to **Settings → LLM Providers** (`/settings/tenant/llm-providers`). A fresh workspace shows an empty state and agents run on the platform default until a config is added.
+
+</Step>
+<Step title="Add a provider">
+
+Click **Add Provider** and fill in:
+
+| Field          | Description                                                                                                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Label          | Friendly name shown in the UI                                                                                                                                                                                               |
+| Provider       | `OpenAI`, `Anthropic`, `Google Gemini`, `NVIDIA`, or `OpenAI-Compatible`                                                                                                                                                    |
+| Model          | A model ID for the selected provider, or a custom ID for unlisted models                                                                                                                                                    |
+| API Key        | Stored encrypted at rest; never returned by the API                                                                                                                                                                         |
+| Base URL       | `openai_compatible` only — the provider's endpoint, e.g. `https://api.groq.com/openai/v1`. Private/internal addresses are rejected unless the workspace opts in (see [Network access](#network-access-and-ssrf-protection)) |
+| Set as default | When checked, all agents in this workspace use this config unless they have an explicit override                                                                                                                            |
+
+</Step>
+<Step title="Test the connection">
+
+Click **Test** on a saved config. This runs a 5-token `generateText` call against the resolved model and returns a sanitized result: `{ ok: true }` on success, or `{ ok: false, error }` with one of three generic messages (`Authentication failed — check your API key`, `Model or endpoint not found — check model ID and base URL`, or `Connection failed — check your provider settings`). Raw provider error bodies are never returned to the client — they're logged server-side only. Test a config before marking it default or assigning it to a task.
+
+</Step>
+<Step title="Edit or rotate a config">
+
+Edit label, provider, or model at any time. Leave the API key field blank to keep the existing stored key, or supply a new one to rotate it.
+
+</Step>
+<Step title="Set a default">
+
+Only one config per workspace can be default. Setting a new default automatically clears the previous one; agents with no explicit override use it.
+
+</Step>
+<Step title="Enable or disable">
+
+Disabling a config pauses it without deleting it — it's skipped during resolution, and requests fall through to the next available config or the platform default.
+
+</Step>
+</Steps>
+
+## Per-agent and per-task routing
+
+Two independent overrides sit above the workspace default:
+
+- **Per-agent override** — each agent has an optional provider selector (the `llmConfigId` field, set from the agent's Setup tab). When set, that agent uses the selected config ahead of any task or workspace default. Useful for routing a low-cost model to high-volume triage and a premium model to a complex agent.
+- **Task routing** — the Task Routing table assigns an enabled config to a specific task (`chat`, `embed`, `agent_creator`) or to the `*` wildcard. An exact task assignment wins over the wildcard.
+
+### Resolution order
+
+`resolveProviderSpec(tenantId, llmConfigId, task)` resolves in this order:
+
+1. Per-agent `llmConfigId`, if the agent has one and it's enabled
+2. Exact task assignment (e.g. a config assigned to `chat`)
+3. Wildcard (`*`) task assignment
+4. The workspace's default config (`isDefault: true`), if enabled
+5. No match → caller falls back to the platform model (`OPENAI_MODEL`)
+
+A disabled config is never selected. If the per-agent override or the resolved task assignment points at a disabled config, resolution falls straight through to the enabled workspace default — it does not then check the remaining steps in between (e.g. a disabled exact-task assignment does not fall back to a wildcard assignment) — rather than erroring; if the default is also disabled or unset, there's no match and the caller falls back to the platform model.
+
+<Callout type="warning" title="A previewToken bypass exists in the API">
+  `shouldResolveTenantProvider` skips tenant routing and always uses the
+  platform API key whenever a request carries a `previewToken` — this is
+  accepted by the agent-instructions helper and the Agent Builder chat
+  endpoints. In normal use the Agent Builder chat (`/agents/create-chat`) does
+  use the tenant's configured provider, resolved against the `agent_creator`
+  task, and falls back to the platform key only if the workspace has no config.
+  E2E determinism is a separate mechanism — it forces the platform mock via the
+  `E2E_FORCE_PLATFORM_LLM` environment variable (effective outside
+  `NODE_ENV=production` only), not via `previewToken`.
+</Callout>
+
+## Re-embedding after a provider switch
+
+Switching a workspace's default (or a task-routed) provider changes the embedding model, and file embeddings already indexed under the old model live in a different vector space — they won't compare meaningfully against the new model's query embeddings. Re-index affected files from the Knowledge tab after a provider change; that flow is not otherwise auto-triggered by a config change.
+
+## Network access and SSRF protection
+
+`openai_compatible` configs accept a tenant-supplied `baseUrl`. It's validated in two places:
+
+- At save time — `POST`/`PATCH /api/tenants/llm-configs` reject the request before writing the row.
+- At call time — `buildProviderModel` re-validates immediately before constructing the model client, so a URL that passed the save-time check but was later re-pointed (e.g. via DNS) is still blocked.
+
+By default, non-HTTP(S) schemes and private/loopback/link-local hosts are rejected: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` (carrier-grade NAT), `169.254.0.0/16` (link-local, including the cloud metadata endpoint), `127.0.0.0/8` / `localhost`, and their IPv6 equivalents (`::1`, `fe80::/10`, unique-local `fc00::/7`).
+
+A workspace admin can opt out of this for legitimate on-premise setups via `PATCH /api/tenants/llm-configs/network`:
+
+| Field                  | Effect                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------- |
+| `llmAllowPrivateHosts` | `true` permits any private/loopback/link-local host for this tenant's `openai_compatible` configs |
+| `llmHostAllowlist`     | Up to 20 specific hostnames that bypass the private-IP check regardless of `llmAllowPrivateHosts` |
+
+<Callout type="danger" title="Scope the allowlist narrowly">
+  `llmAllowPrivateHosts: true` opens outbound requests to any private address
+  the workspace's provider config points at, including the cloud metadata
+  endpoint if it isn't otherwise firewalled off. Prefer `llmHostAllowlist` with
+  the specific Ollama/on-prem hostname over the blanket flag where possible.
+</Callout>
+
+## Secret storage
+
+API keys are never stored in plaintext. `createLlmConfig`/`updateLlmConfig` encrypt the key via the `CredStore` interface (`seal` / `unseal` / `revoke`) before writing `api_key_encrypted` on `tenant_llm_configs`; the default implementation, `EncryptedDbCredStore`, is AES encryption (CryptoJS) keyed by the `ENCRYPTION_KEY` environment variable. The key is decrypted in-process only at inference time. Swapping the `credStore` export in `packages/ai/src/cred-store/index.ts` is the integration point for an external secrets backend — no other code changes required.
+
+`GET /api/tenants/llm-configs` and `GET /api/tenants/llm-configs/[id]` never include `apiKeyEncrypted` in their response.
+
+See [security and credentials](/docs/platform/security-and-credentials) for how this fits the platform's broader credential-handling model.
+
+## Related
+
+<Cards>
+  <Card href="/docs/build/knowledge-base-rag" title="Knowledge base & RAG">
+    How file embeddings are generated and searched
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security and credentials"
+  >
+    Platform-wide secret storage and encryption model
+  </Card>
+  <Card href="/docs/integrate/mcp-servers" title="MCP servers">
+    Connecting external tools to an agent
+  </Card>
+</Cards>

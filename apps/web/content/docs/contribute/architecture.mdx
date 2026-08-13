@@ -1,0 +1,155 @@
+---
+title: 'Architecture'
+description: 'How the monorepo, packages, and runtime fit together.'
+---
+
+# Architecture
+
+Vibesboard is a Bun monorepo: one Next.js application (`apps/web`) and 22
+workspace packages under `packages/*`. The workspace globs are `apps/web` and
+`packages/*`, declared in the root `package.json`. This page is the map —
+where things live, how the two database connections split, and how a chat
+request gets routed to a model provider. For the code-level pointers behind
+each claim, read the package itself; most ship their own `README.md`.
+
+## Repository layout
+
+```text
+apps/
+  web/                   Next.js UI, server components, and API routes
+packages/
+  adapter-better-auth/   Better Auth wiring, sessions, and password tooling
+  adapter-google/        Google OAuth and API clients
+  adapter-openai/        OpenAI and OpenAI-compatible client adapter
+  adapter-postgres/      Drizzle schema, migrations, seeds, and RLS roles
+  adapter-s3/            S3-compatible object storage
+  agents/                Agent persistence, hooks, notifications, and versioning
+  ai/                    Runtime, provider routing, tools, RAG, and memory integration
+  booking-enquiries/     Booking enquiry capture, ICS generation, and notifications
+  channel-chatwoot/      Chatwoot synchronisation
+  channel-instagram/     Instagram inbox channel
+  channel-whatsapp/      WhatsApp inbox channel
+  contracts/             Shared domain types and ports
+  data/                  Google Sheets, webhook connections, and data actions
+  hybrid-memory/         Long-term agent memory engine
+  inbox/                 Unified inbox services
+  integrations/          Integration registry and helpers
+  policy/                Plans, feature flags, permissions, and usage metering
+  retrieval/             Retrieval strategies
+  scheduling/            Calendar OAuth, availability, and booking
+  tenants/               Workspace and membership services
+  test-helpers/          Shared integration-test infrastructure
+  utils/                 Shared utilities
+```
+
+`apps/web` is where request handling, rendering, and route wiring live. Most
+domain logic — persistence, provider calls, business rules — lives in the
+packages and is imported into `apps/web`'s API routes and server components
+rather than written inline there. `apps/web/app/api/` holds the route
+handlers (agents, auth, hooks, webhooks, scheduling, data, admin, and more);
+`apps/web/app/[tenantSlug]/` is the tenant-scoped route group for the
+in-workspace UI.
+
+<Callout type="note">
+  Package names above are read from the actual `packages/` directory listing,
+  not from a design doc — if you're adding or renaming a package, update this
+  table alongside it.
+</Callout>
+
+## Database connections and tenant isolation
+
+The Next.js app opens two separate PostgreSQL connections, and the
+distinction is load-bearing for multi-tenant safety:
+
+| Connection             | Role                               | Purpose                                                             |
+| ---------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| `DATABASE_URL`         | `vibesboard_app`                   | Normal request path. Row-level security applies.                    |
+| `DATABASE_MIGRATE_URL` | `vibesboard_migrate` (`BYPASSRLS`) | Migrations, identity operations, and trusted background/admin work. |
+
+Tenant-scoped work must run through `withTenant`/`withDb` so the correct
+PostgreSQL session context is set. Tenant-owned tables fail closed without
+that context — a query issued outside `withTenant` returns no rows rather
+than leaking across workspaces.
+
+Keep `DATABASE_MIGRATE_URL` out of normal request code; it bypasses tenant
+RLS by design. See [multi-tenancy and RLS](/docs/platform/multi-tenancy-and-rls)
+for the full mechanism, and `packages/adapter-postgres/README.md` for the
+schema, migration workflow, and role setup.
+
+## Model provider routing
+
+Workspaces bring their own LLM credentials, encrypted at rest. `packages/ai`
+owns this: `tenant-llm-config.ts` resolves which provider config applies,
+`provider-routing.ts` gates whether a request may use tenant routing at all,
+`provider-registry.ts` (backed by `provider-ssrf-guard.ts`) turns the
+resolved config into a callable model, and `runtime.ts` drives the actual
+completion. At request time the resolver checks, in order:
+
+1. an agent-level provider override;
+2. a task assignment (`chat`, `embed`, `agent_creator`);
+3. the wildcard task assignment;
+4. the workspace default;
+5. the platform OpenAI configuration (`OPENAI_API_KEY` / `OPENAI_MODEL`).
+
+Supported provider kinds are `openai`, `anthropic`, `google`, `nvidia`, and
+`openai_compatible`. Custom provider URLs pass SSRF validation at save time
+and again before runtime use. Full detail lives in
+[bring your own LLM](/docs/platform/bring-your-own-llm).
+
+## What lives in `packages/ai`
+
+Beyond provider routing, `packages/ai/src` is the home for most of the agent
+runtime's cross-cutting logic: `context-builder.ts` and `prompts.ts` assemble
+what goes to the model, `rag-retriever.ts`/`rag-store.ts`/`conversation-rag.ts`
+implement retrieval, `agent-memory.ts` bridges to the `hybrid-memory` package,
+`file-processor.ts`/`file-search.ts`/`files-store.ts` handle knowledge-base
+files, `handoff.ts` implements agent-to-agent handoff, `cred-store/` wraps
+encrypted credential access (see below), and `tools/` and `actions/` hold the
+tool-calling surface an agent can invoke mid-conversation.
+
+## Storage
+
+Uploads and knowledge-base files go to S3-compatible object storage — MinIO
+locally, and AWS S3, Cloudflare R2, GCS, or a compatible service in
+production. See `packages/adapter-s3/README.md` and
+[Docker Compose](/docs/self-host/docker-compose) for the local setup.
+
+## Secrets and credentials
+
+Tenant provider API keys, OAuth tokens, and channel credentials are never
+stored in plaintext. They're encrypted before being written to the database
+and decrypted in-process at use time via the `CredStore` interface
+(`seal` / `unseal` / `revoke`) in `packages/ai/src/cred-store/`. Read APIs
+omit the encrypted column entirely rather than returning it masked. Details
+in [security and credentials](/docs/platform/security-and-credentials).
+
+## How channels and integrations attach
+
+Channel packages (`channel-whatsapp`, `channel-instagram`, `channel-chatwoot`)
+and integration packages (`scheduling` for Google Calendar, `data` for Google
+Sheets and webhooks, `booking-enquiries`, `inbox`, `integrations`) sit
+alongside `agents` and `ai` rather than inside them — each owns its own
+external-API client, OAuth flow where relevant, and persistence, and is wired
+into `apps/web`'s API routes and background jobs independently. `contracts`
+holds the shared domain types and ports that let these packages depend on
+interfaces rather than on each other directly, and `policy` centralizes
+plans, feature flags, permissions, and usage metering that other packages
+check against.
+
+## Where to go next
+
+- [Multi-tenancy and RLS](/docs/platform/multi-tenancy-and-rls) — the
+  row-level security model in full.
+- [Bring your own LLM](/docs/platform/bring-your-own-llm) — provider
+  resolution, embeddings routing, and the admin-facing config flow.
+- [Security and credentials](/docs/platform/security-and-credentials) — how
+  secrets, SSRF protection, and access gates fit together.
+
+<Cards>
+  <Card href="/docs/contribute/testing" title="Testing">
+    How the test suites are organized and how to run them.
+  </Card>
+  <Card href="/docs/contribute/contributing" title="Contributing">
+    Branching, commit conventions, and the PR/CI workflow.
+  </Card>
+</Cards>

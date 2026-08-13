@@ -1,0 +1,222 @@
+---
+title: 'Docker Compose'
+description: 'Run the full stack yourself with Postgres and MinIO.'
+---
+
+# Docker Compose
+
+Vibesboard ships [`docker-compose.dev.yml`](https://github.com/NordicAgents/vibesboard/blob/main/docker-compose.dev.yml)
+for local infrastructure: PostgreSQL with `pgvector`, an Adminer UI, MinIO for
+S3-compatible object storage, and a one-shot bucket initializer. The Next.js
+app itself runs outside Compose, via `bun run dev` or `bun run start`. This
+page covers what each service does, the `db:*` scripts that wrap Compose, and
+how to swap in your own Postgres or S3-compatible storage instead.
+
+If you just want the app running, see the
+[quickstart](/docs/get-started/quickstart). This page is the deeper reference.
+
+## Services
+
+`docker-compose.dev.yml` defines four services:
+
+| Service      | Image                    | Purpose                                                                                        |
+| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `postgres`   | `pgvector/pgvector:pg16` | PostgreSQL 16 with the `pgvector` extension pre-installed, for embedding storage and retrieval |
+| `adminer`    | `adminer:4`              | Web-based database browser                                                                     |
+| `minio`      | `minio/minio:latest`     | S3-compatible object storage for uploads and knowledge-base files                              |
+| `minio-init` | `minio/mc:latest`        | Runs once against a healthy `minio`, then exits                                                |
+
+All images are pinned by digest in the compose file, not by floating tag.
+
+### postgres
+
+On first start, `postgres` runs
+[`packages/adapter-postgres/docker/init.sql`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/docker/init.sql)
+via the standard `docker-entrypoint-initdb.d` mechanism. That script:
+
+- creates the `vector` and `pg_trgm` extensions;
+- creates two roles: `vibesboard_migrate` (`BYPASSRLS`, granted `CREATE` on
+  the database and full privileges on the `public` schema) and
+  `vibesboard_app` (the application connection, subject to row-level
+  security, granted `USAGE` on the schema);
+- sets default privileges so tables and sequences `vibesboard_migrate`
+  creates are automatically readable/writable by `vibesboard_app`.
+
+This is the same role split `DATABASE_URL` and `DATABASE_MIGRATE_URL` point
+at — see [Multi-tenancy and RLS](/docs/platform/multi-tenancy-and-rls) for why
+the two connections are kept separate. `init.sql` only runs against an empty
+data volume; it does nothing on a container restart against existing data.
+
+Data persists in the named volume `vibesboard_pg`. Deleting that volume (for
+example via `bun run db:reset`, or `docker compose down -v`) destroys all
+local data and reruns `init.sql` from scratch on the next start.
+
+### adminer
+
+A generic web UI for browsing the database at
+[http://localhost:8888](http://localhost:8888). It waits on `postgres`'s
+healthcheck before starting. Log in with the `vibesboard_app` or
+`vibesboard_migrate` credentials from your `.env` and host `postgres`,
+database `vibesboard_dev`.
+
+### minio + minio-init
+
+`minio` serves the S3 API on port `9000` and its web console on `9001`. It has
+no buckets by default. `minio-init` depends on `minio`'s healthcheck, then
+runs three `mc` commands against it: sets an alias, creates the
+`vibesboard-files` bucket (idempotently — `mc mb -p ... || true`), and sets
+the bucket's anonymous-access policy to `none`. `minio-init` is not a
+long-running service; it exits once those commands finish.
+
+If uploads fail with a bucket-not-found error, `minio-init` likely didn't
+finish before something else needed the bucket — rerun `bun run db:up`.
+
+## The `db:*` scripts
+
+The root `package.json` wraps Compose (and Drizzle) in scripts you run with
+`bun run`:
+
+| Script            | What it does                                                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `db:up`           | `docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init` — starts local infrastructure        |
+| `db:down`         | `docker compose -f docker-compose.dev.yml down` — stops it, volumes preserved                                           |
+| `db:reset`        | `down -v`, then `db:up`, then `db:migrate` and `db:seed` — destroys volumes and rebuilds from scratch                   |
+| `db:migrate`      | Runs `drizzle-kit migrate` via `@vibesboard/adapter-postgres`, using `DATABASE_MIGRATE_URL`                             |
+| `db:generate`     | Runs `drizzle-kit generate` to emit a new migration from schema changes                                                 |
+| `db:seed`         | Runs the package's seed script against local Postgres                                                                   |
+| `db:setup`        | `db:up`, wait, `db:migrate`, `db:seed` — the one-command path to a working local stack                                  |
+| `db:studio`       | Opens Drizzle Studio against the local database                                                                         |
+| `db:make-admin`   | Runs `packages/adapter-postgres/src/make-admin.ts`, per the script name intended to promote a user to superadmin        |
+| `db:set-password` | Runs `packages/adapter-better-auth/src/set-password.ts`, per the script name intended to set a user's password directly |
+| `minio:console`   | Opens `http://localhost:9001` (macOS `open`)                                                                            |
+
+`db:reset` and `db:setup` both insert a fixed `sleep` between bringing services
+up and running migrations, rather than polling readiness — if migrations fail
+immediately after either command on a slow machine, rerun `bun run db:migrate`
+once Postgres reports healthy.
+
+<Callout
+  type="warning"
+  title="db:make-admin and db:set-password currently fail"
+>
+  Neither `packages/adapter-postgres/src/make-admin.ts` nor
+  `packages/adapter-better-auth/src/set-password.ts` exists in this checkout, so
+  both commands currently error with "Cannot find module" instead of doing
+  anything. Check the source before relying on either one.
+</Callout>
+
+## Ports
+
+<Callout type="warning" title="Port conflicts">
+  All ports below are bound to `127.0.0.1` only, but if something else on your
+  machine already holds one of them, the affected container will fail to start.
+  Free the port or override the mapping in `docker-compose.dev.yml`.
+</Callout>
+
+| Port   | Service                                          |
+| ------ | ------------------------------------------------ |
+| `3000` | Next.js app (`bun run dev`, not part of Compose) |
+| `5432` | PostgreSQL                                       |
+| `8888` | Adminer                                          |
+| `9000` | MinIO S3 API                                     |
+| `9001` | MinIO console                                    |
+
+The Postgres port is overridable via `POSTGRES_HOST_PORT` (compose interpolates
+`${POSTGRES_HOST_PORT:-5432}`); the other three are fixed in the compose file
+unless you edit it directly.
+
+## Using your own Postgres or S3-compatible storage
+
+Nothing in the application requires Compose specifically — it's local
+infrastructure, not a runtime dependency. The app builds to a standalone
+Next.js output and connects to whatever `DATABASE_URL`, `DATABASE_MIGRATE_URL`,
+and `S3_*` variables point at. To self-host against your own services instead:
+
+**PostgreSQL** must have the `pgvector` extension available, and the
+`vibesboard_app` / `vibesboard_migrate` role split described above (or
+equivalents with the same privilege shape) — see
+[`init.sql`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/docker/init.sql)
+for the exact statements to adapt. Point at it with:
+
+```bash
+DATABASE_URL=postgres://vibesboard_app:<password>@<host>:5432/<db>
+DATABASE_MIGRATE_URL=postgres://vibesboard_migrate:<password>@<host>:5432/<db>
+DATABASE_POOL_MAX=10   # optional, defaults to 10
+```
+
+**Object storage** can be any S3-compatible service — AWS S3, Cloudflare R2,
+or a compatible provider, not only MinIO:
+
+```bash
+S3_ENDPOINT=https://s3.your-provider.example
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_FORCE_PATH_STYLE=false   # true for MinIO; false for virtual-hosted-style services like AWS S3/R2
+```
+
+When the browser uploads directly to the bucket from a different origin, the
+bucket also needs a CORS policy naming your app's origin(s):
+
+```json
+[
+  {
+    "origin": ["https://your-app.example"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": ["Content-Type", "Authorization"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+For the full set of variables — auth, encryption, integrations, rate limits —
+see [Environment variables](/docs/self-host/environment-variables). The
+repository also ships a [`Dockerfile`](https://github.com/NordicAgents/vibesboard/blob/main/Dockerfile)
+that builds the app itself into a standalone image; `docker-compose.dev.yml`
+covers only its infrastructure dependencies, not the app container.
+
+<Callout type="note">
+  The maintained deployment path for Vibesboard's own staging/production
+  environments is Google Cloud Run, not Docker Compose — see [Cloud Run
+  deployment](/docs/self-host/cloud-run-deployment). Compose here is documented
+  as local dev infrastructure; running it as a production topology is possible
+  in principle (same env vars, same roles) but isn't a configuration this
+  repository tests or ships tooling for.
+</Callout>
+
+## Troubleshooting
+
+- **Port conflict** — free ports `3000`, `5432`, `8888`, `9000`, `9001`, or
+  edit the mappings in `docker-compose.dev.yml`.
+- **Upload or bucket error** — rerun `bun run db:up` so `minio-init` can
+  (re)create `vibesboard-files`, then check the console at
+  [http://localhost:9001](http://localhost:9001).
+- **Stale schema or seed data** — `bun run db:reset` recreates the volumes and
+  reapplies migrations and seed data from a clean state.
+- **Migration fails right after `db:setup`/`db:reset`** — Postgres may not
+  have finished starting before the fixed sleep elapsed; rerun
+  `bun run db:migrate`.
+
+See [Troubleshooting](/docs/self-host/troubleshooting) for more.
+
+<Cards>
+  <Card
+    href="/docs/self-host/environment-variables"
+    title="Environment variables"
+  >
+    Every configuration value the app reads, and what it's for.
+  </Card>
+  <Card
+    href="/docs/self-host/cloud-run-deployment"
+    title="Cloud Run deployment"
+  >
+    The maintained managed-deployment path for staging and production.
+  </Card>
+  <Card
+    href="/docs/platform/multi-tenancy-and-rls"
+    title="Multi-tenancy and RLS"
+  >
+    Why the app and migrate database roles are kept separate.
+  </Card>
+</Cards>

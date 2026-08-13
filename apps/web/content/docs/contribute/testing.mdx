@@ -1,0 +1,186 @@
+---
+title: 'Testing'
+description: 'Unit, integration, and end-to-end tests, and how CI runs them.'
+---
+
+# Testing
+
+Vibesboard has two kinds of automated tests: Vitest unit/integration tests
+that run per package, and two Playwright end-to-end suites that drive the
+running app in a real browser against Postgres and MinIO. Both are required
+on every pull request to `dev` or `main`, alongside lint, type-check, build,
+and security scanning. This page covers what each layer checks, the real
+commands, and how to run the E2E suites on your own machine.
+
+## Unit and integration tests (Vitest)
+
+Each package or app that has tests owns its own `vitest.config.mts` and
+`"test": "vitest run"` script. The root `vitest.config.mts` aggregates all of
+them via `projects: ['packages/*/vitest.config.mts', 'apps/*/vitest.config.mts']`
+and is a single unified Vitest run (one process, capped worker count) with v8
+coverage on top. Packages that haven't added a `vitest.config.mts` yet are
+silently skipped by that glob rather than erroring.
+
+```bash
+bun run test            # vitest run, whole monorepo
+bun run test:coverage   # vitest run --coverage
+```
+
+Adapter-level tests (Postgres, S3) need real infrastructure — bring up
+Postgres and MinIO and run migrations first:
+
+```bash
+bun run db:up
+bun run db:migrate
+bun run test
+```
+
+<Callout type="note">
+  `bun run db:up` starts Postgres, MinIO, and Adminer via
+  `docker-compose.dev.yml`. See [Docker Compose](/docs/self-host/docker-compose)
+  for the full local-infra setup.
+</Callout>
+
+## End-to-end tests (Playwright)
+
+Two independent suites exist:
+
+| Suite      | Config                                | Specs                          | Script                   |
+| ---------- | ------------------------------------- | ------------------------------ | ------------------------ |
+| CI suite   | `apps/web/playwright.config.ts`       | `apps/web/e2e/*.spec.ts`       | `bun run test:e2e`       |
+| Deep suite | `apps/web/playwright.local.config.ts` | `apps/web/e2e/local/*.spec.ts` | `bun run test:e2e:local` |
+
+The CI suite covers auth, the dashboard, a stubbed model chat flow, and a
+public agent. Its `globalSetup` seeds a single deterministic user
+(`e2e-tester@vibesboard.local`) and tenant.
+
+The deep suite is broader: agent creation, agent chat, agent settings,
+BYO-LLM providers, public agent chat, conversations, knowledge base, agent
+sharing, agent features, the admin panel, tenant flow, cross-tenant
+isolation, and API contracts — one spec file per area
+(`apps/web/e2e/local/01-agent-creation.spec.ts` through
+`13-api-contracts.spec.ts`, plus a `00-smoke.spec.ts`). It has its own
+`globalSetup` because it needs an outsider account (to prove cross-tenant
+requests are refused) and a superadmin cookie jar in addition to the
+standard E2E user.
+
+```bash
+cd apps/web
+bun run test:e2e:local:smoke   # just 00-smoke.spec.ts, fast sanity check
+```
+
+Both configs boot a deterministic mock OpenAI server plus `next dev` with
+`OPENAI_BASE_URL` pointed at the mock, so no real model API key or spend is
+involved — the model is stubbed at the network boundary. Both read
+`E2E_APP_PORT` (default **3100**) and `MOCK_OPENAI_PORT` (default **4010**)
+from `apps/web/e2e/constants.ts`, refuse to reuse a pre-existing process on
+those ports unless Playwright's own `webServer` started it, and the test
+server enables a non-production-only routing guard so a persisted tenant
+provider config can't bypass the mock and reach a paid model API.
+
+## Running the E2E suites locally
+
+<Steps>
+<Step title="Bring up Postgres and MinIO">
+
+Either the Docker stack or a native install works — both configs read
+`DATABASE_URL`, `DATABASE_MIGRATE_URL`, and `S3_ENDPOINT` from the
+environment and fall back to Docker defaults otherwise.
+
+`playwright.local.config.ts` defaults to Postgres on **5434** (not the
+compose default 5432, since 5432 is commonly taken by a native install):
+
+```bash
+POSTGRES_HOST_PORT=5434 docker compose -f docker-compose.dev.yml up -d postgres minio minio-init
+
+export DATABASE_MIGRATE_URL='postgres://vibesboard_migrate:vibesboard_migrate@localhost:5434/vibesboard_dev'
+export DATABASE_URL='postgres://vibesboard_app:vibesboard_app@localhost:5434/vibesboard_dev'
+bun run db:migrate
+```
+
+A Docker-free path (native Postgres + MinIO via Homebrew) also works and is
+documented in `docs/local-e2e.md`, including the exact bootstrap SQL
+(`packages/adapter-postgres/docker/init.sql`) and bucket-creation snippet —
+useful if Docker Desktop's disk footprint is a problem.
+
+<Callout type="warning">
+  MinIO must be addressed as `http://127.0.0.1:9000`, not `localhost:9000` —
+  Node resolves `localhost` to IPv6 first and MinIO listens on IPv4 only.
+</Callout>
+
+</Step>
+<Step title="Set required secrets">
+
+`playwright.local.config.ts` resolves four secrets from `process.env`,
+falling back to the gitignored `apps/web/.env.local`, and throws if any is
+missing: `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`,
+`ACCESS_GATE_SECRET`.
+
+`BETTER_AUTH_SECRET` and `ENCRYPTION_KEY` must match whatever the target
+database was seeded with — `ENCRYPTION_KEY` wraps tenant LLM API keys at
+rest, so changing it makes existing provider rows undecryptable.
+`CRON_SECRET` is a plain shared-secret comparison. `ACCESS_GATE_SECRET` is an
+HMAC key (used for access-password hashing and signed cookie tokens on
+password-gated public agents), not a direct comparison — but it's still
+self-consistent within a single run, so any dev value works locally.
+
+</Step>
+<Step title="Install dependencies and run">
+
+```bash
+bun install
+cd apps/web
+bun run test:e2e:local
+```
+
+Both `webServer` entries set `reuseExistingServer: false`, so Playwright
+does **not** adopt an already-running process on 3100 or 4010 — if either
+port is occupied, the run fails outright instead of reusing what's there.
+Stop any process already bound to those ports before starting a new run.
+
+</Step>
+</Steps>
+
+<Callout type="warning" title="A stale node_modules tree breaks every route">
+  If the app boots but every route 500s with a Turbopack `Module not found` /
+  `Export … doesn't exist in target module` error, `bun install` on a stale tree
+  installed top-level packages without materialising the nested copies the
+  lockfile requires (seen with `@ai-sdk/anthropic` and `better-auth`'s nested
+  `zod@4`). Run `bun install --force`, then delete `apps/web/.next` and restart
+  the dev server — a module error in one route can otherwise leave every route,
+  including `/api/health`, returning 500.
+</Callout>
+
+Test state resets at the start of each run rather than after: `global-setup`
+for the deep suite deletes leftover `e2e-team-%`-style tenants and
+`E2E %`-labelled `tenant_llm_configs` rows before seeding, and there's no
+`globalTeardown`.
+
+`next dev` under Turbopack grows `apps/web/.next` steadily (multiple GB over
+a few full runs). If the disk fills, Turbopack panics with
+`No space left on device` and requests hang; `rm -rf apps/web/.next`
+reclaims the space. Full detail, including the no-Docker path, is in
+`docs/local-e2e.md` in the repository.
+
+## What CI runs
+
+Every pull request to `dev` or `main` runs six workflows, each on
+`ubuntu-latest` with Bun 1.2.18 and Node 22:
+
+| Workflow           | What it runs                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint & Format      | `bun run lint` (`eslint .`, effectively the web app — it's the only package with a `lint` script) and `bun run format:check`                                                                                                                                                                                                                                                                                                             |
+| Type Check         | `bun run type-check` (`tsc --noEmit` per package, strict mode). Gates the merge — it previously ran with `continue-on-error: true` and could never fail a PR; that's been removed.                                                                                                                                                                                                                                                       |
+| Tests              | `bun run test:coverage` against Postgres + MinIO brought up via `docker-compose.dev.yml`, after `bun run db:migrate`. Coverage is uploaded as an artifact and gated by a ratchet threshold in `vitest.shared.mts` (statements/branches/functions/lines each pinned a couple of points below the coverage measured when it was introduced) — CI fails on a real regression, and the threshold is meant to be raised as coverage improves. |
+| E2E                | Both Playwright suites (`bun run test:e2e`, then `bun run test:e2e:local`) against the same Postgres + MinIO stack, Chromium installed via `playwright install --with-deps chromium`. Bounded to 30 minutes at the job level as a backstop against a wedged dev server.                                                                                                                                                                  |
+| Build              | `bun run build` (Next.js production build of `apps/web`), using `NEXT_PUBLIC_*` values sourced from `STAGING_*` secrets (with public fallbacks so fork PRs, which don't get secrets, still build).                                                                                                                                                                                                                                       |
+| Security & Quality | Gitleaks secret scanning, Semgrep SAST, a Trivy filesystem vulnerability scan (CRITICAL/HIGH, unfixed findings ignored), and Lizard complexity analysis (CCN 15, with the current backlog of pre-existing high-CCN functions allowlisted so the gate only flags new regressions). Also runs on push to `dev` and `main`.                                                                                                                 |
+
+<Cards>
+  <Card href="/docs/contribute/architecture" title="Architecture">
+    How the monorepo, packages, and runtime fit together.
+  </Card>
+  <Card href="/docs/contribute/contributing" title="Contributing">
+    Branching, commit conventions, and the PR/CI workflow.
+  </Card>
+</Cards>
