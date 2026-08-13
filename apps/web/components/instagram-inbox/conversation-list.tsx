@@ -64,6 +64,10 @@ export function ConversationList({
             {/* Avatar */}
             <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-sm font-medium text-muted-foreground">
               {convo.contactProfilePic ? (
+                /* Instagram serves avatars from rotating, short-lived CDN
+                   hostnames, so there is no stable `remotePatterns` entry to
+                   allow-list; next/image would 400 on every unlisted host. */
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={convo.contactProfilePic}
                   alt={displayName}

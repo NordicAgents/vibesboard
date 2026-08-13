@@ -1,0 +1,19 @@
+# Code owners are requested for review automatically on every pull request.
+# The last matching pattern wins, so more specific rules go further down.
+#
+# See https://docs.github.com/articles/about-code-owners
+
+# Default owners for everything in the repository.
+*                       @midhunxavier @vaisahub
+
+# Release, CI, and deployment plumbing — a bad change here affects every branch.
+/.github/               @midhunxavier @vaisahub
+/Dockerfile             @midhunxavier @vaisahub
+/docker-compose.dev.yml @midhunxavier @vaisahub
+/scripts/               @midhunxavier @vaisahub
+
+# Security-sensitive surfaces: tenancy, auth, migrations, and stored credentials.
+/packages/adapter-postgres/     @midhunxavier @vaisahub
+/packages/adapter-better-auth/  @midhunxavier @vaisahub
+/SECURITY.md                    @midhunxavier @vaisahub
+/docs/security.md               @midhunxavier @vaisahub

@@ -1,0 +1,102 @@
+import 'server-only'
+import { createOpenAI } from '@ai-sdk/openai'
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import type { LanguageModel } from 'ai'
+import type { LlmProviderKind, ProviderModelSpec } from '@vibesboard/contracts'
+import { validateProviderBaseUrl } from './provider-ssrf-guard.ts'
+import { buildNvidiaFetch } from './nvidia-stream-adapter.ts'
+import { resolveTenantNetworkOpts } from './tenant-llm-config.ts'
+
+// NVIDIA API Catalog (build.nvidia.com) hosted endpoint — OpenAI-compatible.
+export const NVIDIA_API_BASE_URL = 'https://integrate.api.nvidia.com/v1'
+
+// ─── Context ─────────────────────────────────────────────────────────
+// Shared infra passed to every factory. Empty for now; add AWS clients,
+// feature-flag readers, etc. here without changing call sites.
+export interface ProviderFactoryContext {}
+
+// ─── Mapped-type registry ─────────────────────────────────────────────
+// Adding a new variant to ProviderModelSpec without registering its factory
+// here is a compile error — no switch default, no forgotten cases at runtime.
+type ProviderFactoryRegistry = {
+  [K in LlmProviderKind]: (
+    spec: Extract<ProviderModelSpec, { kind: K }>,
+    ctx: ProviderFactoryContext,
+  ) => LanguageModel
+}
+
+const providerFactories: ProviderFactoryRegistry = {
+  openai: (spec) =>
+    createOpenAI({
+      apiKey: spec.apiKey,
+      ...(spec.baseUrl ? { baseURL: spec.baseUrl } : {}),
+    })(spec.modelId),
+
+  anthropic: (spec) =>
+    createAnthropic({ apiKey: spec.apiKey })(spec.modelId),
+
+  // `.chat()` — a gateway is "OpenAI-compatible" precisely because it serves
+  // /chat/completions; almost none implement /responses, which is where the
+  // bare call would land on @ai-sdk/openai@4.
+  openai_compatible: (spec) =>
+    createOpenAI({
+      apiKey: spec.apiKey,
+      baseURL: spec.baseUrl,
+    }).chat(spec.modelId),
+
+  google: (spec) =>
+    createGoogleGenerativeAI({ apiKey: spec.apiKey })(spec.modelId),
+
+  nvidia: (spec) =>
+    createOpenAI({
+      apiKey: spec.apiKey,
+      baseURL: spec.baseUrl ?? NVIDIA_API_BASE_URL,
+      // NVIDIA reasoning models (Nemotron Ultra, DeepSeek V4 Pro, Qwen3 Coder)
+      // return text in delta.reasoning_content rather than delta.content.
+      // buildNvidiaFetch() promotes reasoning_content → content before the SDK
+      // Zod parser strips it. Flagged for removal when @ai-sdk/openai is upgraded
+      // to 4.x, which handles reasoning_content natively.
+      fetch: buildNvidiaFetch(),
+      // `.chat()` — NVIDIA's API serves /chat/completions only.
+    }).chat(spec.modelId),
+}
+
+export interface ProviderNetworkOpts {
+  allowPrivateHosts?: boolean
+  hostAllowlist?: string[]
+}
+
+// ─── Public dispatcher ────────────────────────────────────────────────
+export function buildProviderModel(
+  spec: ProviderModelSpec,
+  ctx: ProviderFactoryContext = {},
+  networkOpts: ProviderNetworkOpts = {},
+): LanguageModel {
+  // Defense-in-depth: re-validate baseUrl at call time so the runtime path
+  // can't be bypassed by a URL that passed the save-time check but was later
+  // DNS-rebound. Thread tenant network opts (allowPrivateHosts, hostAllowlist)
+  // so Ollama / on-prem providers work for tenants that opted in.
+  if ('baseUrl' in spec && spec.baseUrl) {
+    const check = validateProviderBaseUrl(spec.baseUrl, networkOpts)
+    if (!check.ok) throw new Error(`SSRF guard: ${check.error}`)
+  }
+
+  const factory = providerFactories[spec.kind] as (
+    spec: ProviderModelSpec,
+    ctx: ProviderFactoryContext,
+  ) => LanguageModel
+  return factory(spec, ctx)
+}
+
+type NetworkOptsResolver = typeof resolveTenantNetworkOpts
+
+/** Build a tenant model with the tenant's private-host and host-allowlist policy. */
+export async function buildTenantProviderModel(
+  tenantId: string,
+  spec: ProviderModelSpec,
+  resolveNetworkOpts: NetworkOptsResolver = resolveTenantNetworkOpts
+): Promise<LanguageModel> {
+  const networkOpts = await resolveNetworkOpts(tenantId)
+  return buildProviderModel(spec, {}, networkOpts)
+}

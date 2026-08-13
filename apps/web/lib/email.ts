@@ -82,10 +82,10 @@ async function _sendInvitationEmailAsync(
   const { to, inviteUrl, tenantName, inviterName } = params
   const role = formatRole(params.role)
 
-  const subject = `You're invited to join ${tenantName} on VibeAgent`
+  const subject = `You're invited to join ${tenantName} on Vibesboard`
 
   const text = [
-    `You've been invited to join ${tenantName} on VibeAgent!`,
+    `You've been invited to join ${tenantName} on Vibesboard!`,
     '',
     `${inviterName} invited you to join ${tenantName} as a ${role}.`,
     '',
@@ -140,7 +140,7 @@ async function _sendInvitationEmailAsync(
   await resend.emails.send({
     from:
       process.env.NOTIFICATION_EMAIL_FROM ||
-      'VibeAgent <notifications@vibeagent.com>',
+      'Vibesboard <notifications@vibesboard.com>',
     to,
     subject,
     html,

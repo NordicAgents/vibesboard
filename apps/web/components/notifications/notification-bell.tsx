@@ -148,7 +148,7 @@ export function NotificationBell({ tenantId }: Props) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border bg-surface shadow-lg">
+        <div className="bg-surface absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border shadow-lg">
           {/* Header */}
           <div className="flex items-center justify-between border-b px-4 py-3">
             <p className="text-sm font-medium">Notifications</p>
@@ -178,7 +178,7 @@ export function NotificationBell({ tenantId }: Props) {
                   key={notification.id}
                   onClick={() => handleClickNotification(notification)}
                   className={cn(
-                    'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-hover',
+                    'hover:bg-hover flex w-full items-start gap-3 px-4 py-3 text-left transition-colors',
                     !notification.read && 'bg-accent-orange/5'
                   )}
                 >

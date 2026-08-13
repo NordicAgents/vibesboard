@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { getAgentById } from '@vibesboard/agents/server'
+import { getAgentAccessPasswordHash } from '@vibesboard/agents/access-password'
 import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import {
   verifyPassword,
@@ -42,8 +43,13 @@ export async function POST(
   const { value } = parsed.data
   const isEmbed = req.headers.get('x-embed') === 'true'
 
+  // Fetch the hash server-side rather than reading it off the mapped agent —
+  // that field is serialized into the gated pages' RSC payload, so anonymous
+  // visitors were handed the hash before submitting anything.
+  const accessPasswordHash = await getAgentAccessPasswordHash(agentId)
+
   // Try password first
-  if (agent.accessPassword && verifyPassword(value, agent.accessPassword)) {
+  if (accessPasswordHash && verifyPassword(value, accessPasswordHash)) {
     await setAccessCookie(agentId, { crossOrigin: isEmbed })
     return NextResponse.json({ ok: true })
   }

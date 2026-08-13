@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAgentById } from '@vibesboard/agents/server'
+import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import {
   getConversation,
   recordConversationFeedback
@@ -29,6 +30,18 @@ export async function POST(
       { error: 'Conversation not found' },
       { status: 404 }
     )
+  }
+
+  // Only the visitor who owns the conversation may rate it. Without this,
+  // anyone who learns an agentId + conversation id can write a rating and a
+  // 500-char comment onto a stranger's conversation (password-gated agents
+  // included) and the owner sees it as that visitor's feedback. Same check and
+  // status as the GET sibling in ../route.ts. Fails closed: the cookie helper
+  // always returns a non-empty id, so a conversation with no externalId (e.g.
+  // WhatsApp) never matches.
+  const externalId = await ensureExternalSessionId()
+  if (conversation.externalId !== externalId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const body = await req.json().catch(() => null)

@@ -4,6 +4,7 @@ import {
   text,
   integer,
   boolean,
+  jsonb,
   timestamp,
   uniqueIndex,
   index,
@@ -40,8 +41,8 @@ export const tenantFeatureToggles = pgTable(
   }),
 )
 
-// Simple usage counter (no Stripe coupling). One row per (tenant, agent, month).
-// Self-hosters may use this for soft local caps if they want; it is not enforced.
+// Usage rollup (no Stripe coupling). One row per (tenant, agent, month).
+// MONTHLY_MESSAGE_LIMIT optionally enforces a soft workspace cap.
 export const usageCounters = pgTable(
   'usage_counters',
   {
@@ -55,6 +56,10 @@ export const usageCounters = pgTable(
     messageCount: integer('message_count').notNull().default(0),
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
+    sourceCounts: jsonb('source_counts')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default({}),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -66,3 +71,29 @@ export const usageCounters = pgTable(
 export type FeatureFlag = typeof featureFlags.$inferSelect
 export type TenantFeatureToggle = typeof tenantFeatureToggles.$inferSelect
 export type UsageCounter = typeof usageCounters.$inferSelect
+
+// Durable counters for anonymous/API request throttling. Identifiers are
+// HMACed before storage; this table never stores raw IP addresses or cookies.
+// It is accessed only through the BYPASSRLS migration client.
+export const requestRateLimits = pgTable(
+  'request_rate_limits',
+  {
+    scope: text('scope').notNull(),
+    keyHash: text('key_hash').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    requestCount: integer('request_count').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+  },
+  t => ({
+    pk: uniqueIndex('request_rate_limits_pk').on(
+      t.scope,
+      t.keyHash,
+      t.windowStart
+    ),
+    byWindow: index('request_rate_limits_window_idx').on(t.windowStart)
+  })
+)
+
+export type RequestRateLimit = typeof requestRateLimits.$inferSelect

@@ -1,6 +1,6 @@
 # Vibesboard — AI Agent Guidelines
 
-> This file mirrors `CLAUDE.md` — edit both files together to keep the agent guidelines in sync.
+> `AGENTS.md` and `CLAUDE.md` mirror each other — edit both files together.
 
 ## Project Overview
 
@@ -17,7 +17,7 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 
 - **Frontend:** React 19 + TypeScript on Next.js 16 (App Router); Tailwind CSS + Radix UI primitives
 - **Backend:** Postgres (Drizzle ORM), Better-Auth, and S3-compatible storage (MinIO in dev)
-- **AI:** OpenAI via the Vercel AI SDK (`ai` + `@ai-sdk/openai`); the runtime in `packages/ai/src/runtime.ts` reads `OPENAI_API_KEY` and defaults to GPT models (e.g. `gpt-5.4-nano`). There is no Anthropic SDK wired in.
+- **AI:** Vercel AI SDK (`ai`) with OpenAI, Anthropic, and Google adapters plus NVIDIA and generic OpenAI-compatible endpoints. Workspaces can bring encrypted provider credentials and route by agent or task; `OPENAI_API_KEY`/`OPENAI_MODEL` provide the platform fallback.
 - **Integrations:** Google Calendar (OAuth), WhatsApp, MCP servers
 
 ## Key Directories
@@ -80,8 +80,11 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Bun 1.2.18 via `oven-sh/setup-bun@v2`, Node 22):
 
 - **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
-- **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). **Warning:** this job sets `continue-on-error: true`, so a type-check failure does NOT fail the workflow and cannot block a merge today.
-- **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `bun run test` (`bun run --filter '*' --if-present test`, Node built-in test runner). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `bun run db:migrate` before tests. Packages without a `test` script are skipped.
+- **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). This job used to set `continue-on-error: true`, which meant a type-check failure could not block a merge; that has been removed and it now gates.
+- **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `bun run test:coverage` (`vitest run --coverage`, a single unified Vitest run across all workspace projects with v8 coverage; coverage is reported as an artifact and gated by a ratchet threshold in `vitest.shared.mts`). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `bun run db:migrate` before tests. Each package has its own `vitest.config.mts` (and `"test": "vitest run"`); packages without one are simply absent from the root `projects` glob.
+- **E2E** (`.github/workflows/ci-e2e.yml`, "E2E") — runs **two** Playwright suites against one Postgres + MinIO stack, with the Chromium browser installed first. Both boot a deterministic mock OpenAI server plus `next dev` with `OPENAI_BASE_URL` pointed at the mock, so the model is stubbed at the network boundary.
+  - `bun run test:e2e` — the specs directly under `apps/web/e2e/`; `globalSetup` seeds an E2E user/tenant.
+  - `bun run test:e2e:local` — the deep suite under `apps/web/e2e/local/` (agents, chat, settings, BYO-LLM, public widget, conversations, knowledge base, sharing, admin panel, tenant flow, cross-tenant isolation). Its `globalSetup` additionally seeds an outsider account and a superadmin. See `docs/local-e2e.md` for running it locally, including the no-Docker path.
 - **Build** (`.github/workflows/ci-build.yml`, "Build") — `bun run build` (Next.js production build of `apps/web`) using `NEXT_PUBLIC_*` values from `STAGING_*` secrets.
 - **Security** (`.github/workflows/security.yml`, "Security & Quality", on PR and push to `dev`/`main`) — Semgrep SAST + Trivy filesystem vulnerability scan (CRITICAL,HIGH) + Lizard complexity (CCN 15).
 

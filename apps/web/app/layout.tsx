@@ -1,17 +1,18 @@
 import { Metadata, Viewport } from 'next'
 
-import { Toaster } from 'react-hot-toast'
-
 import '@/app/globals.css'
 import { fontMono, fontSans } from '@/lib/fonts'
 import { cn } from '@vibesboard/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
 import { Header } from '@/components/header'
+import { AppToaster } from '@/components/toaster'
 import { auth } from '@/auth'
+import { resolveAppUrl } from '@/lib/app-url'
 import { getActiveTenantTheme } from '@/lib/tenant-theme'
 
 export const metadata: Metadata = {
+  metadataBase: resolveAppUrl(process.env.NEXT_PUBLIC_APP_URL),
   title: {
     default: 'vibesboard agent',
     template: `%s - vibesboard -conversation agent builder`
@@ -60,7 +61,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         style={tenantTheme?.cssVars as any}
         data-tenant-id={tenantTheme?.tenantId}
       >
-        <Toaster />
+        <AppToaster />
         <Providers attribute="class" defaultTheme="system" enableSystem>
           <div className="flex h-dvh flex-col overflow-hidden">
             <AppHeaderController>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText, tool } from 'ai'
+import { streamText as aiStreamText, tool, createTextStreamResponse } from 'ai'
 import { z } from 'zod'
 
 import { uuidv7 } from 'uuidv7'
@@ -18,9 +18,16 @@ import {
   upsertAgentSchema
 } from '@vibesboard/agents/schema'
 import { getActiveTenant } from '@/lib/tenant-context'
-import { OPENAI_CHAT_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
+import {
+  OPENAI_BASE_URL,
+  OPENAI_CHAT_MODEL,
+  isResponsesModel
+} from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
@@ -53,7 +60,7 @@ function buildAgentInsertValues(input: {
     slug: input.slug,
     instructions: payload.instructions ?? '',
     mode: payload.mode ?? 'provider',
-    allowAnonymous: payload.allowAnonymous ?? true,
+    allowAnonymous: payload.allowAnonymous ?? false,
     greetingText: payload.greetingText ?? null,
     quickSuggestionsMode: payload.quickSuggestionsMode ?? 'smart',
     quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
@@ -82,13 +89,8 @@ export async function POST(req: Request) {
     fileNames = []
   } = json ?? {}
 
+  const tenantId = await getActiveTenant(session.user.id)
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'OPENAI_API_KEY is not configured.' },
-      { status: 500 }
-    )
-  }
 
   const availableTools = Object.values(BUILTIN_AGENT_TOOLS).map(t => ({
     id: t.id,
@@ -148,7 +150,7 @@ ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n'
 - name (2-120 chars, friendly and clear)
 - instructions (detailed guidance on behavior, tone, and purpose)
 - greetingText (warm, welcoming first message users will see)
-- allowAnonymous (default: true, ask only if relevant)
+- allowAnonymous (default: false; only enable after the user explicitly asks for a public link or embed)
 - tools (suggest relevant tools based on needs, use tool IDs from the list above)
 - quickSuggestionsMode (default: "smart"; options: "off" | "smart" | "always")
 - quickSuggestionsCount (default: 4; options: 1–5)
@@ -181,7 +183,7 @@ Whenever you suggest values for the agent, include them in a special JSON block 
   "mode": "provider",
   "maxResponses": null,
   "maxAgentResponses": null,
-  "retrievalStrategy": "direct"
+  "retrievalStrategy": "rag"
 }
 ~~~
 
@@ -256,16 +258,47 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     }
   }
 
-  const initialMessages = [
-    { role: 'system', content: systemPrompt + fileInfoBlock },
-    ...messageList
-  ]
+  // ai@7.x: system messages must go in `system`, not in `messages`
+  const initialMessages = messageList
 
-  const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
-  const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
-  const model = isResponsesModel(preferredModel)
-    ? DEFAULT_AGENT_CREATOR_MODEL
-    : preferredModel
+  // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
+  // previewToken skips BYO-LLM (same behaviour as agent runtime).
+  const tenantSpec = shouldResolveTenantProvider({ tenantId, previewToken })
+    ? await resolveProviderSpec(
+        tenantId!,
+        null,
+        undefined,
+        'agent_creator'
+      ).catch(() => null)
+    : null
+
+  let languageModel
+  if (tenantSpec && tenantId) {
+    languageModel = await buildTenantProviderModel(tenantId, tenantSpec)
+  } else {
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          error:
+            'No LLM provider configured. Add one in Settings → LLM Providers, or set OPENAI_API_KEY.'
+        },
+        { status: 500 }
+      )
+    }
+    const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
+    const preferredModel = modelFromEnv?.length
+      ? modelFromEnv
+      : OPENAI_CHAT_MODEL
+    const model = isResponsesModel(preferredModel)
+      ? DEFAULT_AGENT_CREATOR_MODEL
+      : preferredModel
+    // `.chat()` — the bare call resolves to createResponsesModel on
+    // @ai-sdk/openai@4, which 404s on gateways that only serve
+    // /chat/completions. `model` is non-Responses by construction here.
+    languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL }).chat(
+      model
+    )
+  }
 
   const createAgentArgsSchema = z.object({
     name: z.string().min(2).max(120),
@@ -289,17 +322,21 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     bookingConfig: bookingConfigSchema.optional()
   })
 
-  const openaiClient = createOpenAI({ apiKey })
+  // Set by the create_agent tool below and appended to the response stream,
+  // so delivery of the success marker does not depend on the model echoing
+  // a tool result back as text.
+  let toolOutcome: string | null = null
 
   const result = await aiStreamText({
-    model: openaiClient(model),
+    model: languageModel,
+    system: systemPrompt + fileInfoBlock,
     messages: initialMessages as any,
     temperature: 0.2,
     tools: {
       create_agent: tool({
         description:
           'Creates the agent with all collected fields when user confirms.',
-        parameters: createAgentArgsSchema,
+        inputSchema: createAgentArgsSchema,
         async execute(args) {
           const effectiveFileKeys = (
             args.fileKeys?.length ? args.fileKeys : fileKeys
@@ -341,7 +378,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             name: args.name,
             instructions: args.instructions,
             greetingText: args.greetingText,
-            allowAnonymous: args.allowAnonymous ?? true,
+            allowAnonymous: args.allowAnonymous ?? false,
             fileKeys: effectiveFileKeys,
             tools: toolsPayload,
             sourceUrls: allDetectedUrls,
@@ -350,7 +387,12 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             maxAgentResponses,
             quickSuggestionsMode: args.quickSuggestionsMode ?? 'smart',
             quickSuggestionsCount: args.quickSuggestionsCount ?? 4,
-            retrievalStrategy: args.retrievalStrategy ?? 'direct',
+            // Default to 'rag' when files are attached so vector search is used.
+            // 'direct' loads the full file into context which fails for large files
+            // or small-context local models (e.g. Ollama smollm2 = 8k tokens).
+            retrievalStrategy:
+              args.retrievalStrategy ??
+              (args.fileKeys?.length ? 'rag' : 'direct'),
             ...(bookingConfig !== undefined && { bookingConfig })
           })
 
@@ -395,6 +437,34 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             })
           }
 
+          // Also stash it for the response stream. The value returned here is
+          // a *tool result*: with a single step and toTextStreamResponse /
+          // createTextStreamResponse (text parts only) it never becomes
+          // assistant text, so the client — which parses ~~~agentcreated~~~ out
+          // of the message in onFinish — was told nothing while the agent was
+          // created. See the append below.
+          toolOutcome = `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
+            {
+              name: agentPayload.name,
+              instructions: agentPayload.instructions,
+              greetingText: agentPayload.greetingText ?? '',
+              tools: sanitizedToolIds,
+              allowAnonymous: agentPayload.allowAnonymous,
+              fileKeys: agentPayload.fileKeys,
+              mode: agentPayload.mode,
+              maxResponses,
+              maxAgentResponses,
+              quickSuggestionsMode: agentPayload.quickSuggestionsMode,
+              quickSuggestionsCount: agentPayload.quickSuggestionsCount,
+              retrievalStrategy: agentPayload.retrievalStrategy,
+              ...(agentPayload.bookingConfig !== undefined && {
+                bookingConfig: agentPayload.bookingConfig
+              })
+            },
+            null,
+            2
+          )}\n~~~\n\n~~~agentcreated\n${JSON.stringify({ id: agentId })}\n~~~`
+
           return `Done — your agent is created.\n\n~~~agentupdate\n${JSON.stringify(
             {
               name: agentPayload.name,
@@ -421,5 +491,35 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     }
   })
 
-  return result.toTextStreamResponse()
+  // Append the tool outcome after the model's own text. Re-wrapped through the
+  // AsyncIterable side (not pipeThrough, which locks the ReadableStream the SDK
+  // subscribes to internally).
+  const withToolOutcome = (
+    source: AsyncIterable<string>
+  ): ReadableStream<string> => {
+    const iterator = source[Symbol.asyncIterator]()
+    let flushed = false
+    return new ReadableStream<string>({
+      async pull(controller) {
+        const { value, done } = await iterator.next()
+        if (!done) {
+          controller.enqueue(value)
+          return
+        }
+        if (!flushed && toolOutcome) {
+          flushed = true
+          controller.enqueue(toolOutcome)
+          return
+        }
+        controller.close()
+      },
+      cancel() {
+        iterator.return?.()
+      }
+    })
+  }
+
+  return createTextStreamResponse({
+    stream: withToolOutcome(result.textStream)
+  })
 }

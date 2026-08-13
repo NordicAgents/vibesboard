@@ -5,14 +5,20 @@ import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { embeddings as embeddingsTable } from '@vibesboard/adapter-postgres/schema'
-import { createEmbedding } from '@vibesboard/adapter-openai'
+import {
+  createEmbedding,
+  PLATFORM_EMBEDDING_DIMENSIONS,
+  PLATFORM_EMBEDDING_MODEL
+} from '@vibesboard/adapter-openai'
+import { ALL_EMBEDDING_TABLES, providerFromDimension, selectTable } from './rag-store.ts'
 
 type Db = PostgresJsDatabase<typeof schema>
 
 const CHUNK_SIZE = 800
 const CHUNK_OVERLAP = 200
-const EMBEDDING_MODEL = 'text-embedding-3-small'
+// Was hardcoded to 'text-embedding-3-small', which 404s on any gateway that
+// does not carry OpenAI's model catalogue. Now follows the platform config.
+const EMBEDDING_MODEL = PLATFORM_EMBEDDING_MODEL
 
 interface ConversationChunk {
   messageIndex: number
@@ -75,7 +81,10 @@ export async function embedTexts(inputs: string[]): Promise<number[][]> {
 
   const json = await createEmbedding({
     model: EMBEDDING_MODEL,
-    input: inputs
+    input: inputs,
+    ...(PLATFORM_EMBEDDING_DIMENSIONS
+      ? { dimensions: PLATFORM_EMBEDDING_DIMENSIONS }
+      : {})
   })
 
   if (!json?.data) {
@@ -94,13 +103,13 @@ interface UpsertConversationEmbeddingsArgs {
 
 interface UpsertDeps {
   db?: Db
-  embed?: (texts: string[]) => Promise<number[][]>
+  embed?: (texts: string[], tenantId?: string) => Promise<number[][]>
 }
 
 /**
- * Replace all conversation_chunk embeddings for a conversation (delete +
- * insert) in the unified `embeddings` table. One row per non-empty message;
- * `chunkIndex` = message index (the windowing key used by conversation-rag).
+ * Replace all conversation_chunk embeddings for a conversation.
+ * Routes to `embeddings` (768-dim) or `embeddings_1536` (1536-dim) based on
+ * the dimension of the vectors — matching the dual-table strategy in rag-store.ts.
  */
 export async function upsertConversationEmbeddings(
   { tenantId, conversationId, messages }: UpsertConversationEmbeddingsArgs,
@@ -115,25 +124,30 @@ export async function upsertConversationEmbeddings(
     }))
     .filter(c => c.content)
 
+  if (!indexed.length) return
+
+  let vectors: number[][] = []
+  try {
+    vectors = await embed(indexed.map(c => c.content), tenantId)
+  } catch (error) {
+    console.error('Failed to embed conversation chunks', error)
+    return
+  }
+
+  if (!vectors.length) return
+
+  // Route to correct table based on vector dimension
+  // (768 → embeddings, 1536 → embeddings_1536, 384 → embeddings_384)
+  const table = selectTable(providerFromDimension(vectors[0].length))
+
   await db.transaction(async tx => {
-    await tx
-      .delete(embeddingsTable)
-      .where(
-        and(
-          eq(embeddingsTable.tenantId, tenantId),
-          eq(embeddingsTable.sourceType, 'conversation_chunk'),
-          eq(embeddingsTable.sourceId, conversationId)
-        )
+    // Delete from every table to handle provider switches cleanly
+    for (const t of ALL_EMBEDDING_TABLES) {
+      await tx.delete(t).where(
+        and(eq(t.tenantId, tenantId), eq(t.sourceType, 'conversation_chunk'), eq(t.sourceId, conversationId))
       )
-    if (!indexed.length) return
-    let vectors: number[][] = []
-    try {
-      vectors = await embed(indexed.map(c => c.content))
-    } catch (error) {
-      console.error('Failed to embed conversation chunks', error)
-      return
     }
-    await tx.insert(embeddingsTable).values(
+    await tx.insert(table).values(
       indexed.map((c, i) => ({
         id: uuidv7(),
         tenantId,
@@ -148,19 +162,17 @@ export async function upsertConversationEmbeddings(
   })
 }
 
-/** Delete all conversation_chunk embeddings for a conversation. */
+/** Delete all conversation_chunk embeddings for a conversation from every table. */
 export async function deleteConversationEmbeddings(
   tenantId: string,
   conversationId: string,
   db: Db = getMigrateDb()
 ): Promise<void> {
-  await db
-    .delete(embeddingsTable)
-    .where(
-      and(
-        eq(embeddingsTable.tenantId, tenantId),
-        eq(embeddingsTable.sourceType, 'conversation_chunk'),
-        eq(embeddingsTable.sourceId, conversationId)
+  await Promise.all(
+    ALL_EMBEDDING_TABLES.map(t =>
+      db.delete(t).where(
+        and(eq(t.tenantId, tenantId), eq(t.sourceType, 'conversation_chunk'), eq(t.sourceId, conversationId))
       )
     )
+  )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, type FormEvent } from 'react'
-import { useCompletion } from 'ai/react'
+import { useCompletion } from '@ai-sdk/react'
 
 import { type VibeAgentConversation } from '@vibesboard/contracts'
 import { getConversationPreview } from '@vibesboard/agents/conversation-preview'

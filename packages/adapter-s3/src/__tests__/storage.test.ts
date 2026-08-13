@@ -160,6 +160,19 @@ describe('adapter-s3 server-side storage (MinIO)', () => {
   })
 
   describe('signed URLs (presigner)', () => {
+    it('binds the declared content length into the upload signature', async () => {
+      const key = uniqueKey('signed-length.txt')
+      const url = await getSignedUploadUrl(
+        key,
+        'text/plain',
+        15 * 60 * 1000,
+        123
+      )
+      const signedHeaders =
+        new URL(url).searchParams.get('X-Amz-SignedHeaders') ?? ''
+      expect(signedHeaders.split(';')).toContain('content-length')
+    })
+
     it('getSignedUploadUrl produces a working PUT URL', async () => {
       const key = uniqueKey('signed-put.txt')
       const url = await getSignedUploadUrl(key, 'text/plain')

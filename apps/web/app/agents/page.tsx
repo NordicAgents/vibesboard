@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Bot, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,13 +17,16 @@ import { toastWithRetry } from '@/lib/toast-helpers'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
+// Mirrors the projection in app/api/agents/route.ts, which is camelCase. These
+// three were declared snake_case, so `agent.createdAt` was always undefined
+// and the "created" line never rendered on any card.
 interface Agent {
   id: string
   name: string
   instructions: string
-  agent_url: string
-  created_at: string
-  tenant_id: string | null
+  agentUrl: string
+  createdAt: string
+  tenantId: string | null
 }
 
 interface Pagination {
@@ -58,11 +61,44 @@ export default function AgentsPage() {
       window.removeEventListener('tenantChanged', handleTenantChanged)
   }, [])
 
+  // Declared as a *named* function expression so the retry handlers below can
+  // call `load` recursively without listing `fetchAgents` as a dependency of
+  // its own useCallback.
+  const fetchAgents = useCallback(
+    async function load(currentPage: number) {
+      if (!tenantId) return
+
+      try {
+        setIsLoading(true)
+        const limit = 9
+        const response = await fetch(
+          `/api/agents?tenant_id=${tenantId}&page=${currentPage}&limit=${limit}`
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          setAgents(data.agents || [])
+          setPagination(data.pagination)
+        } else {
+          toastWithRetry('Could not load agents', () => load(currentPage))
+        }
+      } catch (error) {
+        console.error('Error fetching agents:', error)
+        toastWithRetry('Could not load agents. Check your connection.', () =>
+          load(currentPage)
+        )
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [tenantId]
+  )
+
   useEffect(() => {
     if (tenantId) {
       fetchAgents(page)
     }
-  }, [tenantId, page])
+  }, [tenantId, page, fetchAgents])
 
   const fetchActiveTenant = async () => {
     try {
@@ -76,33 +112,6 @@ export default function AgentsPage() {
       }
     } catch (error) {
       console.error('Error fetching active tenant:', error)
-      setIsLoading(false)
-    }
-  }
-
-  const fetchAgents = async (currentPage: number) => {
-    if (!tenantId) return
-
-    try {
-      setIsLoading(true)
-      const limit = 9
-      const response = await fetch(
-        `/api/agents?tenant_id=${tenantId}&page=${currentPage}&limit=${limit}`
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        setAgents(data.agents || [])
-        setPagination(data.pagination)
-      } else {
-        toastWithRetry('Could not load agents', () => fetchAgents(currentPage))
-      }
-    } catch (error) {
-      console.error('Error fetching agents:', error)
-      toastWithRetry('Could not load agents. Check your connection.', () =>
-        fetchAgents(currentPage)
-      )
-    } finally {
       setIsLoading(false)
     }
   }
@@ -174,9 +183,9 @@ export default function AgentsPage() {
                       <CardDescription className="line-clamp-2 text-sm text-[#445e5f] dark:text-[#c9cbbe]">
                         {agent.instructions || 'No instructions provided'}
                       </CardDescription>
-                      {agent.created_at && (
+                      {agent.createdAt && (
                         <p className="mt-auto pt-2 text-xs text-[#6f7f80] dark:text-[#7e8e8f]">
-                          {new Date(agent.created_at).toLocaleDateString(
+                          {new Date(agent.createdAt).toLocaleDateString(
                             'en-US',
                             {
                               month: 'short',

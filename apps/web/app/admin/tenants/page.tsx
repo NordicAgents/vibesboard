@@ -52,14 +52,28 @@ export default function TenantsPage() {
   const fetchTenants = React.useCallback(async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/tenants')
+      // This page filters and paginates client-side, so it needs the whole
+      // set. Without an explicit limit the API defaults to 10, which meant the
+      // table only ever showed the 10 newest tenants while the status-filter
+      // counts and the paginator were computed from that truncated list.
+      const PAGE_LIMIT = 500
+      const response = await fetch(
+        `/api/admin/tenants?page=1&limit=${PAGE_LIMIT}`
+      )
 
       if (!response.ok) {
         throw new Error('Failed to fetch tenants')
       }
 
       const data = await response.json()
-      setTenants(data.tenants || [])
+      const rows = data.tenants || []
+      setTenants(rows)
+
+      // Say so rather than silently under-reporting if we ever outgrow one page.
+      const total = data.pagination?.total ?? rows.length
+      if (total > rows.length) {
+        toast(`Showing the ${rows.length} newest of ${total} workspaces.`)
+      }
     } catch (error) {
       console.error('Error fetching tenants:', error)
       toast.error('Failed to load tenants')
@@ -148,7 +162,7 @@ export default function TenantsPage() {
                 {tenant.isPersonal && (
                   <Badge
                     variant="secondary"
-                    className="text-[10px] px-1.5 py-0"
+                    className="px-1.5 py-0 text-[10px]"
                   >
                     Personal
                   </Badge>
@@ -306,7 +320,7 @@ export default function TenantsPage() {
       />
 
       {!loading && tenants.length > 0 && (
-        <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1 w-fit">
+        <div className="flex w-fit items-center gap-1 rounded-lg border bg-muted/50 p-1">
           {[
             { value: 'all' as const, label: 'All', count: tenants.length },
             {

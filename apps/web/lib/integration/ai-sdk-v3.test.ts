@@ -74,7 +74,7 @@ describe.skipIf(!hasRealApiKey())('streamText live integration', () => {
         { role: 'user', content: 'Say the phrase.' }
       ],
       temperature: 0,
-      maxTokens: 20
+      maxOutputTokens: 20
     })
 
     let fullText = ''
@@ -91,7 +91,7 @@ describe.skipIf(!hasRealApiKey())('streamText live integration', () => {
     const result = await streamText({
       model: openai('gpt-4o-mini'),
       messages: [{ role: 'user', content: 'Say ok' }],
-      maxTokens: 5
+      maxOutputTokens: 5
     })
 
     const response = result.toTextStreamResponse()
@@ -113,7 +113,7 @@ describe('tool() helper', () => {
 
     const myTool = tool({
       description: 'Test tool',
-      parameters: z.object({ name: z.string(), count: z.number() }),
+      inputSchema: z.object({ name: z.string(), count: z.number() }),
       async execute({ name, count }) {
         return `Created ${name} with ${count} items`
       }
@@ -130,7 +130,7 @@ describe('tool() helper', () => {
 
     const myTool = tool({
       description: 'Adder',
-      parameters: z.object({ a: z.number(), b: z.number() }),
+      inputSchema: z.object({ a: z.number(), b: z.number() }),
       async execute({ a, b }) {
         return `${a + b}`
       }

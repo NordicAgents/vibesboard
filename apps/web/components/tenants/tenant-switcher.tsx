@@ -116,6 +116,15 @@ export function TenantSwitcher({
   // available, so they can still open the "New workspace" action.
   if (tenants.length <= 1 && !extraContent && !canCreate) return null
 
+  // Two of these render on the same page (the sidebar workspace switcher and
+  // the sidebar-footer account menu). They must not share an accessible name:
+  // the footer variant hides the workspace list entirely, so labelling it
+  // "Switch active workspace" misdescribes it for screen readers and makes the
+  // control ambiguous to any name-based query.
+  const triggerLabel = showWorkspaceList
+    ? 'Switch active workspace'
+    : 'Open account menu'
+
   const TenantIcon = currentTenant?.isPersonal ? User : Building2
 
   return (
@@ -126,7 +135,10 @@ export function TenantSwitcher({
             variant="ghost"
             role="combobox"
             aria-expanded={open}
-            aria-label="Switch active workspace"
+            aria-label={triggerLabel}
+            data-testid={
+              showWorkspaceList ? 'workspace-switcher' : 'account-menu-trigger'
+            }
             className={cn(
               'h-auto w-full justify-between rounded-lg px-3 py-2 hover:bg-[#e6ede6] dark:hover:bg-[#344348]',
               className
@@ -181,7 +193,7 @@ export function TenantSwitcher({
           {/* Personal workspaces */}
           {personalTenants.length > 0 && (
             <>
-              <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
+              <DropdownMenuLabel className="label-caps flex items-center gap-1.5 px-3 py-2">
                 <User className="size-3 text-[#6f7f80]" />
                 Personal
               </DropdownMenuLabel>
@@ -206,7 +218,7 @@ export function TenantSwitcher({
           {/* Organization workspaces */}
           {orgTenants.length > 0 && (
             <>
-              <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
+              <DropdownMenuLabel className="label-caps flex items-center gap-1.5 px-3 py-2">
                 <Building2 className="size-3 text-[#6f7f80]" />
                 Teams
               </DropdownMenuLabel>

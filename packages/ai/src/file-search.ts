@@ -2,11 +2,13 @@ import { Buffer } from 'node:buffer'
 
 import { downloadFile } from '@vibesboard/adapter-s3'
 import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
-import { createEmbedding, chatCompletionWithVision } from '@vibesboard/adapter-openai'
-import { replaceFileChunks } from '@vibesboard/ai/rag-store'
-
-const EMBEDDING_MODEL =
-  process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
+import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
+import { replaceFileChunks, providerFromDimension } from '@vibesboard/ai/rag-store'
+import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
+import { eq } from 'drizzle-orm'
 const VISION_MODEL = OPENAI_VISION_MODEL
 
 const IMAGE_MIME_TYPES = new Set([
@@ -327,17 +329,6 @@ const chunkText = (input: string, targetLength = 1200, overlap = 200) => {
   return chunks
 }
 
-const embedChunks = async (values: string[]) => {
-  if (!values.length) {
-    return []
-  }
-  const json = await createEmbedding({
-    model: EMBEDDING_MODEL,
-    input: values
-  })
-  return (json?.data ?? []).map((entry: any) => entry?.embedding ?? [])
-}
-
 export const ingestFileForAgent = async (args: {
   tenantId: string
   agentId: string
@@ -363,7 +354,29 @@ export const ingestFileForAgent = async (args: {
   }
 
   const chunks = chunkText(text)
-  const embeddings = await embedChunks(chunks)
+  const spec = shouldResolveTenantProvider({ tenantId })
+    ? await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
+    : null
+  const providerKind = spec?.kind ?? 'openai'
+  const embed = await resolveEmbedder(tenantId)
+
+  let embeddings: number[][]
+  try {
+    embeddings = await embed(chunks)
+  } catch (err: any) {
+    // Surface a human-readable reason so the UI can show actionable guidance
+    const msg: string = err?.message ?? String(err)
+    const reason =
+      msg.includes('redirect count exceeded') || msg.includes('401') || msg.includes('Unauthorized') || msg.includes('authentication')
+        ? 'Embedding API authentication failed — the API key may be expired. ' +
+          (spec?.kind === 'openai_compatible'
+            ? 'For Google Cloud MaaS, refresh the access token with: gcloud auth print-access-token'
+            : 'Check your embedding provider API key in Settings → LLM Providers.')
+        : msg.includes('429') || msg.includes('quota') || msg.includes('credits')
+        ? 'Embedding API quota exceeded — check your billing/credits for the embedding provider.'
+        : `Embedding failed: ${msg.slice(0, 200)}`
+    return { chunksInserted: 0, message: reason }
+  }
 
   if (!embeddings.length) {
     return {
@@ -373,15 +386,28 @@ export const ingestFileForAgent = async (args: {
   }
 
   // Write chunks to Postgres (replaceFileChunks deletes existing then inserts)
+  const embeddingDim = embeddings[0]?.length ?? 768
   await replaceFileChunks({
     tenantId,
     fileId,
+    provider: providerFromDimension(embeddingDim),
     chunks: chunks.map((content, index) => ({
       chunkIndex: index,
       content,
       embedding: embeddings[index] ?? []
     }))
   })
+
+  // Mark file as indexed and record which provider embedded it
+  await getMigrateDb()
+    .update(filesTable)
+    .set({
+      status: 'indexed',
+      embeddingProvider: providerKind,
+      processingCompletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(filesTable.id, fileId))
 
   const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 

@@ -20,7 +20,7 @@
     "@vibesboard/channel-instagram": "workspace:*",
     "@vibesboard/channel-whatsapp": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
-    "nanoid": "^4.0.2",
+    "nanoid": "^5.1.16",
     "server-only": "^0.0.1"
   },
   "devDependencies": {

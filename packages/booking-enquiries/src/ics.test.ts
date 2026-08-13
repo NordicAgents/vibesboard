@@ -134,7 +134,7 @@ describe('generateIcs — structure', () => {
     const ics = generateIcs(BASE_PARAMS)
     const map = parseIcs(ics)
     expect(map.get('VERSION')).toBe('2.0')
-    expect(map.get('PRODID')).toBe('-//VibeAgent//SimpleBooking//EN')
+    expect(map.get('PRODID')).toBe('-//Vibesboard//SimpleBooking//EN')
     expect(map.get('CALSCALE')).toBe('GREGORIAN')
   })
 
@@ -146,9 +146,9 @@ describe('generateIcs — structure', () => {
     expect(dtstamp!.length).toBe(16)
   })
 
-  it('UID contains the uid param suffixed with @vibeagent', () => {
+  it('UID contains the uid param suffixed with @vibesboard', () => {
     const ics = generateIcs(BASE_PARAMS)
-    expect(ics).toContain('UID:test-uid-123@vibeagent')
+    expect(ics).toContain('UID:test-uid-123@vibesboard')
   })
 
   it('TZID matches the timezone param', () => {

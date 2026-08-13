@@ -52,12 +52,41 @@ export async function processFile(
       mimeType
     })
 
-    // 3. Estimate token count (approximate: 1 token ~ 4 chars)
+    // 3. A zero-chunk ingest is a failure, not a success. ingestFileForAgent
+    //    early-returns `{ chunksInserted: 0, message }` when the file has no
+    //    extractable text, when embed() throws (expired API key, quota) or when
+    //    the provider returns no embeddings — and on those paths it never writes
+    //    status/embeddingProvider itself. Falling through to 'indexed' would show
+    //    the user a healthy knowledge file the agent knows nothing about, leave
+    //    embedding_provider NULL (the stale-embedding detector skips NULL), and
+    //    throw away the actionable message ("API key may be expired", "quota
+    //    exceeded") that ingestFileForAgent built for exactly this case.
+    if (!result.chunksInserted) {
+      const reason =
+        result.message || 'Ingestion produced no searchable chunks.'
+
+      console.error(
+        `[FileProcessor] Ingestion produced no chunks for ${fileName}:`,
+        reason
+      )
+
+      await setFileStatus(fileId, 'failed', { error: reason })
+
+      return {
+        success: false,
+        fileId,
+        chunksCreated: 0,
+        tokensProcessed: 0,
+        error: reason
+      }
+    }
+
+    // 4. Estimate token count (approximate: 1 token ~ 4 chars)
     const estimatedTokens = result.totalChars
       ? Math.ceil(result.totalChars / 4)
       : Math.ceil((result.chunksInserted * 1200) / 4)
 
-    // 4. Mark file as indexed
+    // 5. Mark file as indexed
     await setFileStatus(fileId, 'indexed')
 
     console.log(

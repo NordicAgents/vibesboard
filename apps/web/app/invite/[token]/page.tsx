@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import {
@@ -41,21 +41,19 @@ export default function InvitationPage() {
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  useEffect(() => {
-    fetchInvitation()
-    checkAuth()
-  }, [token])
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const response = await fetch('/api/user/active-tenant')
       setIsAuthenticated(response.ok)
-    } catch (error) {
+    } catch {
       setIsAuthenticated(false)
     }
-  }
+  }, [])
 
-  const fetchInvitation = async () => {
+  // Both callbacks are declared before the effect that depends on them: a
+  // dependency array is evaluated during render, so a `const` defined
+  // afterwards would still be in its temporal dead zone.
+  const fetchInvitation = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -76,7 +74,12 @@ export default function InvitationPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [token])
+
+  useEffect(() => {
+    fetchInvitation()
+    checkAuth()
+  }, [fetchInvitation, checkAuth])
 
   const handleAccept = async () => {
     if (!isAuthenticated) {
@@ -207,7 +210,7 @@ export default function InvitationPage() {
     <div className="container flex min-h-screen items-center justify-center py-12">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold">You've Been Invited!</h1>
+          <h1 className="text-3xl font-bold">You&apos;ve Been Invited!</h1>
           <p className="mt-2 text-muted-foreground">
             Accept the invitation to join the tenant
           </p>

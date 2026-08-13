@@ -1,18 +1,16 @@
-/**
- * Self-host shim — usage logging is a no-op; limits are infinite.
- *
- * The previous implementation wrote usage_logs records to the database and
- * enforced plan limits before agent invocations. Self-host operators who
- * want metering can re-implement this locally; the table
- * `usage_counters` exists in Postgres for ad-hoc rolling totals.
- */
+import 'server-only'
 
-import type { UsageSource } from '@vibesboard/contracts'
-import type { PlanId } from '@vibesboard/contracts'
+import { and, eq, gte, lt, sql } from 'drizzle-orm'
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
+
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import * as schema from '@vibesboard/adapter-postgres/schema'
+import { usageCounters } from '@vibesboard/adapter-postgres/schema'
+import type { PlanId, UsageSource } from '@vibesboard/contracts'
 
 export type { UsageSource }
 
-// ─── Record usage ───────────────────────────────────────────────────
+type Db = PostgresJsDatabase<typeof schema>
 
 export interface RecordUsageParams {
   tenantId: string
@@ -29,14 +27,6 @@ export interface RecordUsageParams {
   toolCalled?: string | null
 }
 
-/**
- * Record a single LLM call for metering.
- * Self-host: no-op.
- */
-export function recordUsage(_params: RecordUsageParams): void {}
-
-// ─── Check usage limit ──────────────────────────────────────────────
-
 export interface UsageLimitResult {
   allowed: boolean
   remaining: number
@@ -45,40 +35,161 @@ export interface UsageLimitResult {
   planId: PlanId
 }
 
-/**
- * Check whether the tenant can make another LLM call.
- * Self-host: always allowed with infinite remaining.
- */
-export async function checkUsageLimit(
-  _tenantId: string,
-): Promise<UsageLimitResult> {
-  return {
-    allowed: true,
-    remaining: Number.POSITIVE_INFINITY,
-    limit: Number.POSITIVE_INFINITY,
-    used: 0,
-    planId: 'free',
-  }
-}
-
-export async function logUsage(_args: unknown): Promise<void> {}
-
-export async function getUsage(
-  _args: unknown,
-): Promise<{ messages: number; limit: number }> {
-  return { messages: 0, limit: Number.POSITIVE_INFINITY }
-}
-
-export async function checkLimit(
-  _args: unknown,
-): Promise<{ allowed: true; remaining: number }> {
-  return { allowed: true, remaining: Number.POSITIVE_INFINITY }
-}
-
-export async function getUsageRollup(_args: unknown): Promise<{
+export interface UsageRollup {
   totalMessages: number
   totalInputTokens: number
   totalOutputTokens: number
-}> {
-  return { totalMessages: 0, totalInputTokens: 0, totalOutputTokens: 0 }
+  byAgent: Record<string, number>
+  bySource: Record<string, number>
+}
+
+function tokenCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0
+}
+
+function monthBounds(now = new Date()) {
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+  )
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+  )
+  return { start, end }
+}
+
+function configuredMonthlyLimit(): number {
+  const parsed = Number.parseInt(process.env.MONTHLY_MESSAGE_LIMIT ?? '', 10)
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : Number.POSITIVE_INFINITY
+}
+
+/** Atomically add one completed LLM invocation to the monthly rollup. */
+export async function recordUsage(
+  params: RecordUsageParams,
+  db: Db = getMigrateDb()
+): Promise<void> {
+  const { start: periodStart } = monthBounds()
+  const inputTokens = tokenCount(params.inputTokens)
+  const outputTokens = tokenCount(params.outputTokens)
+
+  await db
+    .insert(usageCounters)
+    .values({
+      tenantId: params.tenantId,
+      agentId: params.agentId,
+      periodStart,
+      messageCount: 1,
+      inputTokens,
+      outputTokens,
+      sourceCounts: { [params.source]: 1 }
+    })
+    .onConflictDoUpdate({
+      target: [
+        usageCounters.tenantId,
+        usageCounters.agentId,
+        usageCounters.periodStart
+      ],
+      set: {
+        messageCount: sql`${usageCounters.messageCount} + 1`,
+        inputTokens: sql`${usageCounters.inputTokens} + ${inputTokens}`,
+        outputTokens: sql`${usageCounters.outputTokens} + ${outputTokens}`,
+        sourceCounts: sql`jsonb_set(
+          coalesce(${usageCounters.sourceCounts}, '{}'::jsonb),
+          ARRAY[${params.source}]::text[],
+          to_jsonb(coalesce((${usageCounters.sourceCounts} ->> ${params.source})::integer, 0) + 1),
+          true
+        )`,
+        updatedAt: sql`now()`
+      }
+    })
+}
+
+export async function getUsageRollup(args: {
+  tenantId: string
+  now?: Date
+  db?: Db
+}): Promise<UsageRollup> {
+  const db = args.db ?? getMigrateDb()
+  const { start, end } = monthBounds(args.now)
+  const rows = await db
+    .select({
+      agentId: usageCounters.agentId,
+      messageCount: usageCounters.messageCount,
+      inputTokens: usageCounters.inputTokens,
+      outputTokens: usageCounters.outputTokens,
+      sourceCounts: usageCounters.sourceCounts
+    })
+    .from(usageCounters)
+    .where(
+      and(
+        eq(usageCounters.tenantId, args.tenantId),
+        gte(usageCounters.periodStart, start),
+        lt(usageCounters.periodStart, end)
+      )
+    )
+
+  const rollup: UsageRollup = {
+    totalMessages: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    byAgent: {},
+    bySource: {}
+  }
+  for (const row of rows) {
+    rollup.totalMessages += row.messageCount
+    rollup.totalInputTokens += row.inputTokens
+    rollup.totalOutputTokens += row.outputTokens
+    rollup.byAgent[row.agentId] =
+      (rollup.byAgent[row.agentId] ?? 0) + row.messageCount
+    for (const [source, count] of Object.entries(row.sourceCounts ?? {})) {
+      if (typeof count === 'number' && Number.isFinite(count)) {
+        rollup.bySource[source] = (rollup.bySource[source] ?? 0) + count
+      }
+    }
+  }
+  return rollup
+}
+
+export async function getUsage(args: {
+  tenantId: string
+  now?: Date
+  db?: Db
+}): Promise<{ messages: number; limit: number }> {
+  const rollup = await getUsageRollup(args)
+  return {
+    messages: rollup.totalMessages,
+    limit: configuredMonthlyLimit()
+  }
+}
+
+export async function checkUsageLimit(
+  tenantId: string,
+  db: Db = getMigrateDb()
+): Promise<UsageLimitResult> {
+  const usage = await getUsage({ tenantId, db })
+  return {
+    allowed: usage.messages < usage.limit,
+    remaining: Number.isFinite(usage.limit)
+      ? Math.max(0, usage.limit - usage.messages)
+      : Number.POSITIVE_INFINITY,
+    limit: usage.limit,
+    used: usage.messages,
+    planId: 'free'
+  }
+}
+
+/** Backward-compatible aliases used by older callers. */
+export async function logUsage(args: RecordUsageParams): Promise<void> {
+  await recordUsage(args)
+}
+
+export async function checkLimit(args: {
+  tenantId: string
+  db?: Db
+}): Promise<{ allowed: boolean; remaining: number }> {
+  const result = await checkUsageLimit(args.tenantId, args.db)
+  return { allowed: result.allowed, remaining: result.remaining }
 }

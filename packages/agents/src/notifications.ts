@@ -172,7 +172,7 @@ async function sendEmailNotification(
   await resend.emails.send({
     from:
       process.env.NOTIFICATION_EMAIL_FROM ||
-      'VibeAgent <notifications@vibeagent.com>',
+      'Vibesboard <notifications@vibesboard.com>',
     to: toAddress,
     subject,
     text: lines
