@@ -66,6 +66,24 @@ then added to the appropriate env file and Secret Manager environment.
 > mounted will crash-loop the service the next time it cold-starts, which can
 > surface as a delayed outage rather than an immediate one.
 
+## Storage bucket CORS
+
+When the browser talks to the storage bucket directly from a different origin,
+the bucket needs a CORS policy naming your app origins, for example:
+
+```json
+[
+  {
+    "origin": ["https://your-app.example", "http://localhost:3000"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": ["Content-Type", "Authorization"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+Apply it with `gcloud storage buckets update gs://YOUR_BUCKET --cors-file=cors.json`.
+
 ## Self-hosting elsewhere
 
 The application builds to a standalone Next.js output and runs anywhere that can

@@ -1,4 +1,4 @@
--- Agent config versioning (spec: docs/superpowers/specs/2026-07-01-agent-config-versioning.md).
+-- Agent config versioning (spec: docs/design/2026-07-01-agent-config-versioning.md).
 -- Hand-written migration (not db:generate — the drizzle snapshot chain in this
 -- repo is intentionally hand-maintained for these, cf. 0009). Adds the
 -- agents.current_version pointer, the immutable agent_versions snapshot table

@@ -9,7 +9,7 @@
 //      Feature packages declare what they need; adapters implement them.
 //   3. Re-exports — index.ts is a barrel; nothing else.
 //
-// See docs/superpowers/specs/2026-05-16-monorepo-split-design.md.
+// See docs/architecture.md for the monorepo layout.
 
 export * from './domain-types.ts'
 export * from './types.ts'
