@@ -22,10 +22,33 @@ jobs:
         with:
           persist-credentials: false
 
+      # A fork PR checks out its own tree, including .gitleaks.toml — a PR could
+      # widen that allowlist to make the secret scan pass while scanning nothing.
+      # On pull_request, pull the scan config from the trusted BASE ref instead.
+      - name: Check out base-ref scan config (trusted)
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.base_ref }}
+          path: .base-config
+          persist-credentials: false
+          sparse-checkout: |
+            .gitleaks.toml
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve gitleaks config path
+        id: gitleaks_config
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ -f .base-config/.gitleaks.toml ]; then
+            echo "path=/repo/.base-config/.gitleaks.toml" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=/repo/.gitleaks.toml" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Scan tracked files for secrets
         run: >-
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
-          dir /repo --config /repo/.gitleaks.toml --no-banner --redact=100
+          dir /repo --config ${{ steps.gitleaks_config.outputs.path }} --no-banner --redact=100
 
       # Invoked through `run:` rather than `uses: docker://…` on purpose. This
       # repository sets Actions to "allow select actions", and that allow-list
@@ -41,6 +64,13 @@ jobs:
           semgrep/semgrep@sha256:85782eaf09692e6dfb684cd3bad87ef315775814b01f76b4d15582e4ca7c1c89
           semgrep scan --error
           --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+
+      # Defense in depth: a fork PR must not be able to smuggle in scanner
+      # ignore files to suppress findings. The repo ships none, so removing them
+      # on PRs is a no-op for trusted branches.
+      - name: Drop untrusted scanner ignore files on PRs
+        if: github.event_name == 'pull_request'
+        run: rm -f .trivyignore .trivyignore.yaml .semgrepignore
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
