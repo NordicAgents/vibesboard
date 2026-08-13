@@ -1,8 +1,8 @@
 // Shared Vitest configuration for the monorepo.
 //
-// Each package has its own `vitest.config.ts` that spreads `sharedTest` and
+// Each package has its own `vitest.config.mts` that spreads `sharedTest` and
 // `sharedResolveAlias` so per-package `vitest run` is scoped to that package,
-// while the root `vitest.config.ts` aggregates every package via `projects`.
+// while the root `vitest.config.mts` aggregates every package via `projects`.
 import { fileURLToPath } from 'node:url'
 
 const fromRoot = (p: string) => fileURLToPath(new URL(p, import.meta.url))
@@ -32,7 +32,14 @@ export const sharedTest = {
   hookTimeout: 30_000,
 }
 
-// Coverage config used at the repo root (reporting only, no hard gate yet).
+// Coverage config used at the repo root.
+//
+// `thresholds` is a ratchet, not a target. The numbers sit a couple of points
+// below the coverage measured when they were introduced (statements 21.42,
+// branches 20.40, functions 23.06, lines 21.70), so the suite passes today but
+// CI fails on a real regression. The headroom absorbs ordinary run-to-run
+// drift; it is not licence to let coverage sink to the floor. Raise these
+// whenever a batch of tests lands — that is the point of a ratchet.
 export const sharedCoverage = {
   provider: 'v8' as const,
   reportsDirectory: fromRoot('./coverage'),
@@ -47,4 +54,10 @@ export const sharedCoverage = {
     '**/*.d.ts',
     '**/node_modules/**',
   ],
+  thresholds: {
+    statements: 20,
+    branches: 19,
+    functions: 21,
+    lines: 20,
+  },
 }

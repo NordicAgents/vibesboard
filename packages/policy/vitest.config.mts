@@ -6,7 +6,7 @@
 // root config via `test.projects`.
 import { fileURLToPath } from 'node:url'
 import { defineProject } from 'vitest/config'
-import { sharedResolveAlias, sharedTest } from '../../vitest.shared'
+import { sharedResolveAlias, sharedTest } from '../../vitest.shared.mts'
 
 export default defineProject({
   // Alias placement: project-level `resolve.alias`, NOT under `test`.

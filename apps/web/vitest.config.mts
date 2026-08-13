@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { defineProject } from 'vitest/config'
-import { sharedResolveAlias, sharedTest } from '../../vitest.shared.ts'
+import { sharedResolveAlias, sharedTest } from '../../vitest.shared.mts'
 
 // Map the `@/<path>` alias (matching apps/web/tsconfig.json's `"@/*": ["./*"]`)
 // to the app root. A regex find/replacement (`/^@\//` -> `<appRoot>/`) is the
