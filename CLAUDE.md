@@ -43,7 +43,7 @@ Development here historically used the [Superpowers](https://github.com/obra/sup
 - `main` — production environment
 - Feature branches merge to `dev` via PR
 - `dev` merges to `main` for production releases
-- Releases are automated on push to `main` by release-please (`googleapis/release-please-action@v4`, `release-type: simple`), which reads conventional commits for version bumps and changelogs
+- Releases are automated on push to `main` by release-please (`googleapis/release-please-action@v5`, `release-type: simple`), which reads conventional commits for version bumps and changelogs
 - Commit format: `feat(scope): message`, `fix(scope): message`, `chore(scope): message`
 
 ### Merging `dev` → `main` (IMPORTANT)
