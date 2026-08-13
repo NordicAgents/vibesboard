@@ -1,0 +1,2 @@
+ALTER TABLE "tenants" ADD COLUMN "llm_allow_private_hosts" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "tenants" ADD COLUMN "llm_host_allowlist" text[] DEFAULT '{}'::text[] NOT NULL;

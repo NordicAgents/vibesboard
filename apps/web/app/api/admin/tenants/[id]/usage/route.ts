@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/auth/route-handler'
+import { eq } from 'drizzle-orm'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { agents } from '@vibesboard/adapter-postgres/schema'
+import { getUsageRollup } from '@vibesboard/policy/usage'
 
 export const runtime = 'nodejs'
 
@@ -11,27 +15,37 @@ type RouteParams = {
  * GET /api/admin/tenants/[id]/usage
  * Returns usage data for any tenant (SUPER_ADMIN only).
  *
- * The legacy `usageRollups`/`usageLogs` rollups and the tenant
- * `subscription` field are no longer written (self-host `recordUsage` is a
- * no-op shim, and Postgres `tenants` has no subscription column). The route
- * stays alive returning a truthful empty/zero shape so the admin UI does not
- * 500.
+ * Billing/subscription data remains null in the self-hosted build, while
+ * monthly message/token totals are read from Postgres.
  */
 export async function GET(req: Request, { params }: RouteParams) {
   const auth = await requireSuperAdmin()
   if (!auth.ok) return auth.response
 
-  // tenantId is unused now (no per-tenant rollup remains) but the param is
-  // part of the route contract.
-  await params
+  const { id: tenantId } = await params
 
   const now = new Date()
   const billingCycleId = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const db = getMigrateDb()
+  const [usage, agentRows] = await Promise.all([
+    getUsageRollup({ tenantId, now, db }),
+    db
+      .select({ id: agents.id, name: agents.name })
+      .from(agents)
+      .where(eq(agents.tenantId, tenantId))
+  ])
 
   return NextResponse.json({
     subscription: null,
-    rollup: null,
-    agentNames: {},
+    rollup: {
+      tenantId,
+      billingCycleId,
+      ...usage,
+      byModel: {},
+      byUser: {},
+      updatedAt: now.toISOString()
+    },
+    agentNames: Object.fromEntries(agentRows.map(row => [row.id, row.name])),
     userNames: {},
     dailyUsage: [],
     billingCycleId

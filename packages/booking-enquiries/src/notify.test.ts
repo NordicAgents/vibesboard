@@ -170,7 +170,7 @@ describe('notifyAdminOfEnquiry', () => {
     // Decode the base64 attachment and confirm it is a real VCALENDAR.
     const decoded = Buffer.from(att.content, 'base64').toString('utf8')
     expect(decoded.startsWith('BEGIN:VCALENDAR')).toBe(true)
-    expect(decoded).toContain('UID:enq-1@vibeagent')
+    expect(decoded).toContain('UID:enq-1@vibesboard')
     expect(decoded).toContain('ORGANIZER:mailto:owner@x.com')
   })
 
@@ -195,6 +195,6 @@ describe('notifyAdminOfEnquiry', () => {
       makeEnquiry(),
     )
     const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, unknown>
-    expect(arg.from).toBe('VibeAgent <notifications@vibeagent.com>')
+    expect(arg.from).toBe('Vibesboard <notifications@vibesboard.com>')
   })
 })

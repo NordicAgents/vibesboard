@@ -1,31 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { getSignedUploadUrl } from '@vibesboard/adapter-s3'
+import {
+  isAcceptedUploadMimeType,
+  isValidUploadSize,
+  MAX_FILE_UPLOAD_BYTES
+} from '@/lib/file-upload'
 
 export const runtime = 'nodejs'
-
-const ACCEPTED_MIME_TYPES = new Set([
-  'application/pdf',
-  'text/plain',
-  'text/markdown',
-  'text/csv',
-  'text/html',
-  'application/json',
-  'application/xml',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'image/png',
-  'image/jpeg',
-  'image/gif',
-  'image/webp',
-  'image/tiff',
-  'image/svg+xml',
-  'application/octet-stream'
-])
 
 /**
  * POST /api/files/upload-url
@@ -37,11 +19,11 @@ export async function POST(req: NextRequest) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
-  const { fileName, contentType } = await req.json()
+  const { fileName, contentType, fileSize } = await req.json()
 
-  if (!fileName || !contentType) {
+  if (!fileName || !contentType || fileSize === undefined) {
     return NextResponse.json(
-      { error: 'fileName and contentType are required' },
+      { error: 'fileName, contentType, and fileSize are required' },
       { status: 400 }
     )
   }
@@ -55,17 +37,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid file name' }, { status: 400 })
   }
 
-  if (!ACCEPTED_MIME_TYPES.has(contentType)) {
+  if (!isAcceptedUploadMimeType(contentType)) {
     return NextResponse.json(
       { error: 'Unsupported file type' },
       { status: 400 }
     )
   }
 
+  if (!isValidUploadSize(fileSize)) {
+    return NextResponse.json(
+      {
+        error: `File size must be between 1 byte and ${MAX_FILE_UPLOAD_BYTES} bytes`
+      },
+      { status: 413 }
+    )
+  }
+
   const fileKey = `${session.user.id}/${fileName}`
 
   try {
-    const uploadUrl = await getSignedUploadUrl(fileKey, contentType)
+    const uploadUrl = await getSignedUploadUrl(
+      fileKey,
+      contentType,
+      undefined,
+      fileSize
+    )
     return NextResponse.json({ uploadUrl, fileKey })
   } catch (error: any) {
     return NextResponse.json(

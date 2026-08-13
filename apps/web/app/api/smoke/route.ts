@@ -1,19 +1,47 @@
 import { NextResponse } from 'next/server'
 import { type Message } from '@vibesboard/contracts'
+import { timingSafeEqual } from 'node:crypto'
 
 import { runAgentStream } from '@vibesboard/ai/runtime'
 import { type VibeAgent } from '@vibesboard/contracts'
 
 export const runtime = 'nodejs'
 
+function isAuthorized(req: Request): boolean {
+  const expected = process.env.SMOKE_TEST_SECRET
+  if (!expected || expected.length < 32) return false
+
+  const authorization = req.headers.get('authorization')
+  if (!authorization?.startsWith('Bearer ')) return false
+  const supplied = authorization.slice('Bearer '.length)
+
+  const expectedBytes = Buffer.from(expected)
+  const suppliedBytes = Buffer.from(supplied)
+  return (
+    expectedBytes.length === suppliedBytes.length &&
+    timingSafeEqual(expectedBytes, suppliedBytes)
+  )
+}
+
 export async function GET(req: Request) {
+  // The endpoint invokes the platform fallback model and therefore must never
+  // be a public health check. A missing/short secret disables it entirely.
+  if (!isAuthorized(req)) {
+    return new NextResponse('Not found', { status: 404 })
+  }
+
   const url = new URL(req.url)
   const mode = url.searchParams.get('mode') || 'file'
   // Minimal in-memory agent with built-in tools enabled
+  // These must be UUID-shaped: the runtime resolves per-tenant LLM routing and
+  // feature flags by querying uuid columns with them, so the previous
+  // 'smoke-tenant' / 'smoke-user' / 'smoke-agent' strings made Postgres throw
+  // ("invalid input syntax for type uuid") and this route always returned 500.
+  // Sentinel values that match no row, so every lookup falls back to defaults.
   const agent: VibeAgent = {
-    id: 'smoke-agent',
-    userId: 'smoke-user',
-    tenantId: 'smoke-tenant',
+    id: '00000000-0000-4000-8000-000000005a9e',
+    userId: '00000000-0000-4000-8000-000000005115',
+    tenantId: '00000000-0000-4000-8000-0000000005e0',
     name: 'SmokeTest Agent',
     instructions:
       'Follow directions. When the user explicitly asks to call a tool, do so. Keep the final answer concise.',

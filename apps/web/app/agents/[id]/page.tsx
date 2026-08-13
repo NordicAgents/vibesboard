@@ -9,6 +9,7 @@ import {
   listHandoffConversationsForAgent
 } from '@vibesboard/agents/conversations'
 import { getQrDataUrl } from '@/lib/qr'
+import { buildShareUrl } from '@/lib/share-url'
 import { AgentChatWithLayout } from '@/components/agents/agent-chat-with-layout'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 
@@ -80,17 +81,7 @@ export default async function AgentPageAsChat({
     : false
 
   const headersList = await headers()
-  const rawProto = headersList.get('x-forwarded-proto')
-  const protocol =
-    (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
-    (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
-  const rawHost = headersList.get('x-forwarded-host') ?? headersList.get('host')
-  const host = rawHost ? rawHost.split(',')[0]?.trim() : null
-  const origin =
-    (protocol && host
-      ? `${protocol}://${host}`
-      : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
-  const shareUrl = `${origin}/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
+  const shareUrl = buildShareUrl(headersList, agent.tenantSlug, agent.agentUrl)
   const qrDataUrl = await getQrDataUrl(shareUrl)
 
   return (

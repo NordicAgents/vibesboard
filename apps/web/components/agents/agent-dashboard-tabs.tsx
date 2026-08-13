@@ -13,9 +13,12 @@ import { AgentIntegrationsTab } from '@/components/agents/agent-integrations-tab
 import { AgentHandoffSettings } from '@/components/agents/agent-handoff-settings'
 import { AgentBookingEnquiries } from '@/components/agents/agent-booking-enquiries'
 import { AgentActionsFlow } from '@/components/agents/agent-actions-flow'
+import { AgentVersionHistoryTab } from '@/components/agents/agent-version-history-tab'
+import { AgentMemoryTab } from '@/components/agents/agent-memory-tab'
 import { FeatureGate } from '@/components/tenants/feature-gate-client'
 import { useAgentForm } from '@/lib/hooks/use-agent-form'
 import { useTenantFeatures } from '@/hooks/use-tenant-features'
+import { isKnownAgentDashboardTab } from '@/lib/agent-dashboard-tabs'
 import type { AgentSharePayload, VibeAgent } from '@vibesboard/contracts'
 import { ArrowLeft } from 'lucide-react'
 import type { ActionCapability } from '@vibesboard/agents/action-config'
@@ -98,8 +101,10 @@ export function AgentDashboardTabs({
   // features are still loading, so a valid actions deep-link isn't bounced on
   // first paint.
   const isTabAvailable = (tab: string): boolean => {
+    if (!isKnownAgentDashboardTab(tab)) return false
     if (tab === 'actions') return actionsEnabled
     if (tab === 'booking-enquiries') return !!agent.bookingConfig?.enabled
+    if (tab === 'memory') return fields.memoryEnabled
     return true
   }
   const effectiveTab =
@@ -143,6 +148,10 @@ export function AgentDashboardTabs({
           {actionsEnabled && <TabsTrigger value="actions">Actions</TabsTrigger>}
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="share">Share</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+          {fields.memoryEnabled && (
+            <TabsTrigger value="memory">Memory</TabsTrigger>
+          )}
           {agent.bookingConfig?.enabled && (
             <TabsTrigger value="booking-enquiries">Enquiries</TabsTrigger>
           )}
@@ -190,7 +199,12 @@ export function AgentDashboardTabs({
             saving={saving}
             canEdit={canEdit}
             agentId={agent.id}
-            hasAccessPassword={!!agent.accessPassword}
+            hasAccessPassword={!!agent.hasAccessPassword}
+            llmConfigId={fields.llmConfigId}
+            onLlmConfigIdChange={setters.setLlmConfigId}
+            tenantId={agent.tenantId}
+            memoryEnabled={fields.memoryEnabled}
+            onMemoryEnabledChange={setters.setMemoryEnabled}
           />
           {agent.tenantId && (
             <FeatureGate feature="AGENT_HANDOFF" tenantId={agent.tenantId}>
@@ -292,6 +306,22 @@ export function AgentDashboardTabs({
             <AgentBookingEnquiries agentId={agent.id} />
           </TabsContent>
         )}
+
+        <TabsContent value="history">
+          <AgentVersionHistoryTab
+            agentId={agent.id}
+            currentVersion={agent.currentVersion ?? 1}
+            canEdit={canEdit}
+          />
+        </TabsContent>
+
+        <TabsContent value="memory">
+          <AgentMemoryTab
+            agentId={agent.id}
+            memoryEnabled={fields.memoryEnabled}
+            canEdit={canEdit}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   )

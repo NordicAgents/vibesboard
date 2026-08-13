@@ -90,19 +90,19 @@ export function AgentBookingEnquiries({ agentId }: Props) {
                 <p className="text-muted-foreground">{e.guestPhone}</p>
               </td>
               <td className="py-3 pr-4">{e.resourceName}</td>
-              <td className="py-3 pr-4 whitespace-nowrap">
+              <td className="whitespace-nowrap py-3 pr-4">
                 <p>{fmtDatetime(e.startDatetime, e.timezone)}</p>
                 <p className="text-muted-foreground">
                   → {fmtDatetime(e.endDatetime, e.timezone)}
                 </p>
               </td>
               <td className="py-3 pr-4">{e.guestCount ?? '—'}</td>
-              <td className="py-3 pr-4 max-w-[160px]">
+              <td className="max-w-[160px] py-3 pr-4">
                 <p className="truncate text-muted-foreground">
                   {e.notes || '—'}
                 </p>
               </td>
-              <td className="py-3 whitespace-nowrap text-muted-foreground">
+              <td className="whitespace-nowrap py-3 text-muted-foreground">
                 {fmtReceived(e.createdAt)}
               </td>
             </tr>

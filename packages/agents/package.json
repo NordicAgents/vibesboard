@@ -21,7 +21,7 @@
     "@vibesboard/policy": "workspace:*",
     "@vibesboard/utils": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "nanoid": "^4.0.2",
+    "nanoid": "^5.1.16",
     "resend": "^6.9.4",
     "server-only": "^0.0.1",
     "uuidv7": "^1.0.2",

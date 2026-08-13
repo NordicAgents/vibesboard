@@ -538,6 +538,9 @@ export function AgentRightbar({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
+                  <span className="sr-only">
+                    Open public agent in a new tab
+                  </span>
                   <IconExternalLink className="size-4" />
                 </Link>
               </Button>

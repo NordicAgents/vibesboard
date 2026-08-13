@@ -88,7 +88,13 @@ export interface VibeAgent {
   agentUrl: string
   tools: VibeAgentTool[]
   allowAnonymous: boolean
-  accessPassword?: string | null
+  /**
+   * Whether an access-gate password is set. Deliberately a boolean, not the
+   * hash: this type is serialized into the RSC payload of the public gated
+   * pages, so anything here is visible to anonymous visitors. Server code
+   * that must verify a password uses getAgentAccessPasswordHash().
+   */
+  hasAccessPassword?: boolean
   greetingText?: string | null
   mode: AgentMode
   maxResponses?: number | null
@@ -152,6 +158,9 @@ export interface VibeAgent {
     overlapProtection?: boolean
   }
   actions?: AgentAction[]
+  llmConfigId?: string | null
+  memoryEnabled?: boolean
+  currentVersion?: number
   createdAt: string
   updatedAt: string
 }

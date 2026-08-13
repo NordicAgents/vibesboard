@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useChat } from 'ai/react'
+import { useCompatChat } from '@/lib/hooks/use-compat-chat'
 import { useRouter } from 'next/navigation'
 import { ChatList } from '@/components/chat-list'
 import { PromptForm, type AttachedFile } from '@/components/prompt-form'
@@ -61,7 +61,7 @@ export function AgentCreatorChat({
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
-    useChat({
+    useCompatChat({
       id: chatId,
       api: '/api/agent-creator',
       streamProtocol: 'text',
@@ -76,11 +76,13 @@ export function AgentCreatorChat({
           toast.error('Please sign in to create an agent.')
         }
       },
-      onFinish(message) {
+
+      onFinish(message: any) {
+        // useCompatChat normalizes UIMessage to have content: string
+        const content: string = message?.content ?? ''
+
         // Parse agentupdate blocks from the AI response
         try {
-          const content = message.content
-          // Look for ~~~agentupdate blocks
           const agentUpdateRegex = /~~~agentupdate\s*\n([\s\S]*?)\n~~~/g
           const matches = content.matchAll(agentUpdateRegex)
 
@@ -136,7 +138,6 @@ export function AgentCreatorChat({
 
         // Detect an agent creation completion marker from the API.
         try {
-          const content = message.content
           const agentCreatedRegex = /~~~agentcreated\s*\n([\s\S]*?)\n~~~/g
           const matches = content.matchAll(agentCreatedRegex)
 
@@ -230,7 +231,8 @@ export function AgentCreatorChat({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 fileName,
-                contentType: file.type || 'application/octet-stream'
+                contentType: file.type || 'application/octet-stream',
+                fileSize: file.size
               })
             })
 
@@ -399,13 +401,13 @@ export function AgentCreatorChat({
   return (
     <div
       className={cn(
-        'flex h-full flex-1 flex-col lg:flex-row bg-[#f7f7f5] dark:bg-[#222f30]',
+        'flex h-full flex-1 flex-col bg-[#f7f7f5] dark:bg-[#222f30] lg:flex-row',
         className
       )}
     >
       {/* Mobile View Switcher */}
       <div className="flex shrink-0 border-b border-[#e4e3e3] dark:border-[#344348] lg:hidden">
-        <div className="flex w-full rounded-lg bg-[#e6ede6] m-2 p-1 dark:bg-[#344348]">
+        <div className="m-2 flex w-full rounded-lg bg-[#e6ede6] p-1 dark:bg-[#344348]">
           <button
             onClick={() => setMobileView('chat')}
             className={cn(
@@ -479,14 +481,16 @@ export function AgentCreatorChat({
               <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto max-w-3xl">
                   <ChatList
-                    messages={messages.map(msg => ({
-                      ...msg,
-                      // Remove agentupdate/agentcreated blocks from display
-                      content: msg.content
-                        .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
-                        .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
-                        .trim()
-                    }))}
+                    messages={
+                      (messages as any[]).map(msg => ({
+                        ...msg,
+                        // Remove agentupdate/agentcreated blocks from display
+                        content: msg.content
+                          .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
+                          .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
+                          .trim()
+                      })) as any
+                    }
                   />
                   {isLoading && (
                     <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
@@ -605,6 +609,7 @@ export function AgentCreatorChat({
                     </p>
                     <Button
                       size="sm"
+                      aria-label="Create agent from chat draft"
                       onClick={handleCreateAgent}
                       disabled={isCreating}
                       className="shrink-0"
@@ -662,12 +667,12 @@ export function AgentCreatorChat({
             isCreating={isCreating}
             isUploading={isUploading}
             userId={userId}
-            className="w-full lg:w-[400px] shrink-0"
+            className="w-full shrink-0 lg:w-[400px]"
             onClose={() => setIsPreviewOpen(false)}
           />
         </div>
       ) : (
-        <div className="hidden lg:flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
+        <div className="hidden w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348] lg:flex">
           <Button
             size="sm"
             variant="ghost"

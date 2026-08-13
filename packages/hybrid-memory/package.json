@@ -1,0 +1,32 @@
+{
+  "name": "@vibesboard/hybrid-memory",
+  "version": "0.1.0",
+  "description": "Hybrid memory engine for AI agents — extended engram with cross-conversation reconciliation, presence classes, and approval-gated mutations",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapters/postgres": "./src/adapters/postgres/index.ts",
+    "./adapters/openai": "./src/adapters/openai/index.ts",
+    "./stores/*": "./src/stores/*.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "keywords": ["ai", "agent", "memory", "llm", "hybrid", "embeddings", "typescript"],
+  "license": "MIT",
+  "dependencies": {},
+  "peerDependencies": {
+    "simple-engram": ">=0.4.0",
+    "drizzle-orm": ">=0.45.0"
+  },
+  "peerDependenciesMeta": {
+    "simple-engram": { "optional": true },
+    "drizzle-orm": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3"
+  }
+}

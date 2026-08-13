@@ -272,7 +272,7 @@ export async function runJobAsync(
         )
 
         // Record usage for metering (fire-and-forget)
-        recordUsage({
+        await recordUsage({
           tenantId,
           agentId,
           conversationId: conversation.id,

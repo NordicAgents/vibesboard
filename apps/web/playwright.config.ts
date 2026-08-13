@@ -10,6 +10,7 @@ import {
   APP_PORT,
   BASE_URL,
   MOCK_OPENAI_PORT,
+  SMOKE_TEST_SECRET,
   STORAGE_STATE
 } from './e2e/constants.ts'
 
@@ -30,6 +31,8 @@ const appEnv: Record<string, string> = {
   DATABASE_MIGRATE_URL: dbMigrateUrl,
   OPENAI_BASE_URL: `http://localhost:${MOCK_OPENAI_PORT}/v1`,
   OPENAI_API_KEY: 'sk-e2e-stub',
+  E2E_FORCE_PLATFORM_LLM: 'true',
+  SMOKE_TEST_SECRET,
   // S3 / MinIO (file upload flows)
   S3_ENDPOINT: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
   S3_REGION: process.env.S3_REGION ?? 'us-east-1',
@@ -47,6 +50,11 @@ export default defineConfig({
   testDir: './e2e',
   // Only *.spec.ts are specs; helpers/setup/mock are plain modules.
   testMatch: /.*\.spec\.ts/,
+  // e2e/local/ is the deep suite and belongs to playwright.local.config.ts —
+  // it needs an outsider + superadmin cookie jar that this config's
+  // global-setup does not seed. It is excluded here, not excluded from CI:
+  // ci-e2e.yml runs it as a separate step via its own config.
+  testIgnore: '**/local/**',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -56,6 +64,9 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
   globalSetup: path.join(__dirname, 'e2e/global-setup.ts'),
+  // 12 tests that normally finish inside a minute; this only bounds the case
+  // where the dev server stops answering and each one waits out its timeout.
+  globalTimeout: 10 * 60_000,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: {
@@ -73,14 +84,16 @@ export default defineConfig({
     {
       command: 'node e2e/mock-openai.mjs',
       url: `http://localhost:${MOCK_OPENAI_PORT}/healthz`,
-      reuseExistingServer: !process.env.CI,
+      // Reusing this port can silently route tests through a stale mock with a
+      // different reply (or, worse, a manually started app with real providers).
+      reuseExistingServer: false,
       timeout: 30_000,
       env: { MOCK_OPENAI_PORT: String(MOCK_OPENAI_PORT) }
     },
     {
       command: 'bun run --filter @vibesboard/web dev',
       url: BASE_URL,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 180_000,
       cwd: path.resolve(__dirname, '../../'),
       env: appEnv

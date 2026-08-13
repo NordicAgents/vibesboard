@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { getQrDataUrl } from '@/lib/qr'
+import { buildShareUrl } from '@/lib/share-url'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 
 export const runtime = 'nodejs'
@@ -34,18 +35,7 @@ export async function GET(
   }
 
   const headersList = await headers()
-  // Handle comma-separated proxy headers (e.g., "https,http") by taking the first value
-  const rawProto = headersList.get('x-forwarded-proto')
-  const protocol =
-    (rawProto ? rawProto.split(',')[0]?.trim() : null) ??
-    (headersList.get('host')?.startsWith('localhost') ? 'http' : 'https')
-  const rawHost = headersList.get('x-forwarded-host') ?? headersList.get('host')
-  const host = rawHost ? rawHost.split(',')[0]?.trim() : null
-  const origin =
-    (protocol && host
-      ? `${protocol}://${host}`
-      : process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000'
-  const url = `${origin}/${agent.tenantSlug ?? 'unknown'}/${agent.agentUrl}`
+  const url = buildShareUrl(headersList, agent.tenantSlug, agent.agentUrl)
   const qrDataUrl = await getQrDataUrl(url)
 
   return NextResponse.json({ url, qrDataUrl })

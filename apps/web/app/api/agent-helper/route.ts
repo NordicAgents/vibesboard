@@ -1,12 +1,17 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText as aiStreamText } from 'ai'
+import { streamText as aiStreamText, createTextStreamResponse } from 'ai'
 
 import { auth } from '@/auth'
+import { OPENAI_BASE_URL } from '@vibesboard/adapter-openai'
 import {
   OPENAI_CHAT_MODEL,
   isResponsesModel,
   streamText
 } from '@vibesboard/adapter-openai'
+import { getActiveTenant } from '@/lib/tenant-context'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 
 export const runtime = 'nodejs'
 
@@ -22,9 +27,20 @@ export async function POST(req: Request) {
 
   const model = OPENAI_CHAT_MODEL
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return new Response('OPENAI_API_KEY is not configured.', { status: 500 })
-  }
+
+  // Resolve tenant BYO-LLM for agent_creator task
+  const tenantId = !previewToken
+    ? await getActiveTenant(session.user.id).catch(() => null)
+    : null
+  const tenantSpec =
+    tenantId && shouldResolveTenantProvider({ tenantId, previewToken })
+      ? await resolveProviderSpec(
+          tenantId,
+          null,
+          undefined,
+          'agent_creator'
+        ).catch(() => null)
+      : null
 
   const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
 
@@ -66,33 +82,47 @@ Example output format:
 
 Remember: Great agent instructions are specific, actionable, and provide clear boundaries while giving the agent personality and purpose.`
 
+  if (tenantSpec && tenantId) {
+    const result = await aiStreamText({
+      model: await buildTenantProviderModel(tenantId, tenantSpec),
+      system: systemPrompt,
+      messages: messages,
+      temperature: 0.3
+    })
+    return createTextStreamResponse({ stream: result.textStream })
+  }
+
+  if (!apiKey) {
+    return new Response(
+      'No LLM provider configured. Add one in Settings → LLM Providers.',
+      { status: 500 }
+    )
+  }
+
   if (isResponsesModel(model)) {
     const history = Array.isArray(messages)
       ? messages
           .map(
             (m: any) =>
-              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${
-                typeof m.content === 'string' ? m.content : ''
-              }`
+              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''}`
           )
           .join('\n\n')
       : ''
-
-    const prompt = `${systemPrompt}\n\n${
-      history ? `Conversation so far:\n${history}` : ''
-    }`
-
+    const prompt = `${systemPrompt}\n\n${history ? `Conversation so far:\n${history}` : ''}`
     const stream = await streamText({ prompt, model, apiKey })
     return new Response(stream, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' }
     })
   }
 
-  const openaiClient = createOpenAI({ apiKey })
+  const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
+  // `.chat()` — the bare call resolves to createResponsesModel on
+  // @ai-sdk/openai@4, which 404s on gateways that only serve /chat/completions.
   const result = await aiStreamText({
-    model: openaiClient(model),
-    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    model: openaiClient.chat(model),
+    system: systemPrompt,
+    messages: messages,
     temperature: 0.3
   })
-  return result.toTextStreamResponse()
+  return createTextStreamResponse({ stream: result.textStream })
 }

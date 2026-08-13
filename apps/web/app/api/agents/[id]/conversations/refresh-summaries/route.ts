@@ -58,7 +58,10 @@ export async function POST(
     const results = await Promise.all(
       chunk.map(async conversation => {
         try {
-          const summary = await summarizeConversation(conversation.messages)
+          const summary = await summarizeConversation(
+            conversation.messages,
+            agent?.tenantId
+          )
 
           if (!summary) {
             return false

@@ -241,9 +241,9 @@ export function ConnectByoaDialog({
               </div>
             </div>
 
-            <div className="rounded-lg border border-border bg-bg-hover/50 p-3 text-sm text-text-secondary space-y-2">
+            <div className="bg-bg-hover/50 space-y-2 rounded-lg border border-border p-3 text-sm text-text-secondary">
               <p className="font-medium text-text-primary">Next steps:</p>
-              <ol className="list-decimal list-inside space-y-1">
+              <ol className="list-inside list-decimal space-y-1">
                 <li>Open your Meta App Dashboard</li>
                 <li>Go to Instagram &gt; Webhooks</li>
                 <li>Paste the webhook URL above</li>
@@ -263,7 +263,7 @@ export function ConnectByoaDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Connect via BYOA</DialogTitle>
           <DialogDescription>
@@ -276,7 +276,7 @@ export function ConnectByoaDialog({
           <button
             type="button"
             onClick={() => setShowGuide(!showGuide)}
-            className="flex w-full items-center justify-between rounded-lg border border-border bg-bg-hover/50 px-3 py-2 text-left text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors"
+            className="bg-bg-hover/50 flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
           >
             <span>How do I set this up?</span>
             {showGuide ? (
@@ -291,7 +291,7 @@ export function ConnectByoaDialog({
               <ol className="space-y-3">
                 {SETUP_STEPS.map((step, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-orange/10 text-xs font-semibold text-accent-orange">
+                    <span className="bg-accent-orange/10 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-accent-orange">
                       {i + 1}
                     </span>
                     <div className="space-y-1">

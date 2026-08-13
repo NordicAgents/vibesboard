@@ -1,35 +1,60 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, it, expect } from 'vitest'
 
 import {
-  LANDING_HERO_CONVERSATION,
-  LANDING_HERO_TAGLINE
+  LANDING_HERO_BADGES,
+  LANDING_HERO_COMMAND,
+  LANDING_HERO_HEADING_HIGHLIGHT,
+  LANDING_HERO_HEADING_LEAD,
+  LANDING_HERO_PRIMARY_CTA,
+  LANDING_HERO_SECONDARY_CTA,
+  LANDING_HERO_SUBHEADING
 } from './landing-hero-copy.ts'
 
+const README = readFileSync(
+  join(import.meta.dirname, '..', '..', '..', 'README.md'),
+  'utf8'
+)
+
 describe('landing hero copy', () => {
-  it('landing hero tagline focuses on agent-led time savings', () => {
-    expect(LANDING_HERO_TAGLINE).toBe(
-      'Let your agent talk. Get your time back.'
-    )
-    expect(LANDING_HERO_TAGLINE).not.toMatch(/WhatsApp|Instagram|AI-Powered/i)
-    expect(LANDING_HERO_TAGLINE).toMatch(/agent/i)
-    expect(LANDING_HERO_TAGLINE).toMatch(/time/i)
+  it('leads with what the project is, not with a mood', () => {
+    const heading = `${LANDING_HERO_HEADING_LEAD} ${LANDING_HERO_HEADING_HIGHLIGHT}`
+    expect(heading).toMatch(/agent platform/i)
+    expect(heading).toMatch(/host yourself/i)
+    expect(heading).not.toMatch(/vibing with people/i)
   })
 
-  it('landing hero conversation shows a real customer booking handled by the agent', () => {
-    const copy = LANDING_HERO_CONVERSATION.map(message => message.text).join(
-      ' '
-    )
+  it('keeps the promise channel-agnostic and self-hosted', () => {
+    expect(LANDING_HERO_SUBHEADING).toMatch(/every channel/i)
+    expect(LANDING_HERO_SUBHEADING).toMatch(/your data/i)
+    expect(LANDING_HERO_SUBHEADING).toMatch(/your servers/i)
+    // Naming individual networks dates the copy every time one is added.
+    expect(LANDING_HERO_SUBHEADING).not.toMatch(/WhatsApp|Instagram/i)
+  })
 
-    expect(LANDING_HERO_CONVERSATION.length).toBe(4)
-    expect(LANDING_HERO_CONVERSATION.map(message => message.role)).toEqual([
-      'customer',
-      'agent',
-      'customer',
-      'agent'
+  it('badges the three facts a self-hoster checks first', () => {
+    expect(LANDING_HERO_BADGES).toEqual([
+      'MIT licensed',
+      'Self-hosted',
+      'Bring your own model'
     ])
-    expect(copy).toMatch(/book|consultation|confirmation|calendar/i)
-    expect(copy).not.toMatch(
-      /ready to handle customer conversations|auto-reply on WhatsApp|set it up/i
+  })
+
+  it('sends the primary CTA to the quickstart, not to a signup wall', () => {
+    expect(LANDING_HERO_PRIMARY_CTA.href).toBe('#quickstart')
+    expect(LANDING_HERO_SECONDARY_CTA.href).toMatch(
+      /^https:\/\/github\.com\/NordicAgents\/vibesboard/
     )
+    expect(LANDING_HERO_SECONDARY_CTA.external).toBe(true)
+  })
+
+  it('shows commands that exist in the README quickstart', () => {
+    const lines = LANDING_HERO_COMMAND.split('\n').filter(Boolean)
+    expect(lines.length).toBeGreaterThan(1)
+    for (const line of lines) {
+      expect(README, line).toContain(line)
+    }
   })
 })

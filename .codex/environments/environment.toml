@@ -3,10 +3,7 @@ version = 1
 name = "vibeagent"
 
 [setup]
-script = '''
-sh /Users/mx/Documents/Work/MX/vibesboard/vibeagent/setup-env.sh
-sh setup.sh
-'''
+script = "bun install && bun run db:setup"
 
 [[actions]]
 name = "frontend"

@@ -6,31 +6,60 @@ on:
   push:
     branches: [dev, main]
 
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   security-analysis:
+    name: Secrets, SAST, and vulnerabilities
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
-      - name: Run Semgrep
-        uses: docker://semgrep/semgrep@sha256:85782eaf09692e6dfb684cd3bad87ef315775814b01f76b4d15582e4ca7c1c89
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          args: semgrep scan --error --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+          persist-credentials: false
+
+      - name: Scan tracked files for secrets
+        run: >-
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          dir /repo --config /repo/.gitleaks.toml --no-banner --redact=100
+
+      # Invoked through `run:` rather than `uses: docker://…` on purpose. This
+      # repository sets Actions to "allow select actions", and that allow-list
+      # governs `uses:` only — a Docker Hub image is neither GitHub-owned, nor
+      # from a verified creator, nor matchable by an owner/repo pattern, so the
+      # `uses:` form was refused before any job started and the whole workflow
+      # reported startup_failure. Docker invoked from a shell step is not
+      # subject to that policy, which is also how the gitleaks step above runs.
+      # The digest pin is preserved, so this is no weaker than the old form.
+      - name: Run Semgrep
+        run: >-
+          docker run --rm -v "$PWD:/src" -w /src
+          semgrep/semgrep@sha256:85782eaf09692e6dfb684cd3bad87ef315775814b01f76b4d15582e4ca7c1c89
+          semgrep scan --error
+          --exclude-rule javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0 — pinned safe SHA (supply chain attack March 19-23 2026)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: "fs"
           scan-ref: "."
+          scanners: "vuln,misconfig"
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
 
   complexity-analysis:
+    name: Complexity regression
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Lizard Runner
         uses: Uno-Takashi/Lizard-Runner@84be77b3a59d9a98a74c46018adfbd5110dc9744

@@ -14,6 +14,7 @@ import {
   setFileStatus,
   getFileById,
   getPendingFiles,
+  deleteFilesByKey,
 } from '../files-store.ts'
 
 function unitVec(dim: number, hot: number): number[] {
@@ -56,6 +57,37 @@ describe('files-store', () => {
       expect(listed.total).toBe(1)
       expect(
         (await listFiles({ tenantId, agentId, status: 'pending', page: 1, limit: 20 }, adminDb)).total,
+      ).toBe(0)
+    })
+  })
+
+  it('upserts one row per agent/file key and deletes through the store helper', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, userId } = await seedAgent(adminDb)
+      const input = {
+        tenantId,
+        agentId,
+        userId,
+        fileKey: 'same-key',
+        fileName: 'first.txt',
+        mimeType: 'text/plain',
+        fileSize: 10,
+      }
+      const [first] = await insertFiles([input], adminDb)
+      const [second] = await insertFiles(
+        [{ ...input, fileName: 'updated.txt', fileSize: 20 }],
+        adminDb,
+      )
+
+      expect(second.id).toBe(first.id)
+      expect(second.fileName).toBe('updated.txt')
+      expect(
+        (await listFiles({ tenantId, agentId, page: 1, limit: 20 }, adminDb)).total,
+      ).toBe(1)
+
+      expect(await deleteFilesByKey(agentId, input.fileKey, adminDb)).toHaveLength(1)
+      expect(
+        (await listFiles({ tenantId, agentId, page: 1, limit: 20 }, adminDb)).total,
       ).toBe(0)
     })
   })

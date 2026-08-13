@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'react-hot-toast'
+import { getApiErrorMessage } from '@/lib/api-error'
 import type {
   VibeAgent,
   AgentMode,
@@ -37,6 +38,8 @@ export interface AgentFormFields {
   dataConfig: AgentDataConfig | undefined
   calendarAvailabilityConfig: AgentCalendarAvailabilityConfig | undefined
   bookingConfig: AgentBookingConfig | undefined
+  llmConfigId: string | null
+  memoryEnabled: boolean
 }
 
 export interface AgentFormSetters {
@@ -61,6 +64,8 @@ export interface AgentFormSetters {
     v: AgentCalendarAvailabilityConfig | undefined
   ) => void
   setBookingConfig: (v: AgentBookingConfig | undefined) => void
+  setLlmConfigId: (v: string | null) => void
+  setMemoryEnabled: (v: boolean) => void
 }
 
 export interface UseAgentFormReturn {
@@ -126,11 +131,18 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
   const [bookingConfig, setBookingConfig] = useState<
     AgentBookingConfig | undefined
   >(agent.bookingConfig as AgentBookingConfig | undefined)
+  const [llmConfigId, setLlmConfigId] = useState<string | null>(
+    agent.llmConfigId ?? null
+  )
+  const [memoryEnabled, setMemoryEnabled] = useState(
+    agent.memoryEnabled ?? false
+  )
   const [saving, setSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   // ── Change detection ──
   const hasChanges =
+    llmConfigId !== (agent.llmConfigId ?? null) ||
     name !== agent.name ||
     instructions !== agent.instructions ||
     greetingText.trim() !==
@@ -157,7 +169,8 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
     JSON.stringify(calendarAvailabilityConfig) !==
       JSON.stringify(agent.calendarAvailabilityConfig ?? undefined) ||
     JSON.stringify(bookingConfig) !==
-      JSON.stringify(agent.bookingConfig ?? undefined)
+      JSON.stringify(agent.bookingConfig ?? undefined) ||
+    memoryEnabled !== (agent.memoryEnabled ?? false)
 
   // ── Save all ──
   const handleSaveAll = async () => {
@@ -181,7 +194,9 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       schedulingConfig,
       dataConfig,
       calendarAvailabilityConfig,
-      bookingConfig
+      bookingConfig,
+      llmConfigId,
+      memoryEnabled
     }
 
     try {
@@ -192,7 +207,7 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       })
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        throw new Error(error.error ?? 'Failed to update')
+        throw new Error(getApiErrorMessage(error, 'Failed to update'))
       }
       toast.success('Changes saved')
       router.refresh()
@@ -278,7 +293,9 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       schedulingConfig,
       dataConfig,
       calendarAvailabilityConfig,
-      bookingConfig
+      bookingConfig,
+      llmConfigId,
+      memoryEnabled
     },
     setters: {
       setName,
@@ -299,7 +316,9 @@ export function useAgentForm(agent: VibeAgent): UseAgentFormReturn {
       setSchedulingConfig,
       setDataConfig,
       setCalendarAvailabilityConfig,
-      setBookingConfig
+      setBookingConfig,
+      setLlmConfigId,
+      setMemoryEnabled
     },
     hasChanges,
     saving,
