@@ -73,21 +73,25 @@ describe('EncryptedDbCredStore', () => {
       expect(recovered).toBe(plaintext)
     })
 
-    it('does NOT silently return the original when decrypted with a wrong key', async () => {
+    it('fails loudly (throws) when decrypted with a wrong key', async () => {
       const plaintext = 'original-secret'
       const token = await store.seal(plaintext)
 
-      // Switch to a different key and attempt decryption
+      // GCM is authenticated: a wrong key fails the auth tag and throws, rather
+      // than silently returning '' or garbage the way the old CryptoJS did.
       process.env.ENCRYPTION_KEY = 'wrong-key-32-characters-long-xxx'
       try {
-        const result = await store.unseal(token)
-        // CryptoJS returns empty string or garbage on wrong key — either way not the original
-        expect(result).not.toBe(plaintext)
-      } catch {
-        // Throwing is also acceptable behaviour
+        await expect(store.unseal(token)).rejects.toThrow()
       } finally {
         process.env.ENCRYPTION_KEY = TEST_KEY
       }
+    })
+
+    it('transparently decrypts a legacy CryptoJS-sealed value', async () => {
+      // Simulate a value written by the previous implementation.
+      const CryptoJS = (await import('crypto-js')).default
+      const legacy = CryptoJS.AES.encrypt('legacy-secret', TEST_KEY).toString()
+      expect(await store.unseal(legacy)).toBe('legacy-secret')
     })
 
     it('throws when ENCRYPTION_KEY is not set', async () => {
@@ -111,7 +115,9 @@ describe('EncryptedDbCredStore', () => {
     })
 
     it('resolves without error when called with an arbitrary token string', async () => {
-      await expect(store.revoke('some-arbitrary-token')).resolves.toBeUndefined()
+      await expect(
+        store.revoke('some-arbitrary-token')
+      ).resolves.toBeUndefined()
     })
   })
 
@@ -123,24 +129,21 @@ describe('EncryptedDbCredStore', () => {
       const plaintext = 'same-input'
       const token1 = await store.seal(plaintext)
       const token2 = await store.seal(plaintext)
-      // CryptoJS AES uses a random salt per invocation
+      // AES-GCM uses a random IV per invocation.
       expect(token1).not.toBe(token2)
       // Both still decrypt correctly
       expect(await store.unseal(token1)).toBe(plaintext)
       expect(await store.unseal(token2)).toBe(plaintext)
     })
 
-    it('a token sealed with key A cannot be correctly unsealed with key B', async () => {
+    it('a token sealed with key A cannot be unsealed with key B', async () => {
       const plaintext = 'cross-key-check'
       process.env.ENCRYPTION_KEY = 'key-a-32-characters-long-padded!'
       const token = await store.seal(plaintext)
 
       process.env.ENCRYPTION_KEY = 'key-b-32-characters-long-padded!'
       try {
-        const result = await store.unseal(token)
-        expect(result).not.toBe(plaintext)
-      } catch {
-        // Acceptable: wrong-key decrypt may throw
+        await expect(store.unseal(token)).rejects.toThrow()
       } finally {
         process.env.ENCRYPTION_KEY = TEST_KEY
       }

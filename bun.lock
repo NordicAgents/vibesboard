@@ -281,6 +281,7 @@
         "@vibesboard/adapter-postgres": "workspace:*",
         "@vibesboard/contracts": "workspace:*",
         "@vibesboard/inbox": "workspace:*",
+        "@vibesboard/utils": "workspace:*",
         "crypto-js": "^4.2.0",
         "drizzle-orm": "^0.45.2",
         "server-only": "^0.0.1",
@@ -299,6 +300,7 @@
         "@vibesboard/adapter-postgres": "workspace:*",
         "@vibesboard/contracts": "workspace:*",
         "@vibesboard/inbox": "workspace:*",
+        "@vibesboard/utils": "workspace:*",
         "crypto-js": "^4.2.0",
         "drizzle-orm": "^0.45.2",
         "server-only": "^0.0.1",
@@ -425,6 +427,7 @@
       "dependencies": {
         "@vibesboard/adapter-postgres": "workspace:*",
         "@vibesboard/contracts": "workspace:*",
+        "@vibesboard/utils": "workspace:*",
         "crypto-js": "^4.2.0",
         "drizzle-orm": "^0.45.2",
         "uuidv7": "^1.0.2",
@@ -466,10 +469,12 @@
       "version": "0.0.0",
       "dependencies": {
         "clsx": "^2.1.1",
+        "crypto-js": "^4.2.0",
         "nanoid": "^5.1.16",
         "tailwind-merge": "^3.4.0",
       },
       "devDependencies": {
+        "@types/crypto-js": "^4.2.2",
         "@types/node": "^26.1.2",
         "typescript": "^5.9.3",
       },

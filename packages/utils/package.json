@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./safe-fetch": "./src/safe-fetch.ts"
+    "./safe-fetch": "./src/safe-fetch.ts",
+    "./secret-box": "./src/secret-box.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",
@@ -14,10 +15,12 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "crypto-js": "^4.2.0",
     "nanoid": "^5.1.16",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3"
   }

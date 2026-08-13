@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest'
 import { randomUUID } from 'node:crypto'
-import CryptoJS from 'crypto-js'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, dataConnections } from '@vibesboard/adapter-postgres/schema'
 import { eq } from 'drizzle-orm'
@@ -15,8 +14,8 @@ import {
   deleteDataConnection,
 } from '../connections.ts'
 
-// connections.ts encrypts tokens with CryptoJS.AES using process.env.ENCRYPTION_KEY.
-// Ensure it is set for the whole suite so encrypt/decrypt are deterministic.
+// connections.ts encrypts tokens (AES-256-GCM via secret-box) using
+// process.env.ENCRYPTION_KEY. Ensure it is set for the whole suite.
 const TEST_KEY = 'test-key-123'
 
 beforeAll(() => {
@@ -237,7 +236,7 @@ describe('credential encryption round-trip', () => {
     })
   })
 
-  it('the encrypted blob is not byte-equal to the plaintext (CryptoJS AES)', async () => {
+  it('the encrypted blob is not byte-equal to the plaintext (AES-256-GCM)', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { u, t } = await seedTenantRow(adminDb)
       const created = await createDataConnection(
@@ -256,11 +255,11 @@ describe('credential encryption round-trip', () => {
         .select()
         .from(dataConnections)
         .where(eq(dataConnections.id, created.id))
-      // The stored ciphertext must not contain the plaintext substring.
+      // The stored ciphertext must not contain the plaintext substring, and
+      // must be the modern authenticated (v1 GCM) format that round-trips.
       expect(row.apiTokenEncrypted).not.toContain('super-secret')
-      // Cross-check the round-trip independently of the scheduling helper.
-      const bytes = CryptoJS.AES.decrypt(row.apiTokenEncrypted!, TEST_KEY)
-      expect(bytes.toString(CryptoJS.enc.Utf8)).toBe('super-secret')
+      expect(row.apiTokenEncrypted!.startsWith('v1:')).toBe(true)
+      expect(decryptToken(row.apiTokenEncrypted!)).toBe('super-secret')
     })
   })
 

@@ -5,7 +5,7 @@ import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { whatsappAccounts } from '@vibesboard/adapter-postgres/schema'
 import { type WhatsAppInboxAccountDocument } from '@vibesboard/contracts'
-import CryptoJS from 'crypto-js'
+import { sealSecret, unsealSecret } from '@vibesboard/utils/secret-box'
 import { rowToWhatsappAccount } from './db.ts'
 import type {
   ConnectOAuthParams,
@@ -24,21 +24,14 @@ const META_GRAPH_API = 'https://graph.facebook.com/v21.0'
 // Token Encryption/Decryption
 // =====================================================
 
+// Authenticated (AES-256-GCM) encryption with key rotation and transparent
+// decryption of legacy CryptoJS ciphertext — see @vibesboard/utils/secret-box.
 function encryptToken(token: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) {
-    throw new Error('ENCRYPTION_KEY environment variable is not set')
-  }
-  return CryptoJS.AES.encrypt(token, key).toString()
+  return sealSecret(token)
 }
 
 export function decryptToken(encryptedToken: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) {
-    throw new Error('ENCRYPTION_KEY environment variable is not set')
-  }
-  const bytes = CryptoJS.AES.decrypt(encryptedToken, key)
-  return bytes.toString(CryptoJS.enc.Utf8)
+  return unsealSecret(encryptedToken)
 }
 
 // =====================================================
@@ -166,7 +159,6 @@ export async function getPhoneNumbers(
   const data = await response.json()
   return data.data || []
 }
-
 
 // =====================================================
 // Account Operations (Postgres)

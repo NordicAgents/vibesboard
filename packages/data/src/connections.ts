@@ -6,12 +6,12 @@ import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { dataConnections } from '@vibesboard/adapter-postgres/schema'
 import {
   type DataConnectionDocument,
-  type DataConnectionStatus,
+  type DataConnectionStatus
 } from '@vibesboard/contracts'
 import { decryptToken } from '@vibesboard/scheduling/connections'
 import { refreshAccessToken } from './google-sheets-auth.ts'
 import { rowToDataConnection } from './db.ts'
-import CryptoJS from 'crypto-js'
+import { sealSecret } from '@vibesboard/utils/secret-box'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -29,10 +29,10 @@ if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
 
 // ─── Token Encryption ───────────────────────────────────────────────
 
+// Authenticated (AES-256-GCM) encryption. Decryption reuses scheduling's
+// decryptToken (imported above), which now also delegates to secret-box.
 function encryptToken(token: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY environment variable is not set')
-  return CryptoJS.AES.encrypt(token, key).toString()
+  return sealSecret(token)
 }
 
 // ─── Create Params ──────────────────────────────────────────────────
@@ -86,20 +86,20 @@ function buildConnectionValues(params: CreateDataConnectionParams) {
         email: params.email ?? null,
         spreadsheetId: params.spreadsheetId,
         sheetName: params.sheetName ?? 'Sheet1',
-        scopes: params.scopes,
+        scopes: params.scopes
       }
     case 'airtable':
       return {
         apiTokenEncrypted: encryptToken(params.apiToken),
         baseId: params.baseId,
         tableId: params.tableId,
-        tableName: params.tableName ?? null,
+        tableName: params.tableName ?? null
       }
     case 'custom_webhook':
       return {
         webhookUrl: params.webhookUrl,
         webhookMethod: params.webhookMethod ?? 'POST',
-        webhookHeaders: params.webhookHeaders ?? null,
+        webhookHeaders: params.webhookHeaders ?? null
       }
   }
 }
@@ -117,7 +117,7 @@ export async function createDataConnection(
       name: params.name,
       status: 'active',
       connectedBy: params.connectedBy,
-      ...buildConnectionValues(params),
+      ...buildConnectionValues(params)
     })
     .returning()
   return rowToDataConnection(row)
@@ -244,7 +244,7 @@ export async function getValidDataAccessToken(
           .set({
             accessTokenEncrypted: encryptToken(refreshed.accessToken),
             tokenExpiresAt: new Date(refreshed.expiresAt),
-            updatedAt: new Date(),
+            updatedAt: new Date()
           })
           .where(
             and(
