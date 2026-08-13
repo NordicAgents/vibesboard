@@ -395,6 +395,41 @@
   }
 }
 
+/* ── Docs: dual-theme code blocks and heading anchors ──────────── */
+
+/* rehype-pretty-code (shiki) emits --shiki-light/--shiki-dark per token when
+   given a { light, dark } theme pair. Flip which one is live off the app's
+   own .dark class (next-themes, attribute="class") instead of shiki's own
+   data-theme convention, so code blocks follow the same toggle as everything
+   else. */
+.shiki span {
+  color: var(--shiki-light);
+}
+.dark .shiki span {
+  color: var(--shiki-dark);
+}
+
+.docs-heading-anchor {
+  margin-left: 0.4em;
+  opacity: 0;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+.docs-heading-anchor:hover {
+  color: var(--accent-orange);
+}
+h1:hover .docs-heading-anchor,
+h2:hover .docs-heading-anchor,
+h3:hover .docs-heading-anchor,
+h4:hover .docs-heading-anchor,
+.docs-heading-anchor:focus-visible {
+  opacity: 1;
+}
+.docs-heading-anchor-icon {
+  font-size: 0.85em;
+}
+
 /* ── Slide animations (used by Sheet/Sidebar) ─────────────────── */
 
 .slide-from-left {

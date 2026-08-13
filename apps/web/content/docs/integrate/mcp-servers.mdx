@@ -1,0 +1,51 @@
+---
+title: 'MCP servers'
+description: 'Connect agents to tools over the Model Context Protocol.'
+---
+
+# MCP servers
+
+The Model Context Protocol (MCP) is an open, transport-agnostic protocol for connecting an LLM to an external server that exposes tools, resources, and prompts. It's how a growing number of AI products let a model call into arbitrary third-party services without the product hard-coding a client for each one.
+
+<Callout type="danger" title="Not implemented in this build">
+  There is no MCP client, MCP tool type, or MCP server configuration anywhere in
+  the Vibesboard codebase as of this writing. An agent cannot be connected to an
+  MCP server today, in the UI or via the API. This page exists as a placeholder
+  in the docs navigation; treat any other mention of MCP servers — on the
+  marketing site or in cross-links on other docs pages — as forward-looking, not
+  as a description of shipped behavior.
+</Callout>
+
+## What was checked
+
+The claim gets repeated in a few places (landing page copy, a stray cross-link from [Data actions & tools](/docs/build/data-actions-and-tools)), so here's what was actually confirmed in the source before writing this page:
+
+- **The agent tool-type union has no MCP variant.** `AgentToolType` (`packages/contracts/src/types.ts`) is a closed union of `BuiltinToolType` (`builtin:web_fetch`, `builtin:file_search`, `builtin:bash`) and `ActionToolType` (the booking, appointments, and data-action tool names). There's no `mcp:*` member, and no field on `VibeAgentTool` for a server URL, transport, or credential.
+- **The integration registry has no MCP entry.** `INTEGRATION_REGISTRY` (`packages/integrations/src/registry.ts`) lists exactly four integration types — `embed_widget`, `whatsapp_inbox`, `chatwoot`, `hooks` — each with a feature flag and status. MCP isn't one of them, so there's no `coming_soon` placeholder for it either.
+- **No package depends on an MCP SDK.** Nothing in the monorepo's `package.json` files references `@modelcontextprotocol/*` or any other MCP client library.
+- **No API route mentions MCP.** There's no route under `apps/web/app/api` with `mcp` in its path, and no MCP-related handler logic elsewhere in `apps/web`.
+
+## If you need external tool access today
+
+The closest existing mechanisms are narrower than MCP — each is a fixed, built-in set of tools rather than a way to point an agent at an arbitrary tool server:
+
+- **[Data actions & tools](/docs/build/data-actions-and-tools)** — an agent can append/update records in Google Sheets, Airtable, or a webhook you control. The tool shapes (`submit_data`, `update_record`, and unused `query_records`/`delete_record` branches) are fixed by the platform, not defined by the destination.
+- **[Webhooks](/docs/integrate/webhooks)** — the most generic of the data-action providers: the platform `POST`s or `PUT`s a fixed JSON envelope to a URL you configure. You control what happens on your side, but the request/response contract is set by Vibesboard, not negotiated like an MCP tool call.
+- **`builtin:web_fetch`** (`packages/ai/src/tools/builtin.ts`) — lets an agent fetch and read the text content of an arbitrary URL. This is a one-way read, not a callable tool server.
+- **[Hooks & lifecycle](/docs/build/hooks-and-lifecycle)** — the inverse direction: an external system invokes a Vibesboard agent and gets an HMAC-signed callback, rather than the agent calling out to external tools.
+
+None of these let an agent discover and call tools exposed by an arbitrary external server the way MCP does. If that's specifically what you need, it isn't available in the current build — confirm against the source above before planning around it.
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/build/data-actions-and-tools" title="Data actions & tools">
+    The built-in mechanism for giving an agent tools today.
+  </Card>
+  <Card href="/docs/integrate/webhooks" title="Webhooks">
+    The most flexible of the built-in data-action providers.
+  </Card>
+  <Card href="/docs/build/hooks-and-lifecycle" title="Hooks & lifecycle">
+    Invoke an agent from outside and get a signed callback.
+  </Card>
+</Cards>

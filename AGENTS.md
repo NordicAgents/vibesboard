@@ -9,7 +9,7 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 - RAG (Retrieval-Augmented Generation) for knowledge bases
 - Calendar availability & scheduling
 - WhatsApp integration
-- MCP (Model Context Protocol) server support
+- Outbound webhooks and data actions
 - Agent hooks system
 - Usage metering
 
@@ -18,7 +18,7 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 - **Frontend:** React 19 + TypeScript on Next.js 16 (App Router); Tailwind CSS + Radix UI primitives
 - **Backend:** Postgres (Drizzle ORM), Better-Auth, and S3-compatible storage (MinIO in dev)
 - **AI:** Vercel AI SDK (`ai`) with OpenAI, Anthropic, and Google adapters plus NVIDIA and generic OpenAI-compatible endpoints. Workspaces can bring encrypted provider credentials and route by agent or task; `OPENAI_API_KEY`/`OPENAI_MODEL` provide the platform fallback.
-- **Integrations:** Google Calendar (OAuth), WhatsApp, MCP servers
+- **Integrations:** Google Calendar (OAuth), WhatsApp, Instagram, Chatwoot, Google Sheets, outbound webhooks
 
 ## Key Directories
 
