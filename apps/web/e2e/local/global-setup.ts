@@ -180,42 +180,4 @@ export default async function localGlobalSetup(_config: FullConfig) {
   } finally {
     await adminCtx.dispose()
   }
-
-  await warmHeavyRoutes()
-}
-
-/**
- * Compile the expensive routes before any test runs.
- *
- * The suite runs against `next dev`, which compiles each route on first hit.
- * /api/smoke and the agent-creator routes pull in the whole @vibesboard/ai
- * runtime (drizzle, pdf-parse, mammoth, exceljs, jsdom), and on a 2-core CI
- * runner that first compile can outlast the 90s per-test timeout — the test
- * fails having measured Turbopack rather than the app. 00-smoke.spec.ts
- * already works around this for /agents with test.slow().
- *
- * Paying it once here keeps the cost out of every individual test budget.
- * Best-effort: a route that errors or times out is left to its test to
- * report, so warming can never turn a real failure into a setup crash.
- */
-async function warmHeavyRoutes() {
-  const ROUTES = ['/forgot-password', '/agents/create-chat', '/api/smoke?mode=file']
-  const ctx = await request.newContext({
-    baseURL: LOCAL_BASE_URL,
-    timeout: 240_000,
-    storageState: STORAGE_STATE,
-  })
-  try {
-    for (const route of ROUTES) {
-      const started = Date.now()
-      try {
-        const res = await ctx.get(route, { failOnStatusCode: false })
-        console.log(`[local-setup] warmed ${route} -> ${res.status()} in ${Date.now() - started}ms`)
-      } catch (err) {
-        console.warn(`[local-setup] warming ${route} failed after ${Date.now() - started}ms:`, err)
-      }
-    }
-  } finally {
-    await ctx.dispose()
-  }
 }
