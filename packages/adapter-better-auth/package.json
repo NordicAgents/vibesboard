@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@vibesboard/adapter-postgres": "workspace:*",
-    "better-auth": "1.6.25",
+    "better-auth": "1.6.26",
     "resend": "^4.0.0",
     "server-only": "^0.0.1",
     "uuidv7": "^1.0.2"
