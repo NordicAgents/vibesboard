@@ -141,7 +141,9 @@ jobs:
           # (both staging and prod run a private VM in the default network).
           flags: ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && '--network=default --subnet=default --vpc-egress=private-ranges-only' || '' }}
           env_vars: |
-            OPENAI_MODEL=gpt-4o-mini
+            OPENAI_MODEL=gemini-3.5-flash-lite
+            OPENAI_VISION_MODEL=gemini-3.5-flash-lite
+            OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
             NOTIFICATION_EMAIL_FROM=${{ vars.NOTIFICATION_EMAIL_FROM }}
