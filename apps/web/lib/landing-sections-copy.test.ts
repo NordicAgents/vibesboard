@@ -19,7 +19,7 @@ describe('landing why copy', () => {
     const answers = LANDING_WHY_ITEMS.map(item => item.answer).join(' ')
     expect(answers).toMatch(/rollback/i)
     expect(answers).toMatch(/WhatsApp and Instagram/)
-    expect(answers).toMatch(/MCP servers/)
+    expect(answers).toMatch(/webhooks/i)
     expect(answers).toMatch(/row-level security/i)
     expect(answers).toMatch(/per agent or per task/)
   })
@@ -36,7 +36,7 @@ describe('landing capabilities copy', () => {
   it('describes mechanisms, not adjectives', () => {
     const body = LANDING_CAPABILITIES.map(c => c.body).join(' ')
     expect(body).toMatch(/pgvector/)
-    expect(body).toMatch(/MCP servers/)
+    expect(body).toMatch(/Webhooks/)
     expect(body).toMatch(/Google Calendar/)
     expect(body).toMatch(/row-level security/i)
     expect(body).not.toMatch(/seamless|cutting-edge|revolutionary/i)

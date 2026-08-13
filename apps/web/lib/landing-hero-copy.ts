@@ -26,8 +26,7 @@ export const LANDING_HERO_PRIMARY_CTA: LandingCta = {
 
 export const LANDING_HERO_SECONDARY_CTA: LandingCta = {
   label: 'Read the docs',
-  href: LANDING_LINKS.docs,
-  external: true
+  href: LANDING_LINKS.docs
 }
 
 /**

@@ -34,8 +34,6 @@ export function LandingSecurity() {
       <FadeIn className="sm:col-span-2">
         <Link
           href={LANDING_LINKS.security}
-          target="_blank"
-          rel="noopener noreferrer"
           className="group inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-primary transition-colors hover:text-foreground"
         >
           Read the security model
