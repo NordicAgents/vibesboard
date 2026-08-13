@@ -1,4 +1,5 @@
 import { type VibeAgent } from '@vibesboard/contracts'
+import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { createRetriever } from '@vibesboard/retrieval'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools/index.ts'
 import { injectActionTools } from './actions/registry.ts'
@@ -21,10 +22,19 @@ export async function buildAgentContext(
 ): Promise<ContextBuildResult> {
   const strategy = agent.retrievalStrategy ?? 'direct'
 
+  // Defence in depth against a poisoned fileKeys array: never retrieve (and
+  // thus never read into the model context) a key that addresses another
+  // tenant's storage. This path is reachable anonymously via public chat, so
+  // it is the last line before another tenant's document could be exfiltrated.
+  const tenantId = agent.tenantId ?? ''
+  const safeFileKeys = (agent.fileKeys ?? []).filter(
+    key => !isCrossTenantFileKey(key, tenantId)
+  )
+
   const retriever = createRetriever(strategy, {
     agentId: agent.id,
-    tenantId: agent.tenantId ?? '',
-    fileKeys: agent.fileKeys,
+    tenantId,
+    fileKeys: safeFileKeys,
     sourceUrls: agent.sourceUrls
   })
 

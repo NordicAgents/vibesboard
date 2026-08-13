@@ -124,6 +124,32 @@ describe('signToken / verifyToken', () => {
     expect(payload.agentId).toBe('agent-123')
     expect(typeof payload.ts).toBe('number')
   })
+
+  it('verifyToken rejects a token older than the TTL', () => {
+    // Re-sign with an old issue time, then re-HMAC so the signature is valid
+    // but the embedded timestamp is stale.
+    const { createHmac } = require('crypto') as typeof import('crypto')
+    const secret = process.env.ACCESS_GATE_SECRET as string
+    const stale = JSON.stringify({
+      agentId: 'agent-123',
+      ts: Date.now() - 24 * 60 * 60 * 1000 // 24h ago, past the 12h default
+    })
+    const sig = createHmac('sha256', secret).update(stale).digest('hex')
+    const token = Buffer.from(stale).toString('base64') + '.' + sig
+    expect(verifyToken(token, 'agent-123')).toBe(false)
+  })
+
+  it('verifyToken rejects a token with a future timestamp', () => {
+    const { createHmac } = require('crypto') as typeof import('crypto')
+    const secret = process.env.ACCESS_GATE_SECRET as string
+    const future = JSON.stringify({
+      agentId: 'agent-123',
+      ts: Date.now() + 60 * 60 * 1000
+    })
+    const sig = createHmac('sha256', secret).update(future).digest('hex')
+    const token = Buffer.from(future).toString('base64') + '.' + sig
+    expect(verifyToken(token, 'agent-123')).toBe(false)
+  })
 })
 
 describe('generateCode', () => {

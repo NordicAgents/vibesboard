@@ -7,11 +7,11 @@ import { calendarConnections } from '@vibesboard/adapter-postgres/schema'
 import {
   type CalendarConnectionDocument,
   type CalendarProvider,
-  type CalendarConnectionStatus,
+  type CalendarConnectionStatus
 } from '@vibesboard/contracts'
 import { refreshAccessToken } from './google-auth.ts'
 import { rowToCalendarConnection } from './db.ts'
-import CryptoJS from 'crypto-js'
+import { sealSecret, unsealSecret } from '@vibesboard/utils/secret-box'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -19,9 +19,9 @@ type Db = PostgresJsDatabase<typeof schema>
 
 // Fail fast on the server so misconfiguration is caught at boot time,
 // not silently at the first token encrypt/decrypt call.
-// Note: key rotation is not yet supported — all tokens are encrypted
-// with the single active key. To rotate, re-encrypt all stored tokens
-// with the new key before swapping the env variable.
+// Key rotation IS supported now (see @vibesboard/utils/secret-box): set the new
+// key as ENCRYPTION_KEY and keep the previous one in ENCRYPTION_KEYS_OLD so
+// stored tokens keep decrypting until they are re-sealed on next write.
 if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
   console.error(
     '[scheduling/connections] FATAL: ENCRYPTION_KEY environment variable is not set. ' +
@@ -32,24 +32,14 @@ if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
 
 // ─── Token Encryption ───────────────────────────────────────────────
 
-function getEncryptionKey(): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) {
-    throw new Error(
-      'ENCRYPTION_KEY environment variable is not set. ' +
-        'Calendar OAuth tokens cannot be encrypted or decrypted.'
-    )
-  }
-  return key
-}
-
+// Authenticated (AES-256-GCM) encryption with key rotation and transparent
+// decryption of legacy CryptoJS ciphertext — see @vibesboard/utils/secret-box.
 function encryptToken(token: string): string {
-  return CryptoJS.AES.encrypt(token, getEncryptionKey()).toString()
+  return sealSecret(token)
 }
 
 export function decryptToken(encryptedToken: string): string {
-  const bytes = CryptoJS.AES.decrypt(encryptedToken, getEncryptionKey())
-  return bytes.toString(CryptoJS.enc.Utf8)
+  return unsealSecret(encryptedToken)
 }
 
 // ─── CRUD ───────────────────────────────────────────────────────────
@@ -86,7 +76,7 @@ export async function createCalendarConnection(
       email: params.email ?? null,
       scopes: params.scopes,
       status: 'active',
-      connectedBy: params.connectedBy,
+      connectedBy: params.connectedBy
     })
     .returning()
   return rowToCalendarConnection(row)
@@ -182,7 +172,7 @@ export async function getValidAccessToken(
       .set({
         accessTokenEncrypted: encryptToken(refreshed.accessToken),
         tokenExpiresAt: new Date(refreshed.expiresAt),
-        updatedAt: new Date(),
+        updatedAt: new Date()
       })
       .where(
         and(
@@ -194,7 +184,12 @@ export async function getValidAccessToken(
     return refreshed.accessToken
   } catch (error) {
     // Mark connection as expired if refresh fails
-    await updateConnectionStatus(connection.tenantId, connection.id, 'expired', db)
+    await updateConnectionStatus(
+      connection.tenantId,
+      connection.id,
+      'expired',
+      db
+    )
     throw new Error(
       `Calendar connection token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     )

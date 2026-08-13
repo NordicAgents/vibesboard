@@ -9,7 +9,7 @@ import { z } from 'zod'
 
 const agentChatMessageSchema = z.object({
   id: z.string().optional(),
-  role: z.enum(['system', 'user', 'assistant']),
+  role: z.enum(['user', 'assistant']),
   content: z.string().max(2_000)
 })
 
@@ -42,13 +42,13 @@ describe('agentChatMessageSchema', () => {
     ).toBeTruthy()
   })
 
-  it('accepts valid system message', () => {
+  it('rejects a client-supplied system message (would inject system authority)', () => {
     expect(
       agentChatMessageSchema.safeParse({
         role: 'system',
         content: 'You are helpful.'
       }).success
-    ).toBeTruthy()
+    ).toBeFalsy()
   })
 
   it('accepts message with optional id', () => {

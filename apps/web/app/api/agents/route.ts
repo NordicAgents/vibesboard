@@ -17,7 +17,12 @@ import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@vibesboard/agents/schema'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
+import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
+import {
+  sealNotificationConfig,
+  unsealNotificationConfig
+} from '@vibesboard/agents/notification-secret'
 import { toPublicAgentResponse } from '@/lib/public-agent'
 
 export const runtime = 'nodejs'
@@ -53,7 +58,8 @@ function toAgentRecord(
     googleReviewEnabled: row.googleReviewEnabled,
     googlePlaceId: row.googlePlaceId,
     retrievalStrategy: row.retrievalStrategy ?? 'direct',
-    notificationConfig: row.notificationConfig ?? undefined,
+    notificationConfig:
+      unsealNotificationConfig(row.notificationConfig) ?? undefined,
     schedulingConfig: row.schedulingConfig ?? undefined,
     dataConfig: row.dataConfig ?? undefined,
     calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
@@ -163,6 +169,16 @@ export async function POST(req: Request) {
   const tenant = await getTenantById(tenantId)
   const tenantSlug = tenant?.slug ?? 'unknown'
 
+  // fileKeys is caller-supplied. The agent id does not exist yet, so legitimate
+  // keys are same-tenant staging/canonical keys; refuse anything addressing
+  // another tenant's namespace before it is persisted or processed.
+  if ((payload.fileKeys ?? []).some(k => isCrossTenantFileKey(k, tenantId))) {
+    return NextResponse.json(
+      { error: 'fileKeys contains keys outside this tenant' },
+      { status: 400 }
+    )
+  }
+
   const slug = await ensureUniqueSlug(createAgentSlug(payload.name), tenantId)
   const newId = uuidv7()
 
@@ -186,7 +202,8 @@ export async function POST(req: Request) {
     maxAgentResponses: payload.maxAgentResponses ?? null,
     totalResponseCount: 0,
     retrievalStrategy: payload.retrievalStrategy ?? 'direct',
-    notificationConfig: payload.notificationConfig ?? null,
+    notificationConfig:
+      sealNotificationConfig(payload.notificationConfig) ?? null,
     schedulingConfig: payload.schedulingConfig ?? null,
     bookingConfig: payload.bookingConfig ?? null,
     // dataConfig payload shape (from @vibesboard/agents/schema) differs from

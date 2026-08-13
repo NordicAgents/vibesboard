@@ -99,9 +99,11 @@ export async function notifyAdminOfEnquiry(
 
   const { Resend } = await import('resend')
   await new Resend(apiKey).emails.send({
+    // Neutral placeholder: forks must set NOTIFICATION_EMAIL_FROM to their own
+    // verified domain — never inherit a first-party sender.
     from:
       process.env.NOTIFICATION_EMAIL_FROM ||
-      'Vibesboard <notifications@vibesboard.com>',
+      'Vibesboard <noreply@example.com>',
     to: toAddress,
     subject: `New booking enquiry — ${enquiry.resourceName}`,
     text: body,

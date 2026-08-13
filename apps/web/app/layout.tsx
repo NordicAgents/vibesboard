@@ -14,15 +14,19 @@ import { getActiveTenantTheme } from '@/lib/tenant-theme'
 export const metadata: Metadata = {
   metadataBase: resolveAppUrl(process.env.NEXT_PUBLIC_APP_URL),
   title: {
-    default: 'vibesboard agent',
-    template: `%s - vibesboard -conversation agent builder`
+    default: 'Vibesboard',
+    template: `%s — Vibesboard`
   },
   description:
     'An AI-powered conversation agent builder to collect responses from users.',
   icons: {
-    icon: '/logo_1.png',
-    shortcut: '/logo_1.png',
-    apple: '/logo_1.png'
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' }
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png'
   }
 }
 

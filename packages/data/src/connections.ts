@@ -6,12 +6,12 @@ import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { dataConnections } from '@vibesboard/adapter-postgres/schema'
 import {
   type DataConnectionDocument,
-  type DataConnectionStatus,
+  type DataConnectionStatus
 } from '@vibesboard/contracts'
 import { decryptToken } from '@vibesboard/scheduling/connections'
 import { refreshAccessToken } from './google-sheets-auth.ts'
 import { rowToDataConnection } from './db.ts'
-import CryptoJS from 'crypto-js'
+import { sealSecret } from '@vibesboard/utils/secret-box'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -29,10 +29,24 @@ if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
 
 // ─── Token Encryption ───────────────────────────────────────────────
 
+// Authenticated (AES-256-GCM) encryption. Decryption reuses scheduling's
+// decryptToken (imported above), which now also delegates to secret-box.
 function encryptToken(token: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY environment variable is not set')
-  return CryptoJS.AES.encrypt(token, key).toString()
+  return sealSecret(token)
+}
+
+/**
+ * Encrypt custom-webhook header VALUES at rest — they commonly carry an
+ * Authorization credential. Names are left in cleartext so connections stay
+ * debuggable. Decrypted at the point of use in providers/index.ts.
+ */
+export function encryptHeaders(
+  headers: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  if (!headers) return headers
+  return Object.fromEntries(
+    Object.entries(headers).map(([k, v]) => [k, sealSecret(v)])
+  )
 }
 
 // ─── Create Params ──────────────────────────────────────────────────
@@ -86,20 +100,20 @@ function buildConnectionValues(params: CreateDataConnectionParams) {
         email: params.email ?? null,
         spreadsheetId: params.spreadsheetId,
         sheetName: params.sheetName ?? 'Sheet1',
-        scopes: params.scopes,
+        scopes: params.scopes
       }
     case 'airtable':
       return {
         apiTokenEncrypted: encryptToken(params.apiToken),
         baseId: params.baseId,
         tableId: params.tableId,
-        tableName: params.tableName ?? null,
+        tableName: params.tableName ?? null
       }
     case 'custom_webhook':
       return {
         webhookUrl: params.webhookUrl,
         webhookMethod: params.webhookMethod ?? 'POST',
-        webhookHeaders: params.webhookHeaders ?? null,
+        webhookHeaders: encryptHeaders(params.webhookHeaders) ?? null
       }
   }
 }
@@ -117,7 +131,7 @@ export async function createDataConnection(
       name: params.name,
       status: 'active',
       connectedBy: params.connectedBy,
-      ...buildConnectionValues(params),
+      ...buildConnectionValues(params)
     })
     .returning()
   return rowToDataConnection(row)
@@ -202,9 +216,14 @@ export async function updateDataConnection(
   >,
   db: Db = getMigrateDb()
 ): Promise<void> {
+  // Re-encrypt header values on update, same as on create.
+  const safeUpdates =
+    updates.webhookHeaders !== undefined
+      ? { ...updates, webhookHeaders: encryptHeaders(updates.webhookHeaders) }
+      : updates
   await db
     .update(dataConnections)
-    .set({ ...updates, updatedAt: new Date() })
+    .set({ ...safeUpdates, updatedAt: new Date() })
     .where(
       and(
         eq(dataConnections.tenantId, tenantId),
@@ -244,7 +263,7 @@ export async function getValidDataAccessToken(
           .set({
             accessTokenEncrypted: encryptToken(refreshed.accessToken),
             tokenExpiresAt: new Date(refreshed.expiresAt),
-            updatedAt: new Date(),
+            updatedAt: new Date()
           })
           .where(
             and(
