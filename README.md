@@ -57,7 +57,7 @@ flowchart LR
     A --> O["Unified inbox<br/>Usage metering<br/>Workspace admin"]
 ```
 
-Every tenant-scoped request runs with workspace context, and PostgreSQL row-level security fails closed when that context is missing.
+Tenant isolation combines application-level ownership/membership checks with PostgreSQL row-level security, which fails closed on the RLS-enforced role when workspace context is missing. See the [security guide](docs/security.md) for the current boundary and a candid note on paths still using the migrate role.
 
 ## Features
 
