@@ -4,11 +4,9 @@ import { type NotificationEvent } from '@vibesboard/contracts'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import type { VibeAgent } from '@vibesboard/contracts'
 import type { CompletionReason } from '@vibesboard/ai/completion'
-import {
-  createInAppNotification,
-  getUserEmail
-} from './notifications-db.ts'
-import { assertSafeCallbackUrl, signPayload } from './webhook-utils.ts'
+import { createInAppNotification, getUserEmail } from './notifications-db.ts'
+import { signPayload } from './webhook-utils.ts'
+import { safeFetch } from '@vibesboard/utils/safe-fetch'
 
 // ─── Public API ──────────────────────────────────────────────────────
 
@@ -173,8 +171,7 @@ async function sendEmailNotification(
     // Neutral placeholder: forks must set NOTIFICATION_EMAIL_FROM to their own
     // verified domain — never inherit a first-party sender.
     from:
-      process.env.NOTIFICATION_EMAIL_FROM ||
-      'Vibesboard <noreply@example.com>',
+      process.env.NOTIFICATION_EMAIL_FROM || 'Vibesboard <noreply@example.com>',
     to: toAddress,
     subject,
     text: lines
@@ -186,8 +183,6 @@ async function sendWebhookNotification(
   url: string,
   secret?: string | null
 ): Promise<void> {
-  assertSafeCallbackUrl(url)
-
   const body = JSON.stringify({
     event: payload.event,
     agentId: payload.agent.id,
@@ -206,12 +201,13 @@ async function sendWebhookNotification(
     headers['X-Notification-Signature'] = signPayload(body, secret)
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body,
-    signal: AbortSignal.timeout(10_000)
-  })
+  // safeFetch DNS-resolves the target and rejects private/redirect-to-private
+  // destinations, replacing the literal-only assertSafeCallbackUrl pre-check.
+  const res = await safeFetch(
+    url,
+    { method: 'POST', headers, body },
+    { timeoutMs: 10_000 }
+  )
 
   if (!res.ok) {
     console.warn(`[notifications] Webhook delivery failed: ${res.status}`)

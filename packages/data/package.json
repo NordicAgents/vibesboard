@@ -20,6 +20,7 @@
     "@vibesboard/adapter-postgres": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "@vibesboard/scheduling": "workspace:*",
+    "@vibesboard/utils": "workspace:*",
     "crypto-js": "^4.2.0",
     "drizzle-orm": "^0.45.2",
     "uuidv7": "^1.0.2"
