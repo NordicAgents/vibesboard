@@ -62,7 +62,10 @@ async function insertMessages(
       id: isUuid(m.id) ? m.id : uuidv7(),
       tenantId,
       conversationId,
-      role: m.role as 'user' | 'assistant' | 'system' | 'tool',
+      // Persist only user/assistant turns. A fabricated system/tool role must
+      // not be written to the stored transcript (which later re-feeds the
+      // model, summaries, and memory), so coerce anything else to 'user'.
+      role: m.role === 'assistant' ? 'assistant' : 'user',
       content: typeof m.content === 'string' ? m.content : String(m.content ?? '')
     }))
   )
