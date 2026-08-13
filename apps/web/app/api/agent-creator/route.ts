@@ -292,7 +292,12 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     const model = isResponsesModel(preferredModel)
       ? DEFAULT_AGENT_CREATOR_MODEL
       : preferredModel
-    languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })(model)
+    // `.chat()` — the bare call resolves to createResponsesModel on
+    // @ai-sdk/openai@4, which 404s on gateways that only serve
+    // /chat/completions. `model` is non-Responses by construction here.
+    languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL }).chat(
+      model
+    )
   }
 
   const createAgentArgsSchema = z.object({
