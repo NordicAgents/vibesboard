@@ -38,7 +38,11 @@ beforeEach(() => getSignedUploadUrlMock.mockClear())
 describe('POST /api/agents/[id]/files/upload-url', () => {
   it('mints the canonical agent key and signs the exact upload length', async () => {
     const response = await POST(
-      request({ fileName: 'notes.txt', contentType: 'text/plain', fileSize: 42 }) as never,
+      request({
+        fileName: 'notes.txt',
+        contentType: 'text/plain',
+        fileSize: 42
+      }) as never,
       context
     )
 

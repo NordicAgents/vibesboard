@@ -7,18 +7,17 @@ import { PromptForm } from '@/components/prompt-form'
 import { ChatCompletionBanner } from '@/components/chat-completion'
 import { QuickSuggestions } from '@/components/quick-suggestions'
 
- 
 type AnyFn = (...args: any[]) => any
 
 export interface ChatPanelProps {
   append: AnyFn
   isLoading: boolean
   reload: AnyFn
-   
+
   messages: any[]
   stop: AnyFn
   input: string
-   
+
   setInput: (v: any) => void
   isChatComplete?: boolean
   isAgentDisabled?: boolean

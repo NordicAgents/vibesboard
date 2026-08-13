@@ -87,7 +87,6 @@ export function AgentAskChat({
       })
       setCompletion('')
     }
-   
   } as any)
 
   React.useEffect(() => {

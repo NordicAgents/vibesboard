@@ -57,7 +57,9 @@ export default function TenantsPage() {
       // table only ever showed the 10 newest tenants while the status-filter
       // counts and the paginator were computed from that truncated list.
       const PAGE_LIMIT = 500
-      const response = await fetch(`/api/admin/tenants?page=1&limit=${PAGE_LIMIT}`)
+      const response = await fetch(
+        `/api/admin/tenants?page=1&limit=${PAGE_LIMIT}`
+      )
 
       if (!response.ok) {
         throw new Error('Failed to fetch tenants')

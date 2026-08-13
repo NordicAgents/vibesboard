@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import { Copy, Plus, Trash2, Power, PowerOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -69,7 +69,9 @@ export function AgentHooksSettings({
   } | null>(null)
   const [secretCopied, setSecretCopied] = useState(false)
 
-  const loadHooks = async () => {
+  // Depends only on `agentId`, so its identity changes exactly when the
+  // effect below should refetch.
+  const loadHooks = useCallback(async () => {
     try {
       setLoading(true)
       const res = await fetch(`/api/agents/${agentId}/hooks`)
@@ -81,11 +83,11 @@ export function AgentHooksSettings({
     } finally {
       setLoading(false)
     }
-  }
+  }, [agentId])
 
   useEffect(() => {
     loadHooks()
-  }, [agentId])
+  }, [loadHooks])
 
   const handleCreate = async () => {
     if (!newHookName.trim()) return

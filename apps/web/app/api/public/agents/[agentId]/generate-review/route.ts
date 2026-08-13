@@ -152,7 +152,10 @@ export async function POST(
       )
       if (!slotReserved) {
         return NextResponse.json(
-          { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
+          {
+            error: 'Agent response limit reached',
+            code: 'AGENT_LIMIT_REACHED'
+          },
           { status: 403 }
         )
       }

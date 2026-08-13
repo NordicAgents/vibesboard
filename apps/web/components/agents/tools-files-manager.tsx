@@ -23,10 +23,7 @@ import {
   IconPlus
 } from '@/components/ui/icons'
 import { cn } from '@vibesboard/utils'
-import {
-  deleteAgentFile,
-  fetchAgentFileKeys
-} from '@/lib/agent-files-client'
+import { deleteAgentFile, fetchAgentFileKeys } from '@/lib/agent-files-client'
 import { getApiErrorMessage } from '@/lib/api-error'
 import { MAX_FILE_UPLOAD_BYTES } from '@/lib/file-upload'
 
@@ -84,16 +81,26 @@ export function ToolsFilesManager({
   useEffect(() => {
     if (!fileKeys.length) return
     Promise.all([
-      fetch(`/api/agents/${agent.id}/files`).then(r => r.json()).catch(() => null),
-      fetch('/api/tenants/llm-configs').then(r => r.json()).catch(() => null),
+      fetch(`/api/agents/${agent.id}/files`)
+        .then(r => r.json())
+        .catch(() => null),
+      fetch('/api/tenants/llm-configs')
+        .then(r => r.json())
+        .catch(() => null)
     ]).then(([filesData, configsData]) => {
-      const indexedFiles: Array<{ status: string; embeddingProvider: string | null }> =
-        filesData?.files?.filter((f: any) => f.status === 'indexed') ?? []
+      const indexedFiles: Array<{
+        status: string
+        embeddingProvider: string | null
+      }> = filesData?.files?.filter((f: any) => f.status === 'indexed') ?? []
       if (!indexedFiles.length) return
-      const defaultConfig = configsData?.configs?.find((c: any) => c.isDefault && c.isEnabled)
+      const defaultConfig = configsData?.configs?.find(
+        (c: any) => c.isDefault && c.isEnabled
+      )
       const currentProvider = defaultConfig?.kind ?? 'openai'
       const stale = indexedFiles.some(
-        f => f.embeddingProvider !== null && f.embeddingProvider !== currentProvider
+        f =>
+          f.embeddingProvider !== null &&
+          f.embeddingProvider !== currentProvider
       )
       setHasStaleEmbeddings(stale)
     })
@@ -102,7 +109,9 @@ export function ToolsFilesManager({
   const handleReembed = async () => {
     setIsReembedding(true)
     try {
-      const res = await fetch(`/api/agents/${agent.id}/reembed`, { method: 'POST' })
+      const res = await fetch(`/api/agents/${agent.id}/reembed`, {
+        method: 'POST'
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Re-embed failed')
       toast.success(data.message)
@@ -137,34 +146,37 @@ export function ToolsFilesManager({
     return <IconFile className={iconClass} />
   }
 
-  const updateAgent = useCallback(async (payload: Partial<VibeAgent>) => {
-    if (!canEdit) {
-      toast.error('Read-only: you do not have permission to edit this agent')
-      return
-    }
-    setIsSaving(true)
-    try {
-      const res = await fetch(`/api/agents/${agent.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}))
-        throw new Error(getApiErrorMessage(error, 'Failed to update agent'))
+  const updateAgent = useCallback(
+    async (payload: Partial<VibeAgent>) => {
+      if (!canEdit) {
+        toast.error('Read-only: you do not have permission to edit this agent')
+        return
       }
+      setIsSaving(true)
+      try {
+        const res = await fetch(`/api/agents/${agent.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
 
-      router.refresh()
-      onUpdate?.()
-      toast.success('Agent updated successfully')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Update failed')
-      throw error
-    } finally {
-      setIsSaving(false)
-    }
-  }, [agent.id, canEdit, onUpdate, router])
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}))
+          throw new Error(getApiErrorMessage(error, 'Failed to update agent'))
+        }
+
+        router.refresh()
+        onUpdate?.()
+        toast.success('Agent updated successfully')
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Update failed')
+        throw error
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [agent.id, canEdit, onUpdate, router]
+  )
 
   const handleSaveTools = async () => {
     try {
@@ -225,7 +237,11 @@ export function ToolsFilesManager({
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName, contentType, fileSize: file.size })
+                body: JSON.stringify({
+                  fileName,
+                  contentType,
+                  fileSize: file.size
+                })
               }
             )
 
@@ -306,7 +322,7 @@ export function ToolsFilesManager({
                   fileKey: path,
                   fileName: file.name,
                   mimeType: file.type || undefined,
-                  fileSize: file.size,
+                  fileSize: file.size
                 })
               })
               if (!res.ok) {
@@ -675,7 +691,10 @@ export function ToolsFilesManager({
           {/* Uploaded files list */}
           {hasStaleEmbeddings && (
             <div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
-              <span>⚠ LLM provider changed — file embeddings are stale and may return poor results.</span>
+              <span>
+                ⚠ LLM provider changed — file embeddings are stale and may
+                return poor results.
+              </span>
               <Button
                 type="button"
                 size="sm"

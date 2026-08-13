@@ -161,7 +161,7 @@ export function AgentSetupTab({
             <CardTitle className="text-base">LLM Provider</CardTitle>
             <CardDescription className="text-xs">
               Override the workspace default for this agent only. Leave as
-              "Workspace default" to follow task routing.
+              &quot;Workspace default&quot; to follow task routing.
             </CardDescription>
           </CardHeader>
           <CardContent>

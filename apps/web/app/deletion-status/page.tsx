@@ -14,24 +14,37 @@ function DeletionStatusContent() {
   const searchParams = useSearchParams()
   const id = searchParams.get('id')
   const [data, setData] = useState<DeletionStatus | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+  const [fetchLoading, setFetchLoading] = useState(true)
+
+  // A missing `id` is knowable during render, so it is derived rather than
+  // written into state from the effect — the effect version rendered a
+  // "Loading..." frame before flipping to the error on the very next pass.
+  const error = id ? fetchError : 'No deletion request ID provided.'
+  const loading = id ? fetchLoading : false
 
   useEffect(() => {
-    if (!id) {
-      setError('No deletion request ID provided.')
-      setLoading(false)
-      return
-    }
+    if (!id) return
 
+    // A late response from a previous `id` must not overwrite the current one.
+    let cancelled = false
     fetch(`/api/meta/data-deletion/status?id=${encodeURIComponent(id)}`)
       .then(res => {
         if (!res.ok) throw new Error('Deletion request not found.')
         return res.json()
       })
-      .then(setData)
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
+      .then(next => {
+        if (!cancelled) setData(next)
+      })
+      .catch(err => {
+        if (!cancelled) setFetchError(err.message)
+      })
+      .finally(() => {
+        if (!cancelled) setFetchLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
   if (loading) {

@@ -290,7 +290,10 @@ export async function POST(
       )
       if (!slotReserved) {
         return NextResponse.json(
-          { error: 'Agent response limit reached', code: 'AGENT_LIMIT_REACHED' },
+          {
+            error: 'Agent response limit reached',
+            code: 'AGENT_LIMIT_REACHED'
+          },
           { status: 403 }
         )
       }
@@ -307,17 +310,26 @@ export async function POST(
     // Memory recall — inject context if this agent has memory enabled (never throws)
     let memoryContext = ''
     if (activeAgent.memoryEnabled) {
-      const lastUserMsg = normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
+      const lastUserMsg =
+        normalizedMessages.filter(m => m.role === 'user').at(-1)?.content ?? ''
       memoryContext = await recallMemory(getMigrateDb(), lastUserMsg, {
         conversationId: conversation.id,
         scopeId: activeAgent.id,
-        subScopeId: externalId,
+        subScopeId: externalId
       })
     }
 
     const systemPrefixes = [
-      handoffContext ? { id: nanoid(), role: 'system' as const, content: handoffContext } : null,
-      memoryContext ? { id: nanoid(), role: 'system' as const, content: `## Relevant Memory\n${memoryContext}` } : null,
+      handoffContext
+        ? { id: nanoid(), role: 'system' as const, content: handoffContext }
+        : null,
+      memoryContext
+        ? {
+            id: nanoid(),
+            role: 'system' as const,
+            content: `## Relevant Memory\n${memoryContext}`
+          }
+        : null
     ].filter(Boolean) as Array<{ id: string; role: 'system'; content: string }>
 
     const agentMessages = systemPrefixes.length
@@ -359,9 +371,16 @@ export async function POST(
 
         // Memory ingest — fire-and-forget, never throws or blocks
         if (activeAgent.memoryEnabled) {
-          const memCtx = { conversationId: conversation.id, scopeId: activeAgent.id, subScopeId: externalId }
-          const lastUser = normalizedMessages.filter(m => m.role === 'user').at(-1)
-          if (lastUser) ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
+          const memCtx = {
+            conversationId: conversation.id,
+            scopeId: activeAgent.id,
+            subScopeId: externalId
+          }
+          const lastUser = normalizedMessages
+            .filter(m => m.role === 'user')
+            .at(-1)
+          if (lastUser)
+            ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
           // Use visitor subScopeId for assistant responses too — prevents GROUP BY producing
           // a null-subScopeId ref that causes listMessagesByConversation to leak visitor
           // content into org-scoped observations during Stage 1 processing
@@ -376,7 +395,12 @@ export async function POST(
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
           responseCounts: conversation.responseCounts,
-          tokenUsage: usage ? { promptTokens: usage.promptTokens, completionTokens: usage.completionTokens } : undefined,
+          tokenUsage: usage
+            ? {
+                promptTokens: usage.promptTokens,
+                completionTokens: usage.completionTokens
+              }
+            : undefined
         }).catch(err =>
           console.error('[public-chat] Auto-summarize failed:', err)
         )

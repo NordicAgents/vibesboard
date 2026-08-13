@@ -76,7 +76,7 @@ export function AgentCreatorChat({
           toast.error('Please sign in to create an agent.')
         }
       },
-       
+
       onFinish(message: any) {
         // useCompatChat normalizes UIMessage to have content: string
         const content: string = message?.content ?? ''
@@ -489,7 +489,6 @@ export function AgentCreatorChat({
                           .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
                           .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
                           .trim()
-                         
                       })) as any
                     }
                   />

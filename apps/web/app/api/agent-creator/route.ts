@@ -264,7 +264,12 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
   // Resolve the language model: tenant BYO-LLM config → platform OpenAI key.
   // previewToken skips BYO-LLM (same behaviour as agent runtime).
   const tenantSpec = shouldResolveTenantProvider({ tenantId, previewToken })
-    ? await resolveProviderSpec(tenantId!, null, undefined, 'agent_creator').catch(() => null)
+    ? await resolveProviderSpec(
+        tenantId!,
+        null,
+        undefined,
+        'agent_creator'
+      ).catch(() => null)
     : null
 
   let languageModel
@@ -273,13 +278,20 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
   } else {
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'No LLM provider configured. Add one in Settings → LLM Providers, or set OPENAI_API_KEY.' },
+        {
+          error:
+            'No LLM provider configured. Add one in Settings → LLM Providers, or set OPENAI_API_KEY.'
+        },
         { status: 500 }
       )
     }
     const modelFromEnv = process.env.OPENAI_AGENT_CREATOR_MODEL?.trim()
-    const preferredModel = modelFromEnv?.length ? modelFromEnv : OPENAI_CHAT_MODEL
-    const model = isResponsesModel(preferredModel) ? DEFAULT_AGENT_CREATOR_MODEL : preferredModel
+    const preferredModel = modelFromEnv?.length
+      ? modelFromEnv
+      : OPENAI_CHAT_MODEL
+    const model = isResponsesModel(preferredModel)
+      ? DEFAULT_AGENT_CREATOR_MODEL
+      : preferredModel
     languageModel = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })(model)
   }
 
@@ -373,7 +385,9 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             // Default to 'rag' when files are attached so vector search is used.
             // 'direct' loads the full file into context which fails for large files
             // or small-context local models (e.g. Ollama smollm2 = 8k tokens).
-            retrievalStrategy: args.retrievalStrategy ?? (args.fileKeys?.length ? 'rag' : 'direct'),
+            retrievalStrategy:
+              args.retrievalStrategy ??
+              (args.fileKeys?.length ? 'rag' : 'direct'),
             ...(bookingConfig !== undefined && { bookingConfig })
           })
 
@@ -475,7 +489,9 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
   // Append the tool outcome after the model's own text. Re-wrapped through the
   // AsyncIterable side (not pipeThrough, which locks the ReadableStream the SDK
   // subscribes to internally).
-  const withToolOutcome = (source: AsyncIterable<string>): ReadableStream<string> => {
+  const withToolOutcome = (
+    source: AsyncIterable<string>
+  ): ReadableStream<string> => {
     const iterator = source[Symbol.asyncIterator]()
     let flushed = false
     return new ReadableStream<string>({
@@ -498,5 +514,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     })
   }
 
-  return createTextStreamResponse({ stream: withToolOutcome(result.textStream) })
+  return createTextStreamResponse({
+    stream: withToolOutcome(result.textStream)
+  })
 }

@@ -29,7 +29,9 @@ export async function POST(req: Request) {
   const apiKey = previewToken ?? process.env.OPENAI_API_KEY
 
   // Resolve tenant BYO-LLM for agent_creator task
-  const tenantId = !previewToken ? await getActiveTenant(session.user.id).catch(() => null) : null
+  const tenantId = !previewToken
+    ? await getActiveTenant(session.user.id).catch(() => null)
+    : null
   const tenantSpec =
     tenantId && shouldResolveTenantProvider({ tenantId, previewToken })
       ? await resolveProviderSpec(
@@ -83,31 +85,41 @@ Remember: Great agent instructions are specific, actionable, and provide clear b
   if (tenantSpec && tenantId) {
     const result = await aiStreamText({
       model: await buildTenantProviderModel(tenantId, tenantSpec),
-      system: systemPrompt, messages: messages,
+      system: systemPrompt,
+      messages: messages,
       temperature: 0.3
     })
     return createTextStreamResponse({ stream: result.textStream })
   }
 
   if (!apiKey) {
-    return new Response('No LLM provider configured. Add one in Settings → LLM Providers.', { status: 500 })
+    return new Response(
+      'No LLM provider configured. Add one in Settings → LLM Providers.',
+      { status: 500 }
+    )
   }
 
   if (isResponsesModel(model)) {
     const history = Array.isArray(messages)
       ? messages
-          .map((m: any) => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''}`)
+          .map(
+            (m: any) =>
+              `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${typeof m.content === 'string' ? m.content : ''}`
+          )
           .join('\n\n')
       : ''
     const prompt = `${systemPrompt}\n\n${history ? `Conversation so far:\n${history}` : ''}`
     const stream = await streamText({ prompt, model, apiKey })
-    return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
   }
 
   const openaiClient = createOpenAI({ apiKey, baseURL: OPENAI_BASE_URL })
   const result = await aiStreamText({
     model: openaiClient(model),
-    system: systemPrompt, messages: messages,
+    system: systemPrompt,
+    messages: messages,
     temperature: 0.3
   })
   return createTextStreamResponse({ stream: result.textStream })
