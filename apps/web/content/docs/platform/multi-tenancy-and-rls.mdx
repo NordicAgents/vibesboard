@@ -1,0 +1,282 @@
+---
+title: 'Multi-tenancy & RLS'
+description: 'How workspace isolation is enforced at the database layer.'
+---
+
+# Multi-tenancy & RLS
+
+Vibesboard is multi-tenant: every workspace (tenant) shares one Postgres database
+and one application deployment. Isolation between workspaces is enforced by
+PostgreSQL row-level security (RLS), not only by application-level checks —
+a tenant-scoped query issued with no tenant context returns zero rows rather
+than leaking across workspaces. This page describes the actual mechanism:
+the two database roles, the policies, and the request-scoped context that
+drives them.
+
+## Two database roles
+
+The app connects to Postgres as one of two roles, configured by two separate
+connection strings:
+
+| Env var                | Role                 | RLS         | Used for                                                           |
+| ---------------------- | -------------------- | ----------- | ------------------------------------------------------------------ |
+| `DATABASE_URL`         | `vibesboard_app`     | Enforced    | Normal request path — everything application code does             |
+| `DATABASE_MIGRATE_URL` | `vibesboard_migrate` | `BYPASSRLS` | Migrations, seeding, and trusted identity operations (Better Auth) |
+
+Both roles are created in
+[`packages/adapter-postgres/docker/init.sql`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/docker/init.sql):
+
+```sql
+CREATE ROLE vibesboard_migrate WITH LOGIN PASSWORD 'vibesboard_migrate' BYPASSRLS;
+CREATE ROLE vibesboard_app WITH LOGIN PASSWORD 'vibesboard_app';
+```
+
+`vibesboard_migrate` owns the schema and runs `drizzle-kit migrate` and the
+seed script at build/deploy time. At runtime, the same role (via
+`getMigrateDb()`) also backs Better Auth's identity operations and
+admin-panel routes that need cross-tenant reads after an app-level
+`requireSuperAdmin()` check — see "Super admin and the migrate role" below.
+`vibesboard_app` is what request-handling code uses otherwise, and it has no
+`BYPASSRLS` — every query it runs is subject to the RLS policies described
+below.
+
+<Callout type="danger" title="Keep DATABASE_MIGRATE_URL out of request code">
+  `DATABASE_MIGRATE_URL` bypasses tenant RLS by design. It exists for migrations
+  and for identity operations that run before a tenant/user context exists (see
+  `getMigrateDb` below). Application business logic must never use it — doing so
+  would defeat the isolation this page describes.
+</Callout>
+
+## Row-level security policies
+
+RLS is enabled per-table, table by table, starting in
+[`drizzle/0001_rls_policies.sql`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/drizzle/0001_rls_policies.sql)
+and extended by later migrations as new tenant-owned tables were added
+(agent versioning, hybrid memory, embeddings, task configs, and so on). The
+shape is the same everywhere: enable RLS on the table, then attach a policy
+that checks the row's `tenant_id` against a Postgres session GUC:
+
+```sql
+ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY agents_iso ON agents
+  USING (
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    OR current_setting('app.is_super_admin', true) = 'true'
+  )
+  WITH CHECK (
+    tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    OR current_setting('app.is_super_admin', true) = 'true'
+  );
+```
+
+The same pattern (generated via a `DO $$ … $$` loop over a table list in the
+initial migration) covers every tenant-owned table: `agents`, `agent_links`,
+`hooks`, `hook_jobs`, `conversations`, `messages`, `conversation_feedback`,
+`notifications`, `files`, `embeddings`, `calendar_connections`, `bookings`,
+`booking_enquiries`, the WhatsApp/Instagram inbox tables, `chatwoot_connections`,
+`tenant_feature_toggles`, `usage_counters`, `data_connections`,
+`data_action_logs`, and `tenant_branding`. `tenants`, `tenant_members`, and
+`invitations` get an equivalent policy keyed on their own `id`/`tenant_id`.
+`users` and `sessions` are keyed on `id`/`user_id` instead, since they aren't
+tenant-owned. A handful of tables are intentionally global: `feature_flags`
+is readable by any authenticated user but writable only by a super admin,
+and `platform_branding` is publicly readable.
+
+Both `USING` (read/update/delete visibility) and `WITH CHECK` (insert/update
+validity) clauses carry the condition, so a write that targets a different
+tenant's `tenant_id` is rejected by Postgres itself, not merely hidden from
+a later read.
+
+Three GUCs drive every policy:
+
+| GUC                     | Set from                     | Effect                                                                          |
+| ----------------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| `app.current_tenant_id` | `TenantContext.tenantId`     | Row must match this tenant to be visible/writable                               |
+| `app.current_user_id`   | `TenantContext.userId`       | Used by user/session-keyed policies (`null` for anonymous public-agent traffic) |
+| `app.is_super_admin`    | `TenantContext.isSuperAdmin` | `true` grants cross-tenant visibility on every policy above                     |
+
+A [dedicated coverage test](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/src/__tests__/rls-coverage.test.ts)
+asserts, against a live Postgres instance, that every table in the schema
+(besides an explicitly justified exemption list) has RLS enabled, has at
+least one policy, and that every tenant-owned table's policy actually
+references `app.current_tenant_id`. A companion
+[behavior test](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/src/__tests__/rls-behavior.test.ts)
+seeds two tenants and asserts that the app role sees only its own tenant's
+rows, that a cross-tenant insert is rejected with a Postgres row-level
+security error, and that a transaction with no tenant context set returns
+zero rows.
+
+## The request-scoped tenant context
+
+The GUCs above aren't set by hand per query — they come from a single
+context object carried through an `AsyncLocalStorage`, defined in
+[`packages/adapter-postgres/src/tenant-context.ts`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/src/tenant-context.ts):
+
+```ts
+export type TenantContext = {
+  tenantId: string
+  userId: string | null
+  isSuperAdmin: boolean
+}
+
+export async function withTenant<T>(
+  ctx: TenantContext,
+  fn: () => Promise<T>
+): Promise<T> {
+  return als.run(ctx, fn)
+}
+```
+
+`userId` is `null` for anonymous traffic — the public agent chat widget and
+public hook endpoints run under a resolved `tenantId` with no signed-in user.
+
+Every database call goes through `withDb`
+([`packages/adapter-postgres/src/client.ts`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/src/client.ts)),
+which opens a transaction, reads the current `withTenant` context (or falls
+back to an empty one), and issues `SET LOCAL` for each GUC via
+`set_config(name, value, true)` before running the caller's query:
+
+```ts
+export function withDb<T>(fn: (tx: DbTx) => Promise<T> | T): Promise<T> {
+  const ctx = getContext() ?? {
+    tenantId: '',
+    userId: null,
+    isSuperAdmin: false
+  }
+  return getDb().transaction(async tx => {
+    for (const stmt of rlsSetLocalSql(ctx)) {
+      await tx.execute(stmt)
+    }
+    return fn(tx)
+  })
+}
+```
+
+`SET LOCAL` scopes the GUCs to the current transaction only, so they can
+never leak between requests sharing a pooled connection. If `withDb` runs
+outside any `withTenant` call, the fallback context has an empty
+`tenantId`, `current_setting(...)` returns an empty string,
+`NULLIF('', '')` turns that into `NULL`, and `tenant_id = NULL` is never
+true — the query returns zero rows instead of throwing or leaking. This is
+the fail-closed behavior referenced throughout the codebase.
+
+The standard call shape combines both helpers:
+
+```ts
+import { withTenant } from '@vibesboard/adapter-postgres/tenant-context'
+import { withDb } from '@vibesboard/adapter-postgres/client'
+import { messages } from '@vibesboard/adapter-postgres/schema'
+
+await withTenant({ tenantId, userId, isSuperAdmin: false }, async () => {
+  const rows = await withDb(tx =>
+    tx.select().from(messages).where(eq(messages.conversationId, convId))
+  )
+})
+```
+
+### How a request gets a tenant context
+
+Route handlers in `apps/web` don't call `withTenant` directly for every
+request — they resolve the caller's membership first. For example,
+`requireTenantMember` in
+[`apps/web/lib/auth/route-handler.ts`](https://github.com/NordicAgents/vibesboard/blob/main/apps/web/lib/auth/route-handler.ts)
+takes the session user and a `tenantId` (typically from the `[tenantSlug]`
+route or a request body), opens a `withTenant`/`withDb` block scoped to that
+tenant to look up the caller's `tenant_members` row, and returns 403 if none
+exists:
+
+```ts
+const rows = await withTenant(
+  { tenantId, userId: a.user.id, isSuperAdmin: false },
+  () =>
+    withDb(tx =>
+      tx
+        .select({ role: tenantMembers.role })
+        .from(tenantMembers)
+        .where(
+          and(
+            eq(tenantMembers.tenantId, tenantId),
+            eq(tenantMembers.userId, a.user.id)
+          )
+        )
+        .limit(1)
+    )
+)
+if (rows.length === 0)
+  return { ok: false, response: new NextResponse('Forbidden', { status: 403 }) }
+```
+
+`requireTenantAdmin` layers a role check (`TENANT_ADMIN` or `SUPER_ADMIN`) on
+top of `requireTenantMember`. Note that this lookup itself runs with
+`isSuperAdmin: false` and a real `tenantId` — it relies on RLS to confirm
+membership, it doesn't assert admin status client-side.
+
+## Super admin and the migrate role
+
+Two distinct mechanisms grant broader-than-one-tenant access, and they are
+not the same thing:
+
+- **`isSuperAdmin: true` in a `TenantContext`** — still goes through the
+  `vibesboard_app` role and RLS, but every policy's `OR
+current_setting('app.is_super_admin', true) = 'true'` clause passes, so
+  the query can see and, where a policy allows it, write across tenants.
+  This is a real, tested capability of the RLS layer — the "super-admin sees
+  all tenants" case in
+  [`rls-behavior.test.ts`](https://github.com/NordicAgents/vibesboard/blob/main/packages/adapter-postgres/src/__tests__/rls-behavior.test.ts)
+  exercises it directly against Postgres — but as of this writing no
+  `apps/web` call site actually constructs a `TenantContext` with
+  `isSuperAdmin: true`. The admin panel reaches cross-tenant data through
+  the mechanism below instead; check the source before assuming a given
+  admin code path uses this one.
+- **`getMigrateDb()` / `DATABASE_MIGRATE_URL`** — bypasses RLS entirely at
+  the role level. This is what the admin panel's cross-tenant reads actually
+  use once `requireSuperAdmin()` has authorized the request — for example,
+  [`apps/web/app/api/admin/tenants/route.ts`](https://github.com/NordicAgents/vibesboard/blob/main/apps/web/app/api/admin/tenants/route.ts)
+  lists all tenants via `getMigrateDb()`, not the super-admin GUC above.
+  `getMigrateDb()` is also used by `drizzle-kit migrate`, the seed script,
+  and Better Auth's identity operations (create user, find session), which
+  by necessity run before any `current_user_id`/`current_tenant_id` GUC can
+  be established. `getMigrateDb()`'s doc comment is explicit that other app
+  business logic must not call it. Note that `requireSuperAdmin()` itself
+  uses neither escape hatch — it checks `users.is_super_admin` for the
+  signed-in user via an ordinary self-scoped RLS read (`isSuperAdmin:
+false`), which the `users_self` policy already permits.
+
+<Callout type="note">
+  `isSuperAdmin` is not derived from the tenant context automatically — it's set
+  by whoever constructs the `TenantContext`, based on a database check
+  (`users.is_super_admin`) that itself has to run first. Treat it as a
+  capability that call sites opt into deliberately, not a default.
+</Callout>
+
+## What this means when building on Vibesboard
+
+- Any new tenant-owned table needs `ALTER TABLE … ENABLE ROW LEVEL
+SECURITY` plus a policy following the pattern above — the coverage test
+  will fail CI otherwise.
+- Always reach the database through `withTenant` + `withDb` (or
+  `getDb()`/`getMigrateDb()` only where explicitly justified). Calling
+  `getDb().select()` directly without a `withTenant` wrapper is a
+  fail-closed bug, not a security hole — you get zero rows, silently, which
+  usually shows up as a confusing "empty" bug rather than a crash.
+- A single Postgres instance and schema serve all workspaces — there is no
+  per-tenant schema or database. Isolation is entirely row-level, enforced
+  by the policies above.
+
+<Cards>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How tenant credentials and secrets are protected at rest.
+  </Card>
+  <Card href="/docs/contribute/architecture" title="Architecture">
+    Repository layout, connection model, and provider routing.
+  </Card>
+  <Card
+    href="/docs/self-host/environment-variables"
+    title="Environment variables"
+  >
+    Full reference for DATABASE_URL, DATABASE_MIGRATE_URL, and related config.
+  </Card>
+</Cards>

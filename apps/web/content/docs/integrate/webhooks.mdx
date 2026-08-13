@@ -1,0 +1,180 @@
+---
+title: 'Webhooks'
+description: 'Call external services and receive events over HTTP.'
+---
+
+# Webhooks
+
+"Webhook" covers three unrelated things in Vibesboard, and mixing them up leads to wrong assumptions about signing and retries. This page is about the first one — an agent tool that `POST`s or `PUT`s conversation data to a URL you control. For the other two, see the callouts below and the channel-specific pages.
+
+<Callout type="note" title="Three directions, one word">
+  - **Outbound data action** (this page) — an agent tool calls a URL you
+  configure, to append or update a record during a conversation. - **Inbound
+  channel receivers** — WhatsApp, Instagram, and Chatwoot each `POST` inbound
+  messages to a fixed Vibesboard endpoint. See
+  [WhatsApp](/docs/deploy/whatsapp), [Instagram](/docs/deploy/instagram), and
+  [Chatwoot sync](/docs/deploy/chatwoot-sync). - **Hook async callbacks** — a
+  *different* feature, [Hooks & lifecycle](/docs/build/hooks-and-lifecycle),
+  lets an external caller invoke an agent and get an HMAC-signed callback when
+  it finishes. That signing and retry behavior does not apply to the webhook
+  data action described here.
+</Callout>
+
+## What it is
+
+A webhook data connection is one of three destination types for the **data actions** system (the other two are Google Sheets and Airtable) — see [Data actions & tools](/docs/build/data-actions-and-tools) for how a connection turns into callable tools in the model's function-calling context. This page covers only what's specific to the webhook provider: the request shapes it sends, how to configure one, and its security model.
+
+<Callout type="warning" title="Off by default">
+  Data actions are gated by the `AGENT_ACTIONS` feature flag, disabled by
+  default for new tenants. A workspace admin turns it on from tenant settings
+  ("Features" tab) before `/api/data/connections` and the agent builder's
+  **Actions → Data Sync** card become usable.
+</Callout>
+
+## Creating a webhook connection
+
+From the agent builder, open the **Actions** tab → **Data Sync** card → **Webhook**. The form takes a connection name, a URL, and an HTTP method (`POST` or `PUT`); it does not expose custom headers.
+
+Equivalently, via the API:
+
+```bash
+curl -X POST https://<your-host>/api/data/connections \
+  -H "Content-Type: application/json" \
+  -H "Cookie: <session cookie>" \
+  -d '{
+    "provider": "custom_webhook",
+    "name": "Lead capture",
+    "webhookUrl": "https://example.com/hooks/vibesboard",
+    "webhookMethod": "POST",
+    "webhookHeaders": { "Authorization": "Bearer <your-secret>" }
+  }'
+```
+
+`webhookHeaders` is a plain object of header name/value pairs merged into every outbound request. It's stored as-is (not encrypted) and is the only way to authenticate the platform to your endpoint — see [Authentication](#authenticating-the-request) below. Setting it requires the API; the builder UI has no field for it.
+
+The response is `201` with `{ id, provider, name, status }` — no secrets are echoed back. `GET /api/data/connections` and `PATCH /api/data/connections/{id}` behave the same way for webhooks as for the other providers; see [Data actions & tools](/docs/build/data-actions-and-tools) for the full CRUD reference.
+
+Every `webhookUrl` — on create and on update — is checked by `validateWebhookUrl()` before the connection is saved:
+
+<Callout type="warning" title="SSRF protection">
+  Rejected: non-`http(s)` schemes, `localhost`/loopback/`0.0.0.0`, the
+  `169.254.169.254` and `metadata.google.internal` cloud metadata endpoints, and
+  RFC 1918 private ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) plus
+  link-local (`169.254.0.0/16`). This means a webhook destination running on
+  `localhost` or inside the same private network as the Vibesboard deployment
+  will not validate — point it at a publicly reachable URL.
+</Callout>
+
+## What gets sent to your endpoint
+
+The webhook provider (`CustomWebhookProvider`) sends `Content-Type: application/json` plus your configured `webhookHeaders`, with a 10-second request timeout. The JSON body depends on which tool the model called:
+
+**`submit_data` → `appendRow`**
+
+```json
+{
+  "action": "append",
+  "data": { "Name": "John", "Email": "john@example.com" },
+  "timestamp": "2026-08-12T10:00:00.000Z"
+}
+```
+
+**`update_record` → `updateRow`** (only if the agent's Data Sync settings have an "Update Key Field" configured)
+
+```json
+{
+  "action": "update",
+  "keyField": "Email",
+  "keyValue": "john@example.com",
+  "data": { "Status": "Completed" },
+  "timestamp": "2026-08-12T10:00:00.000Z"
+}
+```
+
+**Connection test** (the builder's **Test** button, or `POST /api/data/connections/{id}/test`)
+
+```json
+{ "action": "test" }
+```
+
+`data` is whatever the model passed to the tool, rewritten by the agent's field mappings (collection-field ID or column label, matched case-insensitively) if any are configured — see [Data actions & tools](/docs/build/data-actions-and-tools#submit_data--always-available) for how mapping works.
+
+<Callout
+  type="note"
+  title="query_records and delete_record are effectively unavailable"
+>
+  `buildDataTools` decides whether to add `query_records`/`delete_record` tools
+  by checking the data action's `allowQuery`/`allowDelete` config flags — it
+  does not check whether the provider actually supports querying or deleting. If
+  those flags were ever set, the tools would appear in the model's context, but
+  calling one against a webhook connection would fail at runtime ("Query/Delete
+  is not supported by this data provider"), since `CustomWebhookProvider`
+  implements neither `queryRows()` nor `deleteRow()` — and as of this writing,
+  no other provider does either. Separately, the only production path that
+  builds this config today (the agent builder's legacy Data Sync settings)
+  hardcodes both flags to `false`, so in practice neither tool is reachable yet
+  for any provider. Confirm against `packages/ai/src/actions/data/tools.ts` and
+  `packages/data/src/providers/custom-webhook.ts` before relying on this.
+</Callout>
+
+## Responding
+
+Return a `2xx` status for success — anything else is treated as a failure and the tool call returns an error message to the model (the response body is included in the error where possible).
+
+For `update_record`, your response body is optionally inspected: if it's JSON with a boolean `matched` field, that value is used to tell the model whether a record was actually found and updated. If the body isn't JSON, or has no `matched` field, the platform assumes `matched: true`. There is no such inspection for `append` or `test` — any `2xx` is a success.
+
+```json
+{ "matched": false }
+```
+
+## Authenticating the request
+
+The webhook provider does not sign or otherwise cryptographically authenticate its requests — there's no shared-secret HMAC header like the one used for [hook async callbacks](/docs/build/hooks-and-lifecycle#async-jobs). If your endpoint needs to verify the call came from your Vibesboard tenant, put a bearer token or API key in `webhookHeaders` and check for it yourself. Because the UI form doesn't expose `webhookHeaders`, doing this requires creating or updating the connection via the API (`POST`/`PATCH /api/data/connections`).
+
+## Limits
+
+- Methods: `POST` or `PUT` only — no `GET`, `PATCH`, or `DELETE`.
+- Every request (append, update, or test) has a 10-second timeout via `AbortController`; a slower endpoint aborts and the tool call fails.
+- Outcomes (success/failure, which fields were sent, any error) are recorded per call to `data_action_logs`, scoped to tenant/agent/connection — a logging failure never blocks the response back to the model. (The table has an optional `conversationId` column, but the current data-action call path doesn't populate it.)
+
+## Inbound channel webhooks
+
+The channel integrations receive events at fixed endpoints rather than ones you configure — set these up from their own pages, not from the Data Sync card:
+
+<Cards>
+  <Card href="/docs/deploy/whatsapp" title="WhatsApp">
+    Meta calls a signed, fixed endpoint for inbound WhatsApp messages and status
+    updates.
+  </Card>
+  <Card href="/docs/deploy/instagram" title="Instagram">
+    Meta calls a signed, fixed endpoint for inbound Instagram DMs.
+  </Card>
+  <Card href="/docs/deploy/chatwoot-sync" title="Chatwoot sync">
+    Chatwoot posts conversation events to a per-connection URL authenticated by
+    a secret query parameter.
+  </Card>
+</Cards>
+
+<Callout type="note" title="Not agent-configurable">
+  `/api/webhooks/google-risc` also exists in the codebase, but it isn't part of
+  this system — it's a receiver for Google's Cross-Account Protection (RISC)
+  security event tokens, used to react to account-level security events (e.g. a
+  user's Google session being revoked) on connections made elsewhere in the
+  platform. No agent or tenant configures it directly.
+</Callout>
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/build/data-actions-and-tools" title="Data actions & tools">
+    The general mechanism behind webhook, Google Sheets, and Airtable
+    connections.
+  </Card>
+  <Card href="/docs/build/hooks-and-lifecycle" title="Hooks & lifecycle">
+    The inbound-invocation, HMAC-signed-callback system — a different feature
+    from this one.
+  </Card>
+  <Card href="/docs/integrate/mcp-servers" title="MCP servers">
+    Not implemented in this build — what was checked, and what to use instead.
+  </Card>
+</Cards>

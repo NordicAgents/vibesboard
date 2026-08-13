@@ -1,0 +1,174 @@
+---
+title: 'Core concepts'
+description: 'Workspaces, agents, knowledge, and memory — how they fit together.'
+---
+
+# Core concepts
+
+Vibesboard organizes everything around a **workspace**. A workspace holds **agents**;
+each agent can carry a **knowledge base**, **long-term memory**, **hooks**,
+**data actions**, and one or more **channels** it's deployed on. This page defines
+those terms so the rest of the docs can use them without re-explaining each one.
+
+## Workspace (tenant)
+
+A workspace — called a "tenant" in the code and database — is the unit of
+isolation. It has an `id`, a `name`, a URL `slug`, and a `status`
+(`active` / `pending` / `trial` / `suspended`). Every agent, conversation,
+knowledge-base file, and integration connection belongs to exactly one workspace.
+
+Two kinds of workspace exist: a **personal** workspace (`isPersonal: true`,
+created automatically for a new user) and a **team** workspace, which a user
+creates explicitly and is capped at 5 per user (`MAX_TEAM_WORKSPACES` in
+`packages/tenants/src/workspace.ts`). Membership is per-user-per-workspace with
+a role of `SUPER_ADMIN`, `TENANT_ADMIN`, or `MEMBER`.
+
+Isolation is enforced at the database layer, not just in application code:
+tenant-owned Postgres tables use row-level security and fail closed — a query
+issued without the correct tenant session context returns no rows rather than
+leaking across workspaces. See [multi-tenancy and RLS](/docs/platform/multi-tenancy-and-rls)
+for how that works, and [security and credentials](/docs/platform/security-and-credentials)
+for how per-tenant secrets (provider keys, OAuth tokens, channel credentials) are
+encrypted at rest.
+
+## Agent
+
+An agent is the configurable unit that actually talks to users. It has a name,
+system `instructions`, a URL slug it's reachable at, and a `mode`:
+
+- **`provider`** — a normal assistant agent, answering from instructions,
+  knowledge, and tools.
+- **`collector`** — walks a defined set of `collectionFields` (text, email,
+  phone, number, long text, or choice) to gather structured input from the user.
+
+An agent's configuration also covers which tools it can call, whether anonymous
+(unauthenticated) visitors can use it, an optional access-gate password, quick
+suggestions behavior, calendar/booking and data-action settings, and which model
+provider it uses. Walk through creating one in
+[creating your first agent](/docs/get-started/creating-your-first-agent).
+
+### Agent version
+
+Agent edits are versioned. Saving an agent writes an immutable
+`AgentConfigSnapshot` (name, instructions, mode, tools, `fileKeys`, handoff
+targets, collection fields, scheduling/data/booking/notification config, model
+config, memory setting, and related fields) captured in
+`packages/agents/src/versioning.ts`. Identity fields, counters, the version
+pointer, and the access-password hash are deliberately excluded from the
+snapshot. Versions can be listed and restored, which reapplies an old snapshot
+to the live agent row. Details in
+[agent versioning and rollback](/docs/build/agent-versioning-and-rollback).
+
+## Knowledge base (RAG)
+
+An agent can be given files (uploaded to S3-compatible object storage — MinIO
+locally, S3/R2/GCS in production) that get chunked, embedded, and stored per
+agent. At query time a retrieval strategy pulls relevant chunks into context
+before the model responds. The retrieval strategy is a per-agent setting
+(`direct`, `rag`, or `bash` in the agent record) rather than one fixed pipeline.
+See [knowledge base & RAG](/docs/build/knowledge-base-rag).
+
+## Long-term memory
+
+Separate from the knowledge base, an agent can have long-term memory enabled
+(`memoryEnabled` on the agent record) backed by the `hybrid-memory` package.
+Conversations are ingested and embedded, an LLM extracts observations, those
+observations are reconciled across conversations into proposed mutations, an
+admin approves a mutation before it becomes a durable memory, and approved
+memories are recalled and injected into context on later conversations. This is
+a distinct system from RAG retrieval over uploaded files — one recalls facts
+learned from conversations, the other retrieves content from documents you
+uploaded. See [long-term memory](/docs/build/long-term-memory).
+
+## Hook
+
+A hook exposes an agent to external callers — other agents, or external
+services — over a secret-authenticated HTTP endpoint. Each hook has its own
+`id` (used as the URL token) and a secret whose SHA-256 hash is stored; the raw
+secret is shown once at creation and never returned again. Hooks support
+synchronous chat, streaming, and async (submit-a-job, get a callback when the
+agent replies) invocation styles. See
+[hooks and lifecycle](/docs/build/hooks-and-lifecycle).
+
+## Data action
+
+A data action lets an agent write or read structured data during a
+conversation — appending or updating a row, submitting to a webhook, querying
+or deleting a row — against a connected provider (Google Sheets, Airtable, or a
+custom webhook). Field mappings tie an agent's collection fields to the target
+sheet column or field. Every attempt is logged with a success/failure status
+and the row data sent. See
+[data actions and tools](/docs/build/data-actions-and-tools).
+
+## Channel
+
+A channel is a surface an agent is deployed on beyond the in-app chat UI.
+Confirmed channels in this codebase:
+
+- **Web widget** — an embeddable chat widget. See [web widget](/docs/deploy/web-widget).
+- **Public link** — a shareable, optionally access-gated or invite-code-gated
+  agent URL. See [public links and access gates](/docs/deploy/public-links-and-access-gates).
+- **WhatsApp** — an OAuth-connected WhatsApp inbox account per workspace, with
+  per-conversation agent assignment and human takeover
+  (`packages/channel-whatsapp`). See [WhatsApp](/docs/deploy/whatsapp).
+- **Instagram** — the same OAuth-connected inbox pattern for Instagram DMs
+  (`packages/channel-instagram`). See [Instagram](/docs/deploy/instagram).
+- **Chatwoot** — syncs an agent into a Chatwoot inbox as an agent bot
+  (`packages/channel-chatwoot`). See [Chatwoot sync](/docs/deploy/chatwoot-sync).
+
+Calendar availability and Google Sheets connections are documented separately
+under [Google Calendar](/docs/integrate/google-calendar) and
+[Google Sheets](/docs/integrate/google-sheets) rather than as channels here. The
+channel/integration split above follows this doc site's own nav grouping
+(`/docs/deploy/*` vs. `/docs/integrate/*`), not a hard line drawn in the product:
+the agent dashboard's own "Integrations" tab actually bundles the web widget,
+WhatsApp, Chatwoot, and hooks together with things like Calendar under one
+"integration" label.
+
+## How it fits together
+
+<Steps>
+  <Step title="Workspace">
+    Everything starts inside a workspace — a tenant with its own members, roles,
+    and row-level-security boundary.
+  </Step>
+  <Step title="Agent">
+    You create one or more agents in the workspace, each with its own
+    instructions, mode, and model configuration.
+  </Step>
+  <Step title="Knowledge and memory">
+    You optionally attach a knowledge base (uploaded files, retrieved via RAG)
+    and enable long-term memory (facts extracted and approved from past
+    conversations).
+  </Step>
+  <Step title="Hooks and data actions">
+    You optionally wire up hooks so other services can call the agent, and data
+    actions so the agent can read or write external data mid-conversation.
+  </Step>
+  <Step title="Channels">
+    You deploy the agent on one or more channels — the web widget, a public
+    link, WhatsApp, Instagram, or Chatwoot — and every version you save along
+    the way is recoverable later.
+  </Step>
+</Steps>
+
+<Cards>
+  <Card
+    href="/docs/get-started/creating-your-first-agent"
+    title="Creating your first agent"
+  >
+    Walk through building and deploying a single agent end to end.
+  </Card>
+  <Card
+    href="/docs/platform/multi-tenancy-and-rls"
+    title="Multi-tenancy and RLS"
+  >
+    How workspace isolation is enforced at the database layer.
+  </Card>
+  <Card href="/docs/build/knowledge-base-rag" title="Knowledge base & RAG">
+    Upload files and configure retrieval for an agent.
+  </Card>
+  <Card href="/docs/build/long-term-memory" title="Long-term memory">
+    How the hybrid memory pipeline extracts and recalls facts.
+  </Card>
+</Cards>

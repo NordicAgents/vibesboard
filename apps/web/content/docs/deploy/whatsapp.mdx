@@ -1,0 +1,238 @@
+---
+title: 'WhatsApp'
+description: 'Connect an agent to a WhatsApp Business number.'
+---
+
+# WhatsApp
+
+Vibesboard's WhatsApp channel talks to the official Meta WhatsApp Business
+Platform (Cloud API) — it is not an unofficial or browser-automation client.
+Each connected number is a WhatsApp Business Account (WABA) phone number tied
+to one tenant. Inbound messages land in a shared team inbox and, if you assign
+one, can be answered automatically by an agent; outbound replies (human or
+agent) go out through the Cloud API.
+
+<Callout type="note">
+  This is a session-based (text-only) integration: replies can only be sent
+  within Meta's 24-hour customer service window after the contact's last
+  message, and only plain text is sent back out. There is no support for
+  WhatsApp message templates (HSM) for re-engaging a contact outside that
+  window, and inbound media (images, documents, audio, video) is recorded as a
+  placeholder in the thread, not downloaded or displayed — the underlying Meta
+  media ID is stored, but nothing fetches the file.
+</Callout>
+
+## Turn on the feature flags
+
+The WhatsApp inbox is off by default for every workspace. A tenant admin
+enables it from the workspace's Settings → Features tab:
+
+- `WHATSAPP_INBOX` — the parent flag. It must be on for the WhatsApp sidebar
+  section to appear at all.
+- `WHATSAPP_INBOX_OAUTH`, `WHATSAPP_INBOX_API_KEY`, `WHATSAPP_INBOX_BYOA` —
+  one per connection method (below). Each is independent, so a workspace can
+  expose just the methods it wants; the corresponding "Connect via..." button
+  only renders when its flag is enabled.
+
+`WHATSAPP_INBOX` is itself a child of the platform's `INBOX` flag group
+(off by default), and the three connection-method flags are children of
+`WHATSAPP_INBOX` in turn — so all four require `INBOX` to be enabled
+transitively before any of them can resolve to on. Every API route under
+`/api/tenants/[id]/whatsapp-inbox` and `/api/whatsapp-inbox/auth/*` checks
+the relevant flag server-side and returns `403` if it isn't enabled — the
+flags aren't just a UI convenience.
+
+## Connect a WhatsApp Business Account
+
+Open **WhatsApp Inbox → Accounts** in the app. Three connection methods are
+available, gated by the flags above. All three end up in the same place: a
+row in the tenant's account list with an encrypted access token.
+
+### Meta OAuth (embedded signup)
+
+The **Connect WhatsApp** button drives Meta's Facebook Login for Business
+embedded signup flow in a popup (via the Facebook JS SDK), then exchanges the
+returned authorization code for a token, discovers the WABA from the token's
+granted scopes, subscribes your app to the WABA's webhooks, and reads its
+phone number — all server-side in `connectOAuthAccount`.
+
+This requires your own Meta App to be configured for the deployment:
+
+```bash
+NEXT_PUBLIC_META_APP_ID=<your Meta App ID>
+NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=<your Facebook Login for Business config ID>
+META_APP_SECRET=<your Meta App secret>
+```
+
+If `NEXT_PUBLIC_META_APP_ID` isn't set, the SDK provider reports "Meta App ID
+not configured" and the button stays disabled.
+
+### API key (System User token)
+
+**Connect via API Key** takes a WABA ID and a long-lived System User access
+token, looks up the WABA's phone numbers, and subscribes your app to its
+webhooks — no popup flow. The in-app dialog walks through the same steps
+below.
+
+<Steps>
+  <Step title="Open Meta Business Suite">
+    Go to Business Settings for the business that owns the WABA.
+  </Step>
+  <Step title="Find the WABA ID">
+    Business Settings → Accounts → WhatsApp Accounts. The numeric ID is shown at
+    the top of the account page.
+  </Step>
+  <Step title="Create a System User">
+    Business Settings → Users → System Users → Add. Give it the Admin role (or
+    reuse an existing one).
+  </Step>
+  <Step title="Assign WhatsApp permissions">
+    On the System User, Add Assets → Apps → your app → enable "Manage app". Then
+    Add Assets → WhatsApp Accounts → your WABA → enable "Manage WhatsApp
+    business account".
+  </Step>
+  <Step title="Generate the access token">
+    On the System User, Generate New Token, select your app, and check
+    `whatsapp_business_management` and `whatsapp_business_messaging`. Set expiry
+    to "Never" so the connection doesn't silently stop working, then paste the
+    WABA ID and token into the dialog.
+  </Step>
+</Steps>
+
+Because this method subscribes whichever Meta App the token belongs to, and
+inbound webhooks for both OAuth and API-key accounts are delivered to the
+same shared endpoint (`/api/webhooks/whatsapp-inbox`, verified against a
+single `META_APP_SECRET`), the token you generate here needs to belong to the
+same Meta App the deployment is configured with — not an arbitrary app.
+
+### Bring your own app (BYOA)
+
+**Connect via BYOA** is for a tenant that wants to use its own Meta App and
+manage its own webhook, independent of the deployment's shared app. You
+supply the Meta App ID/secret, a System User token, a WABA ID, and a webhook
+verify token of your choosing.
+
+<Steps>
+<Step title="Create a Meta App">
+In the Meta Developer Portal, create a new app with type "Business".
+</Step>
+<Step title="Add the WhatsApp product">
+From the app dashboard, Add Products → WhatsApp, and follow the wizard to
+attach your WhatsApp Business Account.
+</Step>
+<Step title="Copy the App ID and App Secret">
+App Settings → Basic.
+</Step>
+<Step title="Create a System User and generate a token">
+Business Settings → System Users → create an Admin user, assign it your app
+and WABA, and generate a token scoped to `whatsapp_business_management` and
+`whatsapp_business_messaging` with expiry set to "Never".
+</Step>
+<Step title="Find the WABA ID">
+Business Settings → WhatsApp Accounts — the numeric ID at the top of the
+account page.
+</Step>
+<Step title="Submit the form, then configure the webhook">
+After you submit, the dialog shows a per-account webhook URL
+(`/api/webhooks/whatsapp-inbox/byoa/<accountId>`) and the verify token you
+entered. Paste both into your Meta App's WhatsApp → Configuration →
+Webhook settings, and subscribe to the `messages` field.
+</Step>
+</Steps>
+
+Webhook subscription during connect is attempted but not required to
+succeed — a BYOA account can be created even if `subscribeToWebhooks` fails
+at connect time (the account's `webhookSubscribed` flag reflects the actual
+result), since you're expected to finish wiring the webhook in the Meta App
+dashboard yourself afterward.
+
+## Webhook endpoints
+
+| Endpoint                                                 | Used by                                              | Verification                                                                                                                                            |
+| -------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET/POST /api/webhooks/whatsapp-inbox`                  | OAuth and API-key accounts (shared, deployment-wide) | `hub.verify_token` must equal `WHATSAPP_INBOX_VERIFY_TOKEN`; POST payloads are checked against the `x-hub-signature-256` header using `META_APP_SECRET` |
+| `GET/POST /api/webhooks/whatsapp-inbox/byoa/[accountId]` | BYOA accounts (one URL per account)                  | Verify token and signature are checked against that account's own stored, encrypted verify token and App Secret                                         |
+
+Both POST handlers always return `200` on internal errors (after logging) so
+Meta doesn't retry a message that already failed to process. The shared
+endpoint only returns non-200 for a bad signature (`403`) or wrong object
+type (`400`); the BYOA endpoint has two more explicit failure paths —
+account not found (`404`) and an account that's missing its stored App
+Secret (`500`).
+
+## Environment variables
+
+| Variable                         | Required for                                         | Notes                                                                                                                                                               |
+| -------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WHATSAPP_INBOX_VERIFY_TOKEN`    | Shared webhook (OAuth / API key accounts)            | Value Meta echoes back on `GET` webhook verification                                                                                                                |
+| `META_APP_SECRET`                | Shared webhook signature check; OAuth token exchange | Secret of the deployment's own Meta App                                                                                                                             |
+| `NEXT_PUBLIC_META_APP_ID`        | OAuth connect button                                 | Public Meta App ID, used client-side to init the Facebook SDK                                                                                                       |
+| `NEXT_PUBLIC_FB_LOGIN_CONFIG_ID` | OAuth connect button                                 | Facebook Login for Business configuration ID                                                                                                                        |
+| `NEXT_PUBLIC_APP_URL`            | BYOA connect                                         | Used to build the per-account BYOA webhook URL; `http:` is upgraded to `https:`                                                                                     |
+| `ENCRYPTION_KEY`                 | All connection methods                               | Encrypts the stored access token (and, for BYOA, the App Secret and verify token) at rest — see [security and credentials](/docs/platform/security-and-credentials) |
+
+See [environment variables](/docs/self-host/environment-variables) for the
+full reference.
+
+## Using the inbox
+
+**WhatsApp Inbox → Accounts** lists connected numbers with their connection
+method, status, and connect date, and lets any workspace admin disconnect one
+(a soft delete — the account is marked `disconnected` but its conversations
+and message history are kept). Any signed-in workspace member can connect a
+new account, provided the relevant flag is on.
+
+**WhatsApp Inbox → Conversations** is the shared inbox: a conversation list
+(searchable by contact name/phone, filterable by `open` / `resolved` /
+`snoozed`) next to a message thread. If a workspace has more than one
+connected number, a selector switches between them. The thread view polls
+for new messages and conversation updates every 5 seconds — this is a
+polling UI, not a push/websocket connection.
+
+The reply box is disabled once the 24-hour window closes; sending after that
+returns a `400` from `POST .../conversations/{contactPhone}/messages` with a
+message explaining the window has expired.
+
+## Assigning an agent to auto-reply
+
+An agent can answer WhatsApp messages automatically instead of (or until) a
+human takes over. Assignment resolves in this order for each inbound
+message:
+
+1. A per-conversation `assignedAgentId` override, if set.
+2. Otherwise the account-level `assignedAgentId` (set via **Assign Agent** in
+   the inbox header, or `PATCH /api/tenants/{id}/whatsapp-inbox/accounts/{accountId}`)
+   — but only if the account's `agentAutoReply` is not explicitly `false`.
+   Assigning an agent to an account turns `agentAutoReply` on by default.
+3. If neither resolves to an agent, or the conversation is flagged
+   `agentPaused` or `agentHandedOff`, the message is left for a human.
+4. The agent only replies while the conversation's 24-hour window is still
+   open.
+
+From an open conversation you can **Pause Agent** on a specific contact
+without touching the account-level assignment, and the agent itself can hand
+off: its system instructions are extended with a rule to end its reply with
+a `[HANDOFF_TO_HUMAN]` marker if the customer asks for a person or it can't
+resolve the request. When that marker is detected, the conversation is
+flagged `agentHandedOff` and auto-replies stop until someone clicks
+**Re-assign Agent**, which clears the flag and resumes the underlying agent
+conversation.
+
+<Cards>
+  <Card href="/docs/deploy/instagram" title="Instagram">
+    The sibling inbox channel — same account/conversation/agent-assignment
+    model.
+  </Card>
+  <Card
+    href="/docs/self-host/environment-variables"
+    title="Environment variables"
+  >
+    Full reference for every variable this deployment reads.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security and credentials"
+  >
+    How tenant tokens and secrets are encrypted and isolated.
+  </Card>
+</Cards>

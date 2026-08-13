@@ -1,0 +1,150 @@
+---
+title: 'Environment variables'
+description: 'Every configuration value, grouped by concern.'
+---
+
+# Environment variables
+
+Start from `.env.example` in the repository root — copy it to `.env` (or
+`.env.local`) and fill in the placeholders. Generate secrets with
+`openssl rand -hex 32`.
+
+<Callout type="note">
+  The Next.js app reads `apps/web/.env.local`, because `next dev` and the
+  production server run with `apps/web` as their working directory. The root
+  `.env` / `.env.local` files reach root-level scripts (`db:migrate`, `db:seed`,
+  `scripts/*`) and the E2E harness. In most setups you keep both in sync.
+</Callout>
+
+Tables below list **Required** as it's presented in `.env.example`: variables that
+ship uncommented in the template are needed for a normal deployment; variables
+commented out with `#` are optional and the app runs without them.
+
+## Platform AI
+
+These configure the platform-wide LLM fallback — used only when a workspace has no
+matching provider configured under **Settings → LLM Providers**. Tenant provider keys
+are never stored in the environment; they live encrypted in the database. See
+[bring your own LLM](/docs/platform/bring-your-own-llm).
+
+| Name                         | Required | Description                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`             | Yes      | Platform fallback API key                                                                                                                                                                                                                                                                    |
+| `OPENAI_MODEL`               | Yes      | Default chat model for the platform fallback                                                                                                                                                                                                                                                 |
+| `OPENAI_BASE_URL`            | No       | Optional OpenAI-compatible gateway/proxy endpoint (also used by the local E2E mock). Third-party gateways that only implement `/chat/completions` and `/embeddings` cannot back this fallback, since `@ai-sdk/openai@4` calls `/responses` — configure those providers per workspace instead |
+| `OPENAI_VISION_MODEL`        | No       | Override the vision-capable model (defaults to `gpt-5.4-nano`)                                                                                                                                                                                                                               |
+| `OPENAI_AGENT_CREATOR_MODEL` | No       | Override the model used by the agent-creation assistant (defaults to `gpt-5.4-nano`)                                                                                                                                                                                                         |
+| `OPENAI_EMBEDDINGS_MODEL`    | No       | Override the embeddings model (defaults to `text-embedding-3-small`). Stored vectors must be 384, 768, 1024, or 1536 dimensions                                                                                                                                                              |
+
+## Application and auth
+
+Core application URL, session signing, and access-control secrets.
+
+| Name                                                                                                                                           | Required | Description                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_URL`                                                                                                                          | Yes      | Canonical app URL and Better Auth callback base — a mismatch with the port the app is served on breaks sign-in                                                                         |
+| `BETTER_AUTH_SECRET`                                                                                                                           | Yes      | Server-side session signing secret                                                                                                                                                     |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                                                                                                         | No       | Google sign-in is enabled only when **both** are set; leave unset to disable it                                                                                                        |
+| `ACCESS_GATE_SECRET`                                                                                                                           | Yes      | Hashes access passwords and signs access cookies for password-gated public agents                                                                                                      |
+| `ENCRYPTION_KEY`                                                                                                                               | Yes      | Encrypts tenant LLM, OAuth, and channel credentials at rest. Changing this value makes every previously stored credential undecryptable                                                |
+| `CRON_SECRET`                                                                                                                                  | Yes      | Authenticates scheduled and background endpoints                                                                                                                                       |
+| `RATE_LIMIT_SALT`                                                                                                                              | Yes      | HMAC salt for anonymous-request rate-limit identifiers; use a different value per environment. `ENCRYPTION_KEY` is a fallback, but a dedicated salt keeps the two purposes independent |
+| `MONTHLY_MESSAGE_LIMIT`                                                                                                                        | No       | Optional monthly workspace message cap; omit for unlimited self-hosted usage                                                                                                           |
+| `PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`, `PUBLIC_CHAT_SESSION_RATE_LIMIT`, `PUBLIC_CHAT_ADDRESS_RATE_LIMIT`, `PUBLIC_CHAT_AGENT_RATE_LIMIT`         | No       | Fixed-window rate limits for the public chat endpoint (per session, per address, per agent), stored in Postgres                                                                        |
+| `PUBLIC_REVIEW_RATE_LIMIT_WINDOW_MS`, `PUBLIC_REVIEW_SESSION_RATE_LIMIT`, `PUBLIC_REVIEW_ADDRESS_RATE_LIMIT`, `PUBLIC_REVIEW_AGENT_RATE_LIMIT` | No       | Same, for the public review-generation endpoint                                                                                                                                        |
+| `SMOKE_TEST_SECRET`                                                                                                                            | No       | Enables the model-backed `/api/smoke` route, which is otherwise disabled. Configure only in CI or a private diagnostic environment — never as a health check                           |
+
+<Callout type="note">
+  `NEXT_PUBLIC_AUTH_GOOGLE` also exists in `.env.example`, but it is a
+  build-time-only value read by CI (`ci-build.yml`) and `deploy-cloudrun.yml` as
+  a build arg — application code never reads it. Google sign-in is controlled
+  entirely by whether `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` are set.
+</Callout>
+
+## Data and storage
+
+Postgres connection roles and S3-compatible object storage.
+
+| Name                                       | Required | Description                                                                                                                                                                                                                               |
+| ------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                             | Yes      | App role connection string, subject to row-level security. Used by the Next.js app and workers                                                                                                                                            |
+| `DATABASE_MIGRATE_URL`                     | Yes      | Migrate role connection string, `BYPASSRLS`. Used by drizzle-kit and the seed script, and at request time by admin-panel API routes (via `getMigrateDb()`, gated behind `requireSuperAdmin()`) — not only an offline migration credential |
+| `DATABASE_POOL_MAX`                        | No       | Optional application connection-pool size (defaults to `10`)                                                                                                                                                                              |
+| `S3_ENDPOINT`                              | Yes      | S3-compatible storage endpoint (MinIO in dev; your S3/R2/B2/etc. endpoint in production)                                                                                                                                                  |
+| `S3_REGION`                                | Yes      | Storage region                                                                                                                                                                                                                            |
+| `S3_BUCKET`                                | Yes      | Storage bucket name                                                                                                                                                                                                                       |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Yes      | Storage credentials                                                                                                                                                                                                                       |
+| `S3_FORCE_PATH_STYLE`                      | Yes      | `true` for MinIO; `false` for AWS S3 / Cloudflare R2 / etc. (virtual-hosted style)                                                                                                                                                        |
+
+## Integrations
+
+Webhook, messaging-channel, and third-party OAuth configuration. WhatsApp and
+Instagram _accounts_ are configured per workspace and stored encrypted in the
+database — only the webhook verification secrets below belong in the environment.
+
+| Name                                                         | Required | Description                                                                                                                                               |
+| ------------------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WHATSAPP_INBOX_VERIFY_TOKEN`                                | Yes      | Webhook verification token for the WhatsApp inbox. See [WhatsApp](/docs/deploy/whatsapp)                                                                  |
+| `INSTAGRAM_INBOX_VERIFY_TOKEN`                               | Yes      | Webhook verification token for the Instagram inbox. See [Instagram](/docs/deploy/instagram)                                                               |
+| `META_APP_SECRET`                                            | Yes      | Meta app secret, used for webhook signature verification                                                                                                  |
+| `NEXT_PUBLIC_META_APP_ID`                                    | No       | Meta app identifier used by the inbox onboarding UI                                                                                                       |
+| `NEXT_PUBLIC_FB_LOGIN_CONFIG_ID`                             | No       | Facebook Login config ID used by the inbox onboarding UI                                                                                                  |
+| `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET` | Yes      | Google Calendar OAuth client. See [Google Calendar](/docs/integrate/google-calendar)                                                                      |
+| `GOOGLE_SHEETS_CLIENT_ID`, `GOOGLE_SHEETS_CLIENT_SECRET`     | No       | Dedicated Google Sheets OAuth client; falls back to the Calendar client credentials when unset. See [Google Sheets](/docs/integrate/google-sheets)        |
+| `GOOGLE_SERVICE_ACCOUNT_KEY`                                 | Yes      | Service-account JSON, read only by `scripts/register-risc.ts` to register Google Cross-Account Protection (RISC)                                          |
+| `RESEND_API_KEY`                                             | No       | Enables email delivery for verification, password reset, magic links, and notifications. Without it, these URLs are printed to the server console instead |
+| `NOTIFICATION_EMAIL_FROM`                                    | No       | Sender identity for application email, e.g. `Vibesboard <notifications@yourdomain.com>`                                                                   |
+
+<Callout type="note">
+  OAuth redirect URIs for Google Calendar and Google Sheets are derived from
+  `NEXT_PUBLIC_APP_URL` — do not set them separately.
+</Callout>
+
+## Legal operator identity
+
+Rendered on the `/privacy-policy` and `/terms-of-service` pages. Nothing is
+hardcoded, since this repository is public: a baked-in default would be inherited by
+every fork, and an unconfigured deployment would name someone else's company as the
+data controller. Leave all of these unset for local development — the legal pages
+stay readable and simply name nobody. Set them before running a deployment real users
+sign up to: GDPR Article 13 requires identifying the controller, and both Google
+OAuth verification and Meta app review check for it.
+
+| Name                               | Required | Description                                                                                                |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `LEGAL_ENTITY_NAME`                | No       | Operating entity name, e.g. `Example AB`                                                                   |
+| `LEGAL_ENTITY_REGISTRATION_NUMBER` | No       | Company registration number                                                                                |
+| `LEGAL_ENTITY_VAT_NUMBER`          | No       | VAT number                                                                                                 |
+| `LEGAL_ENTITY_ADDRESS`             | No       | Registered address; use `\|` to separate rendered lines, e.g. `Example Street 1\|111 22 Stockholm\|Sweden` |
+| `LEGAL_GOVERNING_COUNTRY`          | No       | Governing law country                                                                                      |
+| `LEGAL_FORUM`                      | No       | Legal forum, e.g. `the Stockholm District Court`                                                           |
+| `LEGAL_SUPERVISORY_AUTHORITY`      | No       | Data-protection supervisory authority name                                                                 |
+| `LEGAL_SUPERVISORY_AUTHORITY_URL`  | No       | Supervisory authority URL                                                                                  |
+| `LEGAL_CONTACT_EMAIL`              | No       | Privacy contact address                                                                                    |
+| `LEGAL_SERVICE_HOST`               | No       | Service hostname referenced in the legal documents                                                         |
+
+## Deployment scripts (not read by the app)
+
+| Name             | Required | Description                                                                                                 |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID` | No       | Read only by `scripts/setup-secrets.sh`, the GCP secret provisioning helper — not by the application itself |
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/self-host/docker-compose" title="Docker Compose">
+    Run Postgres, MinIO, and the app locally
+  </Card>
+  <Card
+    href="/docs/self-host/cloud-run-deployment"
+    title="Cloud Run deployment"
+  >
+    Deploy with these variables as Cloud Run secrets
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security and credentials"
+  >
+    How `ENCRYPTION_KEY` and tenant credentials fit together
+  </Card>
+</Cards>

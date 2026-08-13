@@ -44,10 +44,10 @@ describe('landing hero copy', () => {
 
   it('sends the primary CTA to the quickstart, not to a signup wall', () => {
     expect(LANDING_HERO_PRIMARY_CTA.href).toBe('#quickstart')
-    expect(LANDING_HERO_SECONDARY_CTA.href).toMatch(
-      /^https:\/\/github\.com\/NordicAgents\/vibesboard/
-    )
-    expect(LANDING_HERO_SECONDARY_CTA.external).toBe(true)
+    // Docs are served from this app, same tab, same domain — not a GitHub
+    // file link — so search ranking and analytics compound on the site.
+    expect(LANDING_HERO_SECONDARY_CTA.href).toBe('/docs')
+    expect(LANDING_HERO_SECONDARY_CTA.external).toBeFalsy()
   })
 
   it('shows commands that exist in the README quickstart', () => {

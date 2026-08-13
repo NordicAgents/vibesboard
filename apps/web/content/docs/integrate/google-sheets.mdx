@@ -1,0 +1,113 @@
+---
+title: 'Google Sheets'
+description: 'Read and write spreadsheet data from an agent.'
+---
+
+# Google Sheets
+
+Google Sheets is one of the three destinations the [data actions](/docs/build/data-actions-and-tools) system can write to, alongside Airtable and custom webhooks. You connect a Google account via OAuth once per tenant; the platform then exposes `submit_data` and, optionally, `update_record` tools that an agent calls during a conversation to append or update rows in a spreadsheet. This page covers the Sheets-specific parts of that flow — OAuth setup, credentials, and what the integration does and doesn't do. For the general tool-building mechanism, field mappings, and provider comparison table, see [Data actions & tools](/docs/build/data-actions-and-tools).
+
+<Callout type="warning" title="Off by default">
+  The whole data-actions system, including Google Sheets, is gated by the
+  `AGENT_ACTIONS` feature flag — disabled by default for new tenants. With it
+  off, `GET /api/data/auth/google-sheets` and every route under
+  `/api/data/connections` return 403. A workspace admin turns it on from tenant
+  settings.
+</Callout>
+
+## What it actually does
+
+`GoogleSheetsProvider` (`packages/data/src/providers/google-sheets.ts`) implements three of the `DataProvider` interface's methods:
+
+- **`appendRow`** — backs the `submit_data` tool. Reads the sheet's header row, creates it (or extends it with any new keys) if needed, then appends a new row in header order.
+- **`updateRow`** — backs the `update_record` tool. Reads the header row to locate the key column, scans that column for a matching value, then batch-updates only the fields provided for that row.
+- **`testConnection`** — a lightweight `GET` of the spreadsheet's title, used by the connection's **Test** button and `POST /api/data/connections/[id]/test`.
+
+It does **not** implement the interface's optional `queryRows` or `deleteRow` methods. If an agent's data action has `allowQuery` or `allowDelete` turned on, the resulting `query_records` / `delete_record` tool calls hit the "is not supported by this data provider" branch for a Google Sheets connection — see the callout on the [Data actions & tools](/docs/build/data-actions-and-tools#tools-an-agent-can-get) page. In practice this means Sheets is a **write destination**: the sheet is read internally to find where to write (headers, key column), but there's no tool that returns spreadsheet contents back into the conversation.
+
+## Connect a spreadsheet
+
+<Steps>
+<Step title="Enable data actions">
+  Turn on the `AGENT_ACTIONS` feature flag for the tenant, then open an agent's **Actions** tab → **Data Sync** card.
+</Step>
+<Step title="Start the OAuth flow">
+  Click the **Google Sheets** button. This does a full page navigation (not a client-side route change) to `GET /api/data/auth/google-sheets`, since the route replies with a redirect that the app router can't follow client-side.
+</Step>
+<Step title="Consent">
+  The route checks the caller is authenticated, has an active tenant, and has `AGENT_ACTIONS` enabled, then redirects to Google's consent screen requesting:
+
+- `https://www.googleapis.com/auth/spreadsheets`
+- `https://www.googleapis.com/auth/drive.readonly`
+- `https://www.googleapis.com/auth/userinfo.email`
+
+with `access_type=offline` and `prompt=consent`, so a refresh token is issued on every connect.
+
+</Step>
+<Step title="Callback">
+  Google redirects to `GET /api/data/auth/google-sheets/callback` with a `code` and the `state` the initiating route set (`{ tenantId, userId }`). The callback re-verifies the session, checks the authenticated user matches `state.userId`, and re-derives `tenantId` from the session rather than trusting `state` — this stops a tampered `state` param from attaching the connection to a different tenant. It then exchanges the code for tokens, fetches the account's email via `GOOGLE_USERINFO_URL`, and inserts a `data_connections` row (`provider: 'google_sheets'`, tokens AES-encrypted with `ENCRYPTION_KEY`).
+</Step>
+</Steps>
+
+<Callout type="danger" title="No spreadsheet picker in the UI">
+  The callback creates the connection with `spreadsheetId: ''` (empty) and `sheetName: 'Sheet1'` — the source comment says selection "happens in UI," but there is no UI for it. `packages/data/src/google-sheets-auth.ts` exports `listSpreadsheets()` for exactly this purpose (lists the account's spreadsheets via the Drive API), and `GET /api/data/connections` returns `spreadsheetId`/`sheetName` in its response, but no route or component in `apps/web` calls `listSpreadsheets()`, and `agent-data-settings.tsx` (the agent builder's Data Connections / Data Sync cards) has no input for either field.
+
+Until that ships, a freshly OAuth-connected Sheets connection cannot append or update anything — the Sheets API URL is built as `.../spreadsheets/{spreadsheetId}/values/...` with an empty ID. Point it at a real spreadsheet yourself:
+
+```bash
+curl -X PATCH https://<your-host>/api/data/connections/<connectionId> \
+  -H 'Content-Type: application/json' \
+  -H 'Cookie: <your session cookie>' \
+  -d '{
+    "spreadsheetId": "1AbC...xyz",
+    "sheetName": "Sheet1"
+  }'
+```
+
+`spreadsheetId` is the ID segment from the sheet's URL; `sheetName` must match the tab name exactly (case-sensitive). Do this before enabling data sync on the agent, and confirm it worked with the connection's **Test** button.
+
+</Callout>
+
+## Redirect URI (self-hosting)
+
+The callback path is fixed at `/api/data/auth/google-sheets/callback`. Both the auth-initiation route and the callback compute the origin from the incoming request's `x-forwarded-host`/`host` and `x-forwarded-proto` headers (falling back to `https`), so the redirect URI Google receives always matches whatever host served the request. For self-hosted deployments, add `<your-origin>/api/data/auth/google-sheets/callback` as an authorized redirect URI on the OAuth client in Google Cloud Console — for every origin you expect users to reach the app from (custom domain, Cloud Run URL, etc.), since Google rejects a mismatch. See [Environment variables](/docs/self-host/environment-variables).
+
+## Credentials
+
+| Variable                      | Required | Notes                                                                                                                                                                            |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_SHEETS_CLIENT_ID`     | No       | OAuth client ID dedicated to Sheets. Falls back to `GOOGLE_CALENDAR_CLIENT_ID` if unset.                                                                                         |
+| `GOOGLE_SHEETS_CLIENT_SECRET` | No       | Falls back to `GOOGLE_CALENDAR_CLIENT_SECRET` if unset.                                                                                                                          |
+| `ENCRYPTION_KEY`              | Yes      | AES key used to encrypt the stored access/refresh tokens (and every other credential the platform holds). See [Security & credentials](/docs/platform/security-and-credentials). |
+
+Most deployments reuse the same Google Cloud OAuth client as [Google Calendar](/docs/integrate/google-calendar) rather than provisioning a second one — that's what the fallback is for. If you do want separate credentials (e.g. a narrower consent screen for Sheets), set the two `GOOGLE_SHEETS_*` variables explicitly; both must be set together, since each is read independently and either falls back on its own if missing.
+
+## Token lifecycle
+
+- Access tokens are refreshed automatically. `getValidDataAccessToken()` checks the stored expiry with a 60-second buffer and, if needed, calls Google's token endpoint with the stored (encrypted) refresh token before every tool call.
+- If a refresh fails, the connection's `status` is set to `expired` and the tool call throws. `buildDataTools()` only builds tools for connections with `status: 'active'`, so an agent silently loses its `submit_data`/`update_record` tools until the connection is fixed — no error surfaces in chat.
+- There's no in-place reconnect. Creating a connection is always an `INSERT` (`createDataConnection`), so running the OAuth flow again produces a **new** `data_connections` row rather than refreshing the expired one. To recover from an expired connection: delete it (`DELETE /api/data/connections/[id]`), reconnect via OAuth, and set `spreadsheetId`/`sheetName` again as above.
+- Deleting a connection removes the row and its encrypted tokens from Postgres. It does not call Google to revoke the OAuth grant — no revocation request appears anywhere in `packages/data` or `packages/adapter-google`. Revoke access separately from the Google account's [third-party access settings](https://myaccount.google.com/permissions) if that matters for your case.
+
+## Using it from an agent
+
+Once a connection has a real `spreadsheetId` and is selected in the agent's Data Sync settings, the mechanics — field mappings, `updateKeyField`, auto-submit-on-complete, the exact `submit_data`/`update_record` tool schemas — are the same for every provider and are documented in full on [Data actions & tools](/docs/build/data-actions-and-tools#tools-an-agent-can-get). The one Sheets-specific behavior worth knowing: header columns are derived from whatever keys the model sends, in the order they're first seen, and new keys extend the header row rather than failing — so a field-mapping typo doesn't error, it just adds a stray column.
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/build/data-actions-and-tools" title="Data actions & tools">
+    The full mechanism: connections, configs, tool schemas, and provider
+    comparison.
+  </Card>
+  <Card href="/docs/integrate/google-calendar" title="Google Calendar">
+    The other Google OAuth integration — availability and booking, not
+    spreadsheets.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How OAuth tokens and other secrets are encrypted and handled.
+  </Card>
+</Cards>

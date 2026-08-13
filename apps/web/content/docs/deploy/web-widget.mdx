@@ -1,0 +1,197 @@
+---
+title: 'Web widget'
+description: 'Embed an agent on your website with the public chat widget.'
+---
+
+# Web widget
+
+Any agent can be rendered as a standalone chat page at `/widget/[agentId]` and embedded into another website in an iframe. Next.js sends `Content-Security-Policy: frame-ancestors *` on every response under `/widget/:path*` (`next.config.mjs`), so there's no host allowlist to configure — the page can be framed from any origin.
+
+<Callout type="warning" title="Feature flag">
+  The embed integration is gated behind the `EMBED_WIDGET` tenant feature flag.
+  If the "Embed Widget" card is missing from an agent's Integrations tab, enable
+  it first under workspace **Settings → Features**.
+</Callout>
+
+## Enable anonymous access
+
+The widget serves unauthenticated visitors, so it checks `agent.allowAnonymous`:
+
+- **Anonymous chat allowed** — the widget opens straight into the conversation.
+- **Anonymous chat disabled** — the widget shows a password/invite-code gate (the same screen used by [public links](/docs/deploy/public-links-and-access-gates)) before it opens. The `/widget/[agentId]` route itself is happy to serve a gated agent this way.
+
+Toggle "Allow anonymous chat" from the agent editor's right sidebar.
+
+<Callout type="warning" title="The embed-code panel requires anonymous chat">
+  The Embed Widget panel used in the next section won't let you copy a snippet
+  until "Allow anonymous chat" is on — it shows a warning and disables the Copy
+  button for gated agents. So in practice you do need to turn anonymous chat on
+  to get the code from the UI, even though the widget route can render the
+  access gate once you have a URL.
+</Callout>
+
+## Get the embed code
+
+<Steps>
+<Step title="Open the agent's Integrations tab">
+Select the agent, go to **Integrations**, and open the **Embed Widget** card.
+</Step>
+<Step title="Customize the launcher">
+Set the bubble's position (bottom-right or bottom-left), theme, and accent color. These only affect the floating launcher button on your page — see the caveat below.
+</Step>
+<Step title="Copy the snippet and paste it before `</body>`">
+The generated tag looks like this (only non-default attributes are included):
+
+```html
+<script
+  src="https://your-domain.com/widget/embed.js"
+  data-agent-id="3fa2b6b0-6e2a-4f1a-9b7d-1e6e2f6a9c11"
+  data-position="bottom-left"
+  data-accent-color="#4f7cff"
+></script>
+```
+
+</Step>
+</Steps>
+
+## What the script actually does
+
+`public/widget/embed.js` is a small, dependency-free script. On load it:
+
+1. Injects a floating launcher bubble (56px circle) and a hidden chat panel (400×600px on desktop; full-screen below a 640px viewport width) into the host page.
+2. Does **not** load the chat iframe up front — `iframe.src` is only set the first time a visitor clicks the bubble, so embedding costs nothing until someone opens the chat.
+3. Points that iframe at `{origin}/widget/{agentId}?embed=true&theme={theme}`, where `{origin}` is derived from the script's own `src`.
+4. Listens for a `window.postMessage({type: 'vibeagent:close'}, origin)` from the iframe and closes the panel when it arrives — this is how the in-chat close button and the post-conversation "Done" button close the widget from inside the cross-origin frame.
+
+| `data-*` attribute  | Effect                                                                     | Default        |
+| ------------------- | -------------------------------------------------------------------------- | -------------- |
+| `data-agent-id`     | Required. Which agent to load.                                             | —              |
+| `data-position`     | `bottom-right` or `bottom-left`. Moves both the bubble and the panel.      | `bottom-right` |
+| `data-theme`        | Forwarded to the iframe URL as `?theme=`.                                  | `light`        |
+| `data-accent-color` | Background color of the launcher bubble (CSS injected into the host page). | `#a7e26e`      |
+
+<Callout type="note" title="Theme and accent color are launcher-only">
+  `data-accent-color` only styles the bubble button on your page — it can't
+  reach inside the cross-origin iframe to restyle the conversation. `data-theme`
+  is passed through as `?theme=` on the iframe URL, but nothing in the widget
+  route currently reads that parameter back; the conversation's light/dark
+  appearance instead follows the visitor's OS/browser color scheme
+  (`next-themes` with `defaultTheme="system"`). Treat the theme picker in the
+  embed panel as a placeholder for now rather than a guaranteed override.
+</Callout>
+
+<Callout type="note" title="One widget per page">
+  The script sets a `window.__vibeagent_loaded` guard and exits early if it's already run, so only the first `<script>` tag on a page will initialize. You can't currently stack two embedded agents on the same page this way.
+</Callout>
+
+## Embedding without the script
+
+Since the script's only job is to lazy-load an iframe, you can point an `<iframe>` at the same URL directly if you want your own launcher UI or a widget that's always visible on the page instead of behind a bubble:
+
+```html
+<iframe
+  src="https://your-domain.com/widget/3fa2b6b0-6e2a-4f1a-9b7d-1e6e2f6a9c11"
+  title="Chat Widget"
+  allow="clipboard-write"
+  style="border: none; width: 400px; height: 600px;"
+></iframe>
+```
+
+Width, height, and position are entirely up to your own CSS — the widget fills whatever box you give it. If you want to react to the visitor closing the chat, listen for the same `vibeagent:close` message the official script listens for:
+
+```js
+window.addEventListener('message', e => {
+  if (e.origin !== 'https://your-domain.com') return
+  if (e.data?.type === 'vibeagent:close') {
+    // hide your iframe
+  }
+})
+```
+
+## Gated agents and deep links
+
+If the agent isn't anonymous, appending `?code=INVITE_CODE` to the widget URL auto-submits that code on load instead of showing the manual password/code form — useful if you're distributing per-visitor invite links rather than a single embed. See [Public links & access gates](/docs/deploy/public-links-and-access-gates) for how invite codes and passwords are created and revoked.
+
+<Callout type="warning" title="Third-party cookies">
+  Access-gate and session cookies are set with `SameSite=None; Secure` when the
+  widget runs inside an iframe, so they qualify as third-party cookies from the
+  visitor's browser's perspective. A visitor who reopens the widget in a browser
+  that blocks third-party cookies (Safari's ITP, for example, or a hardened
+  browser extension) will be asked to re-verify even if they already passed the
+  gate.
+</Callout>
+
+## Rate limits
+
+The public chat endpoint (`POST /api/public/agents/[agentId]/chat`) applies three independent, fixed-window rate limits before it starts inference — the first one hit wins and returns `429` with a `Retry-After` header:
+
+| Scope                          | Default limit | Env var                          |
+| ------------------------------ | ------------- | -------------------------------- |
+| Per visitor session, per agent | 12 / window   | `PUBLIC_CHAT_SESSION_RATE_LIMIT` |
+| Per agent, all visitors        | 300 / window  | `PUBLIC_CHAT_AGENT_RATE_LIMIT`   |
+| Per client IP, per agent       | 30 / window   | `PUBLIC_CHAT_ADDRESS_RATE_LIMIT` |
+
+The window itself defaults to 60 seconds (`PUBLIC_CHAT_RATE_LIMIT_WINDOW_MS`), and windows are fixed, aligned buckets (`floor(now / windowMs)`), not a rolling lookback. All four are read from the environment at request time with no restart required beyond redeploying with the new value — see [Environment variables](/docs/self-host/environment-variables).
+
+Two more limits sit on top of these, but they behave differently from the rate limits above and from each other:
+
+- **`maxAgentResponses`** (lifetime cap on the agent) is checked before inference starts, same as the rate limits, and rejects with a `403` once reached.
+- **`maxResponses`** (per-conversation cap) does _not_ reject requests. The current turn is still answered; the stream just gets an inline `<!--CHAT_COMPLETE:{"reason":"max_responses"}-->` marker appended once the cap is hit, telling the UI to stop the conversation. See the caveat below if you're driving the API directly.
+- The workspace's overall usage limit is also enforced, but returns `429` (`usage_limit_reached`), not `403`.
+
+## Talking to the API directly
+
+If you're building a fully custom chat UI instead of using the iframe, the same public endpoint the widget calls is what you'd drive. It streams plain text (not SSE, not JSON) and reports most per-request metadata in response headers rather than in the body — though see the callout below on conversation-level events, which are signaled inline in the stream instead:
+
+```http
+POST /api/public/agents/{agentId}/chat
+Content-Type: application/json
+
+{
+  "messages": [{ "role": "user", "content": "What are your hours?" }],
+  "conversationId": "optional-existing-conversation-id",
+  "embed": true
+}
+```
+
+`messages[].role` is `system`, `user`, or `assistant`; `content` is capped at 2,000 characters and the array at 100 messages (`publicAgentChatRequestSchema`). Set `"embed": true` if you're calling from a cross-origin iframe context — it's what tells the server to set the visitor's session cookie with `SameSite=None` instead of `Lax`.
+
+Response headers on success:
+
+| Header                                            | Meaning                                                                                |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `x-conversation-id`                               | Id to pass back as `conversationId` on the next turn                                   |
+| `x-agent-id`, `x-agent-name`                      | The agent that actually answered (may differ from the one you called, after a handoff) |
+| `x-agent-mode`                                    | `provider` or `collector`                                                              |
+| `x-max-responses`, `x-remaining-responses`        | Per-conversation response budget, if the agent has one                                 |
+| `x-max-agent-responses`, `x-total-response-count` | Agent-wide lifetime response budget, if set                                            |
+
+<Callout type="note" title="Watch for inline markers in the stream body">
+  Headers cover per-request metadata, but conversation-level events are signaled inline in the streamed text itself, not just in headers: a finished conversation (max responses reached, or the model naturally wrapping up) appends an HTML comment like `<!--CHAT_COMPLETE:{"chatComplete":true,"reason":"..."}-->`, and an agent-to-agent handoff appends `<!--AGENT_HANDOFF:{...}-->`. The built-in widget UI parses and strips these; a custom UI driving this endpoint directly needs to detect and strip them too, or visitors will see raw HTML comments in the chat.
+</Callout>
+
+Two smaller endpoints round out the experience the widget UI drives after the chat itself:
+
+- `POST /api/public/agents/{agentId}/conversations/{cid}/feedback` — records `{ "rating": "positive" | "negative", "comment"?: string }` for a finished conversation. Only the visitor who owns the conversation (matched by their session cookie) can rate it.
+- `POST /api/public/agents/{agentId}/verify-access` — for gated agents, submits `{ "value": "password-or-invite-code" }` and, on success, sets the access cookie. Send `x-embed: true` on this call too when it's coming from inside an iframe, for the same cookie-scoping reason as above.
+
+## Related
+
+<Cards>
+  <Card
+    href="/docs/deploy/public-links-and-access-gates"
+    title="Public links & access gates"
+  >
+    Passwords, invite codes, and the shareable non-embedded link.
+  </Card>
+  <Card href="/docs/deploy/chatwoot-sync" title="Chatwoot sync">
+    Route conversations into a support inbox instead of (or alongside) a
+    self-serve widget.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How access passwords and session cookies are stored and signed.
+  </Card>
+</Cards>
