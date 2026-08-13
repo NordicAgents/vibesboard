@@ -65,7 +65,9 @@ async function insertMessages(
       // Persist only user/assistant turns. A fabricated system/tool role must
       // not be written to the stored transcript (which later re-feeds the
       // model, summaries, and memory), so coerce anything else to 'user'.
-      role: m.role === 'assistant' ? 'assistant' : 'user',
+      role: (m.role === 'assistant' ? 'assistant' : 'user') as
+        | 'user'
+        | 'assistant',
       content: typeof m.content === 'string' ? m.content : String(m.content ?? '')
     }))
   )
