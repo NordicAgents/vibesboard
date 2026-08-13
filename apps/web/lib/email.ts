@@ -142,8 +142,7 @@ async function _sendInvitationEmailAsync(
     // domain it controls. Never hardcode a first-party domain here — every fork
     // would inherit it and Resend would reject the unverified sender.
     from:
-      process.env.NOTIFICATION_EMAIL_FROM ||
-      'Vibesboard <noreply@example.com>',
+      process.env.NOTIFICATION_EMAIL_FROM || 'Vibesboard <noreply@example.com>',
     to,
     subject,
     html,
