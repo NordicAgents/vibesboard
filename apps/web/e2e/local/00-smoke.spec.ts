@@ -71,7 +71,7 @@ test('landing page renders the hero for a logged-out visitor', async ({
   ).toHaveAttribute('href', '/sign-in')
 })
 
-test('landing header carries only the wordmark, the repo and a sign-in', async ({
+test('landing header carries the wordmark, a Docs link, the repo and a sign-in', async ({
   page
 }) => {
   await page.goto('/')
@@ -82,13 +82,17 @@ test('landing header carries only the wordmark, the repo and a sign-in', async (
 
   // The old agency nav is gone: no Products dropdown, no Features/About anchors.
   await expect(header.getByText('Products')).toHaveCount(0)
-  for (const label of ['Features', 'About', 'Docs', 'Quickstart']) {
+  for (const label of ['Features', 'About', 'Quickstart']) {
     await expect(
       header.getByRole('link', { name: label, exact: true })
     ).toHaveCount(0)
   }
 
-  // Two actions, both always visible — there is no hamburger to open.
+  // Docs is the one real destination pulled into the header nav.
+  await expect(
+    header.getByRole('link', { name: 'Docs', exact: true })
+  ).toHaveAttribute('href', '/docs')
+
   await expect(header.getByRole('link', { name: /GitHub/ })).toHaveAttribute(
     'href',
     'https://github.com/NordicAgents/vibesboard'

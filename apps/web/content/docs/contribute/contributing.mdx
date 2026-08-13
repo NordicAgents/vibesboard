@@ -1,0 +1,175 @@
+---
+title: 'Contributing'
+description: 'Branching, commit conventions, and how to open a pull request.'
+---
+
+# Contributing
+
+Vibesboard is open source and contributions are welcome. This page covers the
+mechanics — branching, commits, and the checks a pull request has to pass. For
+anything larger than a bug fix or a small correction, open an issue on the
+[GitHub repository](https://github.com/NordicAgents/vibesboard) first and describe
+what you want to change; agreeing on an approach before the code is written is
+cheaper than discovering a mismatch after. Everyone taking part is expected to
+follow the repository's Code of Conduct.
+
+<Callout type="danger" title="Security issues">
+  Do not open a public issue for a security problem. Follow the repository's
+  `SECURITY.md` — use GitHub private vulnerability reporting, or email
+  `hi@vibesboard.com`. See [Security &
+  credentials](/docs/platform/security-and-credentials) for the tenancy and
+  isolation model these reports usually relate to.
+</Callout>
+
+## Set up your environment
+
+Requirements: [Bun](https://bun.sh) 1.2.18, Node.js 22, Docker with Compose, and an
+OpenAI API key for the platform fallback model.
+
+<Steps>
+<Step title="Clone and configure">
+
+```bash
+git clone https://github.com/<your-fork>/vibesboard.git
+cd vibesboard
+cp .env.example .env
+# Edit .env and replace the placeholder credentials and secrets.
+```
+
+</Step>
+<Step title="Install and bootstrap the stack">
+
+```bash
+bun install
+bun run db:setup   # starts Postgres, Adminer, MinIO; migrates and seeds
+bun run dev
+```
+
+</Step>
+<Step title="Open the app">
+
+The app comes up on `http://localhost:3000`. Never commit `.env` — it holds
+credentials for your database and any external providers.
+
+</Step>
+</Steps>
+
+For the full command reference, port map, and troubleshooting, see
+[Docker Compose](/docs/self-host/docker-compose). For every configuration value,
+see [Environment variables](/docs/self-host/environment-variables).
+
+## Branching model
+
+Branch from `dev`, never from `main`:
+
+```bash
+git checkout dev && git pull
+git checkout -b feat/short-description
+```
+
+- `dev` is the staging environment; `main` is production.
+- Feature branches merge into `dev` through a pull request. As a contributor,
+  `dev` is always your target — only maintainers open the `dev` → `main` release
+  pull request, and that merge is a merge commit rather than a squash, so a
+  feature PR's own branch strategy doesn't need to account for it.
+- Releases to `main` are automated by [release-please](https://github.com/googleapis/release-please)
+  reading conventional commits to decide version bumps and build the changelog.
+
+Write tests before the implementation. This is a multi-tenant SaaS, so tenant
+isolation is a correctness requirement, not a nice-to-have — if your change
+touches data access, add a test proving one workspace cannot reach another's
+rows. When debugging something non-obvious, find the root cause rather than
+patching the symptom; a fix that makes a test pass without explaining the
+original failure usually moves the bug rather than removing it. See
+[Testing](/docs/contribute/testing) for how the suites are organized and
+[Multi-tenancy & RLS](/docs/platform/multi-tenancy-and-rls) for the isolation
+model itself.
+
+## Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat(scope): add per-agent model routing
+fix(scope): stop leaking the tenant id into the widget payload
+chore(scope): bump drizzle to 0.44
+```
+
+`feat` and `fix` appear in the changelog and drive version bumps; `chore`, `docs`,
+`test`, and `refactor` do not trigger a release. Feature branches are
+squash-merged into `dev`, so you do not need to tidy up intermediate commits —
+but the pull request title becomes the squashed commit message, so it should
+follow the format above.
+
+## Checks your PR must pass
+
+Run these locally before you push — they are the same gates CI applies on pull
+requests to `dev` and `main`:
+
+```bash
+bun run lint
+bun run format:check
+bun run type-check
+bun run test           # requires `bun run db:up && bun run db:migrate` first
+```
+
+| CI job        | What it runs                                                           |
+| ------------- | ---------------------------------------------------------------------- |
+| Lint & Format | `bun run lint` + `bun run format:check`                                |
+| Type Check    | `bun run type-check` (`tsc --noEmit`, strict mode, gates the merge)    |
+| Tests         | `bun run test:coverage` against Postgres + MinIO, after `db:migrate`   |
+| Build         | Production `next build` of `apps/web`                                  |
+| E2E           | Two Playwright suites, described below                                 |
+| Security      | Semgrep SAST, Trivy filesystem scan (CRITICAL/HIGH), Lizard complexity |
+
+CI additionally runs two Playwright suites and a production build. Both suites
+run from `apps/web` and stub the model at the network boundary with a mock
+OpenAI server, so they need no API key:
+
+```bash
+cd apps/web
+bun run test:e2e         # specs directly under e2e/
+bun run test:e2e:local   # the deep suite under e2e/local/
+```
+
+See [Testing](/docs/contribute/testing) for what each suite covers and for
+running the deep suite locally, including the path that needs no Docker. The
+E2E suites are heavy; letting CI run them is usually the better trade unless
+you're actively changing them.
+
+<Callout type="note" title="Pull requests from forks">
+  GitHub does not give fork pull requests access to repository secrets. The
+  build job falls back to public defaults so it still compiles, but jobs that
+  depend on a configured integration may behave differently on a fork than on a
+  branch in the main repository. If a check fails in a way that looks unrelated
+  to your change, say so in the PR and a maintainer will take a look.
+</Callout>
+
+## Opening a pull request
+
+- Target `dev`.
+- Keep the PR focused on one thing. Unrelated cleanups are welcome as a
+  separate PR.
+- Fill in the template: what changed, why, and how you verified it. "Tests
+  pass" is less useful than naming the suite and the case that used to fail.
+
+## Licensing of contributions
+
+NordicAgents' original Vibesboard work is released under the MIT License;
+retained third-party portions are identified in `NOTICE`. By submitting a pull
+request you agree that your contribution is licensed under the MIT terms, and
+that you have the right to license it — it's your own work, or you have
+permission from whoever owns it. Do not remove or replace third-party
+copyright and license notices.
+
+<Cards>
+  <Card href="/docs/contribute/architecture" title="Architecture">
+    Monorepo map, database roles, and tenant isolation.
+  </Card>
+  <Card href="/docs/contribute/testing" title="Testing">
+    Unit, integration, and end-to-end suites, and how CI runs them.
+  </Card>
+  <Card href="/docs/self-host/docker-compose" title="Docker Compose">
+    Local setup, commands, ports, and troubleshooting.
+  </Card>
+</Cards>

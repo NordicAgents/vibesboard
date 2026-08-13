@@ -14,13 +14,13 @@
   <a href="#quick-start"><strong>Quick start</strong></a> ·
   <a href="#why-vibesboard"><strong>Why Vibesboard</strong></a> ·
   <a href="#features"><strong>Features</strong></a> ·
-  <a href="#documentation"><strong>Documentation</strong></a>
+  <a href="https://vibesboard.com/docs"><strong>Documentation</strong></a>
 </p>
 
 <p align="center">
-  <a href="docs/deployment.md"><img src="https://img.shields.io/badge/deployment-self--hosted-0F766E" alt="Self-hosted"></a>
-  <a href="docs/security.md"><img src="https://img.shields.io/badge/tenancy-PostgreSQL%20RLS-4169E1" alt="Multi-tenant with PostgreSQL row-level security"></a>
-  <a href="docs/byo-llm.md"><img src="https://img.shields.io/badge/models-bring%20your%20own-7C3AED" alt="Bring your own model"></a>
+  <a href="https://vibesboard.com/docs/self-host/cloud-run-deployment"><img src="https://img.shields.io/badge/deployment-self--hosted-0F766E" alt="Self-hosted"></a>
+  <a href="https://vibesboard.com/docs/platform/multi-tenancy-and-rls"><img src="https://img.shields.io/badge/tenancy-PostgreSQL%20RLS-4169E1" alt="Multi-tenant with PostgreSQL row-level security"></a>
+  <a href="https://vibesboard.com/docs/platform/bring-your-own-llm"><img src="https://img.shields.io/badge/models-bring%20your%20own-7C3AED" alt="Bring your own model"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-750014" alt="MIT License"></a>
 </p>
 
@@ -30,7 +30,7 @@
 
 Vibesboard is a self-hosted, multi-tenant platform for building and operating customer-facing AI agents. It combines the agent runtime with the parts teams usually have to stitch together around it: knowledge and memory, messaging channels and inboxes, business tools, scheduling, model routing, access control, and usage management.
 
-Use it to run a support agent on your website, qualify leads in WhatsApp or Instagram, answer from private documents, call tools through MCP or webhooks, and book directly into Google Calendar—all from one workspace-aware control plane.
+Use it to run a support agent on your website, qualify leads in WhatsApp or Instagram, answer from private documents, call tools through webhooks and data actions, and book directly into Google Calendar—all from one workspace-aware control plane.
 
 The focus is not only creating an agent. It is operating agents safely after they meet real users.
 
@@ -42,7 +42,7 @@ Many tools make it easy to demo a chatbot. Vibesboard is built for the operation
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | More than a chat playground              | A streaming runtime with tools, lifecycle hooks, public deployment, access gates, configuration history, and rollback            |
 | Agents where customers already are       | An embeddable web agent, WhatsApp and Instagram channels, Chatwoot sync, and a unified inbox                                     |
-| Answers that lead to outcomes            | RAG and long-term memory connected to Google Calendar, Google Sheets, webhooks, data actions, and MCP servers                    |
+| Answers that lead to outcomes            | RAG and long-term memory connected to Google Calendar, Google Sheets, webhooks, and data actions                                 |
 | One deployment for many teams or clients | Workspaces, memberships, feature flags, usage metering, optional soft caps, and PostgreSQL row-level security                  |
 | Freedom from model lock-in               | OpenAI, Anthropic, Google Gemini, NVIDIA, and OpenAI-compatible providers, routed per agent or task                              |
 | Control of data and inference spend      | Self-hosted application, PostgreSQL and S3-compatible storage, encrypted tenant credentials, and bring-your-own-provider support |
@@ -53,7 +53,7 @@ Many tools make it easy to demo a chatbot. Vibesboard is built for the operation
 flowchart LR
     C["Web chat<br/>WhatsApp<br/>Instagram<br/>Chatwoot"] --> A["Versioned<br/>agent runtime"]
     K["Documents<br/>pgvector<br/>Long-term memory"] --> A
-    A <--> T["Google Calendar<br/>Google Sheets<br/>Webhooks<br/>MCP servers"]
+    A <--> T["Google Calendar<br/>Google Sheets<br/>Webhooks"]
     A --> O["Unified inbox<br/>Usage metering<br/>Workspace admin"]
 ```
 
@@ -82,7 +82,7 @@ Tenant isolation combines application-level ownership/membership checks with Pos
 
 - Check Google Calendar availability and create bookings.
 - Generate ICS confirmations and booking enquiries.
-- Connect external tools through MCP servers.
+- Call external services through outbound webhooks and data actions.
 - Receive and manage WhatsApp and Instagram conversations.
 - Synchronise agents with Chatwoot inboxes.
 
@@ -121,7 +121,7 @@ bun run dev
 
 Replace the placeholder credentials and secrets in `.env`, then open <http://localhost:3000>. The setup command starts PostgreSQL, Adminer, and MinIO, creates the local bucket, runs migrations, and seeds the database.
 
-For all setup options and troubleshooting, see the [development guide](docs/development.md).
+For all setup options and troubleshooting, see [Docker Compose](https://vibesboard.com/docs/self-host/docker-compose) in the docs.
 
 ## Tech stack
 
@@ -133,15 +133,20 @@ For all setup options and troubleshooting, see the [development guide](docs/deve
 
 ## Documentation
 
-| Guide                                  | What you will find                                                               |
-| -------------------------------------- | -------------------------------------------------------------------------------- |
-| [Development](docs/development.md)     | Local setup, commands, ports, testing, and troubleshooting                       |
-| [Configuration](docs/configuration.md) | Environment variables grouped by concern                                         |
-| [Architecture](docs/architecture.md)   | Monorepo map, database roles, tenant isolation, and model routing                |
-| [Deployment](docs/deployment.md)       | Cloud Run workflow and requirements for other self-hosted environments           |
-| [Security](docs/security.md)           | Tenant isolation, credential handling, outbound request validation, and scanning |
-| [Bring your own LLM](docs/byo-llm.md)  | Provider configuration, task routing, and architecture                           |
-| [Local E2E testing](docs/local-e2e.md) | Deterministic Playwright setup with Docker and no-Docker paths                   |
+Full documentation lives at **[vibesboard.com/docs](https://vibesboard.com/docs)** — quickstarts, building and deploying agents, self-hosting, and the platform's security and multi-tenancy model.
+
+| Guide                                                                                    | What you will find                                                                |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Quickstart](https://vibesboard.com/docs/get-started/quickstart)                          | Run Vibesboard locally in a few minutes                                           |
+| [Docker Compose](https://vibesboard.com/docs/self-host/docker-compose)                    | Local setup, commands, ports, and troubleshooting                                 |
+| [Environment variables](https://vibesboard.com/docs/self-host/environment-variables)      | Every configuration value, grouped by concern                                     |
+| [Architecture](https://vibesboard.com/docs/contribute/architecture)                       | Monorepo map, database roles, tenant isolation, and model routing                 |
+| [Cloud Run deployment](https://vibesboard.com/docs/self-host/cloud-run-deployment)        | The maintained production path, and requirements for self-hosting elsewhere       |
+| [Security & credentials](https://vibesboard.com/docs/platform/security-and-credentials)   | Tenant isolation, credential handling, outbound request validation, and scanning  |
+| [Bring your own LLM](https://vibesboard.com/docs/platform/bring-your-own-llm)             | Provider configuration, task routing, and architecture                            |
+| [Testing](https://vibesboard.com/docs/contribute/testing)                                 | Unit, integration, and end-to-end tests, and how CI runs them                     |
+
+The source Markdown for these guides lives under [`docs/`](docs/) in this repository.
 
 ## Contributing
 
@@ -151,7 +156,7 @@ Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT
 
 ## Security
 
-Please do not report vulnerabilities in a public issue. [SECURITY.md](SECURITY.md) explains what is in scope and what to expect after you report; use a [private GitHub security advisory](https://github.com/NordicAgents/vibesboard/security/advisories/new) or email <hi@vibesboard.com> to reach the maintainers. The [security guide](docs/security.md) covers the tenancy model and isolation guarantees.
+Please do not report vulnerabilities in a public issue. [SECURITY.md](SECURITY.md) explains what is in scope and what to expect after you report; use a [private GitHub security advisory](https://github.com/NordicAgents/vibesboard/security/advisories/new) or email <hi@vibesboard.com> to reach the maintainers. [Security & credentials](https://vibesboard.com/docs/platform/security-and-credentials) in the docs covers the tenancy model and isolation guarantees.
 
 ## License
 

@@ -1,0 +1,140 @@
+---
+title: 'Chatwoot sync'
+description: 'Sync agent conversations into a Chatwoot inbox.'
+---
+
+# Chatwoot sync
+
+Connect an agent to a Chatwoot inbox so the agent answers conversations that arrive there. Vibesboard registers a webhook on the inbox, replies to incoming messages through the Chatwoot API, and (optionally) creates a dedicated Chatwoot agent bot that can hand a conversation off to a human when it can't help.
+
+<Callout type="note">
+  This requires the `CHATWOOT` feature to be enabled for the tenant — creating
+  or listing connections, disconnecting one, and `validate` all check it and
+  return `403` otherwise. Deleting a connection does not re-check the flag, so a
+  connection can still be removed after the feature is turned off for the
+  tenant.
+</Callout>
+
+## Requirements
+
+- A Chatwoot instance (self-hosted or `app.chatwoot.com`) with an account you can administer.
+- A **User Access Token** from that account: Chatwoot → Profile Settings → Access Token.
+- If you want the agent bot mode (below), the token needs permission to create webhooks and agent bots on the account — Chatwoot only exposes agent-bot management to admin-level tokens.
+
+## Connecting an inbox
+
+Connections are set up per agent, from the agent's Integrations tab → Chatwoot card.
+
+<Steps>
+  <Step title="Enter credentials">
+    Paste the Chatwoot instance URL and API access token, then "Validate &
+    Continue". This calls `POST /api/agents/{id}/chatwoot/validate`, which
+    authenticates against Chatwoot and fetches the account's inboxes.
+  </Step>
+  <Step title="Select an inbox">
+    Pick which Chatwoot inbox this agent should handle. One agent can be
+    connected to multiple inboxes; each is a separate connection.
+  </Step>
+  <Step title="Choose a reply mode">
+    Decide between agent bot mode and direct mode — see below. If you pick agent
+    bot mode, give it a name (defaults to the agent's name).
+  </Step>
+  <Step title="Connect">
+    `POST /api/agents/{id}/chatwoot/connections` re-validates the credentials,
+    confirms the inbox still exists, creates the webhook (and the agent bot, if
+    selected) in Chatwoot, and persists the connection. If any Chatwoot-side
+    step fails partway through, the steps already completed (webhook, bot) are
+    rolled back before the request returns an error.
+  </Step>
+</Steps>
+
+Request body for the create call:
+
+```json
+{
+  "chatwootUrl": "https://app.chatwoot.com",
+  "apiToken": "...",
+  "inboxId": 3,
+  "enableAgentBot": true,
+  "botName": "Support Bot"
+}
+```
+
+The response omits secrets — `encryptedApiToken`, `encryptedBotToken`, and `webhookSecretHash` are stripped before the connection object is returned, both on create and on `GET /api/agents/{id}/chatwoot/connections` (list). The webhook secret itself is never returned to the client at all: it's generated server-side and embedded directly in the webhook URL registered with Chatwoot (`.../api/webhooks/chatwoot/{connectionId}?secret=...`), since Vibesboard is the only party that needs it.
+
+<Callout type="warning" title="Only the agent's owner can manage connections">
+  `connections`, `connections/{id}`, and `validate` all check that the
+  requesting user is the agent's exact owner (`agent.userId`) — not a tenant
+  admin, not any editor. This is stricter than the permission check on the
+  reply/handoff endpoints below (`canEditAgent`), so a tenant admin who isn't
+  the agent's owner can take over a handed-off conversation but cannot connect
+  or disconnect a Chatwoot inbox.
+</Callout>
+
+## Reply modes
+
+**Agent bot mode** (`enableAgentBot: true`) creates an account-level agent bot in Chatwoot, assigns it to the selected inbox, and gives it its own access token. Replies are posted using the bot's identity, and new conversations in that inbox route to it automatically. Because the bot has an identity Chatwoot recognizes, this mode supports **handoff to a human**: the agent's instructions are extended with a note that if the customer asks for a human or the agent can't resolve the issue, it should end its reply with `[HANDOFF_TO_HUMAN]`. When that marker is detected, Vibesboard strips it from the visible reply, flips the Chatwoot conversation to `open` status, and marks the conversation `handedOff` internally so the webhook stops auto-replying to it.
+
+**Direct mode** (`enableAgentBot: false`) posts replies using your own Chatwoot user token — messages appear to come from your Chatwoot account, not a bot. No agent bot is created, there's no automatic inbox routing, and there's no handoff support.
+
+## Message flow
+
+Chatwoot calls `POST /api/webhooks/chatwoot/{connectionId}?secret=...` on every inbox event it's subscribed to (`message_created`). The handler:
+
+1. Looks up the connection by `connectionId` and checks the `secret` query param against the stored SHA-256 hash with a timing-safe comparison — no match or no connection returns `401`.
+2. Ignores everything except `message_created` events where `message_type` is `incoming` (Chatwoot sends this as either the string `"incoming"` or `0`).
+3. Ignores messages sent by the connection's own agent bot (`sender.type === 'agent_bot'`), to avoid the bot's own replies triggering itself.
+4. Ignores messages from any inbox other than the one the connection was created for.
+5. Extracts the message text, falling back to a description of attachments (`[image]`, etc.) for media-only messages.
+6. For agent-bot connections, checks whether the conversation was already handed off. If so, the incoming message is stored on the Vibesboard conversation (so a human can see it) but the agent is **not** run.
+7. Otherwise, loads the agent and calls the handler asynchronously, then immediately responds `200 { ok: true }` to acknowledge the webhook regardless of how the agent run turns out.
+
+The async handler (`handleChatwootMessage`) ties the Chatwoot conversation to a Vibesboard conversation keyed by `chatwoot:{accountId}:{conversationId}`, runs the agent over the full message history, and on completion:
+
+- Persists the assistant's reply to the conversation and runs auto-summarization.
+- Sends the reply back to Chatwoot — using the bot's token in agent bot mode, or your API token in direct mode.
+- If the completion included `[HANDOFF_TO_HUMAN]` (agent bot mode only), toggles the Chatwoot conversation to `open` and marks it handed off in Vibesboard.
+- Updates the connection's `totalConversations` count and `lastMessageReceivedAt` (fire-and-forget).
+
+If the agent run throws, the handler tries to send a generic "Sorry, I encountered an error..." reply to Chatwoot rather than leaving the customer without a response.
+
+## Human takeover
+
+Once a conversation is handed off — either by the agent emitting `[HANDOFF_TO_HUMAN]`, or manually — the conversation's page under the agent switches from the normal chat UI to a manual reply view. From there:
+
+- `POST /api/agents/{id}/conversations/{cid}/reply` sends a human-typed reply to Chatwoot (via the bot token if the connection uses one, else the API token) and appends it to the stored conversation.
+- `PATCH /api/agents/{id}/conversations/{cid}` with `{ "action": "stop" }` hands the conversation off manually (marks it handed off and flips the Chatwoot conversation to `open`), and `{ "action": "resume" }` reverses it — clears the handoff flag and flips Chatwoot back to `pending` so the bot resumes answering.
+
+Both endpoints require `canEditAgent` on the agent (owner, tenant admin, or superadmin) — broader than the owner-only check on the connection-management endpoints above.
+
+## Managing connections
+
+| Endpoint                                                      | Purpose                                                                                                                       |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/agents/{id}/chatwoot/connections`                   | List connections for the agent (secrets stripped)                                                                             |
+| `POST /api/agents/{id}/chatwoot/connections`                  | Create a connection (validates credentials, creates the Chatwoot webhook/bot, persists)                                       |
+| `PATCH /api/agents/{id}/chatwoot/connections/{connectionId}`  | `{ "action": "disconnect", "reason"? }` — best-effort removal of the bot/webhook from Chatwoot, sets `status: "disconnected"` |
+| `DELETE /api/agents/{id}/chatwoot/connections/{connectionId}` | Best-effort Chatwoot cleanup, then permanently deletes the connection row                                                     |
+
+Disconnecting keeps the row (visible, collapsed, in the UI as a disconnected connection with its `disconnectionReason`) but is not reversible through the API — there's no "reconnect" call, only delete or run the setup flow again for a new connection. Chatwoot-side cleanup (unassigning/deleting the agent bot, deleting the webhook) is best-effort in both cases: failures are logged and swallowed so a stale Chatwoot credential can't block disconnecting or deleting on the Vibesboard side.
+
+## Credential storage
+
+The API token and (if agent bot mode is used) bot token are encrypted at rest with `ENCRYPTION_KEY` before being stored, and are decrypted only when a request needs to call the Chatwoot API. See [Security & credentials](/docs/platform/security-and-credentials) for how `ENCRYPTION_KEY` and other platform secrets are handled.
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/deploy/whatsapp" title="WhatsApp">
+    Another channel connection for the same agent.
+  </Card>
+  <Card href="/docs/deploy/instagram" title="Instagram">
+    Direct-message channel connection.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How encrypted credentials work platform-wide.
+  </Card>
+</Cards>
