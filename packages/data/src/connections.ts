@@ -35,6 +35,20 @@ function encryptToken(token: string): string {
   return sealSecret(token)
 }
 
+/**
+ * Encrypt custom-webhook header VALUES at rest — they commonly carry an
+ * Authorization credential. Names are left in cleartext so connections stay
+ * debuggable. Decrypted at the point of use in providers/index.ts.
+ */
+export function encryptHeaders(
+  headers: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  if (!headers) return headers
+  return Object.fromEntries(
+    Object.entries(headers).map(([k, v]) => [k, sealSecret(v)])
+  )
+}
+
 // ─── Create Params ──────────────────────────────────────────────────
 
 export interface CreateGoogleSheetsConnectionParams {
@@ -99,7 +113,7 @@ function buildConnectionValues(params: CreateDataConnectionParams) {
       return {
         webhookUrl: params.webhookUrl,
         webhookMethod: params.webhookMethod ?? 'POST',
-        webhookHeaders: params.webhookHeaders ?? null
+        webhookHeaders: encryptHeaders(params.webhookHeaders) ?? null
       }
   }
 }
@@ -202,9 +216,14 @@ export async function updateDataConnection(
   >,
   db: Db = getMigrateDb()
 ): Promise<void> {
+  // Re-encrypt header values on update, same as on create.
+  const safeUpdates =
+    updates.webhookHeaders !== undefined
+      ? { ...updates, webhookHeaders: encryptHeaders(updates.webhookHeaders) }
+      : updates
   await db
     .update(dataConnections)
-    .set({ ...updates, updatedAt: new Date() })
+    .set({ ...safeUpdates, updatedAt: new Date() })
     .where(
       and(
         eq(dataConnections.tenantId, tenantId),

@@ -19,6 +19,10 @@ import { upsertAgentSchema } from '@vibesboard/agents/schema'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
+import {
+  sealNotificationConfig,
+  unsealNotificationConfig
+} from '@vibesboard/agents/notification-secret'
 import { toPublicAgentResponse } from '@/lib/public-agent'
 
 export const runtime = 'nodejs'
@@ -54,7 +58,8 @@ function toAgentRecord(
     googleReviewEnabled: row.googleReviewEnabled,
     googlePlaceId: row.googlePlaceId,
     retrievalStrategy: row.retrievalStrategy ?? 'direct',
-    notificationConfig: row.notificationConfig ?? undefined,
+    notificationConfig:
+      unsealNotificationConfig(row.notificationConfig) ?? undefined,
     schedulingConfig: row.schedulingConfig ?? undefined,
     dataConfig: row.dataConfig ?? undefined,
     calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
@@ -197,7 +202,8 @@ export async function POST(req: Request) {
     maxAgentResponses: payload.maxAgentResponses ?? null,
     totalResponseCount: 0,
     retrievalStrategy: payload.retrievalStrategy ?? 'direct',
-    notificationConfig: payload.notificationConfig ?? null,
+    notificationConfig:
+      sealNotificationConfig(payload.notificationConfig) ?? null,
     schedulingConfig: payload.schedulingConfig ?? null,
     bookingConfig: payload.bookingConfig ?? null,
     // dataConfig payload shape (from @vibesboard/agents/schema) differs from

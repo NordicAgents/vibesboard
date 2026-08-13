@@ -8,6 +8,7 @@ import { patchAgentSchema } from '@vibesboard/agents/schema'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getAgentById } from '@vibesboard/agents/server'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
+import { sealNotificationConfig } from '@vibesboard/agents/notification-secret'
 import { deleteFile, isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 import { getFilesForAgent } from '@vibesboard/ai/files-store'
@@ -179,8 +180,10 @@ export async function PATCH(
   if (payload.llmConfigId !== undefined) set.llmConfigId = payload.llmConfigId
   if (payload.retrievalStrategy !== undefined)
     set.retrievalStrategy = payload.retrievalStrategy
+  // The webhook secret is a live HMAC signing key — encrypt it before it is
+  // written to the JSONB column.
   if (payload.notificationConfig !== undefined)
-    set.notificationConfig = payload.notificationConfig
+    set.notificationConfig = sealNotificationConfig(payload.notificationConfig)
   if (payload.handoffTargets !== undefined)
     set.handoffTargets = payload.handoffTargets
   if (payload.schedulingConfig !== undefined)

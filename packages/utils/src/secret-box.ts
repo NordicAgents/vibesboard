@@ -149,6 +149,20 @@ export function unsealSecret(token: string): string {
   throw new Error('[secret-box] Unable to decrypt legacy token')
 }
 
+/**
+ * For columns migrating from PLAINTEXT storage: unseal when the value is a
+ * sealed token, otherwise return it unchanged (a row written before the
+ * migration). Idempotent, so it is safe to apply on a value that may already
+ * be plaintext.
+ *
+ * Do NOT use this for fields that were previously CryptoJS-encrypted — those
+ * are not `v1:`-prefixed and must go through `unsealSecret`, which knows the
+ * legacy format.
+ */
+export function unsealMaybeSealed(value: string): string {
+  return isModernToken(value) ? unsealSecret(value) : value
+}
+
 /** Test/tooling hook to clear the derived-key cache (e.g. after changing env). */
 export function _resetKeyCacheForTests(): void {
   keyCache.clear()
