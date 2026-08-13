@@ -5,7 +5,11 @@ import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { tenantLlmConfigs, tenantLlmTaskConfigs, tenants } from '@vibesboard/adapter-postgres/schema'
 import type { LlmProviderKind, LlmTask, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
-import { createEmbedding } from '@vibesboard/adapter-openai'
+import {
+  createEmbedding,
+  PLATFORM_EMBEDDING_DIMENSIONS,
+  PLATFORM_EMBEDDING_MODEL
+} from '@vibesboard/adapter-openai'
 import { shouldResolveTenantProvider } from './provider-routing.ts'
 
 export type EmbedFn = (texts: string[]) => Promise<number[][]>
@@ -349,7 +353,8 @@ function rowToProviderSpec(
 // Falls back to the platform OPENAI_API_KEY when no tenant config exists.
 //
 // Provider embedding support:
-//   openai            → OpenAI Embeddings API (text-embedding-3-small) with tenant key
+//   openai            → OpenAI Embeddings API (text-embedding-3-small, pinned)
+//                       with tenant key
 //   openai_compatible → Same endpoint with tenant key + custom baseUrl
 //   google            → Google Generative AI Embeddings (text-embedding-004)
 //   anthropic         → No embedding API — falls back to platform key
@@ -357,7 +362,23 @@ function rowToProviderSpec(
 //                       need a non-standard `input_type` param and produce
 //                       1024-dim vectors that don't fit the 768/1536 tables
 
-const OPENAI_EMBEDDING_MODEL = process.env.OPENAI_EMBEDDINGS_MODEL ?? 'text-embedding-3-small'
+// Two distinct things that used to share one constant:
+//   PLATFORM_EMBEDDING_MODEL — our key, whatever provider it points at. Follows
+//     OPENAI_EMBEDDINGS_MODEL, so it can be a Gemini model name.
+//   TENANT_OPENAI_EMBEDDING_MODEL — a tenant's own `openai` key, which by
+//     definition talks to real OpenAI. Pinned, so pointing the platform at a
+//     gateway cannot leak a Gemini model name into a tenant's OpenAI account
+//     (it would 404 there). Same value this resolved to before, since
+//     OPENAI_EMBEDDINGS_MODEL was unset in every deployment.
+const TENANT_OPENAI_EMBEDDING_MODEL = 'text-embedding-3-small'
+
+/** Args for embedding with the platform key — model plus optional width. */
+const platformEmbeddingParams = () => ({
+  model: PLATFORM_EMBEDDING_MODEL,
+  ...(PLATFORM_EMBEDDING_DIMENSIONS
+    ? { dimensions: PLATFORM_EMBEDDING_DIMENSIONS }
+    : {})
+})
 const GOOGLE_EMBEDDING_MODEL = process.env.GOOGLE_EMBEDDING_MODEL ?? 'text-embedding-004'
 const GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
@@ -427,7 +448,7 @@ export async function resolveEmbedder(
   if (!spec) {
     // No tenant config — use platform key
     return async (texts) => {
-      const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
+      const json = await createEmbedding({ ...platformEmbeddingParams(), input: texts })
       return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
     }
   }
@@ -440,7 +461,7 @@ export async function resolveEmbedder(
         // Google embedding models may not be available for all API keys.
         // Fall back to the platform OPENAI_API_KEY so RAG indexing still works.
         console.warn('[tenant-llm-config] Google embeddings unavailable, falling back to platform key:', err?.message)
-        const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
+        const json = await createEmbedding({ ...platformEmbeddingParams(), input: texts })
         return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
       }
     }
@@ -451,7 +472,7 @@ export async function resolveEmbedder(
     // openai_compatible → use the config's modelId so Ollama/Groq/etc. can
     //   serve their own embedding model (e.g. nomic-embed-text on Ollama,
     //   baai/bge-m3 or snowflake/arctic-embed on NVIDIA free tier)
-    const embeddingModel = spec.kind === 'openai_compatible' ? spec.modelId : OPENAI_EMBEDDING_MODEL
+    const embeddingModel = spec.kind === 'openai_compatible' ? spec.modelId : TENANT_OPENAI_EMBEDDING_MODEL
     // baseUrl is only applicable for openai and openai_compatible; undefined for others
     const baseUrl = (spec.kind === 'openai' || spec.kind === 'openai_compatible') ? spec.baseUrl : undefined
     // NVIDIA NIM-branded models (nvidia/ prefix) require input_type='passage' for indexing.
@@ -474,7 +495,7 @@ export async function resolveEmbedder(
 
   // anthropic / nvidia (provider kind) — no usable embedding API, fall back to platform key
   return async (texts) => {
-    const json = await createEmbedding({ model: OPENAI_EMBEDDING_MODEL, input: texts })
+    const json = await createEmbedding({ ...platformEmbeddingParams(), input: texts })
     return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
   }
 }

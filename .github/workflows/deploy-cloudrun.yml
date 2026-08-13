@@ -144,6 +144,11 @@ jobs:
             OPENAI_MODEL=gemini-3.5-flash-lite
             OPENAI_VISION_MODEL=gemini-3.5-flash-lite
             OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+            # gemini-embedding-001 is 3072-dim by default, which has no pgvector
+            # table; pinned to 1536 so vectors land in the existing
+            # embeddings_1536 table with no migration.
+            OPENAI_EMBEDDINGS_MODEL=gemini-embedding-001
+            OPENAI_EMBEDDINGS_DIMENSIONS=1536
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
             NOTIFICATION_EMAIL_FROM=${{ vars.NOTIFICATION_EMAIL_FROM }}

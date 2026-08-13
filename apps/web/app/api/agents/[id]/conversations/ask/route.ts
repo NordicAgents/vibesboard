@@ -208,12 +208,14 @@ ${context?.trim() ? context : 'No conversation snippets available.'}`
     { role: 'user', content: payload.question }
   ]
 
+  // `.chat()` — the bare call resolves to createResponsesModel on
+  // @ai-sdk/openai@4, which 404s on gateways that only serve /chat/completions.
   const languageModel = tenantSpec
     ? await buildTenantProviderModel(agent.tenantId, tenantSpec)
     : createOpenAI({
         apiKey: process.env.OPENAI_API_KEY ?? '',
         baseURL: OPENAI_BASE_URL
-      })(model)
+      }).chat(model)
   // See packages/ai/src/runtime.ts: when the response is piped from
   // result.textStream, onFinish's `text` comes back empty — the client gets the
   // reply while the persisted assistant message is "". Accumulate what is
