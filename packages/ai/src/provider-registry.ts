@@ -8,10 +8,8 @@ import { validateProviderBaseUrl } from './provider-ssrf-guard.ts'
 import { buildNvidiaFetch } from './nvidia-stream-adapter.ts'
 import { resolveTenantNetworkOpts } from './tenant-llm-config.ts'
 
-// Re-exported so existing importers of this module keep working; defined in a
-// leaf module because tenant-llm-config.ts needs it too (see provider-endpoints.ts).
-export { NVIDIA_API_BASE_URL } from './provider-endpoints.ts'
-import { NVIDIA_API_BASE_URL } from './provider-endpoints.ts'
+// NVIDIA API Catalog (build.nvidia.com) hosted endpoint — OpenAI-compatible.
+export const NVIDIA_API_BASE_URL = 'https://integrate.api.nvidia.com/v1'
 
 // ─── Context ─────────────────────────────────────────────────────────
 // Shared infra passed to every factory. Empty for now; add AWS clients,
@@ -50,18 +48,15 @@ const providerFactories: ProviderFactoryRegistry = {
   google: (spec) =>
     createGoogleGenerativeAI({ apiKey: spec.apiKey })(spec.modelId),
 
-  // .chat() for the same reason as openai_compatible: integrate.api.nvidia.com
-  // serves /chat/completions and has no /responses endpoint, so the callable's
-  // Responses-API default fails with HTTP 400 "data did not match any variant
-  // of untagged enum InputParam". buildNvidiaFetch() also rewrites
-  // chat.completion.chunk SSE frames, which only exist on this endpoint.
   nvidia: (spec) =>
     createOpenAI({
       apiKey: spec.apiKey,
       baseURL: spec.baseUrl ?? NVIDIA_API_BASE_URL,
       // NVIDIA reasoning models (Nemotron Ultra, DeepSeek V4 Pro, Qwen3 Coder)
-      // return text in delta.reasoning_content rather than delta.content, which
-      // the SDK's chunk schema drops; buildNvidiaFetch() promotes it to content.
+      // return text in delta.reasoning_content rather than delta.content.
+      // buildNvidiaFetch() promotes reasoning_content → content before the SDK
+      // Zod parser strips it. Flagged for removal when @ai-sdk/openai is upgraded
+      // to 4.x, which handles reasoning_content natively.
       fetch: buildNvidiaFetch(),
       // `.chat()` — NVIDIA's API serves /chat/completions only.
     }).chat(spec.modelId),

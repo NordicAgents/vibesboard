@@ -4,7 +4,7 @@ import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { embeddings, embeddings1536, embeddings384, embeddings1024, embeddings2048, files } from '@vibesboard/adapter-postgres/schema'
+import { embeddings, embeddings1536, embeddings384, embeddings1024, files } from '@vibesboard/adapter-postgres/schema'
 
 type Db = PostgresJsDatabase<typeof schema>
 export interface ChunkInput { chunkIndex: number; content: string; embedding: number[] }
@@ -14,30 +14,27 @@ export interface RetrievedChunk { fileId: string; fileName: string; fileKey: str
 // openai kind   → embeddings_1536 (1536-dim, OpenAI text-embedding-3-small)
 // e5/maas kind  → embeddings_384  (384-dim,  multilingual-e5-large-instruct-maas, Google Cloud MaaS)
 // bge kind      → embeddings_1024 (1024-dim, baai/bge-m3, snowflake/arctic-embed — NVIDIA free tier)
-// nemotron kind → embeddings_2048 (2048-dim, nvidia/nemotron-3-embed-1b)
 // everything else → embeddings    (768-dim,  nomic-embed-text / Ollama default)
 
-export type EmbeddingProvider = 'openai' | 'e5' | 'bge' | 'nemotron' | 'other'
-export type EmbeddingTable = typeof embeddings | typeof embeddings1536 | typeof embeddings384 | typeof embeddings1024 | typeof embeddings2048
+export type EmbeddingProvider = 'openai' | 'e5' | 'bge' | 'other'
+export type EmbeddingTable = typeof embeddings | typeof embeddings1536 | typeof embeddings384 | typeof embeddings1024
 
 /** The embedding table a provider's vectors belong in. Shared by every call site. */
 export function selectTable(provider: EmbeddingProvider): EmbeddingTable {
   if (provider === 'openai') return embeddings1536
   if (provider === 'e5') return embeddings384
   if (provider === 'bge') return embeddings1024
-  if (provider === 'nemotron') return embeddings2048
   return embeddings
 }
 
 /** Every embedding table, for provider-switch cleanup (delete from all, insert into one). */
-export const ALL_EMBEDDING_TABLES: EmbeddingTable[] = [embeddings, embeddings1536, embeddings384, embeddings1024, embeddings2048]
+export const ALL_EMBEDDING_TABLES: EmbeddingTable[] = [embeddings, embeddings1536, embeddings384, embeddings1024]
 
 /** Infer the embedding table from a vector's length. */
 export function providerFromDimension(dim: number): EmbeddingProvider {
   if (dim === 1536) return 'openai'
   if (dim === 384) return 'e5'
   if (dim === 1024) return 'bge'
-  if (dim === 2048) return 'nemotron'
   return 'other'
 }
 
