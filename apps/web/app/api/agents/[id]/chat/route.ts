@@ -274,7 +274,7 @@ export async function POST(
         }
 
         // Record usage for metering (fire-and-forget)
-        recordUsage({
+        await recordUsage({
           tenantId: agent.tenantId!,
           agentId: activeAgent.id,
           conversationId: conversation.id,

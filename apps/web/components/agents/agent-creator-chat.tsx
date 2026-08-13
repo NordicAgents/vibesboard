@@ -76,7 +76,7 @@ export function AgentCreatorChat({
           toast.error('Please sign in to create an agent.')
         }
       },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       onFinish(message: any) {
         // useCompatChat normalizes UIMessage to have content: string
         const content: string = message?.content ?? ''
@@ -401,13 +401,13 @@ export function AgentCreatorChat({
   return (
     <div
       className={cn(
-        'flex h-full flex-1 flex-col lg:flex-row bg-[#f7f7f5] dark:bg-[#222f30]',
+        'flex h-full flex-1 flex-col bg-[#f7f7f5] dark:bg-[#222f30] lg:flex-row',
         className
       )}
     >
       {/* Mobile View Switcher */}
       <div className="flex shrink-0 border-b border-[#e4e3e3] dark:border-[#344348] lg:hidden">
-        <div className="flex w-full rounded-lg bg-[#e6ede6] m-2 p-1 dark:bg-[#344348]">
+        <div className="m-2 flex w-full rounded-lg bg-[#e6ede6] p-1 dark:bg-[#344348]">
           <button
             onClick={() => setMobileView('chat')}
             className={cn(
@@ -489,7 +489,6 @@ export function AgentCreatorChat({
                           .replace(/~~~agentupdate\s*\n[\s\S]*?\n~~~/g, '')
                           .replace(/~~~agentcreated\s*\n[\s\S]*?\n~~~/g, '')
                           .trim()
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       })) as any
                     }
                   />
@@ -668,12 +667,12 @@ export function AgentCreatorChat({
             isCreating={isCreating}
             isUploading={isUploading}
             userId={userId}
-            className="w-full lg:w-[400px] shrink-0"
+            className="w-full shrink-0 lg:w-[400px]"
             onClose={() => setIsPreviewOpen(false)}
           />
         </div>
       ) : (
-        <div className="hidden lg:flex w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348]">
+        <div className="hidden w-12 shrink-0 items-center justify-center border-l border-[#e4e3e3] transition-all duration-300 ease-in-out dark:border-[#344348] lg:flex">
           <Button
             size="sm"
             variant="ghost"

@@ -15,7 +15,6 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, TextStreamChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
 
 interface CompatChatOptions {
@@ -28,19 +27,19 @@ interface CompatChatOptions {
   /** Extra body fields forwarded to the API */
   body?: AnyRecord
   /** Initial messages in legacy Message format (id, role, content) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   initialMessages?: any[]
   /** Called when the API response arrives — receives the raw Response for header inspection */
   onResponse?: (response: Response) => void
   /** Called when a message stream finishes — receives message-like object with content: string */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   onFinish?: (message: any) => void
   /** Called on error */
   onError?: (error: Error) => void
 }
 
 /** Extract plain text content from a UIMessage (ai@7.x) or legacy Message (has content) */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function extractContent(m: any): string {
   if (typeof m?.content === 'string') return m.content
   if (Array.isArray(m?.parts)) {
@@ -53,13 +52,13 @@ function extractContent(m: any): string {
 }
 
 // Convert legacy Message[] → UIMessage[] so the SDK can accept initialMessages
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function toUIMessages(msgs: any[] | undefined): UIMessage[] | undefined {
   if (!msgs?.length) return undefined
   return msgs.map(m => ({
     id: m.id,
     role: m.role,
-    parts: [{ type: 'text' as const, text: extractContent(m) }],
+    parts: [{ type: 'text' as const, text: extractContent(m) }]
   }))
 }
 
@@ -72,7 +71,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
     initialMessages,
     onResponse,
     onFinish,
-    onError,
+    onError
   } = options
 
   // Manage input state ourselves (removed from useChat in ai@7.x)
@@ -91,19 +90,19 @@ export function useCompatChat(options: CompatChatOptions = {}) {
       api,
       // Transform UIMessage[] → legacy Message[] format expected by our server routes.
       // ai@7.x sends UIMessage (with parts) by default; our server expects { messages: [{ role, content }] }.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       prepareSendMessagesRequest: async (opts: any) => {
         const legacyMessages = (opts.messages as UIMessage[]).map(m => ({
           id: m.id,
           role: m.role,
-          content: extractContent(m),
+          content: extractContent(m)
         }))
         return {
           body: {
             ...(bodyRef.current ?? {}),
             ...opts.body,
-            messages: legacyMessages,
-          },
+            messages: legacyMessages
+          }
         }
       },
       // Intercept response for the onResponse callback (header reading).
@@ -113,13 +112,12 @@ export function useCompatChat(options: CompatChatOptions = {}) {
           onResponseRef.current(response.clone())
         }
         return response
-      },
+      }
     }
     if (streamProtocol === 'text') {
       return new TextStreamChatTransport(transportOptions)
     }
     return new DefaultChatTransport(transportOptions)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, streamProtocol])
 
   const uiInitialMessages = useMemo(
@@ -135,8 +133,7 @@ export function useCompatChat(options: CompatChatOptions = {}) {
     stop,
     status,
     error,
-    setMessages,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setMessages
   } = (useChat as any)({
     id,
     messages: uiInitialMessages,
@@ -148,16 +145,16 @@ export function useCompatChat(options: CompatChatOptions = {}) {
           onFinish({ ...msg, content: extractContent(msg) })
         }
       : undefined,
-    onError,
+    onError
   })
 
   // Normalize rawUIMessages to legacy Message format (with content: string)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const messages = useMemo(
     () =>
       (rawUIMessages ?? []).map((m: any) => ({
         ...m,
-        content: extractContent(m),
+        content: extractContent(m)
       })),
     [rawUIMessages]
   )
@@ -167,9 +164,9 @@ export function useCompatChat(options: CompatChatOptions = {}) {
 
   // append: legacy API — takes { id, role, content } and sends it
   const append = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async (message: any, _opts?: any) => {
-      const text = typeof message === 'string' ? message : extractContent(message)
+      const text =
+        typeof message === 'string' ? message : extractContent(message)
       return sendMessage?.({ text })
     },
     [sendMessage]
@@ -188,6 +185,6 @@ export function useCompatChat(options: CompatChatOptions = {}) {
     isLoading,
     error,
     setMessages,
-    status,
+    status
   }
 }

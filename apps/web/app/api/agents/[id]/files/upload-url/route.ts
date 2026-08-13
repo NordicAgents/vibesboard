@@ -52,7 +52,9 @@ export async function POST(
 
   if (!isValidUploadSize(fileSize)) {
     return NextResponse.json(
-      { error: `File size must be between 1 byte and ${MAX_FILE_UPLOAD_BYTES} bytes` },
+      {
+        error: `File size must be between 1 byte and ${MAX_FILE_UPLOAD_BYTES} bytes`
+      },
       { status: 413 }
     )
   }
@@ -60,7 +62,11 @@ export async function POST(
   // Traversal / injection guard runs before any DB access so a malformed
   // filename can't be used to probe the agent's existence via timing.
   // (fileName is guaranteed non-empty by the earlier typeof check.)
-  if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+  if (
+    fileName.includes('..') ||
+    fileName.includes('/') ||
+    fileName.includes('\\')
+  ) {
     return NextResponse.json({ error: 'Invalid file name' }, { status: 400 })
   }
 

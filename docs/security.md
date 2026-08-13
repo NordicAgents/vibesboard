@@ -31,12 +31,12 @@ provider URLs are validated both at save time and again before runtime use.
 
 ## Automated scanning
 
-CI runs Semgrep SAST, a Trivy filesystem vulnerability scan (CRITICAL and HIGH),
-and Lizard complexity analysis on pull requests and pushes to `dev` and `main`.
+CI runs Gitleaks secret detection, Semgrep SAST, a Trivy filesystem vulnerability
+scan (CRITICAL and HIGH), and Lizard complexity analysis on pull requests and
+pushes to `dev` and `main`.
 
 ## Reporting a vulnerability
 
 Please report security issues privately rather than opening a public issue.
-
-<!-- TODO: add the security contact address or GitHub Security Advisory link,
-     and promote this section to a top-level SECURITY.md. -->
+Use GitHub private vulnerability reporting or email `hi@vibesboard.com` as
+described in the top-level [`SECURITY.md`](../SECURITY.md).

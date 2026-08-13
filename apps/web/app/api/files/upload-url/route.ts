@@ -46,7 +46,9 @@ export async function POST(req: NextRequest) {
 
   if (!isValidUploadSize(fileSize)) {
     return NextResponse.json(
-      { error: `File size must be between 1 byte and ${MAX_FILE_UPLOAD_BYTES} bytes` },
+      {
+        error: `File size must be between 1 byte and ${MAX_FILE_UPLOAD_BYTES} bytes`
+      },
       { status: 413 }
     )
   }

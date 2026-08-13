@@ -33,7 +33,7 @@ export function SidebarAgentItem({ agent }: SidebarAgentItemProps) {
           'flex size-7 flex-none items-center justify-center rounded-md transition-colors duration-150',
           isActive
             ? 'bg-accent-orange text-white'
-            : 'bg-[#e6ede6] text-[#6f7f80] group-hover:bg-accent-orange/10 group-hover:text-accent-orange dark:bg-[#253435] dark:text-[#8a9a9b]'
+            : 'group-hover:bg-accent-orange/10 bg-[#e6ede6] text-[#6f7f80] group-hover:text-accent-orange dark:bg-[#253435] dark:text-[#8a9a9b]'
         )}
       >
         <Bot className="size-4" />

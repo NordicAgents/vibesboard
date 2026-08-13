@@ -18,6 +18,7 @@ import {
   APP_PORT,
   BASE_URL,
   MOCK_OPENAI_PORT as MOCK_PORT,
+  SMOKE_TEST_SECRET,
   STORAGE_STATE,
 } from './e2e/constants.ts'
 
@@ -76,7 +77,6 @@ function requireSecret(name: string): string {
 const BETTER_AUTH_SECRET = requireSecret('BETTER_AUTH_SECRET')
 const ENCRYPTION_KEY = requireSecret('ENCRYPTION_KEY')
 const CRON_SECRET = requireSecret('CRON_SECRET')
-const VERIFY_TOKEN = requireSecret('VERIFY_TOKEN')
 const ACCESS_GATE_SECRET = requireSecret('ACCESS_GATE_SECRET')
 
 const appEnv: Record<string, string> = {
@@ -91,6 +91,8 @@ const appEnv: Record<string, string> = {
   OPENAI_BASE_URL: `http://localhost:${MOCK_PORT}/v1`,
   OPENAI_API_KEY: 'sk-e2e-stub',
   OPENAI_MODEL: 'gpt-4o',
+  E2E_FORCE_PLATFORM_LLM: 'true',
+  SMOKE_TEST_SECRET,
   // S3 / MinIO
   S3_ENDPOINT,
   S3_REGION: 'us-east-1',
@@ -103,7 +105,6 @@ const appEnv: Record<string, string> = {
   BETTER_AUTH_URL: BASE_URL,
   ENCRYPTION_KEY,
   CRON_SECRET,
-  VERIFY_TOKEN,
   ACCESS_GATE_SECRET,
 }
 
@@ -150,7 +151,9 @@ export default defineConfig({
       // In CI nothing should already be listening; adopting a stray server
       // there would silently test the wrong process. Locally, reuse is what
       // lets a hand-started dev server be shared across runs.
-      reuseExistingServer: !process.env.CI,
+      // Never trust a pre-existing process on the mock port: it may have a
+      // different fixture reply or proxy to a real provider.
+      reuseExistingServer: false,
       timeout: 15_000,
       env: { MOCK_OPENAI_PORT: String(MOCK_PORT) },
     },
@@ -160,7 +163,7 @@ export default defineConfig({
       // In CI nothing should already be listening; adopting a stray server
       // there would silently test the wrong process. Locally, reuse is what
       // lets a hand-started dev server be shared across runs.
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 180_000,
       cwd: path.resolve(__dirname, '../../'),
       env: appEnv,

@@ -634,6 +634,10 @@ export default function AgentLinksPage() {
 
               {shareQr && (
                 <div className="flex flex-col items-center gap-3">
+                  {/* `shareQr` is a client-generated data: URL. next/image
+                      cannot optimize data URLs — it would need `unoptimized`,
+                      which is next/image doing nothing at extra cost. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={shareQr}
                     alt="QR Code"

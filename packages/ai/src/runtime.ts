@@ -16,6 +16,7 @@ import {
 } from '@vibesboard/adapter-openai'
 import { resolveProviderSpec, resolveTenantNetworkOpts } from './tenant-llm-config.ts'
 import { buildProviderModel, type ProviderNetworkOpts } from './provider-registry.ts'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
 
 interface RunAgentStreamArgs {
   agent: VibeAgent
@@ -48,7 +49,12 @@ export async function runAgentStream({
   let tenantSpec = null
   let networkOpts: ProviderNetworkOpts = {}
 
-  if (!previewToken && agent.tenantId) {
+  if (
+    shouldResolveTenantProvider({
+      tenantId: agent.tenantId,
+      previewToken,
+    })
+  ) {
     const [spec, netOpts] = await Promise.all([
       resolveProviderSpec(agent.tenantId, agent.llmConfigId, undefined, 'chat').catch((err) => {
         console.error('[runtime] Failed to resolve tenant LLM config — falling back to platform model:', err)

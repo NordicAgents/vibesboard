@@ -220,7 +220,7 @@ export function MessageThread({
                 className={cn(
                   'max-w-[70%] rounded-2xl px-4 py-2',
                   msg.direction === 'outbound'
-                    ? 'rounded-br-md bg-accent-orange/10 text-foreground'
+                    ? 'bg-accent-orange/10 rounded-br-md text-foreground'
                     : 'rounded-bl-md bg-secondary text-foreground'
                 )}
               >
@@ -282,7 +282,7 @@ export function MessageThread({
               onChange={e => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
-              className="min-h-[44px] max-h-32 resize-none"
+              className="max-h-32 min-h-[44px] resize-none"
               rows={1}
               maxLength={1000}
               disabled={sending}

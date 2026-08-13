@@ -18,7 +18,12 @@
  *   - The browser fixture's baseURL matches e2e/constants.ts
  */
 import { test, expect } from '@playwright/test'
-import { BASE_URL, E2E_USER, MOCK_OPENAI_PORT } from '../constants.ts'
+import {
+  BASE_URL,
+  E2E_USER,
+  MOCK_OPENAI_PORT,
+  SMOKE_TEST_SECRET,
+} from '../constants.ts'
 
 // All smoke tests run unauthenticated
 test.use({ storageState: { cookies: [], origins: [] } })
@@ -303,7 +308,11 @@ test('the app under test is bound to the mock model, not a real provider', async
   // /api/smoke is the one unauthenticated route that invokes the model, so a
   // 200 carrying the mock's canned sentence proves the *server process*, not
   // the test runner, reached e2e/mock-openai.mjs.
-  const res = await request.get('/api/smoke?mode=file')
+  const res = await request.get('/api/smoke?mode=file', {
+    headers: {
+      authorization: `Bearer ${SMOKE_TEST_SECRET}`
+    }
+  })
   expect(res.status(), await res.text()).toBe(200)
   expect(await res.text()).toContain(STUB_REPLY)
 })

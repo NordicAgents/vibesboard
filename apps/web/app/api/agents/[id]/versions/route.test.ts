@@ -35,15 +35,14 @@ interface VersionRow {
 }
 let versionRows: VersionRow[] = []
 let currentVersion: number | null = 3
-const listAgentVersionsMock = vi.fn(
-  async (..._args: unknown[]) => versionRows
-)
+const listAgentVersionsMock = vi.fn(async (..._args: unknown[]) => versionRows)
 const getAgentCurrentVersionMock = vi.fn(
   async (..._args: unknown[]) => currentVersion
 )
 vi.mock('@vibesboard/agents/versioning', () => ({
   listAgentVersions: (...args: unknown[]) => listAgentVersionsMock(...args),
-  getAgentCurrentVersion: (...args: unknown[]) => getAgentCurrentVersionMock(...args)
+  getAgentCurrentVersion: (...args: unknown[]) =>
+    getAgentCurrentVersionMock(...args)
 }))
 
 vi.mock('@vibesboard/adapter-postgres/schema', () => ({ users: {} }))
