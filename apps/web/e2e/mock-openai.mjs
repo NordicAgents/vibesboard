@@ -339,6 +339,6 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, () => {
-  // eslint-disable-next-line no-console
+   
   console.log(`[mock-openai] listening on http://localhost:${PORT}`)
 })

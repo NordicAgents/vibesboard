@@ -1,0 +1,1 @@
+ALTER TABLE "usage_counters" ADD COLUMN "source_counts" jsonb DEFAULT '{}'::jsonb NOT NULL;

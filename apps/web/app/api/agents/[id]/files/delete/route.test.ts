@@ -77,11 +77,7 @@ describe('POST /api/agents/[id]/files/delete', () => {
   it('removes embeddings and the file row in the same transaction', async () => {
     const response = await POST(request() as never, context)
     expect(response.status).toBe(200)
-    expect(getFilesByKeysMock).toHaveBeenCalledWith(
-      'agent-1',
-      [fileKey],
-      tx
-    )
+    expect(getFilesByKeysMock).toHaveBeenCalledWith('agent-1', [fileKey], tx)
     expect(deleteFileEmbeddingsMock).toHaveBeenCalledWith(
       'tenant-1',
       'file-1',

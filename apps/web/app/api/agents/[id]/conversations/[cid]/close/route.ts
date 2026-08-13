@@ -43,7 +43,10 @@ export async function POST(
 
   let summary = conversation.summary ?? null
   if (!summary) {
-    summary = await summarizeConversation(conversation.messages, agent?.tenantId)
+    summary = await summarizeConversation(
+      conversation.messages,
+      agent?.tenantId
+    )
   }
 
   const closedAt = new Date().toISOString()

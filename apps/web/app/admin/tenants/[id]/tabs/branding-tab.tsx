@@ -55,12 +55,9 @@ export function TenantBrandingTab({
     secondaryColor: ''
   })
 
-  // Fetch branding with base branding info on mount
-  React.useEffect(() => {
-    fetchBrandingDetails()
-  }, [tenantId])
-
-  const fetchBrandingDetails = async () => {
+  // Only `tenantId` is closed over — the state setters are stable — so this
+  // identity changes exactly when the effect below should re-run.
+  const fetchBrandingDetails = React.useCallback(async () => {
     try {
       const response = await fetch(`/api/tenants/${tenantId}/branding`)
       if (response.ok) {
@@ -78,7 +75,12 @@ export function TenantBrandingTab({
     } catch (error) {
       console.error('Error fetching branding details:', error)
     }
-  }
+  }, [tenantId])
+
+  // Fetch branding with base branding info on mount and whenever the tenant changes
+  React.useEffect(() => {
+    fetchBrandingDetails()
+  }, [fetchBrandingDetails])
 
   const validate = () => {
     const newErrors = { logoUrl: '', primaryColor: '', secondaryColor: '' }

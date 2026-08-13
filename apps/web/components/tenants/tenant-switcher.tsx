@@ -193,7 +193,7 @@ export function TenantSwitcher({
           {/* Personal workspaces */}
           {personalTenants.length > 0 && (
             <>
-              <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
+              <DropdownMenuLabel className="label-caps flex items-center gap-1.5 px-3 py-2">
                 <User className="size-3 text-[#6f7f80]" />
                 Personal
               </DropdownMenuLabel>
@@ -218,7 +218,7 @@ export function TenantSwitcher({
           {/* Organization workspaces */}
           {orgTenants.length > 0 && (
             <>
-              <DropdownMenuLabel className="label-caps px-3 py-2 flex items-center gap-1.5">
+              <DropdownMenuLabel className="label-caps flex items-center gap-1.5 px-3 py-2">
                 <Building2 className="size-3 text-[#6f7f80]" />
                 Teams
               </DropdownMenuLabel>

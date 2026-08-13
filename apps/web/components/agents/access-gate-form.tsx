@@ -68,10 +68,15 @@ export function AccessGateForm({
     <div className="flex flex-1 items-center justify-center p-6">
       <div className="mx-auto w-full max-w-md rounded-2xl border border-[#e4e3e3] bg-[#f5f8f7] p-8 text-center shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:border-[#344348] dark:bg-[#192425]">
         {logoUrl && (
+          /* `logoUrl` is tenant-supplied and can point at any host. Routing it
+             through next/image would require a wildcard `remotePatterns`,
+             turning the image optimizer into an open proxy that any tenant
+             could aim at arbitrary URLs. */
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={logoUrl}
             alt=""
-            className="mx-auto mb-4 h-12 w-12 rounded-full object-cover"
+            className="mx-auto mb-4 size-12 rounded-full object-cover"
           />
         )}
         <h1 className="font-sans text-2xl font-normal text-[#222f30] dark:text-[#f5f8f7]">

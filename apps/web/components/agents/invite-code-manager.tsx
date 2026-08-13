@@ -172,7 +172,7 @@ export function InviteCodeManager({
                 disabled={disabled || savingPassword}
                 className="text-red-600 hover:text-red-700"
               >
-                <Trash2 className="mr-1 h-3 w-3" /> Remove
+                <Trash2 className="mr-1 size-3" /> Remove
               </Button>
             </div>
           ) : (
@@ -191,9 +191,9 @@ export function InviteCodeManager({
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="size-4" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="size-4" />
                   )}
                 </button>
               </div>
@@ -230,7 +230,7 @@ export function InviteCodeManager({
                 onClick={generateCode}
                 disabled={disabled || creating}
               >
-                <Plus className="mr-1 h-3 w-3" /> Generate
+                <Plus className="mr-1 size-3" /> Generate
               </Button>
             </div>
             <div className="flex gap-2">
@@ -290,7 +290,7 @@ export function InviteCodeManager({
                         className="text-muted-foreground hover:text-foreground"
                         title="Copy code"
                       >
-                        <Copy className="h-3.5 w-3.5" />
+                        <Copy className="size-3.5" />
                       </button>
                       <button
                         onClick={() =>
@@ -299,7 +299,7 @@ export function InviteCodeManager({
                         className="text-muted-foreground hover:text-foreground"
                         title="Copy invite link"
                       >
-                        <Link className="h-3.5 w-3.5" />
+                        <Link className="size-3.5" />
                       </button>
                       {status === 'active' && (
                         <button
@@ -308,7 +308,7 @@ export function InviteCodeManager({
                           title="Revoke"
                           disabled={disabled}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="size-3.5" />
                         </button>
                       )}
                       {code.redemptions.length > 0 && (
@@ -319,9 +319,9 @@ export function InviteCodeManager({
                           className="text-muted-foreground hover:text-foreground"
                         >
                           {isExpanded ? (
-                            <ChevronUp className="h-3.5 w-3.5" />
+                            <ChevronUp className="size-3.5" />
                           ) : (
-                            <ChevronDown className="h-3.5 w-3.5" />
+                            <ChevronDown className="size-3.5" />
                           )}
                         </button>
                       )}

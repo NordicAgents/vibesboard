@@ -98,7 +98,7 @@ export function GoogleReviewCard({
       >
         <div className="rounded-2xl border border-[#e4e3e3] bg-white p-5 dark:border-[#344348] dark:bg-[#192425]">
           <div className="flex items-center gap-3">
-            <div className="skeleton h-4 w-4 rounded-full" />
+            <div className="skeleton size-4 rounded-full" />
             <span className="text-sm text-[#6f7f80]">
               Preparing your review...
             </span>

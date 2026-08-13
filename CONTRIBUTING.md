@@ -24,7 +24,7 @@ Requirements:
 
 ```bash
 git clone https://github.com/<your-fork>/vibesboard.git
-cd vibeagent
+cd vibesboard
 
 cp .env.example .env
 # Edit .env and replace the placeholder credentials and secrets.
@@ -122,7 +122,9 @@ follow the conventional-commit format above.
 
 ## Licensing of contributions
 
-Vibesboard is released under the [MIT License](LICENSE). By submitting a pull
-request you agree that your contribution is licensed under those same terms, and
-that you have the right to license it — that it is your own work, or that you
-have permission from whoever owns it.
+NordicAgents' original Vibesboard work is released under the [MIT
+License](LICENSE); retained third-party portions are identified in
+[NOTICE](NOTICE). By submitting a pull request you agree that your contribution
+is licensed under the MIT terms, and that you have the right to license it — it
+is your own work, or you have permission from whoever owns it. Do not remove or
+replace third-party copyright and licence notices.

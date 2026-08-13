@@ -2,6 +2,11 @@
   "name": "vibesboard-monorepo",
   "version": "0.0.2",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NordicAgents/vibesboard.git"
+  },
   "workspaces": ["apps/web", "packages/*"],
   "packageManager": "bun@1.2.18",
   "scripts": {
@@ -30,8 +35,8 @@
     "minio:console": "open http://localhost:9001"
   },
   "devDependencies": {
-    "vitest": "^4.1.7",
-    "@vitest/coverage-v8": "^4.1.7"
+    "vitest": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.10"
   },
   "overrides": {
     "eslint-plugin-react-hooks": "7.0.1",
@@ -41,12 +46,16 @@
     "underscore": "^1.13.8",
     "fast-xml-parser": ">=5.5.6",
     "fast-xml-builder": ">=1.1.7",
+    "esbuild": "^0.25.12",
     "protobufjs": ">=7.5.6",
     "node-forge": ">=1.4.0",
     "@xmldom/xmldom": ">=0.8.12",
     "tmp": ">=0.2.6",
     "brace-expansion": "^2.1.4",
     "undici": ">=7.29.0",
-    "postcss": ">=8.5.18"
+    "postcss": ">=8.5.18",
+    "shell-quote": "^1.10.0",
+    "vite": "^8.2.1",
+    "uuid": "^11.1.1"
   }
 }

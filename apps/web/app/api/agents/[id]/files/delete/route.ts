@@ -5,10 +5,7 @@ import { deleteFile } from '@vibesboard/adapter-s3'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
-import {
-  deleteFilesByKey,
-  getFilesByKeys
-} from '@vibesboard/ai/files-store'
+import { deleteFilesByKey, getFilesByKeys } from '@vibesboard/ai/files-store'
 import { deleteFileEmbeddings } from '@vibesboard/ai/rag-store'
 import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
 import { agents } from '@vibesboard/adapter-postgres/schema'
@@ -82,19 +79,11 @@ export async function POST(
         .where(eq(agents.id, id))
         .for('update')
 
-      const fileRows = await getFilesByKeys(
-        id,
-        [fileKey],
-        tx as unknown as Db
-      )
+      const fileRows = await getFilesByKeys(id, [fileKey], tx as unknown as Db)
       for (const file of fileRows) {
         // Embeddings reference the file by sourceId with no foreign key, so
         // deleting the row cascades nothing — the chunks must go explicitly.
-        await deleteFileEmbeddings(
-          agent.tenantId,
-          file.id,
-          tx as unknown as Db
-        )
+        await deleteFileEmbeddings(agent.tenantId, file.id, tx as unknown as Db)
       }
 
       await deleteFilesByKey(id, fileKey, tx as unknown as Db)
@@ -118,9 +107,11 @@ export async function POST(
         note: 'File deleted'
       })
     })
-
   } catch (error: any) {
-    console.error(`[File Delete] database cleanup agent=${id} key=${fileKey}`, error)
+    console.error(
+      `[File Delete] database cleanup agent=${id} key=${fileKey}`,
+      error
+    )
     return NextResponse.json(
       { error: error?.message ?? 'Failed to delete file' },
       { status: 500 }
@@ -134,7 +125,10 @@ export async function POST(
     await deleteFile(fileKey)
     return NextResponse.json({ status: 'ok', storageDeleted: true })
   } catch (error) {
-    console.error(`[File Delete] storage cleanup agent=${id} key=${fileKey}`, error)
+    console.error(
+      `[File Delete] storage cleanup agent=${id} key=${fileKey}`,
+      error
+    )
     return NextResponse.json({ status: 'ok', storageDeleted: false })
   }
 }

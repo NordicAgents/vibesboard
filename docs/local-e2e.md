@@ -13,8 +13,11 @@ admin panel, API contracts, and tenant isolation. It uses a separate global setu
 because it needs an outsider account, a superadmin cookie jar, and additional state.
 
 Both configs read `E2E_APP_PORT` (default **3100**) and `MOCK_OPENAI_PORT`
-(default **4010**) from `apps/web/e2e/constants.ts`, so they share one running app
-and one mock-model server.
+(default **4010**) from `apps/web/e2e/constants.ts`, so they use the same dedicated
+ports when run sequentially. They refuse to reuse pre-existing processes on
+those ports. The test server also enables a non-production-only routing guard,
+so persisted tenant provider settings cannot bypass the mock and call a paid
+model API.
 
 ## 1. Infrastructure
 
@@ -97,13 +100,12 @@ bun run db:migrate
 `playwright.local.config.ts` resolves five secrets from `process.env`, falling
 back to the gitignored `apps/web/.env.local`, and **throws** if any is missing:
 
-`BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, `VERIFY_TOKEN`,
-`ACCESS_GATE_SECRET`
+`BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, `ACCESS_GATE_SECRET`
 
 `BETTER_AUTH_SECRET` and `ENCRYPTION_KEY` must match whatever the local database
 was seeded with — `ENCRYPTION_KEY` wraps tenant LLM API keys at rest, so changing
-it makes existing provider rows undecryptable. `CRON_SECRET` and `VERIFY_TOKEN`
-are plain shared-secret comparisons; any dev value works.
+it makes existing provider rows undecryptable. `CRON_SECRET` is a plain
+shared-secret comparison; any dev value works.
 
 ## 3. Dependencies
 

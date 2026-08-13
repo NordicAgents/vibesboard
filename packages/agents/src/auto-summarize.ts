@@ -6,6 +6,7 @@ import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { conversations as conversationsTable } from '@vibesboard/adapter-postgres/schema'
 import { summarizeConversation } from '@vibesboard/ai/summarize'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 
 type Db = PostgresJsDatabase<typeof schema>
 
@@ -82,7 +83,9 @@ export async function maybeAutoSummarize(
 
   const promptTokens = tokenUsage?.promptTokens ?? 0
   // Resolve the tenant's current chat model to get the right context window
-  const spec = await resolveProviderSpec(tenantId, null, undefined, 'chat').catch(() => null)
+  const spec = shouldResolveTenantProvider({ tenantId })
+    ? await resolveProviderSpec(tenantId, null, undefined, 'chat').catch(() => null)
+    : null
   const modelId = spec?.modelId ?? ''
   const contextWindow = contextWindowForModel(modelId)
   const usageRatio = promptTokens > 0 ? promptTokens / contextWindow : 0

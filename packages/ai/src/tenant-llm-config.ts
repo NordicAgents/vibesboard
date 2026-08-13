@@ -6,6 +6,7 @@ import { tenantLlmConfigs, tenantLlmTaskConfigs, tenants } from '@vibesboard/ada
 import type { LlmProviderKind, LlmTask, ProviderModelSpec } from '@vibesboard/contracts'
 import { credStore, type CredStore } from './cred-store/index.ts'
 import { createEmbedding } from '@vibesboard/adapter-openai'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
 
 export type EmbedFn = (texts: string[]) => Promise<number[][]>
 
@@ -410,7 +411,9 @@ export async function resolveEmbedder(
   store: CredStore = credStore,
 ): Promise<EmbedFn> {
   const [spec, tenantRow] = await Promise.all([
-    resolveProviderSpec(tenantId, null, store, 'embed').catch(() => null),
+    shouldResolveTenantProvider({ tenantId })
+      ? resolveProviderSpec(tenantId, null, store, 'embed').catch(() => null)
+      : Promise.resolve(null),
     getMigrateDb()
       .select({ llmAllowPrivateHosts: tenants.llmAllowPrivateHosts })
       .from(tenants)

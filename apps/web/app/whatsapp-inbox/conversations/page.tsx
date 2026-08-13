@@ -74,8 +74,11 @@ export default function WhatsAppInboxConversationsPage() {
       .then(data => {
         const active = data.filter((a: InboxAccount) => a.status === 'active')
         setAccounts(active)
-        if (active.length > 0 && !selectedAccountId) {
-          setSelectedAccountId(active[0].id)
+        // Functional update so the effect never *reads* selectedAccountId:
+        // depending on it would refetch the account list every time the user
+        // switched accounts, purely to decide a first-run default.
+        if (active.length > 0) {
+          setSelectedAccountId(prev => prev || active[0].id)
         }
       })
       .catch(() => {})

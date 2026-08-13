@@ -101,7 +101,7 @@ export async function notifyAdminOfEnquiry(
   await new Resend(apiKey).emails.send({
     from:
       process.env.NOTIFICATION_EMAIL_FROM ||
-      'VibeAgent <notifications@vibeagent.com>',
+      'Vibesboard <notifications@vibesboard.com>',
     to: toAddress,
     subject: `New booking enquiry — ${enquiry.resourceName}`,
     text: body,

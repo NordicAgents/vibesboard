@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   e2e:
+    name: Playwright suites
     runs-on: ubuntu-latest
     # Backstop only — both suites set a lower globalTimeout so Playwright aborts
     # itself and still uploads its report. Without this, a wedged dev server ran
@@ -38,16 +39,17 @@ jobs:
       # Nothing encrypted with this key outlives the CI run.
       ENCRYPTION_KEY: ci-e2e-encryption-key-0123456789
       CRON_SECRET: ci-e2e-cron-secret
-      VERIFY_TOKEN: ci-e2e-verify-token
       ACCESS_GATE_SECRET: ci-e2e-access-gate-secret
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.2.18
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
 
@@ -68,7 +70,7 @@ jobs:
               echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
             fi
           done
-          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
+          docker run --rm --network host --entrypoint sh minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c "
             mc alias set local http://localhost:9000 vibesboard vibesboard &&
             (mc mb -p local/vibesboard-files || true) &&
             mc anonymous set none local/vibesboard-files
@@ -100,7 +102,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: apps/web/playwright-report/
@@ -109,7 +111,7 @@ jobs:
 
       - name: Upload local Playwright report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report-local
           path: apps/web/playwright-report-local/
