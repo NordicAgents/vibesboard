@@ -21,20 +21,12 @@ const COLUMNS: FooterColumn[] = [
   {
     title: 'Docs',
     links: [
-      { label: 'All documentation', href: LANDING_LINKS.docs, external: true },
-      { label: 'Development', href: LANDING_LINKS.development, external: true },
-      { label: 'Deployment', href: LANDING_LINKS.deployment, external: true },
-      {
-        label: 'Configuration',
-        href: LANDING_LINKS.configuration,
-        external: true
-      },
-      {
-        label: 'Bring your own model',
-        href: LANDING_LINKS.byoLlm,
-        external: true
-      },
-      { label: 'Security', href: LANDING_LINKS.security, external: true }
+      { label: 'All documentation', href: LANDING_LINKS.docs },
+      { label: 'Self-hosting', href: LANDING_LINKS.development },
+      { label: 'Cloud Run deployment', href: LANDING_LINKS.deployment },
+      { label: 'Environment variables', href: LANDING_LINKS.configuration },
+      { label: 'Bring your own model', href: LANDING_LINKS.byoLlm },
+      { label: 'Security', href: LANDING_LINKS.security }
     ]
   },
   {

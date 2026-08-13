@@ -1,0 +1,158 @@
+---
+title: 'Troubleshooting'
+description: 'Fixes for the problems people actually hit.'
+---
+
+# Troubleshooting
+
+Problems people actually run into when running Vibesboard locally or against
+the Playwright E2E suites, and what fixes them. See
+[Docker Compose](/docs/self-host/docker-compose) for the base local setup and
+[Environment variables](/docs/self-host/environment-variables) for what each
+value does.
+
+## Local development
+
+### Database configuration error on startup
+
+**Cause:** `.env` is missing or still has placeholder values, or the local
+Postgres/MinIO containers aren't running.
+
+**Fix:** copy `.env.example` to `.env`, start the compose services, and verify
+both `DATABASE_URL` and `DATABASE_MIGRATE_URL` point at a running database.
+
+### A tenant-scoped query silently returns no rows
+
+<Callout type="warning" title="This is RLS working as designed">
+  Tenant-owned tables use PostgreSQL row-level security and **fail closed**
+  without tenant context — a query issued outside `withTenant`/`withDb` returns
+  zero rows instead of throwing or leaking across workspaces. If a query you
+  expect to return data comes back empty, check that it runs inside
+  `withTenant`/`withDb` before assuming a data problem. See [Multi-tenancy &
+  RLS](/docs/platform/multi-tenancy-and-rls).
+</Callout>
+
+### Upload or bucket errors
+
+**Cause:** the `vibesboard-files` MinIO bucket doesn't exist yet, usually
+because the `minio-init` container didn't run or failed.
+
+**Fix:** rerun `bun run db:up` so `minio-init` can create the bucket, then
+check [http://localhost:9001](http://localhost:9001) (the MinIO console) to confirm it exists.
+
+### Stale schema or seed data
+
+**Fix:** `bun run db:reset` recreates the local volumes, reapplies migrations,
+and reseeds — the fastest way back to a clean environment.
+
+### Port already in use
+
+Free the conflicting port, or override the relevant service configuration:
+
+| Service       | Port   |
+| ------------- | ------ |
+| Web app       | `3000` |
+| PostgreSQL    | `5432` |
+| Adminer       | `8888` |
+| MinIO API     | `9000` |
+| MinIO console | `9001` |
+
+### Every route returns 500 after `bun install`
+
+<Callout type="warning" title="Bun 1.2.18 can materialize a partial node_modules tree">
+  On a stale tree, a plain `bun install` can install top-level packages while
+  failing to materialize the *nested* copies the lockfile requires. In the
+  Next.js/Turbopack dev server this shows up as every route — including `/`
+  and `/api/health` — returning 500 with a `Module not found` or
+  `Export … doesn't exist in target module` error, because one broken module
+  resolution fails the whole server, not just one route.
+
+Two failures seen in practice:
+
+- `Can't resolve '@ai-sdk/anthropic'` from `packages/ai/src/provider-registry.ts`
+- `Export email doesn't exist in target module` from `better-auth` — it needs
+  its own nested `zod@4`, but resolved to the hoisted `zod@3` the workspace
+  pins
+
+Fix: force a full re-materialization, then restart the dev server and clear
+the build cache so nothing stale is served.
+
+```bash
+bun install --force
+rm -rf apps/web/.next
+```
+
+</Callout>
+
+Bun 1.2.18 also rewrites `bun.lock` without the `configVersion` key that newer
+Bun versions write. If `bun install --force` leaves that single-line diff in
+`bun.lock`, it's a Bun-version artifact, not a real dependency change — revert
+it with `git checkout bun.lock` before committing.
+
+### Emails don't arrive locally
+
+**Cause:** `RESEND_API_KEY` is unset, which is expected in most local setups.
+
+**Fix:** check the server console — outgoing emails are logged there instead
+of being sent when the key is missing.
+
+## Running the E2E suites
+
+Both Playwright suites (`bun run test:e2e` and `bun run test:e2e:local`) read
+`E2E_APP_PORT` (default `3100`) and `MOCK_OPENAI_PORT` (default `4010`) from
+`apps/web/e2e/constants.ts`. See [Testing](/docs/contribute/testing) for how
+the two suites differ.
+
+<Callout
+  type="warning"
+  title="A leftover process on 3100 or 4010 fails the run, it doesn't get reused"
+>
+  Both `playwright.config.ts` and `playwright.local.config.ts` set
+  `reuseExistingServer: false` on the mock OpenAI server and the dev server —
+  unconditionally, not only in CI. If something is already listening on 3100 or
+  4010 (a hand-started dev server, a previous run that didn't shut down
+  cleanly), Playwright will fail to bind rather than adopt it. Stop whatever
+  holds those ports before starting the suite.
+</Callout>
+
+### MinIO connection refused during setup or a run
+
+**Cause:** the suite (and the Playwright configs) address MinIO as
+`http://127.0.0.1:9000`, not `localhost:9000` — Node resolves `localhost` to
+IPv6 first, and MinIO listens on IPv4 only.
+
+**Fix:** use `127.0.0.1` in any `S3_ENDPOINT` override, and if you're running
+Postgres via Docker Compose for the local suite, remember
+`playwright.local.config.ts` defaults to Postgres on port `5434` (not the
+compose default `5432`), because `5432` is commonly already taken by a native
+install.
+
+### `playwright.local` throws about a missing secret
+
+**Cause:** `playwright.local.config.ts` requires four secrets —
+`BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, `ACCESS_GATE_SECRET` —
+resolved from `process.env` and falling back to the gitignored
+`apps/web/.env.local`. It throws immediately if any is missing.
+
+**Fix:** set all four. `BETTER_AUTH_SECRET` and `ENCRYPTION_KEY` in particular
+must match whatever the local database was already seeded with —
+`ENCRYPTION_KEY` wraps tenant LLM API keys at rest, so changing it makes
+existing provider rows undecryptable. `CRON_SECRET` is a plain shared-secret
+comparison, so any dev value works for that one.
+
+### Disk fills up during a long local session
+
+**Cause:** `next dev` under Turbopack grows `apps/web/.next` steadily —
+around 2.3 GB observed after a few full runs. Once the volume fills, Turbopack
+panics with `No space left on device (os error 28)` and requests hang.
+
+**Fix:** check available space (`df -g /System/Volumes/Data` on macOS) before
+a long session, and `rm -rf apps/web/.next` to reclaim it instantly.
+
+<Callout type="note" title="No-Docker path">
+  The local E2E suite doesn't require Docker — Postgres with the `vector` and
+  `pg_trgm` extensions plus a native `minio server` process both work, useful if
+  Docker Desktop's disk footprint (images plus build cache can run to tens of
+  GB) is itself the problem. See [Testing](/docs/contribute/testing) for the
+  full setup.
+</Callout>

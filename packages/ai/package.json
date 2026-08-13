@@ -35,7 +35,7 @@
     "ai": "^7.0.64",
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
-    "jsdom": "^27.2.0",
+    "jsdom": "^30.0.1",
     "mammoth": "^1.11.0",
     "nanoid": "^5.1.16",
     "pdf-parse": "^2.4.5",
@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@types/jsdom": "^27.0.0",
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.1.2",
     "typescript": "^5.9.3"
   }
 }
