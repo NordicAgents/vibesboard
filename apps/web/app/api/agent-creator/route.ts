@@ -99,7 +99,7 @@ export async function POST(req: Request) {
   }))
   const directBookingDraftConfig = createDirectBookingDraftConfig()
 
-  const systemPrompt = `You are an assistant that helps users create a "VibeAgent" through a conversational, step-by-step process.
+  const systemPrompt = `You are an assistant that helps users create an AI agent through a conversational, step-by-step process.
 
 **CRITICAL RULE - READ THIS FIRST:**
 NEVER call the create_agent function unless the user EXPLICITLY requests creation with phrases like:
