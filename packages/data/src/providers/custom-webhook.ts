@@ -1,8 +1,5 @@
-import type {
-  AppendRowResult,
-  DataProvider,
-  UpdateRowResult
-} from './types.ts'
+import { safeFetch } from '@vibesboard/utils/safe-fetch'
+import type { AppendRowResult, DataProvider, UpdateRowResult } from './types.ts'
 
 interface CustomWebhookConfig {
   webhookUrl: string
@@ -81,21 +78,25 @@ export class CustomWebhookProvider implements DataProvider {
   }
 
   private async send(body: Record<string, any>): Promise<Response> {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10_000)
-
-    try {
-      return await fetch(this.config.webhookUrl, {
+    // SSRF-hardened: DNS-resolves and refuses private targets, follows
+    // redirects manually (re-validating each hop and dropping the tenant's
+    // custom headers on cross-origin redirects), and bounds time.
+    return safeFetch(
+      this.config.webhookUrl,
+      {
         method: this.config.method,
         headers: {
           'Content-Type': 'application/json',
           ...this.config.headers
         },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      })
-    } finally {
-      clearTimeout(timeout)
-    }
+        body: JSON.stringify(body)
+      },
+      {
+        timeoutMs: 10_000,
+        // The tenant's custom headers may carry credentials — drop them if a
+        // redirect crosses origins.
+        sensitiveHeaders: Object.keys(this.config.headers ?? {})
+      }
+    )
   }
 }

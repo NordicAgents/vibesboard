@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import { getTenantBySlug } from '@/lib/tenant-context'
 import { getAgentBySlug } from '@vibesboard/agents/server'
+import { toPublicAgent } from '@vibesboard/contracts'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { getTenantBranding } from '@vibesboard/tenants'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
@@ -56,19 +57,25 @@ export default async function PublicAgentPage({
   )
   const logoUrl = effectiveBranding.logoUrl || null
 
+  // Only the public-safe field subset crosses the client boundary. The full
+  // agent (system instructions, fileKeys, connection IDs, webhook secret) must
+  // never reach the RSC payload — least of all on the gated branch, which
+  // renders before the visitor has passed the access check.
+  const publicAgent = toPublicAgent(agent)
+
   // fixed inset-0: anchors to viewport, bypassing the parent min-height chain.
   // This ensures the scroll area is constrained and the input always stays visible.
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
       {agent.allowAnonymous ? (
         <PublicAgentExperience
-          agent={agent}
+          agent={publicAgent}
           googleReviewPlaceId={googleReviewPlaceId}
           logoUrl={logoUrl}
         />
       ) : (
         <GatedAgentPage
-          agent={agent}
+          agent={publicAgent}
           googleReviewPlaceId={googleReviewPlaceId}
           logoUrl={logoUrl}
           hasExistingAccess={await hasValidAccessCookie(agent.id)}

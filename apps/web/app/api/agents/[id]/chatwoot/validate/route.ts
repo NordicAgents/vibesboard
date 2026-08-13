@@ -8,11 +8,18 @@ import {
   validateChatwootCredentials,
   listChatwootInboxes
 } from '@vibesboard/channel-chatwoot/api-client'
+import { validateWebhookUrl } from '@vibesboard/data/validate-webhook-url'
 
 export const runtime = 'nodejs'
 
 const ValidateSchema = z.object({
-  chatwootUrl: z.string().url('Invalid URL format'),
+  // SSRF guard: the server calls this URL with the tenant's API token.
+  chatwootUrl: z
+    .string()
+    .url('Invalid URL format')
+    .refine(v => validateWebhookUrl(v).ok, {
+      message: 'URL resolves to a disallowed (private/loopback/metadata) address'
+    }),
   apiToken: z.string().min(1, 'API token is required')
 })
 

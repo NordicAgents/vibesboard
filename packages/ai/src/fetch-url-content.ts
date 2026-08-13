@@ -1,5 +1,9 @@
 import { JSDOM } from 'jsdom'
-import net from 'node:net'
+import {
+  safeFetch,
+  readCappedText,
+  SsrfError
+} from '@vibesboard/utils/safe-fetch'
 
 export interface UrlContentResult {
   url: string
@@ -13,123 +17,36 @@ const USER_AGENT = 'Mozilla/5.0 (compatible; Vibesboard/1.0)'
 const FETCH_TIMEOUT_MS = 10000
 const MAX_TEXT_CHARS = 8000
 const MAX_REDIRECTS = 3
-
-const isPrivateIpv4 = (ip: string) => {
-  const parts = ip.split('.').map(Number)
-  if (parts.length !== 4 || parts.some(n => !Number.isFinite(n))) return true
-  const [a, b] = parts
-
-  if (a === 0) return true
-  if (a === 10) return true
-  if (a === 127) return true
-  if (a === 169 && b === 254) return true
-  if (a === 172 && b >= 16 && b <= 31) return true
-  if (a === 192 && b === 168) return true
-  // Carrier-grade NAT
-  if (a === 100 && b >= 64 && b <= 127) return true
-
-  return false
-}
-
-const isPrivateIpv6 = (ip: string) => {
-  const value = ip.toLowerCase()
-  if (value === '::1') return true
-  if (value.startsWith('fe80:') || value === 'fe80::') return true // link-local
-  if (value.startsWith('fc') || value.startsWith('fd')) return true // unique local
-
-  // IPv4-mapped IPv6 address
-  const v4MappedPrefix = '::ffff:'
-  if (value.startsWith(v4MappedPrefix)) {
-    const v4 = value.slice(v4MappedPrefix.length)
-    return isPrivateIpv4(v4)
-  }
-
-  return false
-}
-
-const isBlockedHost = (hostname: string) => {
-  const host = hostname.trim().toLowerCase()
-  if (!host) return true
-  if (host === 'localhost' || host.endsWith('.localhost')) return true
-  if (host === '127.0.0.1' || host === '::1') return true
-
-  const ipVersion = net.isIP(host)
-  if (ipVersion === 4) {
-    return isPrivateIpv4(host)
-  }
-  if (ipVersion === 6) {
-    return isPrivateIpv6(host)
-  }
-
-  return false
-}
-
-const validateHttpUrl = (value: string) => {
-  let parsed: URL
-  try {
-    parsed = new URL(value)
-  } catch {
-    return { ok: false as const, error: 'Invalid URL' }
-  }
-
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    return {
-      ok: false as const,
-      error: 'Only HTTP and HTTPS URLs are supported'
-    }
-  }
-
-  if (isBlockedHost(parsed.hostname)) {
-    return { ok: false as const, error: 'Blocked URL host' }
-  }
-
-  return { ok: true as const, url: parsed }
-}
+// Cap the raw HTML we read before JSDOM parses it — a hostile page could
+// otherwise stream unbounded bytes (memory/CPU DoS) since truncation to
+// MAX_TEXT_CHARS previously happened only after the whole document was parsed.
+const MAX_HTML_BYTES = 3 * 1024 * 1024
 
 const fetchHtmlWithRedirects = async (
   initialUrl: string
 ): Promise<{ finalUrl: string; html: string } | { error: string }> => {
-  let current = initialUrl
-
-  for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
-    const validated = validateHttpUrl(current)
-    if (!validated.ok) {
-      return { error: validated.error }
-    }
-
-    const response = await fetch(validated.url.toString(), {
-      headers: {
-        'User-Agent': USER_AGENT
-      },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      redirect: 'manual'
-    })
-
-    // Manual redirect handling to prevent redirect-to-private SSRF
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const location = response.headers.get('location')
-      if (!location) {
-        return {
-          error: `Redirect (${response.status}) without Location header`
-        }
-      }
-
-      const nextUrl = new URL(location, validated.url).toString()
-      current = nextUrl
-      continue
-    }
-
-    if (!response.ok) {
-      return {
-        error: `Failed to fetch: ${response.status} ${response.statusText}`
-      }
-    }
-
-    const html = await response.text()
-    return { finalUrl: validated.url.toString(), html }
+  let response: Response
+  try {
+    // safeFetch DNS-resolves each hop (defeating public-name -> private-IP and
+    // rebinding), follows redirects manually with re-validation, and times out.
+    response = await safeFetch(
+      initialUrl,
+      { headers: { 'User-Agent': USER_AGENT } },
+      { timeoutMs: FETCH_TIMEOUT_MS, maxRedirects: MAX_REDIRECTS }
+    )
+  } catch (err) {
+    if (err instanceof SsrfError) return { error: err.message }
+    return { error: 'Failed to fetch URL' }
   }
 
-  return { error: 'Too many redirects' }
+  if (!response.ok) {
+    return {
+      error: `Failed to fetch: ${response.status} ${response.statusText}`
+    }
+  }
+
+  const { text: html } = await readCappedText(response, MAX_HTML_BYTES)
+  return { finalUrl: response.url || initialUrl, html }
 }
 
 /**

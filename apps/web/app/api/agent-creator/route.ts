@@ -24,6 +24,7 @@ import {
   isResponsesModel
 } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
+import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
   }))
   const directBookingDraftConfig = createDirectBookingDraftConfig()
 
-  const systemPrompt = `You are an assistant that helps users create a "VibeAgent" through a conversational, step-by-step process.
+  const systemPrompt = `You are an assistant that helps users create an AI agent through a conversational, step-by-step process.
 
 **CRITICAL RULE - READ THIS FIRST:**
 NEVER call the create_agent function unless the user EXPLICITLY requests creation with phrases like:
@@ -399,6 +400,14 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
           const tenantId = await getActiveTenant(session.user.id)
           if (!tenantId) {
             return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
+          }
+
+          // effectiveFileKeys can come from the (prompt-injectable) model tool
+          // call; refuse any key addressing another tenant's namespace.
+          if (
+            effectiveFileKeys.some(k => isCrossTenantFileKey(k, tenantId))
+          ) {
+            return 'I could not create the agent because one of the referenced files is outside this workspace.'
           }
 
           const slug = await ensureUniqueSlug(

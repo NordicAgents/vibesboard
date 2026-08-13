@@ -24,7 +24,7 @@ import {
   sendResetPasswordEmail,
 } from '../email.ts';
 
-const ENV_KEYS = ['RESEND_API_KEY', 'NOTIFICATION_EMAIL_FROM'] as const;
+const ENV_KEYS = ['RESEND_API_KEY', 'NOTIFICATION_EMAIL_FROM', 'NODE_ENV'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -57,8 +57,9 @@ describe('sendMagicLinkEmail', () => {
     expect(payload.html).toContain('https://app/link?t=abc');
   });
 
-  it('no-ops (no send) when RESEND_API_KEY is unset (dev fallback)', async () => {
+  it('logs a dev fallback (no send) when RESEND_API_KEY is unset in dev', async () => {
     delete process.env.RESEND_API_KEY;
+    process.env.NODE_ENV = 'development';
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
       await expect(
@@ -69,6 +70,21 @@ describe('sendMagicLinkEmail', () => {
       expect(log).toHaveBeenCalledTimes(1);
       expect(log.mock.calls[0][0]).toContain('skip@example.com');
       expect(log.mock.calls[0][0]).toContain('Magic link');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('throws (and never logs the URL) when RESEND_API_KEY is unset in production', async () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.NODE_ENV = 'production';
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await expect(
+        sendMagicLinkEmail({ email: 'skip@example.com', url: 'https://app/link?t=secret' }),
+      ).rejects.toThrow(/RESEND_API_KEY is not configured/);
+      expect(sendMock).not.toHaveBeenCalled();
+      expect(log).not.toHaveBeenCalled();
     } finally {
       log.mockRestore();
     }
@@ -97,8 +113,9 @@ describe('sendVerifyEmail', () => {
     expect(payload.html).toContain('https://app/verify');
   });
 
-  it('no-ops when RESEND_API_KEY is unset', async () => {
+  it('logs a dev fallback when RESEND_API_KEY is unset in dev', async () => {
     delete process.env.RESEND_API_KEY;
+    process.env.NODE_ENV = 'development';
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
       await expect(
@@ -107,6 +124,20 @@ describe('sendVerifyEmail', () => {
       expect(sendMock).not.toHaveBeenCalled();
       expect(log.mock.calls[0][0]).toContain('Verify email');
       expect(log.mock.calls[0][0]).toContain('skip@example.com');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('throws in production when RESEND_API_KEY is unset', async () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.NODE_ENV = 'production';
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await expect(
+        sendVerifyEmail({ user: { email: 'skip@example.com' }, url: 'https://app/verify?t=secret' }),
+      ).rejects.toThrow(/RESEND_API_KEY is not configured/);
+      expect(log).not.toHaveBeenCalled();
     } finally {
       log.mockRestore();
     }
@@ -126,8 +157,9 @@ describe('sendResetPasswordEmail', () => {
     expect(payload.html).toContain('https://app/reset');
   });
 
-  it('no-ops when RESEND_API_KEY is unset', async () => {
+  it('logs a dev fallback when RESEND_API_KEY is unset in dev', async () => {
     delete process.env.RESEND_API_KEY;
+    process.env.NODE_ENV = 'development';
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
       await expect(
@@ -135,6 +167,20 @@ describe('sendResetPasswordEmail', () => {
       ).resolves.toBeUndefined();
       expect(sendMock).not.toHaveBeenCalled();
       expect(log.mock.calls[0][0]).toContain('Reset password');
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('throws in production when RESEND_API_KEY is unset', async () => {
+    delete process.env.RESEND_API_KEY;
+    process.env.NODE_ENV = 'production';
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await expect(
+        sendResetPasswordEmail({ user: { email: 'skip@example.com' }, url: 'https://app/reset?t=secret' }),
+      ).rejects.toThrow(/RESEND_API_KEY is not configured/);
+      expect(log).not.toHaveBeenCalled();
     } finally {
       log.mockRestore();
     }

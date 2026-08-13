@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
+import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { ingestFileForAgent } from '@vibesboard/ai/file-search'
 import {
   getFileByKey,
@@ -51,6 +52,11 @@ export async function POST(
       { error: 'fileKey is not attached to this agent' },
       { status: 400 }
     )
+  }
+  // The fileKeys array is caller-writable, so refuse to ingest a poisoned key
+  // that points into another tenant's storage.
+  if (isCrossTenantFileKey(fileKey, agent.tenantId)) {
+    return new NextResponse('Forbidden', { status: 403 })
   }
 
   // Upsert the file record — the upload-url route only creates a presigned URL,

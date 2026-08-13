@@ -1,4 +1,5 @@
 import 'server-only'
+import { safeFetch } from '@vibesboard/utils/safe-fetch'
 
 /**
  * Chatwoot REST API client
@@ -21,14 +22,22 @@ async function chatwootFetch<T>(
 ): Promise<T> {
   const url = `${sanitizeUrl(chatwootUrl)}${path}`
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      api_access_token: apiToken,
-      ...options.headers
-    }
-  })
+  // The tenant supplies chatwootUrl and the server calls it with the tenant's
+  // API token. safeFetch DNS-resolves and refuses private/metadata targets
+  // (this is otherwise a readable SSRF) and drops the token on cross-origin
+  // redirects.
+  const res = await safeFetch(
+    url,
+    {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        api_access_token: apiToken,
+        ...options.headers
+      }
+    },
+    { sensitiveHeaders: ['api_access_token'] }
+  )
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
