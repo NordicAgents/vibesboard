@@ -517,16 +517,10 @@ export async function connectByoaAccount(
 
   // Pre-generate id so it can be embedded in the per-account webhook URL.
   const id = uuidv7()
-  let appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(
     /^http:/,
     'https:'
   )
-  if (
-    appUrl.includes('vibesboard.com') &&
-    !appUrl.includes('www.vibesboard.com')
-  ) {
-    appUrl = appUrl.replace('://vibesboard.com', '://www.vibesboard.com')
-  }
   const byoaWebhookUrl = `${appUrl}/api/webhooks/whatsapp-inbox/byoa/${id}`
 
   return createAccountRow(
