@@ -7,6 +7,8 @@ import { canEditAgent } from '@vibesboard/agents/permissions'
 import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { processFile } from '@vibesboard/ai/file-processor'
 import { insertFiles, listFiles } from '@vibesboard/ai/files-store'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
 import { agents } from '@vibesboard/adapter-postgres/schema'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
@@ -56,8 +58,27 @@ export async function GET(
     limit
   })
 
+  // Resolve the provider embedding would actually use, the same way
+  // ingestFileForAgent does — honoring an `embed` task assignment rather than
+  // assuming the workspace default. The client used to derive this itself from
+  // the default enabled config, which was wrong in both directions: it missed
+  // a config task-routed to `embed`, and it flagged a default change that
+  // never touched embeddings.
+  let currentEmbeddingProvider: string | null = null
+  try {
+    const spec = shouldResolveTenantProvider({ tenantId: agent.tenantId })
+      ? await resolveProviderSpec(agent.tenantId, null, undefined, 'embed')
+      : null
+    currentEmbeddingProvider = spec?.kind ?? 'openai'
+  } catch {
+    // Never fail the file list over this — the banner is advisory, and a null
+    // simply means "can't tell", which the client treats as not-stale.
+    currentEmbeddingProvider = null
+  }
+
   return NextResponse.json({
     files,
+    currentEmbeddingProvider,
     pagination: {
       page,
       limit,
