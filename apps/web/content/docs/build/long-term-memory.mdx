@@ -1,0 +1,183 @@
+---
+title: 'Long-term memory'
+description: 'Let agents remember facts across conversations.'
+---
+
+# Long-term memory
+
+An agent with memory enabled learns durable facts from the conversations it has and recalls them in later ones. Nothing is remembered automatically: messages are captured and embedded, a background job extracts candidate observations, a second job reconciles them into proposed changes, and a human approves each proposal before it becomes a stored memory. The implementation lives in `packages/hybrid-memory` (the `HybridEngram` engine and its Postgres store), bridged into the app by `packages/ai/src/agent-memory.ts`.
+
+Memory is off by default (`memoryEnabled` on the agent record, added in `0019_agent_memory_enabled.sql`) and is not gated by any tenant feature flag.
+
+## Memory is not the knowledge base
+
+The two systems look similar — both embed text and inject it before the model answers — but they hold different content and are populated differently:
+
+|              | Knowledge base (RAG)                                 | Long-term memory                                                  |
+| ------------ | ---------------------------------------------------- | ----------------------------------------------------------------- |
+| Content      | Files you upload and source URLs you add             | Facts an LLM extracted from conversation transcripts              |
+| Populated by | You, from the Knowledge tab                          | The observe/reconcile jobs, then a human approval                 |
+| Scope        | The agent                                            | The agent, and usually a single visitor within it                 |
+| Injected as  | Retrieved chunks, per the agent's retrieval strategy | A serialized memory tree in a `## Relevant Memory` system message |
+
+See [Knowledge base & RAG](/docs/build/knowledge-base-rag) for the document side. Enabling one has no effect on the other.
+
+## Enabling memory
+
+<Steps>
+<Step title="Turn on the switch">
+
+Open the agent, go to the **Setup** tab, and find the **Memory** card at the bottom. The **Enable agent memory** switch is described as "Agent learns from past conversations and recalls relevant context for each visitor." The switch is disabled for read-only members.
+
+</Step>
+<Step title="Save">
+
+Click **Save Changes** in the sticky bar. The **Memory** tab appears in the tab strip as soon as the switch is flipped — it keys off the unsaved form value — but `/api/agents/[id]/memory` and `/api/agents/[id]/memory/mutations` both check the _saved_ `memoryEnabled` and return empty arrays until you save.
+
+</Step>
+<Step title="Schedule the background jobs">
+
+Memory is populated by two cron endpoints. Without them, messages accumulate as embeddings but no observation, mutation, or memory is ever produced. See [Background jobs](#background-jobs).
+
+</Step>
+</Steps>
+
+<Callout type="note">
+  With memory off, the Memory tab is not rendered at all, and a deep link to
+  `?tab=memory` is clamped back to Setup rather than showing an empty panel.
+</Callout>
+
+## Scope: one agent, one visitor
+
+The engine uses a generic two-level scope. Vibesboard maps it as:
+
+- `scopeId` — the **agent id**. Not the tenant id.
+- `subScopeId` — the **visitor id**: the value of the `va_ext` cookie, an httpOnly UUID with a 30-day TTL that the public chat route issues on first contact (`SameSite=None` when the widget is embedded cross-origin).
+
+A memory carrying a `subScopeId` has `scope: 'member'` and belongs to that one visitor; a memory with a null `subScopeId` has `scope: 'org'` and applies to everyone talking to that agent. Recall filters with `includeOrgWide: subScopeId != null`, so a visitor sees their own memories plus the agent-wide ones and never another visitor's.
+
+Because the public chat route always resolves a visitor id before recall, memories formed from live traffic are visitor-scoped in practice. Two consequences worth stating plainly: a returning visitor is recognized only for as long as their `va_ext` cookie survives (clearing cookies or switching browsers produces a fresh, empty scope), and memory never crosses agents — an agent-scoped memory is invisible to every other agent in the workspace.
+
+## The lifecycle
+
+### 1. Capture
+
+After each response completes, the public chat route calls `ingestMemory` for the last user message and for the assistant's cleaned completion, both tagged with the conversation id, agent id, and visitor id. Ingest is fire-and-forget: it embeds the text and writes a row to `hybrid_message_embeddings`, and its promise rejection is swallowed, so a failure never affects the reply.
+
+### 2. Observe (Stage 1)
+
+`POST /api/cron/memory-observe` runs observation formation. It selects conversations whose most recent captured message is older than the cooldown — 2 hours, set in `agent-memory.ts` — and that are not already listed in `hybrid_processed_conversations`. For each, the full transcript goes to the LLM, which returns statement/evidence pairs; both halves are embedded and stored as observations with status `new`, and the conversation is then marked processed.
+
+<Callout type="warning" title="Each conversation is observed once">
+  `getIdleConversations` excludes every conversation already present in
+  `hybrid_processed_conversations`, and observe inserts that row after its first
+  pass. A conversation that goes idle, gets observed, and then resumes will not
+  be observed a second time.
+</Callout>
+
+### 3. Reconcile (Stage 2)
+
+`POST /api/cron/memory-reconcile` takes up to 50 pending observations. For each one it gathers sibling observations in the same scope (5 nearest by statement embedding), similar message chunks (10 nearest by evidence embedding), and the existing memory table of contents for that scope, then asks the LLM to decide:
+
+- **mutate** — emit `add` / `modify` / `delete` mutations, saved with status `pending`, and mark the observation `consolidated`. The `approver` field is `member` for visitor-scoped observations and `org-admin` otherwise.
+- **defer** — not enough evidence yet; the observation returns to the queue. After 3 defers it is discarded instead, so stale observations stop re-incurring LLM cost.
+- **discard** — drop it.
+
+An unparseable LLM response is treated as a defer. A per-observation exception leaves its status untouched so it retries on the next run.
+
+### 4. Approve
+
+Both engine instances the app constructs use `autoApprove: false`, so **no mutation is ever applied without a human clicking approve**. Approving embeds the content and inserts the memory (`add`), applies the patch and re-embeds if the content changed (`modify`), or deletes the row (`delete`). A modify/delete that targets a memory outside the mutation's own scope throws, which marks the mutation rejected and returns a 500. Rejecting simply marks it rejected; nothing is written.
+
+## The Memory tab
+
+The tab has two read-only panels; approve and reject are the only write actions, and they render only for members who can edit the agent.
+
+**Pending Mutations** lists proposals with a count badge. Each row shows the operation as a badge (`add`, `modify`, or a red `delete`), the memory key, a truncated `visitor: …` label when the mutation is visitor-scoped, a two-line content preview, and the creation timestamp. The check button approves, the cross rejects. Empty state: "No pending mutations."
+
+**Stored Memories** lists approved memories for the agent — across all visitors, since the admin listing filters on `scopeId` only. Each row shows the key, a colored presence-class badge, an outline `visitor` badge when the memory is visitor-scoped, the description, and a three-line content preview. Empty state: "No memories yet. Approve pending mutations to create memories."
+
+There is no way to author, edit, or delete a memory by hand from the UI — every change arrives as a mutation from reconciliation.
+
+## Presence classes
+
+Each memory carries a presence class that decides how it reaches the model:
+
+| Class         | Badge  | How it is recalled                                                                                                                             |
+| ------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `omnipresent` | purple | Always loaded. Full body text is rendered until a ~500-token budget is spent, after which remaining entries degrade to their description only. |
+| `pattern`     | blue   | Loaded when one of its trigger patterns appears (case-insensitively) in the user's message.                                                    |
+| `on-demand`   | grey   | The class the vector search covers: the 5 nearest by cosine distance to the query embedding.                                                   |
+
+The selected memories are serialized into a slash-keyed tree (`[/preferences/style] Be concise …`), with subtrees of more than three entries collapsed to a `[... n more here]` line.
+
+## Recall at chat time
+
+Before the model runs, the route embeds **only the last user message** and calls `recallMemory`. If the resulting context block is non-empty it is prepended as its own system message:
+
+```text
+## Relevant Memory
+[/contact/preferences/style] Prefers short, bulleted answers.
+[/contact/history] Asked about enterprise pricing twice ...
+```
+
+`recallMemory` races the engine against a 5-second timeout and catches everything: on timeout, on a provider error, on a missing API key, it returns an empty string and no memory system message is added. The conversation proceeds normally and nothing is surfaced to the visitor or logged as a chat failure — so a silently context-free agent is the expected symptom of a broken memory backend, not an error.
+
+<Callout type="note" title="Memory does not use your BYO-LLM provider">
+  The memory engine constructs its own OpenAI clients directly from
+  `OPENAI_API_KEY` — `gpt-4o-mini` for extraction and reconciliation,
+  `text-embedding-3-small` (1536 dimensions) for every embedding. It does not go
+  through the tenant provider routing described in [Bring your own
+  LLM](/docs/platform/bring-your-own-llm). A workspace on Anthropic or a local
+  model still needs a platform OpenAI key for memory to function.
+</Callout>
+
+## Where memory is wired in
+
+Recall and ingest are called from exactly one place: the public agent chat route, `apps/web/app/api/public/agents/[agentId]/chat/route.ts`. That covers the public share link and the embedded [web widget](/docs/deploy/web-widget).
+
+<Callout
+  type="warning"
+  title="The dashboard chat panel does not exercise memory"
+>
+  `/api/agents/[id]/chat` — the authenticated preview chat inside the agent
+  dashboard — contains no memory code at all. Neither do the hook endpoints, the
+  WhatsApp/Instagram inbox handler, or the Chatwoot handler. Testing memory by
+  chatting in the dashboard will capture nothing, recall nothing, and produce no
+  pending mutations no matter how long you wait. Use the agent's public link or
+  the embedded widget instead.
+</Callout>
+
+## Background jobs
+
+Both endpoints are `POST`-only, authenticate with a plain shared secret, and allow up to 5 minutes of execution:
+
+```bash
+curl -X POST https://your-host/api/cron/memory-observe \
+  -H "x-cron-secret: $CRON_SECRET"
+# {"ok":true,"processed":7}
+
+curl -X POST https://your-host/api/cron/memory-reconcile \
+  -H "x-cron-secret: $CRON_SECRET"
+# {"ok":true,"processed":12,"mutated":2}
+```
+
+A missing or wrong `x-cron-secret` returns `401`. Both handlers swallow engine errors and report zeros rather than failing, so a `200` with `processed: 0` is the normal signal for "nothing was ready" _and_ for "the LLM call failed" — check server logs to tell them apart.
+
+Run observe before reconcile; hourly for both is a reasonable starting point given the 2-hour idle cooldown. The repository ships no scheduler definition — wire the endpoints to Cloud Scheduler, a Kubernetes CronJob, or any cron that can send a header. `CRON_SECRET` is a required environment variable; see [Environment variables](/docs/self-host/environment-variables).
+
+## Storage and isolation
+
+The `hybrid_memories`, `hybrid_observations`, `hybrid_mutations`, `hybrid_message_embeddings`, and `hybrid_processed_conversations` tables are created by migration `0020`. Because `scope_id` holds an **agent** id rather than a tenant id, the standard tenant-GUC policies cannot apply: RLS is enabled on these tables with _no_ policies, which denies the `vibesboard_app` role outright. All memory access therefore runs on the `BYPASSRLS` migrate client, and isolation is enforced in application code instead — the API routes call `canEditAgent` first, scope every query by agent id, and the approve/reject route re-checks that the mutation belongs to the agent before acting. This is a deliberate exception to the model described in [Multi-tenancy & RLS](/docs/platform/multi-tenancy-and-rls); treat any new memory query as security-sensitive and scope it explicitly.
+
+<Cards>
+  <Card href="/docs/build/knowledge-base-rag" title="Knowledge base & RAG">
+    Ground an agent in documents you upload, rather than facts it inferred.
+  </Card>
+  <Card href="/docs/deploy/web-widget" title="Web widget">
+    The embedded chat surface where recall and ingest actually run.
+  </Card>
+  <Card href="/docs/platform/multi-tenancy-and-rls" title="Multi-tenancy & RLS">
+    How the rest of the platform enforces isolation at the database layer.
+  </Card>
+</Cards>

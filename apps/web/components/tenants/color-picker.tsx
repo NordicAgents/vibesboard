@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -12,6 +11,12 @@ interface ColorPickerProps {
   disabled?: boolean
 }
 
+// Fully controlled by `value` — no internal state. This used to seed a local
+// `color` state from `value` once at mount, which silently froze the swatch
+// and text input whenever the parent's value changed afterward (e.g. an
+// async branding fetch resolving after mount, or a "Reset to Defaults"
+// click), while anything reading the parent's own state directly (like a
+// live preview panel) updated correctly — a visible desync between the two.
 export function ColorPicker({
   label,
   value,
@@ -19,13 +24,6 @@ export function ColorPicker({
   id,
   disabled
 }: ColorPickerProps) {
-  const [color, setColor] = useState(value)
-
-  const handleChange = (newColor: string) => {
-    setColor(newColor)
-    onChange(newColor)
-  }
-
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
@@ -33,8 +31,8 @@ export function ColorPicker({
         <div className="relative">
           <input
             type="color"
-            value={color}
-            onChange={e => handleChange(e.target.value)}
+            value={value}
+            onChange={e => onChange(e.target.value)}
             disabled={disabled}
             className="h-10 w-20 cursor-pointer rounded border border-input disabled:cursor-not-allowed disabled:opacity-50"
             id={id}
@@ -42,8 +40,8 @@ export function ColorPicker({
         </div>
         <Input
           type="text"
-          value={color}
-          onChange={e => handleChange(e.target.value)}
+          value={value}
+          onChange={e => onChange(e.target.value)}
           placeholder="#000000"
           pattern="^#[0-9A-Fa-f]{6}$"
           className="flex-1 font-mono"

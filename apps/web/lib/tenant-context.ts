@@ -14,6 +14,7 @@ import {
   type TenantBrandingDocument
 } from '@vibesboard/contracts'
 import { isUuid } from '@vibesboard/utils'
+import { isSuperAdmin } from '@vibesboard/policy/permissions'
 
 /** Lightweight member summary for display in the tenant switcher */
 export interface MemberSummary {
@@ -125,13 +126,22 @@ export async function getUserTenants(
 }
 
 /**
- * Tenants the user can administer (member with TENANT_ADMIN or SUPER_ADMIN
- * role). Mirrors getUserTenants with a role filter — used by the settings
- * layout to decide which workspaces are manageable.
+ * Tenants the user can administer: every tenant they're a member of, if
+ * they hold TENANT_ADMIN/SUPER_ADMIN in that tenant's own membership row —
+ * OR every tenant they're a member of at all, if they're a platform super
+ * admin (users.isSuperAdmin). The API layer (requireSuperAdmin(), used by
+ * e.g. /api/tenants/[id]/config) already grants a platform super admin full
+ * access to any tenant's config regardless of their per-tenant role, so this
+ * must agree — otherwise the settings layout's workspace switcher and its
+ * "no admin access" banner disagree with what the user can actually do.
+ * Mirrors getUserTenants with a role filter — used by the settings layout to
+ * decide which workspaces are manageable.
  */
 export async function getManageableTenants(
   userId: string
 ): Promise<TenantDocument[]> {
+  const isPlatformSuperAdmin = await isSuperAdmin(userId)
+
   const rows = await getMigrateDb()
     .select({
       id: tenantsTable.id,
@@ -150,10 +160,12 @@ export async function getManageableTenants(
       eq(tenantsTable.id, tenantMembersTable.tenantId)
     )
     .where(
-      and(
-        eq(tenantMembersTable.userId, userId),
-        inArray(tenantMembersTable.role, ['SUPER_ADMIN', 'TENANT_ADMIN'])
-      )
+      isPlatformSuperAdmin
+        ? eq(tenantMembersTable.userId, userId)
+        : and(
+            eq(tenantMembersTable.userId, userId),
+            inArray(tenantMembersTable.role, ['SUPER_ADMIN', 'TENANT_ADMIN'])
+          )
     )
     .orderBy(desc(tenantsTable.createdAt))
 

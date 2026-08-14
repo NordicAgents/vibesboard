@@ -22,11 +22,11 @@ interface AgentVersion {
   createdBy: string | null
   createdByName: string | null
   createdAt: string
+  isCurrent: boolean
 }
 
 interface AgentVersionHistoryTabProps {
   agentId: string
-  currentVersion: number
   canEdit: boolean
 }
 
@@ -41,7 +41,6 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export function AgentVersionHistoryTab({
   agentId,
-  currentVersion,
   canEdit
 }: AgentVersionHistoryTabProps) {
   const router = useRouter()
@@ -162,7 +161,7 @@ export function AgentVersionHistoryTab({
                         <Badge variant="secondary" className="text-xs">
                           {SOURCE_LABELS[v.source] ?? v.source}
                         </Badge>
-                        {v.versionNo === currentVersion && (
+                        {v.isCurrent && (
                           <Badge className="bg-green-500 text-xs text-white dark:bg-green-600">
                             Current
                           </Badge>
@@ -185,7 +184,7 @@ export function AgentVersionHistoryTab({
                       </div>
                     </div>
                   </div>
-                  {canEdit && v.versionNo !== currentVersion && (
+                  {canEdit && !v.isCurrent && (
                     <Button
                       variant="outline"
                       size="sm"

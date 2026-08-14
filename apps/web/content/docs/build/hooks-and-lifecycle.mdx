@@ -1,0 +1,219 @@
+---
+title: 'Hooks & lifecycle'
+description: 'Run custom logic at points in an agent conversation.'
+---
+
+# Hooks & lifecycle
+
+A hook is a secret-authenticated HTTP endpoint that lets something outside the product talk to one of your agents — a backend service, a cron job, a script, or another agent. The direction is **inbound**: your system calls Vibesboard with a message, and the agent answers. Each hook belongs to exactly one agent, carries its own secret, and can be disabled or deleted without touching the agent itself.
+
+<Callout type="warning" title="Not an event-subscription system">
+  Despite the name, hooks do not fire on conversation lifecycle events — there
+  is no "on message", "on handoff", or "on conversation ended" to subscribe to.
+  The only outbound call this system makes is the completion callback for an
+  *async job* you explicitly submitted. For an agent calling out to your systems
+  mid-conversation, see [Data actions &
+  tools](/docs/build/data-actions-and-tools) and
+  [Webhooks](/docs/integrate/webhooks).
+</Callout>
+
+## What a hook gives you
+
+Creating a hook produces two things: a hook ID (a UUID, visible in the UI) and a 32-character secret (shown exactly once). Together they unlock four endpoints:
+
+| Endpoint                               | Purpose                                                      |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `POST /api/hooks/{hookId}/chat`        | Send a message, block until the agent replies, get JSON back |
+| `POST /api/hooks/{hookId}/async`       | Queue the work, get a job ID now, receive a signed callback  |
+| `POST /api/hooks/{hookId}/stream`      | Same as `/chat`, streamed back as server-sent events         |
+| `GET /api/hooks/{hookId}/jobs/{jobId}` | Poll the status and result of an async job                   |
+
+None of them use a session — no cookie, no user account, no tenant slug in the path. The secret is the only credential, and it resolves the tenant and agent on its own.
+
+## Creating a hook
+
+<Steps>
+<Step title="Open the agent's Integrations tab">
+
+In the agent builder, go to the **Integrations** tab and open the **API Hooks** card. The **Hooks** panel lists every existing hook with its ID, status badge, request count, and last-used time.
+
+</Step>
+<Step title="Create it">
+
+Click **New Hook** and give it a label (1–100 characters). The label is only for your own bookkeeping — it has no effect on the API.
+
+</Step>
+<Step title="Save the secret">
+
+The **Hook Created — Save Your Secret** dialog shows the hook ID and the secret key with a **Copy** button. This is the only time the secret is displayed.
+
+</Step>
+</Steps>
+
+The equivalent API call needs a session cookie and edit rights on the agent (`403` otherwise):
+
+```bash
+curl -X POST https://<your-host>/api/agents/<AGENT_ID>/hooks \
+  -H "Content-Type: application/json" -H "Cookie: <session cookie>" \
+  -d '{ "name": "Negotiation Service" }'
+```
+
+The response is `201` with the created hook (`id`, `name`, `status`, `requestCount`) alongside a top-level `secretKey` — the one and only time the raw secret is returned.
+
+<Callout type="warning" title="If you lose the secret, recreate the hook">
+  Only a SHA-256 hash of the secret is stored — nothing can show it again, and
+  there is no rotate or reset endpoint. Recovery means deleting the hook and
+  creating a new one, which changes the hook ID too, so every caller must be
+  updated.
+</Callout>
+
+## Authenticating a call
+
+Pass the secret in the `X-Hook-Secret` header. Every runtime endpoint checks, in order: the header is present (`401 Missing X-Hook-Secret header`), the hook ID exists, its status is `active`, and the secret matches. The last three failures all return the same plain-text `401 Unauthorized`, so a caller can't tell a wrong ID from a wrong secret or a disabled hook. The comparison itself is timing-safe. Other statuses: `400` for a body that isn't valid JSON, `422` with `{ "error": "Invalid request", "details": ... }` for a body that fails validation, `404` if the hook's agent has since been deleted, and — on `/chat` and `/stream` — `429` with `{ "error": "usage_limit_reached", ... }` when the workspace has spent its monthly message allowance.
+
+## Synchronous chat
+
+```bash
+curl -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
+  -d '{ "message": "What is the lead time on order 4471?", "externalUserId": "crm-user-8823" }'
+```
+
+```json
+{
+  "reply": "Order 4471 ships in 3 business days.",
+  "conversationId": "01927f40-1a2b-7c3d-9e4f-5a6b7c8d9e0f",
+  "agentId": "01927f2e-5d1a-7b88-9f01-2c3d4e5f6a7b",
+  "hookId": "01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42"
+}
+```
+
+`message` is required, trimmed, and capped at 10,000 characters. `externalUserId` (optional, 1–256 characters, no dots) identifies the end user on your side. `conversationId` (optional) resumes a specific thread; it must belong to the same agent and the same `externalUserId`, or the request fails. The `reply` has the agent's internal completion markers stripped out.
+
+<Callout type="note" title="Omitting externalUserId shares one thread">
+  With neither `conversationId` nor `externalUserId`, the conversation is keyed
+  by the hook ID itself — every anonymous call through that hook lands in the
+  *same* thread with one shared history. Send a stable `externalUserId` per end
+  user unless that is genuinely what you want.
+</Callout>
+
+`agentId` in the response is the agent that actually produced the reply, not necessarily the hook's own agent: `/chat` runs the agent-to-agent handoff loop (up to 5 hops) and reports the last agent in the chain. `/async` and `/stream` do not hand off.
+
+## Async jobs
+
+Use `/async` when the reply may take longer than your caller wants to wait. It returns `202` immediately, runs the agent in the background, and `POST`s the result to your `callbackUrl`.
+
+```bash
+curl -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/async \
+  -H "Content-Type: application/json" \
+  -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
+  -d '{ "message": "Summarise account 4471.", "callbackUrl": "https://example.com/vibesboard/callback", "externalUserId": "crm-user-8823" }'
+```
+
+The `202` body is `jobId`, `status: "pending"`, `agentId`, and `hookId` — no reply yet. The workspace usage limit is checked when the job runs rather than at submission, so an over-limit async call is accepted and then fails with a `Usage limit reached` error. Poll it at any time with the same secret:
+
+```bash
+curl -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
+  https://<your-host>/api/hooks/01927f3c-.../jobs/01927f44-77aa-7bcd-8123-9e0f1a2b3c4d
+```
+
+The poll response carries `status` (`pending`, `running`, `completed`, or `failed`), `reply` or `error` once it has finished, `conversationId`, `callbackAttempts`, `callbackStatus` (the HTTP status of the last delivery attempt), and whichever of the `createdAt` / `startedAt` / `completedAt` / `failedAt` timestamps are set.
+
+### The callback contract
+
+Your endpoint receives a `POST` with `Content-Type: application/json` and two extra headers: `X-Hook-Signature` (hex HMAC-SHA256 of the exact request body, keyed by the hook secret) and `X-Hook-Attempt` (`1`, `2`, or `3`).
+
+```json
+{
+  "jobId": "01927f44-77aa-7bcd-8123-9e0f1a2b3c4d",
+  "hookId": "01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42",
+  "agentId": "01927f2e-5d1a-7b88-9f01-2c3d4e5f6a7b",
+  "status": "completed",
+  "reply": "Account 4471 has three open tickets...",
+  "conversationId": "01927f40-1a2b-7c3d-9e4f-5a6b7c8d9e0f"
+}
+```
+
+A failed job sends the same shape with `"status": "failed"`, an `error` string, and `conversationId` possibly `null`.
+
+Verify the signature over the **raw** body, before parsing — re-serializing the JSON will not reproduce the same bytes:
+
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+function verify(rawBody, signature, hookSecret) {
+  const expected = createHmac('sha256', hookSecret)
+    .update(rawBody)
+    .digest('hex')
+  const a = Buffer.from(expected, 'hex')
+  const b = Buffer.from(signature, 'hex')
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+```
+
+### Retries, back-off, and timeouts
+
+- **3 delivery attempts** at most, each with a **10-second** timeout. Anything that isn't a `2xx` — including a connection error or timeout — counts as a failure.
+- Back-off between attempts is **1 second**, then **2 seconds**.
+- Only the _success_ callback retries. A failure callback is sent once, as attempt `1`, and is never retried.
+- After the third failure the job itself stays `completed` and only a server-side log records the miss, so `callbackAttempts` / `callbackStatus` on the job are your signal — poll if delivery matters. Make your receiver idempotent on `jobId`: a slow `2xx` past the 10-second timeout is still retried.
+
+### Callback URL restrictions
+
+`callbackUrl` must parse as a URL (checked at request time, `422` otherwise) and is re-checked in the background before the agent runs. That second check rejects:
+
+- schemes other than `http:` and `https:`
+- `localhost`, `127.0.0.1`, `::1`, and any `*.localhost` hostname
+- literal private IPv4 ranges — `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+- link-local addresses `169.254.0.0/16`, including the `169.254.169.254` metadata endpoint
+
+<Callout type="note" title="A rejected callback URL surfaces as a failed job">
+  Because that check runs after the response is sent, the request still returns
+  `202`. The job is then marked `failed` with the rejection reason as its
+  `error`, and no callback is delivered at all — poll the job to see it.
+  Delivery itself also goes through the platform's DNS-resolving `safeFetch`,
+  which refuses public hostnames resolving to private addresses and re-validates
+  every redirect hop.
+</Callout>
+
+## Streaming
+
+`/stream` takes the same body as `/chat` (no `callbackUrl`) and returns `text/event-stream`. Token chunks arrive as `data:` events; the stream ends with a `[DONE]` event carrying the metadata, or an `[ERROR]` event if the run failed. The response also sets `x-conversation-id` and `x-agent-id` headers, so you have the conversation ID before the first token.
+
+```bash
+curl -N -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/stream \
+  -H "Content-Type: application/json" \
+  -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
+  -d '{ "message": "Draft a reply to the customer.", "externalUserId": "crm-user-8823" }'
+```
+
+```text
+data: Sure, here's a draft
+data: [DONE] {"conversationId":"01927f40-1a2b-7c3d-9e4f-5a6b7c8d9e0f","agentId":"01927f2e-5d1a-7b88-9f01-2c3d4e5f6a7b","hookId":"01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42"}
+```
+
+## Disabling and deleting
+
+The power icon on a hook row toggles it between `active` and `inactive` (`PATCH /api/agents/{agentId}/hooks/{hookId}` with `{ "status": "inactive" }`). An inactive hook's `/chat`, `/async`, and `/stream` calls return `401` immediately; the job-poll endpoint checks only the secret, so results of jobs submitted while it was active stay readable.
+
+The trash icon deletes it (`DELETE`, `204`), after a confirmation warning that any external service using it loses access immediately. Deletion is permanent — the secret can't be recovered and the hook ID is not reissued. Disable instead if you only want to pause an integration.
+
+## Security notes
+
+- Treat the secret like a password: it grants message-level access to that agent with no user login, no per-hook rate limit, and no IP restriction.
+- Store it server-side. Never ship it into a browser or mobile app — use the [web widget](/docs/deploy/web-widget) for public-facing chat instead.
+- Rotation means recreating: create the replacement hook, migrate callers to the new ID and secret, then delete the old one.
+- Hook traffic is metered against the workspace's usage limits, and each hook tracks its own request count and last-used timestamp — a hook you don't recognise being used is worth deleting.
+- The callback signature is keyed by the hook secret, so anyone who can verify callbacks can also call the hook. Keep the verifying service inside the same trust boundary as the caller.
+
+## Related
+
+<Cards>
+  <Card href="/docs/build/data-actions-and-tools" title="Data actions & tools">
+    The outbound direction — an agent calling your systems mid-conversation.
+  </Card>
+  <Card href="/docs/integrate/webhooks" title="Webhooks">
+    Outbound data-action webhooks and the fixed inbound channel receivers.
+  </Card>
+</Cards>
