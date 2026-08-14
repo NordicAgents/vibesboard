@@ -20,7 +20,10 @@ export class InMemoryHybridStore implements HybridStore {
   private observations = new Map<string, Observation>()
   private mutations = new Map<string, PendingMutation>()
   private messageEmbeddings = new Map<string, { embedding: number[]; content: string; ctx: EngineContext; createdAt: Date }>()
-  private processedConversations = new Set<string>()
+  // Watermark, not a "seen" flag: the time a conversation was last observed.
+  // A Set here meant a conversation that resumed after being observed was
+  // never revisited. Mirrors processed_at in the Postgres store.
+  private processedConversations = new Map<string, Date>()
 
   // ── Memories ────────────────────────────────────────────────────────────────
 
@@ -109,7 +112,6 @@ export class InMemoryHybridStore implements HybridStore {
 
     for (const [, entry] of this.messageEmbeddings) {
       const cid = entry.ctx.conversationId
-      if (this.processedConversations.has(cid)) continue
       if (scopeId && entry.ctx.scopeId !== scopeId) continue
       const existing = latest.get(cid)
       if (!existing || entry.createdAt > existing.lastAt) {
@@ -120,12 +122,17 @@ export class InMemoryHybridStore implements HybridStore {
       }
     }
     return [...latest.values()]
-      .filter(({ lastAt }) => lastAt < cutoff)
+      .filter(({ ref, lastAt }) => {
+        if (lastAt >= cutoff) return false
+        // Eligible again once there are messages newer than the last pass.
+        const processedAt = this.processedConversations.get(ref.conversationId)
+        return processedAt === undefined || lastAt > processedAt
+      })
       .map(({ ref }) => ref)
   }
 
   async markConversationProcessed(conversationId: string): Promise<void> {
-    this.processedConversations.add(conversationId)
+    this.processedConversations.set(conversationId, new Date())
   }
 
   // ── Message embeddings ───────────────────────────────────────────────────────
