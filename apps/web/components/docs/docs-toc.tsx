@@ -32,7 +32,7 @@ export function DocsToc({ headings }: { headings: DocHeading[] }) {
   if (headings.length === 0) return null
 
   return (
-    <nav className="sticky top-24">
+    <nav className="sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto">
       <p className="label-caps mb-3">On this page</p>
       <ul className="flex flex-col gap-2 border-l border-border-warm text-sm">
         {headings.map(heading => (

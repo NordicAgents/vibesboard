@@ -67,11 +67,17 @@ export async function createTeamWorkspace(
     const row = await db.transaction(async (tx) => {
       const inserted = await tx
         .insert(tenants)
+        // status was 'pending' here, a leftover from a removed billing-
+        // activation gate — nothing in this self-hosted build ever
+        // transitions a tenant out of 'pending', so every self-service team
+        // workspace was stuck showing "Pending" forever. Personal workspaces
+        // (on-user-create.ts) and admin-created tenants (admin.ts) already
+        // insert as 'active'; this now matches.
         .values({
           id: tenantId,
           name: input.name,
           slug: input.slug,
-          status: 'pending',
+          status: 'active',
           createdBy: input.userId,
           isPersonal: false,
         })

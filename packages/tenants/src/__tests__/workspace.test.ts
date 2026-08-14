@@ -22,7 +22,7 @@ describe('createTeamWorkspace', () => {
       expect(result.tenant.slug).toBe('acme-team')
       expect(result.tenant.name).toBe('Acme Team')
       expect(result.tenant.isPersonal).toBe(false)
-      expect(result.tenant.status).toBe('pending')
+      expect(result.tenant.status).toBe('active')
       expect(result.tenant.createdBy).toBe(userId)
       expect(typeof result.tenant.createdAt).toBe('string')
       expect(typeof result.tenant.updatedAt).toBe('string')

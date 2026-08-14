@@ -23,7 +23,7 @@ Google Sheets is one of the three destinations the [data actions](/docs/build/da
 - **`updateRow`** — backs the `update_record` tool. Reads the header row to locate the key column, scans that column for a matching value, then batch-updates only the fields provided for that row.
 - **`testConnection`** — a lightweight `GET` of the spreadsheet's title, used by the connection's **Test** button and `POST /api/data/connections/[id]/test`.
 
-It does **not** implement the interface's optional `queryRows` or `deleteRow` methods. If an agent's data action has `allowQuery` or `allowDelete` turned on, the resulting `query_records` / `delete_record` tool calls hit the "is not supported by this data provider" branch for a Google Sheets connection — see the callout on the [Data actions & tools](/docs/build/data-actions-and-tools#tools-an-agent-can-get) page. In practice this means Sheets is a **write destination**: the sheet is read internally to find where to write (headers, key column), but there's no tool that returns spreadsheet contents back into the conversation.
+It does **not** implement the interface's optional `queryRows` or `deleteRow` methods. If an agent's data action has `allowQuery` or `allowDelete` turned on, the resulting `query_records` / `delete_record` tool calls hit the "is not supported by this data provider" branch for a Google Sheets connection — see the callout on the [Data actions & tools](/docs/build/data-actions-and-tools#data-sync) page. In practice this means Sheets is a **write destination**: the sheet is read internally to find where to write (headers, key column), but there's no tool that returns spreadsheet contents back into the conversation.
 
 ## Connect a spreadsheet
 
@@ -91,7 +91,7 @@ Most deployments reuse the same Google Cloud OAuth client as [Google Calendar](/
 
 ## Using it from an agent
 
-Once a connection has a real `spreadsheetId` and is selected in the agent's Data Sync settings, the mechanics — field mappings, `updateKeyField`, auto-submit-on-complete, the exact `submit_data`/`update_record` tool schemas — are the same for every provider and are documented in full on [Data actions & tools](/docs/build/data-actions-and-tools#tools-an-agent-can-get). The one Sheets-specific behavior worth knowing: header columns are derived from whatever keys the model sends, in the order they're first seen, and new keys extend the header row rather than failing — so a field-mapping typo doesn't error, it just adds a stray column.
+Once a connection has a real `spreadsheetId` and is selected in the agent's Data Sync settings, the mechanics — field mappings, `updateKeyField`, auto-submit-on-complete, the exact `submit_data`/`update_record` tool schemas — are the same for every provider and are documented in full on [Data actions & tools](/docs/build/data-actions-and-tools#data-sync). The one Sheets-specific behavior worth knowing: header columns are derived from whatever keys the model sends, in the order they're first seen, and new keys extend the header row rather than failing — so a field-mapping typo doesn't error, it just adds a stray column.
 
 ## Next steps
 
