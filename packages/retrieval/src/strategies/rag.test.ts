@@ -64,6 +64,43 @@ describe('RagRetriever.build — tool exposure', () => {
     expect(tool.function.parameters.properties).toHaveProperty('limit')
   })
 
+  it('does NOT expose file_search when the File search toggle is off', async () => {
+    // Regression: this retriever injected file_search purely on "agent has
+    // files", and it wins the name-collision merge in buildAgentContext — so
+    // the Knowledge tab switch had no effect at all under the RAG strategy.
+    const r = new RagRetriever(
+      cfg({ fileKeys: ['k1'], fileSearchEnabled: false })
+    )
+    const result = await r.build()
+    expect(result.tools).toEqual([])
+    expect(searchAgentFileChunks).not.toHaveBeenCalled()
+  })
+
+  it('treats an omitted fileSearchEnabled as enabled', async () => {
+    const r = new RagRetriever(cfg({ fileKeys: ['k1'] }))
+    const result = await r.build()
+    expect(result.tools).toHaveLength(1)
+  })
+
+  it('still returns source-URL context when the toggle is off', async () => {
+    // Source URLs are context, not a file tool, so disabling file search
+    // must not silently drop them.
+    fetchUrlContent.mockResolvedValue(
+      urlOk('https://example.com', 'Example', 'url body text')
+    )
+    const r = new RagRetriever(
+      cfg({
+        fileKeys: ['k1'],
+        sourceUrls: ['https://example.com'],
+        fileSearchEnabled: false
+      })
+    )
+    const result = await r.build()
+    expect(result.tools).toEqual([])
+    expect(result.contextText).toContain('url body text')
+    expect(result.sources).toContain('https://example.com')
+  })
+
   it('never pre-loads file content into context even when files exist', async () => {
     const r = new RagRetriever(cfg({ fileKeys: ['k1', 'k2'] }))
     const result = await r.build()
