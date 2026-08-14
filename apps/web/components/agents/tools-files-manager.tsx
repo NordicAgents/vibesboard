@@ -631,7 +631,9 @@ export function ToolsFilesManager({
               e.target.value = '' // Reset input
             }}
             className="hidden"
-            accept=".pdf,.txt,.doc,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.tiff,.tif,.svg,.xlsx,.xls,.ppt,.pptx,.html,.htm"
+            /* Mirrors ACCEPTED_UPLOAD_MIME_TYPES. .doc/.xls/.ppt/.pptx are
+               excluded deliberately — no extractor can read them. */
+            accept=".pdf,.txt,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.tiff,.tif,.svg,.xlsx,.html,.htm"
           />
 
           {/* Drag and drop area */}
