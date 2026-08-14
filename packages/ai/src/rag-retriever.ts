@@ -12,6 +12,19 @@ import { resolveEmbedder } from './tenant-llm-config.ts'
 
 export interface RetrievalConfig {
   topK?: number
+  /**
+   * Cosine-similarity floor for vector results, 0..1. Chunks scoring below it
+   * are dropped, so an unrelated question can retrieve nothing rather than
+   * the least-bad matches in the corpus.
+   *
+   * Applies to vector search only — keyword-fallback rows carry no comparable
+   * score (`similarity: null`) and are never filtered by it.
+   *
+   * Defaults to no floor. A sensible production value depends on the
+   * embedding model and the corpus, so it is left to the caller rather than
+   * guessed here: raising it blindly silently starves retrieval, and lowering
+   * it does nothing.
+   */
   minSimilarity?: number
   enableFallback?: boolean
   maxContextChars?: number
@@ -44,10 +57,25 @@ export async function retrieveContext(
   query: string,
   config: RetrievalConfig = {}
 ): Promise<RAGContext> {
-  const { topK = 5, enableFallback = true, maxContextChars = 6000 } = config
+  const {
+    topK = 5,
+    enableFallback = true,
+    maxContextChars = 6000,
+    minSimilarity
+  } = config
 
   // 1. Try vector search first
-  const vectorResults = await vectorSearch(tenantId, agentId, query, topK)
+  const rawVectorResults = await vectorSearch(tenantId, agentId, query, topK)
+
+  // Apply the relevance floor before deciding whether vector search "found"
+  // anything, so a set of matches that are all below it falls through to the
+  // keyword fallback rather than returning weak results.
+  const vectorResults =
+    minSimilarity == null
+      ? rawVectorResults
+      : rawVectorResults.filter(
+          chunk => chunk.similarity != null && chunk.similarity >= minSimilarity
+        )
 
   if (vectorResults.length > 0) {
     return buildRAGContext(vectorResults, maxContextChars, true)
