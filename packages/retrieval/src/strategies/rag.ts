@@ -46,8 +46,13 @@ export class RagRetriever implements Retriever {
       }
     }
 
-    // Only provide the file_search tool if there are actual files to search
-    if (this.config.fileKeys.length === 0) {
+    // No tool when there is nothing to search, or when the operator turned
+    // File search off. This retriever used to inject file_search purely on
+    // "does the agent have files", overriding the built-in toolkit by name —
+    // so the Knowledge tab's switch appeared to do nothing under RAG. Source
+    // URLs above are unaffected; they are context, not a file tool.
+    const fileSearchEnabled = this.config.fileSearchEnabled ?? true
+    if (this.config.fileKeys.length === 0 || !fileSearchEnabled) {
       return {
         contextText: parts.length > 0 ? parts.join('\n\n---\n\n') : '',
         tools: [],
