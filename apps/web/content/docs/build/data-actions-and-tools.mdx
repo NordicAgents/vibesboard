@@ -1,0 +1,215 @@
+---
+title: 'Data actions & tools'
+description: 'Connect agents to webhooks, data sources, and external tools.'
+---
+
+# Data actions & tools
+
+Three unrelated mechanisms decide what an agent can actually call during a conversation. They live in different tabs, are gated differently, and only one of them is a plain on/off switch — so "the agent won't use the tool" usually means you're looking at the wrong mechanism.
+
+| Mechanism      | Tools                                                                             | Where it's configured                   | How it's granted                                       |
+| -------------- | --------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------ |
+| Built-in tools | `web_fetch`, `file_search`                                                        | Knowledge tab → Tools & files           | Two toggles, saved onto the agent's `tools` array      |
+| Bash sandbox   | `bash`                                                                            | Right sidebar → File Retrieval Strategy | Implicit — never a toggle (see below)                  |
+| Actions        | `check_availability`, `book_appointment`, `create_booking`, `submit_data`, others | Actions tab                             | Per-capability config, behind the `AGENT_ACTIONS` flag |
+
+## Built-in tools
+
+`BUILTIN_AGENT_TOOLS` lists three entries — `builtin:web_fetch`, `builtin:file_search`, and `builtin:bash` — but only the first two have a registered factory. The bash entry is deliberately a no-op (`'builtin:bash': () => null // injected by BashRetriever, not via agent tools array`), so putting it in an agent's `tools` array does nothing.
+
+`deriveToolToggles` and `buildToolsPayload` only ever read and write those same two types. **Web Fetch and File search are the only user-facing tool switches in the product.** Everything else is derived from other configuration.
+
+### Web Fetch
+
+The **Web Fetch** switch (Knowledge tab, described in the UI as "Let the agent fetch content from provided URLs when it needs extra context") registers a `web_fetch` tool taking a single required `url` argument. It returns a flat text block — `URL:`, an optional `Title:` (truncated to 200 characters) and `Description:` (300), then `Content:`.
+
+| Limit                | Value                                                                     |
+| -------------------- | ------------------------------------------------------------------------- |
+| Request timeout      | 10 s                                                                      |
+| Redirects            | 3, each hop re-validated                                                  |
+| Raw HTML read        | 3 MB cap before parsing                                                   |
+| Extracted text       | 8,000 characters, then truncated with `...`                               |
+| Stripped elements    | `script`, `style`, `noscript`, `iframe`, `svg`, `path`                    |
+| Network restrictions | `safeFetch` DNS-resolves every hop and rejects private/loopback addresses |
+
+<Callout type="note" title="Source URLs are not the same thing">
+  The **Source URLs** list under the same toggle (max 5) is pre-fetched into the
+  system context on every turn — it doesn't need `web_fetch` enabled and isn't a
+  tool call. `web_fetch` is for URLs the model decides to visit
+  mid-conversation.
+</Callout>
+
+### File search
+
+The **File search** switch registers a `file_search` tool (`query` required, `limit` defaulting to 8) over the agent's uploaded files. Its actual behavior — and whether it survives to the model at all — depends on the agent's retrieval strategy, chosen from the **File Retrieval Strategy** card in the agent's right sidebar:
+
+- **Direct** — files are pre-loaded into context, up to 18,000 characters (60% of the 30,000-character budget), smallest file first. If everything fit and the agent has at least one file, `file_search` is **removed from the toolkit even when the toggle is on** — there is nothing left to search for. It only survives when some file overflowed the budget.
+- **RAG** — the retriever injects its own semantic `file_search` whenever the agent has at least one file. Retriever-provided tools take precedence over the toolkit by name, so **RAG agents get `file_search` whether or not the toggle is on**.
+- **Bash** — see below.
+
+## The bash sandbox tool
+
+The bash tool is never toggled on. It is granted when both of these are true:
+
+1. The agent's retrieval strategy is **Bash** ("Give the agent shell commands to analyze files in a sandbox").
+2. The agent has at least one uploaded file that survives the cross-tenant file-key filter. With zero files, `BashRetriever` never constructs a sandbox and returns no tools at all.
+
+Files are written into an in-memory virtual filesystem at `/home/user/project/`, with names sanitised to `[a-zA-Z0-9._-]` (consecutive dots collapsed, leading dots stripped). A listing of the available paths is injected into the system context so the model knows what it can read.
+
+| Constraint          | Value                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Network access      | None                                                                                                                          |
+| Host filesystem     | None — `just-bash` virtual FS only, discarded after the turn                                                                  |
+| Available utilities | `grep`, `rg`, `awk`, `sed`, `head`, `tail`, `cat`, `sort`, `uniq`, `wc`, `cut`, `tr`, `jq`, `xan`, `yq`, `find`, `ls`, `diff` |
+| Command length      | 4,000 characters — longer commands are silently **truncated**, not rejected                                                   |
+| Execution timeout   | 10 s per call                                                                                                                 |
+| stdout returned     | 8,000 characters                                                                                                              |
+| stderr returned     | 500 characters                                                                                                                |
+| Per-file content    | 200,000 characters, truncated on load                                                                                         |
+| Interpreter limits  | 50 call depth, 500 commands, 5,000 loop / awk / sed iterations                                                                |
+
+Files written during one `bash` call remain visible to later `bash` calls in the same turn; the sandbox is disposed once the response stream finishes.
+
+<Callout type="tip" title="Best for structured data">
+  The UI recommends Bash for CSV, JSON, YAML, and other structured files — it
+  lets the model `jq` or `awk` a large file instead of paying for the whole
+  thing in context.
+</Callout>
+
+## Actions
+
+Actions are the configured, external-side-effect tools: calendars, bookings, and data destinations.
+
+<Callout type="warning" title="Off by default">
+  Actions are gated by the `AGENT_ACTIONS` feature flag ("Allow agents to run
+  actions and tools"), which is in the disabled-by-default set. A workspace
+  admin enables it from tenant settings → **Features**. Until then the
+  **Actions** tab isn't rendered, a `?tab=actions` deep link is clamped back to
+  Setup, and `injectActionTools` returns early server-side — the agent runs with
+  zero action tools no matter how its scheduling or data config looks.
+</Callout>
+
+### The Actions tab
+
+The tab opens on a **Choose Capabilities** card with four options, each carrying a status badge; selecting one reveals its configuration panel below.
+
+| Capability            | Purpose                                                                        | Action module  |
+| --------------------- | ------------------------------------------------------------------------------ | -------------- |
+| **Simple Booking**    | Resort or property booking across one or many resource calendars (recommended) | `booking`      |
+| **Scheduling**        | Meetings and 1:1 appointment booking — separate from room booking              | `appointments` |
+| **Availability Only** | Legacy single-resource availability check for one calendar                     | `booking`      |
+| **Data Sync**         | Optional — collecting or updating data elsewhere                               | `data`         |
+
+A capability that is configured but switched off shows **Configured · OFF** on the Simple Booking card, with an explicit warning that the agent has no booking tools until _Enable simple booking_ is on. That badge is the fastest way to spot a "why isn't it booking anything?" misconfiguration.
+
+### Scheduling (appointments)
+
+Requires an enabled scheduling config **and** a Google Calendar connection that still resolves. Configure default meeting duration, buffer between meetings, timezone, available hours and days, a meeting title template, a description, and whether to attach a Meet link. When it builds, the agent gets all five tools at once: `check_availability`, `book_appointment`, `reschedule_appointment`, `cancel_appointment`, and `list_appointments`.
+
+### Simple Booking
+
+Requires at least one bookable resource (name + calendar connection + calendar) before the **Enable simple booking** switch can be turned on. The mode selector controls how many tools the agent gets:
+
+| Mode                                                  | Tools                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------ |
+| **Enquiry** — guests submit requests for admin review | `check_booking_availability`, `create_booking`                     |
+| **Direct** — agent writes calendar events immediately | the above plus `list_bookings`, `update_booking`, `cancel_booking` |
+
+### Availability Only
+
+A legacy single-calendar path. It is converted internally into a booking action in enquiry mode with one synthetic resource — and only when Simple Booking isn't configured, since that takes precedence. Enabling both surfaces a warning in the panel: Availability Only is ignored at runtime.
+
+### Data Sync
+
+Requires an enabled data config pointing at a connection whose status is `active`. Three destination types are offered — **Google Sheets** (OAuth), **Airtable** (personal access token, base ID, table ID), and **Webhook**. Field mappings rewrite the model's keys to your target columns before the write.
+
+| Tool            | When it appears                                                     |
+| --------------- | ------------------------------------------------------------------- |
+| `submit_data`   | Always, once the connection resolves                                |
+| `update_record` | Only when an **Update Key Field** is set                            |
+| `query_records` | Only when `allowQuery` is set — the builder hardcodes it to `false` |
+| `delete_record` | Only when `allowDelete` is set — also hardcoded to `false`          |
+
+<Cards>
+  <Card href="/docs/integrate/google-sheets" title="Google Sheets">
+    OAuth connection, sheet and tab selection, and how rows are appended.
+  </Card>
+  <Card href="/docs/integrate/google-calendar" title="Google Calendar">
+    Connecting the calendar that scheduling and booking actions write to.
+  </Card>
+  <Card href="/docs/integrate/webhooks" title="Webhooks">
+    Request shapes, SSRF validation, and the authentication model.
+  </Card>
+</Cards>
+
+## How tools reach a chat turn
+
+`buildAgentContext` assembles the toolkit for every turn: it runs the retrieval strategy, merges any retriever-provided tools over the built-in ones (retriever wins on name collisions), prunes `file_search` where it's redundant, then calls `injectActionTools` to append the enabled action modules' tools. Which runtime executes them depends on the resolved model:
+
+- **Tenant LLM config** — tools are passed to the Vercel AI SDK with `stopWhen: stepCountIs(5)`, so up to five steps of tool calling per turn.
+- **Google provider** — bypasses the SDK to call the Gemini REST API directly, and **passes no tools at all**. Agents on a tenant Google config have no working tool calling on this path.
+- **Platform default model** — the Responses path executes only `decision.toolCalls[0]`, so **at most one tool call per turn**, then streams a final answer with the tool result pasted into the prompt.
+
+## When a tool fails
+
+This is the behavior most worth internalising before you debug anything.
+
+Tool executors return failures as **ordinary strings**, not exceptions:
+
+| Failure                     | What the model receives                  |
+| --------------------------- | ---------------------------------------- |
+| `web_fetch` network/SSRF    | `Error fetching <url>: <reason>`         |
+| `file_search` backend error | `File search error: <reason>`            |
+| `bash` non-zero exit        | `Command failed (exit 1): <stderr>`      |
+| `bash` timeout              | `Error: Command timed out after 10000ms` |
+| `submit_data` write error   | `Error submitting data: <reason>`        |
+
+If an executor does throw, both runtimes catch it: the SDK path returns `{ error: message }` as the tool result, and the Responses path substitutes `Tool <name> failed: <error>`. Either way the turn continues normally.
+
+<Callout type="warning" title="Failures never surface as a UI error state">
+  The chat response body is a **plain text stream** — no tool-call or tool-error
+  events are sent to the client at all. A failed tool is just a string the model
+  read, and the Responses path's final prompt ends with *"Do not mention
+  internal tool details."* So a broken webhook, an unreachable URL, or a
+  timed-out bash command typically shows up as a vague apology in the reply,
+  with a green, successful-looking request in the network tab.
+</Callout>
+
+To actually diagnose one:
+
+<Steps>
+<Step title="Check the server logs first">
+
+Tool failures are only visible server-side. `injectActionTools` logs `[actions] AGENT_ACTIONS flag off for tenant ...` when the flag is the cause, and `[actions] agent ... has no enabled actions — running with 0 action tools` when the config is.
+
+</Step>
+<Step title="Check data_action_logs for data actions">
+
+Every data action call records success or failure, the fields sent, and the error message, scoped to tenant, agent, and connection. A logging failure never blocks the response, so treat a missing row as "the tool was never called".
+
+</Step>
+<Step title="Confirm the tool was granted at all">
+
+A silent no-op is more often a missing grant than a runtime error: Actions flag off, no files uploaded for the bash strategy, `file_search` pruned because every file fit in context, or a Google-provider agent that receives no tools.
+
+</Step>
+<Step title="Test the connection directly">
+
+Data connections have a **Test** button in the Data Sync panel that exercises the provider outside a conversation, which separates a broken credential from a model that simply chose not to call the tool.
+
+</Step>
+</Steps>
+
+## Related
+
+<Cards>
+  <Card href="/docs/build/knowledge-base-rag" title="Knowledge base & RAG">
+    Retrieval strategies, indexing, and what `file_search` actually searches.
+  </Card>
+  <Card href="/docs/build/hooks-and-lifecycle" title="Hooks & lifecycle">
+    The separate inbound-invocation and HMAC-signed-callback system.
+  </Card>
+  <Card href="/docs/integrate/mcp-servers" title="MCP servers">
+    Connecting external tools over the Model Context Protocol.
+  </Card>
+</Cards>

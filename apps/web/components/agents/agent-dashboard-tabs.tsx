@@ -308,11 +308,7 @@ export function AgentDashboardTabs({
         )}
 
         <TabsContent value="history">
-          <AgentVersionHistoryTab
-            agentId={agent.id}
-            currentVersion={agent.currentVersion ?? 1}
-            canEdit={canEdit}
-          />
+          <AgentVersionHistoryTab agentId={agent.id} canEdit={canEdit} />
         </TabsContent>
 
         <TabsContent value="memory">
