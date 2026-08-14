@@ -263,10 +263,47 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
   return cleanText(String(content))
 }
 
+/**
+ * Formats the upload allow-list accepts but no extractor here can read.
+ *
+ * These must be rejected explicitly. The fallback at the end of
+ * extractTextFromBuffer lossily decodes whatever it is handed, and a binary
+ * container (an OLE document, a ZIP-based OOXML package) decodes to
+ * non-empty mojibake — which passes the "has extractable text" check and
+ * gets chunked, embedded and marked `indexed`. The file then looks
+ * searchable while contributing nothing but noise to retrieval.
+ *
+ * PPT/PPTX have no extractor at all. Legacy .doc/.xls are worse than
+ * missing: they route to mammoth/exceljs, which only understand the OOXML
+ * (ZIP) forms, so they fail with "Can't find end of central directory",
+ * which reads like corruption rather than an unsupported format.
+ */
+const UNSUPPORTED_MIME_TYPES: Record<string, string> = {
+  'application/vnd.ms-powerpoint': 'PowerPoint (.ppt)',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    'PowerPoint (.pptx)',
+  'application/msword': 'legacy Word (.doc)',
+  'application/vnd.ms-excel': 'legacy Excel (.xls)'
+}
+
+export class UnsupportedFileTypeError extends Error {
+  constructor(label: string) {
+    super(
+      `${label} files can't be read for search. Save it as PDF, DOCX, XLSX, or plain text and upload again.`
+    )
+    this.name = 'UnsupportedFileTypeError'
+  }
+}
+
 export const extractTextFromBuffer = async (
   buffer: Buffer,
   mimeType: string
 ): Promise<string> => {
+  const unsupported = UNSUPPORTED_MIME_TYPES[mimeType]
+  if (unsupported) {
+    throw new UnsupportedFileTypeError(unsupported)
+  }
+
   if (IMAGE_MIME_TYPES.has(mimeType)) {
     return extractTextFromImage(buffer, mimeType)
   }
@@ -295,18 +332,18 @@ export const extractTextFromBuffer = async (
     return extractFromPdf(buffer)
   }
 
+  // OOXML only — the legacy binary forms are rejected above, since mammoth
+  // and exceljs can only read the ZIP-based formats.
   if (
-    mimeType === 'application/msword' ||
     mimeType ===
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   ) {
     return extractFromDoc(buffer)
   }
 
   if (
-    mimeType === 'application/vnd.ms-excel' ||
     mimeType ===
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   ) {
     return extractFromWorkbook(buffer)
   }
@@ -344,7 +381,18 @@ export const ingestFileForAgent = async (args: {
   // Download from storage
   const buffer = await downloadFile(fileKey)
 
-  const text = await extractTextFromBuffer(buffer, mimeType)
+  let text: string
+  try {
+    text = await extractTextFromBuffer(buffer, mimeType)
+  } catch (err: any) {
+    // An unsupported format is a normal outcome, not a server fault: report
+    // it the same way as the other graceful failures so the file lands in
+    // `failed` with a reason the uploader can act on, rather than 500ing.
+    if (err instanceof UnsupportedFileTypeError) {
+      return { chunksInserted: 0, message: err.message }
+    }
+    throw err
+  }
 
   if (!text.trim()) {
     return {

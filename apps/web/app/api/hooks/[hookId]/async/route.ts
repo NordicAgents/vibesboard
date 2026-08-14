@@ -9,6 +9,7 @@ import {
 } from '@vibesboard/agents/hooks'
 import { getAgentById } from '@vibesboard/agents/server'
 import { createJob, runJobAsync } from '@vibesboard/agents/hook-jobs'
+import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 
 export const runtime = 'nodejs'
 
@@ -101,6 +102,25 @@ export async function POST(
   }
 
   const { message, callbackUrl, externalUserId, conversationId } = parsed.data
+
+  // ── 3b. Reject an unreachable callback before accepting the job ───────
+  // This same check runs again inside runJobAsync (and safeFetch re-validates
+  // after DNS resolution, which a literal check can't cover). Running it here
+  // too is what makes the 202 honest: previously a blocked URL — loopback,
+  // link-local, a private range — was accepted, and the caller got a job id
+  // and success for work that could never be delivered.
+  try {
+    assertSafeCallbackUrl(callbackUrl)
+  } catch (err) {
+    return NextResponse.json(
+      {
+        error: 'Invalid callbackUrl',
+        message:
+          err instanceof Error ? err.message : 'callbackUrl is not reachable'
+      },
+      { status: 422 }
+    )
+  }
 
   // ── 4. Create job ─────────────────────────────────────────────────────
   const job = await createJob({

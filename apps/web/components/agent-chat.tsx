@@ -20,6 +20,11 @@ import {
 import { cn } from '@vibesboard/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
+import {
+  ChatErrorBanner,
+  chatErrorFromResponse,
+  type ChatError
+} from '@/components/chat-error'
 import { EmptyScreen } from '@/components/empty-screen'
 import { nanoid } from '@vibesboard/utils'
 
@@ -90,6 +95,7 @@ export function AgentChat({
     )
   )
   const [isChatComplete, setIsChatComplete] = useState(isAgentDisabled)
+  const [chatError, setChatError] = useState<ChatError | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const hasAutoTriggered = useRef(false)
   const isCorrecting = useRef(false)
@@ -185,20 +191,28 @@ export function AgentChat({
     initialMessages: messagesToUse,
     onResponse(response: Response) {
       if (!response.ok) {
-        if (response.status === 403) {
-          response
-            .clone()
-            .json()
-            .then(data => {
-              if (data?.code === 'AGENT_LIMIT_REACHED') {
-                setIsAgentDisabled(true)
-                setIsChatComplete(true)
-              }
-            })
-            .catch(() => {})
-        }
+        const status = response.status
+        response
+          .clone()
+          .json()
+          .then(data => {
+            // The agent hitting its lifetime cap has its own dedicated
+            // banner and disables the composer, so it is not an error.
+            if (status === 403 && data?.code === 'AGENT_LIMIT_REACHED') {
+              setIsAgentDisabled(true)
+              setIsChatComplete(true)
+              return
+            }
+            setChatError(chatErrorFromResponse(status, data))
+          })
+          .catch(() => {
+            // Non-JSON body (a proxy error page, an empty 502) still has to
+            // surface — the status alone is enough to say something useful.
+            setChatError(chatErrorFromResponse(status, null))
+          })
         return
       }
+      setChatError(null)
       const headerId = response.headers.get('x-conversation-id')
       if (headerId) {
         setConversationId(headerId)
@@ -241,8 +255,27 @@ export function AgentChat({
     },
     onFinish(_message: unknown) {
       // Completion detection is handled in useEffect
+    },
+    onError(_error: Error) {
+      // Fires for transport-level failures onResponse never sees: the fetch
+      // rejecting outright, or the stream throwing partway through. The
+      // error's own message is SDK-internal, so it is deliberately not shown.
+      setChatError({
+        message: 'The connection dropped before the reply finished.',
+        retryable: true
+      })
     }
   })
+
+  // Sending anything new clears a previous failure, so a stale banner can't
+  // sit above a conversation that has since recovered.
+  const appendMessage = useCallback(
+    (message: Parameters<typeof append>[0], opts?: unknown) => {
+      setChatError(null)
+      return append(message, opts)
+    },
+    [append]
+  )
 
   // Auto-trigger first AI question in collector mode for new conversations
   useEffect(() => {
@@ -538,10 +571,22 @@ export function AgentChat({
 
       {/* Input panel */}
       <div className="row-start-3 min-h-0">
+        {chatError && (
+          <div className="mx-auto w-full max-w-[760px] px-4 pb-2">
+            <ChatErrorBanner
+              error={chatError}
+              onRetry={() => {
+                setChatError(null)
+                reload()
+              }}
+              onDismiss={() => setChatError(null)}
+            />
+          </div>
+        )}
         <ChatPanel
           isLoading={isLoading}
           stop={stop}
-          append={append}
+          append={appendMessage}
           reload={reload}
           messages={messages}
           input={input}
