@@ -1,17 +1,26 @@
 # Security
 
-Vibesboard is multi-tenant. Workspace isolation is enforced in the database, not
-only in application code.
+Vibesboard is multi-tenant. Workspace isolation is enforced with a combination
+of application-level tenant scoping and PostgreSQL row-level security.
 
 ## Tenant isolation
 
-- Tenant-owned tables use PostgreSQL row-level security and **fail closed**
-  without tenant context — a query issued outside `withTenant`/`withDb` returns
-  no rows rather than leaking across workspaces.
-- Two database roles are used: `vibesboard_app` (RLS enforced, normal requests)
-  and `vibesboard_migrate` (`BYPASSRLS`, migrations and trusted admin work).
-- Keep `DATABASE_MIGRATE_URL` out of normal request code; it bypasses tenant RLS
-  by design.
+- Tenant-owned tables define PostgreSQL row-level security policies that **fail
+  closed** without tenant context — a query issued through the RLS-enforced role
+  outside `withTenant`/`withDb` returns no rows rather than leaking across
+  workspaces.
+- Two database roles exist: `vibesboard_app` (RLS enforced) and
+  `vibesboard_migrate` (`BYPASSRLS`, for migrations and trusted admin work).
+- **Current caveat, being addressed:** a number of request paths still run
+  through the `vibesboard_migrate` (`BYPASSRLS`) connection, so today
+  application-level tenant checks (ownership/membership guards such as
+  `canEditAgent` and explicit tenant predicates) are the primary isolation
+  boundary on those paths, with RLS as defence in depth rather than the sole
+  guarantee. Moving ordinary request traffic fully onto the RLS-enforced role is
+  tracked work. Do not treat RLS alone as sufficient when adding a new
+  tenant-scoped query — include an explicit tenant check.
+- Keep `DATABASE_MIGRATE_URL` out of new request code; it bypasses tenant RLS by
+  design.
 
 See [`architecture.md`](architecture.md) for the connection model.
 

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { getAgentById } from '@vibesboard/agents/server'
+import { toPublicAgent } from '@vibesboard/contracts'
 import { PublicAgentExperience } from '@/components/agents/public-agent-experience'
 import { hasValidAccessCookie } from '@/lib/access-gate'
 import { GatedWidgetPage } from './gated-widget-page'
@@ -19,13 +20,16 @@ export default async function WidgetPage({
     notFound()
   }
 
+  // Strip to the public-safe subset before it crosses the client boundary.
+  const publicAgent = toPublicAgent(agent)
+
   if (agent.allowAnonymous) {
-    return <PublicAgentExperience agent={agent} embed />
+    return <PublicAgentExperience agent={publicAgent} embed />
   }
 
   return (
     <GatedWidgetPage
-      agent={agent}
+      agent={publicAgent}
       hasExistingAccess={await hasValidAccessCookie(agentId)}
     />
   )

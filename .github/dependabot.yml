@@ -11,6 +11,29 @@ updates:
     cooldown:
       default-days: 7
 
+  # The gcp-auth composite action pins its own actions; `directory: /` does not
+  # cover nested action.yml files.
+  - package-ecosystem: github-actions
+    directory: /.github/actions/gcp-auth
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
+  # Dockerfile + docker-compose base images are digest-pinned and otherwise rot.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: npm
     directory: /
     schedule:

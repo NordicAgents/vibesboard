@@ -153,9 +153,12 @@ export async function runAgentStream({
   const systemPromptLegacy = buildAgentSystemPrompt(agent, effectiveContext, {
     remainingResponses
   })
-  // ai@7.x: system messages must go in `system`, not in `messages`
+  // ai@7.x: system messages must go in `system`, not in `messages`.
+  // Normalize rather than cast: anything that is not an assistant turn becomes
+  // a user turn, so a stray `system`/`tool` role can never reach the provider
+  // with system authority even if it slipped past request validation.
   const payload = messages.map(message => ({
-    role: message.role as 'user' | 'assistant',
+    role: message.role === 'assistant' ? ('assistant' as const) : ('user' as const),
     content: typeof message.content === 'string' ? message.content : ''
   }))
 
@@ -381,9 +384,11 @@ async function runAgentStreamWithSpec({
     remainingResponses,
   })
 
-  // ai@7.x: system messages must go in `system`, not in `messages`
+  // ai@7.x: system messages must go in `system`, not in `messages`.
+  // Normalize rather than cast so a client-supplied system/tool role cannot
+  // reach the provider with system authority on this BYO-LLM path.
   const payload = messages.map(m => ({
-    role: m.role as 'user' | 'assistant',
+    role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
     content: typeof m.content === 'string' ? m.content : '',
   }))
 

@@ -27,7 +27,7 @@ export function AgentCardPreview({
     <Card className="border-dashed">
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
-          <span>{name || 'Untitled VibeAgent'}</span>
+          <span>{name || 'Untitled agent'}</span>
           <div className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
             <span>Allow anonymous</span>
             <Switch checked={allowAnonymous} disabled />

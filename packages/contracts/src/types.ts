@@ -165,6 +165,44 @@ export interface VibeAgent {
   updatedAt: string
 }
 
+/**
+ * The strict allow-list of agent fields that are safe to serialize into the
+ * RSC payload of a public or gated agent page — i.e. everything the browser
+ * chat UI actually reads, and nothing else. A `VibeAgent` is structurally
+ * assignable to this, so the authenticated dashboard can keep passing the full
+ * object; anonymous pages must pass `toPublicAgent(agent)` instead.
+ *
+ * Do NOT widen this to carry `instructions`, `fileKeys`, `tenantId`, any
+ * `*Config` object, or `notificationConfig` — those reach anonymous visitors,
+ * and `notificationConfig.webhook.secret` in particular is a live HMAC key.
+ */
+export interface PublicAgent {
+  id: string
+  name: string
+  mode: AgentMode
+  greetingText?: string | null
+  maxResponses?: number | null
+  maxAgentResponses?: number | null
+  totalResponseCount?: number
+  quickSuggestionsMode?: QuickSuggestionsMode
+  quickSuggestionsCount?: number | null
+}
+
+/** Allow-list pick — new columns on VibeAgent stay private by default. */
+export function toPublicAgent(agent: PublicAgent): PublicAgent {
+  return {
+    id: agent.id,
+    name: agent.name,
+    mode: agent.mode,
+    greetingText: agent.greetingText ?? null,
+    maxResponses: agent.maxResponses ?? null,
+    maxAgentResponses: agent.maxAgentResponses ?? null,
+    totalResponseCount: agent.totalResponseCount,
+    quickSuggestionsMode: agent.quickSuggestionsMode,
+    quickSuggestionsCount: agent.quickSuggestionsCount ?? null
+  }
+}
+
 export interface VibeAgentConversation {
   id: string
   agentId: string

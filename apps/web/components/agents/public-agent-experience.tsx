@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { type Message } from '@vibesboard/contracts'
 import { motion, AnimatePresence } from 'framer-motion'
 
-import { type VibeAgent } from '@vibesboard/contracts'
+import { type PublicAgent } from '@vibesboard/contracts'
 import { AgentChat } from '@/components/agent-chat'
 import { Button } from '@/components/ui/button'
 import { IconCheck, IconClose } from '@/components/ui/icons'
@@ -13,7 +13,7 @@ import { GoogleReviewCard } from '@/components/google-review-card'
 import { ThumbsUp, ThumbsDown } from 'lucide-react'
 
 interface PublicAgentExperienceProps {
-  agent: VibeAgent
+  agent: PublicAgent
   googleReviewPlaceId?: string | null
   embed?: boolean
   /** Tenant branding logo URL. Falls back to /logo_1.png if not set. */
