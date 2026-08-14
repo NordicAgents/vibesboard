@@ -77,33 +77,31 @@ export function ToolsFilesManager({
     })
   }, [refreshFileKeys])
 
-  // Detect stale embeddings: compare file embedding_provider vs current tenant default provider
+  // Detect stale embeddings. The provider comparison happens server-side —
+  // it has to honor an `embed` task assignment and the platform fallback, and
+  // re-deriving that here from the default config got it wrong both ways.
   useEffect(() => {
     if (!fileKeys.length) return
-    Promise.all([
-      fetch(`/api/agents/${agent.id}/files`)
-        .then(r => r.json())
-        .catch(() => null),
-      fetch('/api/tenants/llm-configs')
-        .then(r => r.json())
-        .catch(() => null)
-    ]).then(([filesData, configsData]) => {
-      const indexedFiles: Array<{
-        status: string
-        embeddingProvider: string | null
-      }> = filesData?.files?.filter((f: any) => f.status === 'indexed') ?? []
-      if (!indexedFiles.length) return
-      const defaultConfig = configsData?.configs?.find(
-        (c: any) => c.isDefault && c.isEnabled
-      )
-      const currentProvider = defaultConfig?.kind ?? 'openai'
-      const stale = indexedFiles.some(
-        f =>
-          f.embeddingProvider !== null &&
-          f.embeddingProvider !== currentProvider
-      )
-      setHasStaleEmbeddings(stale)
-    })
+    fetch(`/api/agents/${agent.id}/files`)
+      .then(r => r.json())
+      .catch(() => null)
+      .then(filesData => {
+        const currentProvider: string | null =
+          filesData?.currentEmbeddingProvider ?? null
+        // null means the server couldn't resolve one; don't guess.
+        if (!currentProvider) return
+        const indexedFiles: Array<{
+          status: string
+          embeddingProvider: string | null
+        }> = filesData?.files?.filter((f: any) => f.status === 'indexed') ?? []
+        if (!indexedFiles.length) return
+        const stale = indexedFiles.some(
+          f =>
+            f.embeddingProvider !== null &&
+            f.embeddingProvider !== currentProvider
+        )
+        setHasStaleEmbeddings(stale)
+      })
   }, [agent.id, fileKeys])
 
   const handleReembed = async () => {
