@@ -15,6 +15,8 @@ coverage
 .next/
 out/
 build
+# ...but the "Build" docs section is content, not build output
+!apps/web/content/docs/build/
 next-env.d.ts
 
 # misc

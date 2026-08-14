@@ -65,6 +65,13 @@ export async function isMemberOfTenant(
 }
 
 export async function hasTenantAdminAccess(userId: string): Promise<boolean> {
+  // A platform super admin (users.isSuperAdmin) manages every tenant's
+  // config via requireSuperAdmin() regardless of their per-tenant
+  // tenant_members role, so this must agree — otherwise a platform super
+  // admin who is only a MEMBER row in a given tenant sees a false
+  // "no admin access" gate for a workspace they can actually fully manage.
+  if (await isSuperAdmin(userId)) return true
+
   const rows = await getMigrateDb()
     .select({ role: tenantMembers.role })
     .from(tenantMembers)
