@@ -16,6 +16,10 @@ jobs:
   cleanup:
     name: Delete expired images
     runs-on: ubuntu-latest
+    # The `maintenance` environment carries a deployment branch policy (dev and
+    # main only), so a modified copy of this workflow pushed to an arbitrary
+    # branch cannot mint deploy-SA tokens via workflow_dispatch.
+    environment: maintenance
     permissions:
       contents: read
       id-token: write # Required for keyless GCP Workload Identity authentication.

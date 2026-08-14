@@ -29,7 +29,9 @@ Dockerfile
 
 # Never send credentials to the Docker daemon or persist them in build layers.
 # Public NEXT_PUBLIC_* values are passed as explicit build arguments instead.
-.env*
+# The `**/` prefix matters: a bare `.env*` only matches the repo root, while
+# the real secrets live in nested files like apps/web/.env.local.
+**/.env*
 !.env.example
 env.yaml
 

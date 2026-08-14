@@ -211,7 +211,12 @@ export const patchAgentSchema = upsertAgentSchema.partial().extend({
 
 export const agentChatMessageSchema = z.object({
   id: z.string().optional(),
-  role: z.enum(['system', 'user', 'assistant']),
+  // Only user and assistant turns may come from the client. Accepting a
+  // client-supplied `system` (or tool) role would let a caller inject
+  // instructions with system authority — on the BYO-LLM path that reaches the
+  // provider as a real system message. Server-side system prompts are added
+  // separately by the chat route, never through this schema.
+  role: z.enum(['user', 'assistant']),
   content: z.string().max(2_000)
 })
 

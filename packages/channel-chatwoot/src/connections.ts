@@ -2,7 +2,7 @@ import 'server-only'
 
 import { createHash, timingSafeEqual } from 'crypto'
 import { customAlphabet } from 'nanoid'
-import CryptoJS from 'crypto-js'
+import { sealSecret, unsealSecret } from '@vibesboard/utils/secret-box'
 import { and, eq, desc, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
@@ -12,7 +12,7 @@ import { chatwootConnections } from '@vibesboard/adapter-postgres/schema'
 import { rowToChatwootConnection } from './db.ts'
 import {
   type ChatwootConnectionDocument,
-  type ChatwootConnectionStatus,
+  type ChatwootConnectionStatus
 } from '@vibesboard/contracts'
 
 type Db = PostgresJsDatabase<typeof schema>
@@ -26,17 +26,14 @@ const genSecret = customAlphabet(
 
 // ─── Token encryption ────────────────────────────────────────────────
 
+// Authenticated (AES-256-GCM) encryption with key rotation and transparent
+// decryption of legacy CryptoJS ciphertext — see @vibesboard/utils/secret-box.
 function encryptToken(token: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY environment variable is not set')
-  return CryptoJS.AES.encrypt(token, key).toString()
+  return sealSecret(token)
 }
 
 export function decryptToken(encryptedToken: string): string {
-  const key = process.env.ENCRYPTION_KEY
-  if (!key) throw new Error('ENCRYPTION_KEY environment variable is not set')
-  const bytes = CryptoJS.AES.decrypt(encryptedToken, key)
-  return bytes.toString(CryptoJS.enc.Utf8)
+  return unsealSecret(encryptedToken)
 }
 
 // ─── Webhook secret hashing (same as hooks) ─────────────────────────
@@ -93,7 +90,9 @@ export async function createChatwootConnection(
   db: Db = getMigrateDb()
 ): Promise<CreatedChatwootConnection> {
   const id =
-    connectionId && /^[0-9a-f-]{36}$/i.test(connectionId) ? connectionId : uuidv7()
+    connectionId && /^[0-9a-f-]{36}$/i.test(connectionId)
+      ? connectionId
+      : uuidv7()
   const [row] = await db
     .insert(chatwootConnections)
     .values({
@@ -113,11 +112,14 @@ export async function createChatwootConnection(
       useAgentBot: params.useAgentBot ?? false,
       webhookSecretHash: hashSecret(params.webhookSecret),
       status: 'active',
-      totalConversations: 0,
+      totalConversations: 0
     })
     .returning()
 
-  return { connection: rowToChatwootConnection(row), webhookSecret: params.webhookSecret }
+  return {
+    connection: rowToChatwootConnection(row),
+    webhookSecret: params.webhookSecret
+  }
 }
 
 /**
@@ -169,7 +171,7 @@ export async function listChatwootConnections(
 ): Promise<ChatwootConnectionDocument[]> {
   const conds = [
     eq(chatwootConnections.tenantId, tenantId),
-    eq(chatwootConnections.agentId, agentId),
+    eq(chatwootConnections.agentId, agentId)
   ]
   if (status) conds.push(eq(chatwootConnections.status, status))
   const rows = await db
@@ -194,7 +196,7 @@ export async function disconnectChatwootConnection(
       status: 'disconnected',
       disconnectedAt: now,
       disconnectionReason: reason ?? null,
-      updatedAt: now,
+      updatedAt: now
     })
     .where(
       and(
@@ -237,7 +239,7 @@ export async function updateConnectionStats(
     .set({
       totalConversations: sql`${chatwootConnections.totalConversations} + 1`,
       lastMessageReceivedAt: new Date(),
-      updatedAt: new Date(),
+      updatedAt: new Date()
     })
     .where(
       and(

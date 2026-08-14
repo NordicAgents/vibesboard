@@ -73,7 +73,8 @@ jobs:
 
       - name: Run tests with coverage
         # Unified Vitest run across all workspace projects (single process,
-        # worker-capped) + v8 coverage. Reporting only — no failing threshold.
+        # worker-capped) + v8 coverage, gated by the ratchet threshold in
+        # vitest.shared.mts.
         run: bun run test:coverage
 
       - name: Upload coverage report

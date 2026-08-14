@@ -158,10 +158,6 @@ export interface TenantSubscription {
   overageCount: number // messages beyond limit in current cycle
   customMessageLimit?: number | null // admin override — null = use plan default
   customOverageRate?: number | null // admin override — null = use plan default
-  stripeCustomerId: string | null
-  stripeSubscriptionId: string | null
-  stripePriceId: string | null
-  stripeOverageItemId: string | null // Stripe subscription item ID for metered overage line
 }
 
 /** /plan_templates/{planId} */
@@ -177,10 +173,6 @@ export interface PlanTemplateDocument {
   featureFlags: string[] // FeatureFlagName[] stored as strings
   createdAt: string
   updatedAt: string
-  // Stripe integration
-  stripeProductId?: string | null
-  stripeBasePriceId?: string | null
-  stripeOveragePriceId?: string | null
   pendingPriceMigration?: {
     oldBasePriceId: string
     oldOveragePriceId: string

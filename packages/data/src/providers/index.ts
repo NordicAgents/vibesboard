@@ -1,8 +1,22 @@
 import type { DataConnectionDocument } from '@vibesboard/contracts'
+import { unsealMaybeSealed } from '@vibesboard/utils/secret-box'
 import type { DataProvider } from './types.ts'
 import { CustomWebhookProvider } from './custom-webhook.ts'
 import { AirtableProvider } from './airtable.ts'
 import { GoogleSheetsProvider } from './google-sheets.ts'
+
+/**
+ * Decrypt stored webhook header values. Idempotent: values written before the
+ * at-rest encryption change are plaintext and pass through unchanged.
+ */
+function decryptHeaders(
+  headers: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  if (!headers) return headers
+  return Object.fromEntries(
+    Object.entries(headers).map(([k, v]) => [k, unsealMaybeSealed(v)])
+  )
+}
 
 /**
  * Create a data provider instance from a connection document.
@@ -32,7 +46,11 @@ export function createDataProvider(
       return new CustomWebhookProvider({
         webhookUrl: connection.webhookUrl!,
         method: connection.webhookMethod ?? 'POST',
-        headers: connection.webhookHeaders
+        // Header VALUES are encrypted at rest (they commonly carry an
+        // Authorization credential) and decrypted only here, at the point of
+        // use — matching how access/API tokens are handled. Names stay in
+        // cleartext so connections remain debuggable.
+        headers: decryptHeaders(connection.webhookHeaders)
       })
 
     default:

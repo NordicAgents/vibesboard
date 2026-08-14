@@ -7,9 +7,11 @@ licensed under the Apache License, Version 2.0. Those portions have been
 substantially modified, moved into a monorepo, and renamed for Vibesboard.
 The Apache licence is provided at LICENSES/Apache-2.0.txt.
 
-The Inter font files under apps/web/assets/fonts are copyright the Inter
-Project Authors and distributed under the SIL Open Font License, Version 1.1.
-That licence and copyright notice are provided at LICENSES/OFL-1.1.txt.
+The web app renders the Manrope and Roboto Mono typefaces, fetched and
+self-hosted at build time by next/font (see apps/web/lib/fonts.ts). Manrope is
+copyright the Manrope Project Authors and distributed under the SIL Open Font
+License, Version 1.1 (LICENSES/OFL-1.1.txt). Roboto Mono is copyright Google
+LLC and distributed under the Apache License, Version 2.0 (LICENSES/Apache-2.0.txt).
 
 The MIT licence in the repository root applies to NordicAgents' original
 Vibesboard work. It does not replace the licences or notices above. Other

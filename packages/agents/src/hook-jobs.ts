@@ -5,10 +5,8 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { hookJobs, type HookJob } from '@vibesboard/adapter-postgres/schema'
-import {
-  type HookJobDocument,
-  type HookJobStatus
-} from '@vibesboard/contracts'
+import { type HookJobDocument, type HookJobStatus } from '@vibesboard/contracts'
+import { safeFetch } from '@vibesboard/utils/safe-fetch'
 import { rowToHookJob } from './db.ts'
 import { getAgentById } from '@vibesboard/agents/server'
 import {
@@ -103,7 +101,9 @@ type JobPatch = Partial<{
  * Drizzle column update object, mapping ISO strings to Date. Pulled out of
  * updateJob to keep that function's cyclomatic complexity low.
  */
-function buildJobUpdate(patch: JobPatch): Partial<typeof hookJobs.$inferInsert> {
+function buildJobUpdate(
+  patch: JobPatch
+): Partial<typeof hookJobs.$inferInsert> {
   const update: Partial<typeof hookJobs.$inferInsert> = {}
   if (patch.status !== undefined) update.status = patch.status
   if (patch.reply !== undefined) update.reply = patch.reply
@@ -114,7 +114,8 @@ function buildJobUpdate(patch: JobPatch): Partial<typeof hookJobs.$inferInsert> 
     update.callbackStatus = patch.callbackStatus
   if (patch.callbackAttempts !== undefined)
     update.callbackAttempts = patch.callbackAttempts
-  if (patch.startedAt !== undefined) update.startedAt = new Date(patch.startedAt)
+  if (patch.startedAt !== undefined)
+    update.startedAt = new Date(patch.startedAt)
   if (patch.completedAt !== undefined)
     update.completedAt = new Date(patch.completedAt)
   if (patch.failedAt !== undefined) update.failedAt = new Date(patch.failedAt)
@@ -157,16 +158,22 @@ async function deliverCallback(
   const signature = signPayload(body, hookSecret)
 
   try {
-    const res = await fetch(callbackUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Hook-Signature': signature,
-        'X-Hook-Attempt': String(attempt)
+    // safeFetch DNS-resolves the target and refuses private addresses, and
+    // re-validates redirects — closing the rebinding/redirect gaps that the
+    // one-time assertSafeCallbackUrl literal check cannot.
+    const res = await safeFetch(
+      callbackUrl,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hook-Signature': signature,
+          'X-Hook-Attempt': String(attempt)
+        },
+        body
       },
-      body,
-      signal: AbortSignal.timeout(CALLBACK_TIMEOUT_MS)
-    })
+      { timeoutMs: CALLBACK_TIMEOUT_MS }
+    )
     return { ok: res.ok, status: res.status }
   } catch {
     return { ok: false, status: 0 }

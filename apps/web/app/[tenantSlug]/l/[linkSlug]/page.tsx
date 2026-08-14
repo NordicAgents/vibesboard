@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import { getTenantBySlug } from '@/lib/tenant-context'
 import { getAgentForMember } from '@vibesboard/agents/server'
+import { toPublicAgent } from '@vibesboard/contracts'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { getTenantBranding } from '@vibesboard/tenants'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
@@ -71,7 +72,7 @@ export default async function AgentLinkPage({
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#f7f7f5] dark:bg-[#222f30]">
       {agent.allowAnonymous ? (
         <PublicAgentExperience
-          agent={agent}
+          agent={toPublicAgent(agent)}
           googleReviewPlaceId={googleReviewPlaceId}
           logoUrl={logoUrl}
         />

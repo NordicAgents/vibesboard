@@ -1,6 +1,10 @@
 import { cookies } from 'next/headers'
 import { z } from 'zod'
-import { signToken, verifyToken } from '@vibesboard/ai/access-gate-crypto'
+import {
+  signToken,
+  verifyToken,
+  ACCESS_TOKEN_TTL_MS
+} from '@vibesboard/ai/access-gate-crypto'
 
 export {
   hashPassword,
@@ -39,8 +43,10 @@ export async function setAccessCookie(
     httpOnly: true,
     secure: true,
     sameSite: opts?.crossOrigin ? 'none' : 'lax',
-    path: '/'
-    // No maxAge = session cookie — dies on browser close
+    path: '/',
+    // Match the signed token's TTL so the browser also drops the cookie when it
+    // expires, rather than keeping a value the server will now reject anyway.
+    maxAge: Math.floor(ACCESS_TOKEN_TTL_MS / 1000)
   })
 }
 
