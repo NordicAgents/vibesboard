@@ -72,9 +72,28 @@ export function AgentCreatorChat({
           .map(f => ({ fileKey: f.fileKey, name: f.name }))
       },
       onResponse(res: Response) {
+        if (res.ok) return
         if (res.status === 401) {
           toast.error('Please sign in to create an agent.')
+          return
         }
+        // Anything else used to fail silently — the assistant simply never
+        // replied and the wizard looked stalled.
+        res
+          .clone()
+          .json()
+          .then(data => {
+            toast.error(
+              data?.message ?? 'The agent builder could not respond. Try again.'
+            )
+          })
+          .catch(() => {
+            toast.error('The agent builder could not respond. Try again.')
+          })
+      },
+
+      onError() {
+        toast.error('The connection dropped before the builder finished.')
       },
 
       onFinish(message: any) {
