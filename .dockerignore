@@ -29,8 +29,14 @@ Dockerfile
 
 # Never send credentials to the Docker daemon or persist them in build layers.
 # Public NEXT_PUBLIC_* values are passed as explicit build arguments instead.
-.env*
-!.env.example
+#
+# Must be `**/.env*`, not `.env*`: an unanchored pattern matches only the build
+# context root, so a bare `.env*` let apps/web/.env.local through into `COPY . .`.
+# CI never caught this because a fresh checkout has no .env.local files — it only
+# affects builds run from a developer's working tree, where a real key would be
+# baked into the image.
+**/.env*
+!**/.env.example
 env.yaml
 
 # Tooling directories not needed in container
