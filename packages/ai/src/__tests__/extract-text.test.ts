@@ -37,6 +37,29 @@ describe('extractTextFromBuffer — unsupported formats', () => {
   }
 })
 
+describe('extractTextFromBuffer — HTML', () => {
+  const HTML = Buffer.from(
+    `<!doctype html><html><head><title>T</title>
+     <style>.a{color:red}</style><script>var x=1;</script></head>
+     <body><h1>Support hours</h1><p>Weekdays 9 to 5.</p></body></html>`,
+  )
+
+  it('extracts readable text rather than markup', async () => {
+    const text = await extractTextFromBuffer(HTML, 'text/html')
+    expect(text).toContain('Support hours')
+    expect(text).toContain('Weekdays 9 to 5.')
+  })
+
+  it('drops tags, script and style bodies', async () => {
+    const text = await extractTextFromBuffer(HTML, 'text/html')
+    // Regression: text/html used to fall into the generic text/ branch, which
+    // indexed the raw source, so all of this ended up in the vector store.
+    expect(text).not.toContain('<h1>')
+    expect(text).not.toContain('var x=1')
+    expect(text).not.toContain('color:red')
+  })
+})
+
 describe('extractTextFromBuffer — supported formats still work', () => {
   it('reads plain text', async () => {
     const text = await extractTextFromBuffer(
