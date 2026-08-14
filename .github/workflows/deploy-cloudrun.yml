@@ -179,6 +179,42 @@ jobs:
             S3_ACCESS_KEY_ID=${{ github.ref_name == 'main' && 's3-access-key-id-prod:latest' || (github.ref_name == 'dev' && 's3-access-key-id-staging:latest') || '' }}
             S3_SECRET_ACCESS_KEY=${{ github.ref_name == 'main' && 's3-secret-access-key-prod:latest' || (github.ref_name == 'dev' && 's3-secret-access-key-staging:latest') || '' }}
 
+      # Knowledge Base uploads go browser -> bucket via a presigned URL, so the
+      # bucket must answer the CORS preflight itself. A bucket with no policy
+      # breaks every upload with an opaque "Failed to fetch", and nothing in the
+      # app surfaces it -- this shipped broken to both environments once already,
+      # after a bucket rename dropped the manually-applied policy.
+      #
+      # This only verifies; it cannot apply. The deploy service account holds
+      # roles/storage.objectAdmin, which does not include storage.buckets.update.
+      # Repair with scripts/apply-bucket-cors.sh, then re-run.
+      #
+      # Checked over plain HTTPS against the public endpoint, so it needs no GCP
+      # permissions and reflects what a browser actually receives.
+      - name: Verify storage bucket CORS
+        env:
+          S3_BUCKET: ${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || vars.STAGING_S3_BUCKET }}
+          APP_URL: ${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          : "${S3_BUCKET:?Repository variable PROD_S3_BUCKET / STAGING_S3_BUCKET is not set}"
+          : "${APP_URL:?Secret PROD_NEXT_PUBLIC_APP_URL / STAGING_NEXT_PUBLIC_APP_URL is not set}"
+
+          origin="${APP_URL%/}"
+          if curl -sS -o /dev/null -D - -X OPTIONS \
+               "https://${S3_BUCKET}.storage.googleapis.com/cors-preflight-probe" \
+               -H "Origin: ${origin}" \
+               -H "Access-Control-Request-Method: PUT" \
+               -H "Access-Control-Request-Headers: content-type" \
+             | grep -qi '^access-control-allow-origin:'; then
+            echo "Bucket CORS OK: the upload preflight is answered for this deployment's origin."
+          else
+            echo "::error::Storage bucket CORS is missing or does not cover this deployment's origin."
+            echo "::error::Knowledge Base file upload will fail for every user."
+            echo "::error::Fix: BUCKET=${S3_BUCKET} ORIGINS=<this environment's origins> scripts/apply-bucket-cors.sh"
+            exit 1
+          fi
+
   lighthouse:
     name: Audit staging deployment
     needs: [deploy]
