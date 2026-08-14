@@ -179,12 +179,7 @@ export class PostgresHybridStore implements HybridStore {
 
   async getIdleConversations(cooldownMs: number, scopeId?: string): Promise<ConversationRef[]> {
     const cutoff = new Date(Date.now() - cooldownMs)
-    const conditions = [
-      ...(scopeId ? [eq(hybridMessageEmbeddings.scopeId, scopeId)] : []),
-      sql`${hybridMessageEmbeddings.conversationId} NOT IN (
-        SELECT conversation_id FROM ${hybridProcessedConversations}
-      )`,
-    ]
+    const conditions = scopeId ? [eq(hybridMessageEmbeddings.scopeId, scopeId)] : []
 
     const rows = await this.db
       .select({
@@ -200,7 +195,20 @@ export class PostgresHybridStore implements HybridStore {
         hybridMessageEmbeddings.scopeId,
         hybridMessageEmbeddings.subScopeId,
       )
-      .having(sql`max(${hybridMessageEmbeddings.createdAt}) < ${cutoff}`)
+      // Idle past the cooldown, AND carrying messages newer than the last
+      // observation. This used to exclude any conversation that appeared in
+      // hybrid_processed_conversations at all, which meant a thread that
+      // resumed after being observed was never looked at again — exactly the
+      // long-running conversations durable memory is for. processed_at was
+      // already refreshed on every pass, so it works as a watermark as-is.
+      .having(
+        sql`max(${hybridMessageEmbeddings.createdAt}) < ${cutoff}
+          AND max(${hybridMessageEmbeddings.createdAt}) > COALESCE(
+            (SELECT p.processed_at FROM ${hybridProcessedConversations} p
+              WHERE p.conversation_id = ${hybridMessageEmbeddings.conversationId}),
+            to_timestamp(0)
+          )`,
+      )
 
     return rows.map(r => ({
       conversationId: r.conversationId,

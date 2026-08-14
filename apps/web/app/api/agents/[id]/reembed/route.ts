@@ -41,11 +41,18 @@ export async function POST(
     .from(filesTable)
     .where(eq(filesTable.agentId, id))
 
-  const indexed = agentFiles.filter(f => f.status === 'indexed')
+  // `failed` files are included deliberately. A provider switch is the most
+  // likely reason a file failed to embed in the first place (expired key,
+  // exhausted quota, an endpoint with no embeddings API), so re-embedding
+  // after fixing the provider is exactly when they should get another try.
+  // Skipping them meant the one-click fix left them stuck forever.
+  const indexed = agentFiles.filter(
+    f => f.status === 'indexed' || f.status === 'failed'
+  )
   if (!indexed.length) {
     return NextResponse.json({
       reembedded: 0,
-      message: 'No indexed files to re-embed.'
+      message: 'No files to re-embed.'
     })
   }
 
