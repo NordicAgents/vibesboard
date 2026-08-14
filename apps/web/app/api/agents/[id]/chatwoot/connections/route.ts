@@ -19,11 +19,20 @@ import {
   generateConnectionId,
   generateWebhookSecret
 } from '@vibesboard/channel-chatwoot/connections'
+import { validateWebhookUrl } from '@vibesboard/data/validate-webhook-url'
 
 export const runtime = 'nodejs'
 
 const CreateConnectionSchema = z.object({
-  chatwootUrl: z.string().url('Invalid URL format'),
+  // A tenant-supplied Chatwoot base URL that the server then calls with the
+  // tenant's API token. Guard against SSRF into private/metadata endpoints —
+  // without this, http://169.254.169.254/... would be a readable SSRF.
+  chatwootUrl: z
+    .string()
+    .url('Invalid URL format')
+    .refine(v => validateWebhookUrl(v).ok, {
+      message: 'URL resolves to a disallowed (private/loopback/metadata) address'
+    }),
   apiToken: z.string().min(1, 'API token is required'),
   inboxId: z.number().int().positive('Invalid inbox ID'),
   enableAgentBot: z.boolean().optional().default(false),

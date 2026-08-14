@@ -1,4 +1,5 @@
 import { describe, it, expectTypeOf, assertType, expect } from 'vitest'
+import { toPublicAgent } from './index.ts'
 import type {
   // domain-types.ts
   PlanId,
@@ -120,6 +121,76 @@ describe('contracts type re-exports (compile-time contract)', () => {
       updatedAt: '2026-01-01',
     }
     expectTypeOf(agent).toMatchTypeOf<VibeAgent>()
+  })
+
+  it('toPublicAgent leaks nothing beyond the public allow-list', () => {
+    // A fully-populated agent, including every field that must NEVER reach an
+    // anonymous browser: system instructions, storage keys, tenant/user ids,
+    // connection ids, and the live HMAC webhook secret.
+    const fullAgent: VibeAgent = {
+      id: 'a1',
+      userId: 'u-secret',
+      tenantId: 't-secret',
+      tenantSlug: 'acme',
+      name: 'Demo',
+      instructions: 'SYSTEM PROMPT — do not leak',
+      fileKeys: ['tenants/t/agents/a/files/private.pdf'],
+      agentUrl: 'demo',
+      tools: [{ id: 't1', type: 'builtin:bash', name: 'Bash' }],
+      allowAnonymous: true,
+      mode: 'provider',
+      greetingText: 'Hi',
+      maxResponses: 10,
+      maxAgentResponses: 5,
+      totalResponseCount: 2,
+      quickSuggestionsMode: 'smart',
+      quickSuggestionsCount: 4,
+      notificationConfig: {
+        enabled: true,
+        events: ['completed'],
+        inApp: { enabled: true },
+        email: { enabled: false, address: null },
+        webhook: {
+          enabled: true,
+          url: 'https://hook.example.com',
+          secret: 'HMAC-SIGNING-SECRET',
+        },
+      },
+      llmConfigId: 'llm-secret',
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    }
+
+    const dto = toPublicAgent(fullAgent)
+    const serialized = JSON.stringify(dto)
+
+    // Every sensitive value is absent from the serialized DTO.
+    for (const secret of [
+      'SYSTEM PROMPT — do not leak',
+      'HMAC-SIGNING-SECRET',
+      'hook.example.com',
+      't-secret',
+      'u-secret',
+      'llm-secret',
+      'private.pdf',
+    ]) {
+      expect(serialized).not.toContain(secret)
+    }
+
+    // And the allow-listed keys are exactly the public set.
+    expect(Object.keys(dto).sort()).toEqual(
+      [
+        'greetingText',
+        'id',
+        'maxAgentResponses',
+        'maxResponses',
+        'mode',
+        'name',
+        'quickSuggestionsCount',
+        'quickSuggestionsMode',
+        'totalResponseCount',
+      ].sort()
+    )
   })
 
   it('ServerActionResult is a Promise of the result or an error envelope', () => {

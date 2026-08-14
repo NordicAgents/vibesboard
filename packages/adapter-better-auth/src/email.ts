@@ -8,10 +8,26 @@ function getResend(): Resend | null {
   return new Resend(key)
 }
 
+/**
+ * Dev-only fallback when RESEND_API_KEY is unset: log the link so local sign-in
+ * works without an email provider. In production this is a security hazard —
+ * the URL carries a single-use auth token and would land in application logs —
+ * so refuse loudly instead, surfacing the misconfiguration rather than silently
+ * "succeeding" with an email that was never sent.
+ */
+function logDevFallbackOrThrow(label: string, recipient: string, url: string): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      `[adapter-better-auth] RESEND_API_KEY is not configured; refusing to send ${label} in production`
+    )
+  }
+  console.log(`[adapter-better-auth] ${label} (dev fallback) for ${recipient}: ${url}`)
+}
+
 export async function sendMagicLinkEmail({ email, url }: { email: string; url: string }): Promise<void> {
   const resend = getResend()
   if (!resend) {
-    console.log(`[adapter-better-auth] Magic link (dev fallback) for ${email}: ${url}`)
+    logDevFallbackOrThrow('Magic link', email, url)
     return
   }
   await resend.emails.send({
@@ -31,7 +47,7 @@ export async function sendVerifyEmail({
 }): Promise<void> {
   const resend = getResend()
   if (!resend) {
-    console.log(`[adapter-better-auth] Verify email (dev fallback) for ${user.email}: ${url}`)
+    logDevFallbackOrThrow('Verify email', user.email, url)
     return
   }
   await resend.emails.send({
@@ -51,7 +67,7 @@ export async function sendResetPasswordEmail({
 }): Promise<void> {
   const resend = getResend()
   if (!resend) {
-    console.log(`[adapter-better-auth] Reset password (dev fallback) for ${user.email}: ${url}`)
+    logDevFallbackOrThrow('Reset password', user.email, url)
     return
   }
   await resend.emails.send({

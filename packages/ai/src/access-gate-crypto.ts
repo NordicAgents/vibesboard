@@ -59,7 +59,18 @@ export function verifyPassword(plaintext: string, hash: string): boolean {
   return false
 }
 
-// ─── Token signing (HMAC-signed) ────────────────────────────────────────────
+// ─── Token signing (HMAC-signed, time-limited) ──────────────────────────────
+
+/**
+ * Access-cookie lifetime. The token embeds its issue time and verifyToken
+ * enforces this window, so a copied cookie value stops working after it — the
+ * access grant is no longer effectively permanent. Overridable for deployments
+ * that want a shorter/longer gate session.
+ */
+export const ACCESS_TOKEN_TTL_MS = (() => {
+  const raw = Number(process.env.ACCESS_GATE_TOKEN_TTL_MS)
+  return Number.isFinite(raw) && raw > 0 ? raw : 12 * 60 * 60 * 1000
+})()
 
 export function signToken(agentId: string): string {
   const payload = JSON.stringify({ agentId, ts: Date.now() })
@@ -79,7 +90,13 @@ export function verifyToken(token: string, agentId: string): boolean {
     if (!timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex')))
       return false
     const data = JSON.parse(payload)
-    return data.agentId === agentId
+    if (data.agentId !== agentId) return false
+    // Enforce expiry: a valid signature is not enough — the token must also be
+    // within its lifetime. Reject a missing/invalid/future timestamp too.
+    if (typeof data.ts !== 'number' || !Number.isFinite(data.ts)) return false
+    const age = Date.now() - data.ts
+    if (age < 0 || age > ACCESS_TOKEN_TTL_MS) return false
+    return true
   } catch {
     return false
   }

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         ).catch(() => null)
       : null
 
-  const systemPrompt = `You are an expert AI agent designer specializing in creating VibeAgents. Your role is to help users craft comprehensive, effective agent instructions.
+  const systemPrompt = `You are an expert AI agent designer specializing in creating AI agents. Your role is to help users craft comprehensive, effective agent instructions.
 
 When a user describes their agent idea, transform it into well-structured instructions that include:
 

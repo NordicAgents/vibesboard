@@ -1,23 +1,25 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
+import { stripNotificationSecret } from './notification-secret.ts'
 import {
   agents as agentsTable,
-  agentVersions as agentVersionsTable,
+  agentVersions as agentVersionsTable
 } from '@vibesboard/adapter-postgres/schema'
 import type {
   Agent,
   AgentConfigSnapshot,
   AgentVersion,
   AgentVersionSource,
-  NewAgent,
+  NewAgent
 } from '@vibesboard/adapter-postgres/schema'
 
 /**
  * Build the immutable config snapshot for an agent row. This is the single
  * source of truth for which fields are versioned — keep it in sync with the
  * `AgentConfigSnapshot` type in the schema. Identity, counters, the version
- * pointer, `accessPasswordHash`, and timestamps are intentionally excluded.
+ * pointer, `accessPasswordHash`, the notification webhook secret, and
+ * timestamps are intentionally excluded.
  */
 export function toAgentConfigSnapshot(row: Agent): AgentConfigSnapshot {
   return {
@@ -38,12 +40,16 @@ export function toAgentConfigSnapshot(row: Agent): AgentConfigSnapshot {
     googlePlaceId: row.googlePlaceId ?? null,
     retrievalStrategy: row.retrievalStrategy ?? null,
     schedulingConfig: row.schedulingConfig ?? null,
-    notificationConfig: row.notificationConfig ?? null,
+    // The webhook secret never enters version history: rotating it must
+    // actually erase it, and a re-seal produces fresh ciphertext on every
+    // write, which would otherwise register as a config change and create an
+    // empty version on every save.
+    notificationConfig: stripNotificationSecret(row.notificationConfig) ?? null,
     bookingConfig: row.bookingConfig ?? null,
     dataConfig: row.dataConfig ?? null,
     calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? null,
     llmConfigId: row.llmConfigId ?? null,
-    memoryEnabled: row.memoryEnabled ?? false,
+    memoryEnabled: row.memoryEnabled ?? false
   }
 }
 
@@ -51,10 +57,30 @@ export function toAgentConfigSnapshot(row: Agent): AgentConfigSnapshot {
  * Turn a snapshot back into a partial `agents` update — used by restore to
  * apply an old version to the live row. Deliberately does NOT touch slug,
  * counters, accessPasswordHash, or the version pointer.
+ *
+ * `live` is the current row: since snapshots deliberately omit the notification
+ * webhook secret, restoring must carry the live secret forward rather than
+ * wiping it.
  */
 export function applySnapshotToAgentUpdate(
   snapshot: AgentConfigSnapshot,
+  live?: Pick<Agent, 'notificationConfig'>
 ): Partial<NewAgent> {
+  const liveSecret = live?.notificationConfig?.webhook?.secret ?? null
+  const notificationConfig = snapshot.notificationConfig
+    ? {
+        ...snapshot.notificationConfig,
+        ...(snapshot.notificationConfig.webhook
+          ? {
+              webhook: {
+                ...snapshot.notificationConfig.webhook,
+                secret: liveSecret
+              }
+            }
+          : {})
+      }
+    : snapshot.notificationConfig
+
   return {
     name: snapshot.name,
     instructions: snapshot.instructions,
@@ -73,13 +99,13 @@ export function applySnapshotToAgentUpdate(
     googlePlaceId: snapshot.googlePlaceId,
     retrievalStrategy: snapshot.retrievalStrategy,
     schedulingConfig: snapshot.schedulingConfig,
-    notificationConfig: snapshot.notificationConfig,
+    notificationConfig,
     bookingConfig: snapshot.bookingConfig,
     dataConfig: snapshot.dataConfig as NewAgent['dataConfig'],
     calendarAvailabilityConfig: snapshot.calendarAvailabilityConfig,
     llmConfigId: snapshot.llmConfigId,
     memoryEnabled: snapshot.memoryEnabled,
-    updatedAt: new Date(),
+    updatedAt: new Date()
   }
 }
 
@@ -89,13 +115,16 @@ function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
   const keys = Object.keys(value as Record<string, unknown>).sort()
   return `{${keys
-    .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
+    .map(
+      k =>
+        `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`
+    )
     .join(',')}}`
 }
 
 export function snapshotsEqual(
   a: AgentConfigSnapshot,
-  b: AgentConfigSnapshot,
+  b: AgentConfigSnapshot
 ): boolean {
   return stableStringify(a) === stableStringify(b)
 }
@@ -123,7 +152,7 @@ interface RecordVersionOpts {
 export async function recordAgentVersion(
   db: Db,
   agentId: string,
-  opts: RecordVersionOpts,
+  opts: RecordVersionOpts
 ): Promise<{ versionNo: number; created: boolean }> {
   // Lock the agent row for the duration of the tx so concurrent writers
   // serialize on the (agentId, versionNo) sequence.
@@ -145,8 +174,8 @@ export async function recordAgentVersion(
       .where(
         and(
           eq(agentVersionsTable.agentId, agentId),
-          eq(agentVersionsTable.versionNo, row.currentVersion),
-        ),
+          eq(agentVersionsTable.versionNo, row.currentVersion)
+        )
       )
       .limit(1)
 
@@ -166,7 +195,7 @@ export async function recordAgentVersion(
     source: opts.source,
     changeNote: opts.note ?? null,
     restoredFrom: opts.restoredFrom ?? null,
-    createdBy: opts.actor ?? null,
+    createdBy: opts.actor ?? null
   })
 
   if (versionNo !== row.currentVersion) {
@@ -182,7 +211,7 @@ export async function recordAgentVersion(
 /** The versionNo the agent's live config currently reflects (or null if the agent is gone). */
 export async function getAgentCurrentVersion(
   agentId: string,
-  db: Db = getMigrateDb(),
+  db: Db = getMigrateDb()
 ): Promise<number | null> {
   const [row] = await db
     .select({ currentVersion: agentsTable.currentVersion })
@@ -196,7 +225,7 @@ export async function getAgentCurrentVersion(
 export async function listAgentVersions(
   agentId: string,
   { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {},
-  db: Db = getMigrateDb(),
+  db: Db = getMigrateDb()
 ): Promise<Array<Omit<AgentVersion, 'config'>>> {
   return db
     .select({
@@ -208,7 +237,7 @@ export async function listAgentVersions(
       changeNote: agentVersionsTable.changeNote,
       restoredFrom: agentVersionsTable.restoredFrom,
       createdBy: agentVersionsTable.createdBy,
-      createdAt: agentVersionsTable.createdAt,
+      createdAt: agentVersionsTable.createdAt
     })
     .from(agentVersionsTable)
     .where(eq(agentVersionsTable.agentId, agentId))
@@ -221,7 +250,7 @@ export async function listAgentVersions(
 export async function getAgentVersion(
   agentId: string,
   versionNo: number,
-  db: Db = getMigrateDb(),
+  db: Db = getMigrateDb()
 ): Promise<AgentVersion | null> {
   const [row] = await db
     .select()
@@ -229,8 +258,8 @@ export async function getAgentVersion(
     .where(
       and(
         eq(agentVersionsTable.agentId, agentId),
-        eq(agentVersionsTable.versionNo, versionNo),
-      ),
+        eq(agentVersionsTable.versionNo, versionNo)
+      )
     )
     .limit(1)
   return row ?? null
@@ -253,9 +282,9 @@ export async function restoreAgentVersion(
   agentId: string,
   versionNo: number,
   { actor, note }: { actor?: string | null; note?: string | null } = {},
-  db: Db = getMigrateDb(),
+  db: Db = getMigrateDb()
 ): Promise<RestoreResult> {
-  return db.transaction(async (tx) => {
+  return db.transaction(async tx => {
     const txDb = tx as unknown as Db
 
     const [live] = await txDb
@@ -264,12 +293,13 @@ export async function restoreAgentVersion(
       .where(eq(agentsTable.id, agentId))
       .limit(1)
       .for('update')
-    if (!live) throw new Error(`restoreAgentVersion: agent ${agentId} not found`)
+    if (!live)
+      throw new Error(`restoreAgentVersion: agent ${agentId} not found`)
 
     const target = await getAgentVersion(agentId, versionNo, txDb)
     if (!target) {
       throw new Error(
-        `restoreAgentVersion: version ${versionNo} not found for agent ${agentId}`,
+        `restoreAgentVersion: version ${versionNo} not found for agent ${agentId}`
       )
     }
 
@@ -277,16 +307,24 @@ export async function restoreAgentVersion(
 
     await txDb
       .update(agentsTable)
-      .set(applySnapshotToAgentUpdate(target.config))
+      .set(applySnapshotToAgentUpdate(target.config, live))
       .where(eq(agentsTable.id, agentId))
 
-    const { versionNo: newVersionNo } = await recordAgentVersion(txDb, agentId, {
-      source: 'restore',
-      actor,
-      note: note ?? `Restored from v${versionNo}`,
-      restoredFrom: versionNo,
-    })
+    const { versionNo: newVersionNo } = await recordAgentVersion(
+      txDb,
+      agentId,
+      {
+        source: 'restore',
+        actor,
+        note: note ?? `Restored from v${versionNo}`,
+        restoredFrom: versionNo
+      }
+    )
 
-    return { versionNo: newVersionNo, snapshot: target.config, previousFileKeys }
+    return {
+      versionNo: newVersionNo,
+      snapshot: target.config,
+      previousFileKeys
+    }
   })
 }

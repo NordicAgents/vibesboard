@@ -32,18 +32,40 @@ const nextConfig = {
   // their worker files incorrectly.
   serverExternalPackages: ['pdf-parse', '@napi-rs/canvas', '@google-cloud/storage', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', 'crypto-js', 'csv-parse', 'just-bash'],
   async headers() {
-    return [
+    // Baseline hardening applied to every response. Deliberately NOT a script
+    // CSP (the app relies on Next's inline runtime; a strict script-src needs
+    // nonce plumbing — tracked as a follow-up). frame-ancestors is handled
+    // per-path below so the embeddable widget keeps working.
+    const baseline = [
       {
+        key: 'Strict-Transport-Security',
+        value: 'max-age=63072000; includeSubDomains; preload'
+      },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()'
+      }
+    ]
+    return [
+      { source: '/:path*', headers: baseline },
+      {
+        // The widget is intentionally embeddable on customer sites.
         source: '/widget/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: 'frame-ancestors *' }
         ]
+      },
+      {
+        // Everything except the widget refuses cross-origin framing.
+        source: '/((?!widget/).*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" }
+        ]
       }
     ]
-  },
-  typescript: {
-    // TODO: Fix Next.js 16 async params in route handlers, then remove this
-    ignoreBuildErrors: true
   }
 }
 
