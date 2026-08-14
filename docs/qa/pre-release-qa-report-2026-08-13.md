@@ -7,14 +7,54 @@ Full-application QA pass against `dev.vibesboard.com` (staging), run ahead of th
 - **113 features inventoried** across 7 subsystems (from source + the existing Playwright e2e suite).
 - **25 end-to-end use cases** designed to cover golden paths, admin/super-admin flows, security/tenant-isolation, and edge cases; **25/25 executed** (24 via a multi-agent browser-automation workflow, 1 by hand after the automation tooling died mid-run — see *Methodology*).
 - Every non-passing result was **adversarially re-verified by reading the actual source code** (not re-trusting the browser agent's own read of the UI), to separate real defects from test artifacts.
-- **1 CRITICAL bug, confirmed against source**: the Knowledge Base file upload is **completely non-functional** on staging — every upload fails due to a missing CORS policy on the storage bucket. RAG/knowledge base is a headline feature; this blocks it entirely.
+- **1 CRITICAL bug, confirmed against source**: the Knowledge Base file upload is **completely non-functional** on staging — every upload fails due to a missing CORS policy on the storage bucket. RAG/knowledge base is a headline feature; this blocks it entirely. **Production was subsequently confirmed affected by the same defect, and both buckets have since been fixed — see [Update 2026-08-14](#update-2026-08-14--critical-file-upload-bug-resolved).**
 - **1 MEDIUM bug, confirmed against source**: the agent History tab shows a stale "Current version" badge immediately after a Setup save or a Restore, until a full page reload.
 - Feature discovery also flagged that **MCP (Model Context Protocol) server support** — listed in the working tree checked out at the start of this session (`chore/pre-flip-fixes`) — had no backing implementation anywhere in the codebase. **Cross-checked directly against `origin/dev` (this PR's actual target): the claim has already been removed** from the public landing page copy and from `CLAUDE.md`/`AGENTS.md` on `dev`. No action needed there — noted only so the discrepancy doesn't cause confusion. The related "unified inbox" phrasing (marketing term for two separate WhatsApp/Instagram UIs, not an actual merged view) is still present on `dev` and is a much smaller, optional copy nit — see *Feature inventory*.
 - **3 other findings investigated and cleared** (not real bugs — a test-timing artifact, an intentionally-off feature flag, and an intentional API design decision). Full detail below so nothing is silently dropped.
 - **2 minor, unverified-but-credible UX bugs** worth a ticket (an incorrect "no admin access" banner shown to a user who does have access; a dark-mode toggle that's mislabeled for first-time visitors whose OS is already in dark mode).
 - No tenant-isolation, security, or data-corruption issues were found. Multi-tenant scoping, access gates, invite codes, RLS-backed workspace isolation, and the admin delete-confirmation safety gate all worked correctly.
 
-**Recommendation: hold public launch until the CRITICAL file-upload bug is fixed, and the fix is confirmed on both the staging and production storage buckets.** Everything else found is real but non-blocking.
+**Recommendation (as written 2026-08-13): hold public launch until the CRITICAL file-upload bug is fixed, and the fix is confirmed on both the staging and production storage buckets.** Everything else found is real but non-blocking.
+
+**This condition has since been met — see [Update 2026-08-14](#update-2026-08-14--critical-file-upload-bug-resolved).**
+
+## Update 2026-08-14 — CRITICAL file-upload bug resolved
+
+The report's own recommendation was to check production for the same defect. That check was run, and the finding was worse than the report could confirm at the time:
+
+| Bucket | CORS before | CORS after |
+| --- | --- | --- |
+| `gs://vibesboard-staging-files` | empty | applied, preflight verified |
+| `gs://vibesboard-prod-files` | **empty — production was equally broken** | applied, preflight verified |
+
+Knowledge Base upload was non-functional in **production**, not just staging. The report could only observe staging and correctly flagged prod as needing an immediate check; that check confirmed it.
+
+Note the prod bucket is `vibesboard-prod-files`, not the older `vibeagent-files`. That rename is the likely mechanism: the go-public infrastructure work provisioned new buckets, and the manual CORS step was never re-applied to either — exactly the "provision bucket → forget CORS" gap the report predicted.
+
+**Applied to both buckets:**
+
+```json
+[
+  {
+    "origin": ["<the environment's app origins>"],
+    "method": ["GET", "HEAD", "PUT"],
+    "responseHeader": ["Content-Type", "ETag"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+
+Origins were taken from the live `NEXT_PUBLIC_APP_URL` on each Cloud Run service rather than assumed — staging: `https://dev.vibesboard.com`; production: `https://www.vibesboard.com` plus the apex `https://vibesboard.com`; each environment's `*.run.app` URL included as a fallback.
+
+This is deliberately narrower than the template in [`deployment.md`](../deployment.md), which is an illustrative example rather than a tested policy:
+
+- `POST`/`DELETE` dropped — the browser only ever issues `PUT` (`tools-files-manager.tsx`, `agent-creator-chat.tsx`); deletions are server-side.
+- `Authorization` dropped — presigned V4 URLs carry the signature in the query string, so that header is never sent. `ETag` exposed instead.
+- No `localhost` origin on either bucket — local development uses MinIO, and permitting localhost against a production bucket would be a genuine weakness.
+
+**Verification:** the exact preflight a browser issues (`OPTIONS` + `Access-Control-Request-Method: PUT` + `Access-Control-Request-Headers: content-type`) returns `access-control-allow-origin` for staging, prod-www, and prod-apex. An unlisted origin receives no `access-control-allow-origin` header, confirming the policy is scoped rather than permissive. This verifies the transport layer; a full round-trip upload through the UI is still worth confirming by hand.
+
+**Still open — the recurrence risk is unchanged.** Nothing in the deploy pipeline applies this policy: `cors.json` was removed from the repository during the pre-public cleanup, leaving only prose in `deployment.md`. The next bucket rename or migration will silently break uploads again in exactly the same way. Automating the CORS step in the deploy workflow is the fix that actually closes this, and remains to be done.
 
 ## Methodology
 
@@ -74,7 +114,9 @@ Condensed from the full discovery pass (113 features across 7 areas). This is th
 
 ## Confirmed defects
 
-### 🔴 CRITICAL — Knowledge Base file upload is completely broken (staging)
+### 🔴 CRITICAL — Knowledge Base file upload is completely broken (staging **and production**)
+
+> **RESOLVED 2026-08-14.** Both bucket policies have been applied and verified; production was confirmed affected by the identical defect. See [Update 2026-08-14](#update-2026-08-14--critical-file-upload-bug-resolved). The finding below is preserved as originally recorded.
 
 **What happens:** Uploading any file on an agent's Knowledge tab fails 100% of the time with "Failed to fetch" / "1 file failed to upload." Reproduced deterministically with two different files.
 
