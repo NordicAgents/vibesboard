@@ -82,7 +82,26 @@ the bucket needs a CORS policy naming your app origins, for example:
 ]
 ```
 
-Apply it with `gcloud storage buckets update gs://YOUR_BUCKET --cors-file=cors.json`.
+Apply it with [`scripts/apply-bucket-cors.sh`](../scripts/apply-bucket-cors.sh),
+which builds the policy from the origins you pass and then verifies the result
+against the bucket's public endpoint:
+
+```bash
+BUCKET=your-bucket ORIGINS="https://your-app.example,https://www.your-app.example" \
+  scripts/apply-bucket-cors.sh
+```
+
+Run it whenever a bucket is **created, renamed, or migrated**. This step is
+manual by design: the deploy service account holds `roles/storage.objectAdmin`,
+which grants object access but not `storage.buckets.update`, so the pipeline
+cannot apply bucket metadata without being granted broader rights.
+
+The deploy workflow does **verify** it on every deploy and fails with an
+actionable error if the bucket does not answer the upload preflight for that
+environment's origin. Uploads go browser-to-bucket via a presigned URL, so a
+missing policy breaks every upload with an opaque `Failed to fetch` and nothing
+in the application surfaces the cause — this has shipped broken to both
+environments once already, after a bucket rename dropped a hand-applied policy.
 
 ## Self-hosting elsewhere
 
