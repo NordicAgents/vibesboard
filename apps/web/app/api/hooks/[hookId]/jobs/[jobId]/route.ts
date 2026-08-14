@@ -38,6 +38,13 @@ export async function GET(
   if (!hook) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
+  // Matches the three runtime routes. Without it, disabling a hook stopped
+  // new work but left every existing job id readable with the same secret —
+  // including its completed reply text — so "disable" was not the revocation
+  // an operator would reasonably expect it to be.
+  if (hook.status !== 'active') {
+    return new NextResponse('Unauthorized', { status: 401 })
+  }
   if (!verifySecret(rawSecret, hook.secretHash)) {
     return new NextResponse('Unauthorized', { status: 401 })
   }

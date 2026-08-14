@@ -10,6 +10,7 @@ import {
 import { getAgentById } from '@vibesboard/agents/server'
 import { createJob, runJobAsync } from '@vibesboard/agents/hook-jobs'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
+import { checkUsageLimit, usageLimitResponse } from '@/lib/usage'
 
 export const runtime = 'nodejs'
 
@@ -120,6 +121,16 @@ export async function POST(
       },
       { status: 422 }
     )
+  }
+
+  // ── 3c. Refuse work already over the tenant's usage limit ─────────────
+  // /chat and /stream check this before running. /async did not, so it
+  // returned 202 with a job id and then failed in the background where the
+  // caller couldn't see it — the same "success for work that cannot succeed"
+  // shape as the callback-URL bug above.
+  const usageCheck = await checkUsageLimit(agent.tenantId!)
+  if (!usageCheck.allowed) {
+    return usageLimitResponse(usageCheck)
   }
 
   // ── 4. Create job ─────────────────────────────────────────────────────
