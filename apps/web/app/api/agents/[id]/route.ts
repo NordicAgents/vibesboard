@@ -8,7 +8,8 @@ import { patchAgentSchema } from '@vibesboard/agents/schema'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { getAgentById } from '@vibesboard/agents/server'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
-import { deleteFile } from '@vibesboard/adapter-s3'
+import { sealNotificationConfig } from '@vibesboard/agents/notification-secret'
+import { deleteFile, isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { assertSafeCallbackUrl } from '@vibesboard/agents/webhook-utils'
 import { getFilesForAgent } from '@vibesboard/ai/files-store'
 import { deleteFileEmbeddings } from '@vibesboard/ai/rag-store'
@@ -137,7 +138,21 @@ export async function PATCH(
   if (payload.name !== undefined) set.name = payload.name
   if (payload.instructions !== undefined)
     set.instructions = payload.instructions
-  if (payload.fileKeys !== undefined) set.fileKeys = payload.fileKeys
+  if (payload.fileKeys !== undefined) {
+    // fileKeys is caller-supplied; refuse any key that addresses another
+    // tenant's storage namespace so it cannot be attached, then later
+    // downloaded/ingested/deleted through this agent.
+    const foreign = payload.fileKeys.filter((k: string) =>
+      isCrossTenantFileKey(k, agent.tenantId)
+    )
+    if (foreign.length > 0) {
+      return NextResponse.json(
+        { error: 'fileKeys contains keys outside this tenant' },
+        { status: 400 }
+      )
+    }
+    set.fileKeys = payload.fileKeys
+  }
   if (payload.tools !== undefined) set.tools = payload.tools
   if (typeof payload.allowAnonymous === 'boolean')
     set.allowAnonymous = payload.allowAnonymous
@@ -165,8 +180,10 @@ export async function PATCH(
   if (payload.llmConfigId !== undefined) set.llmConfigId = payload.llmConfigId
   if (payload.retrievalStrategy !== undefined)
     set.retrievalStrategy = payload.retrievalStrategy
+  // The webhook secret is a live HMAC signing key — encrypt it before it is
+  // written to the JSONB column.
   if (payload.notificationConfig !== undefined)
-    set.notificationConfig = payload.notificationConfig
+    set.notificationConfig = sealNotificationConfig(payload.notificationConfig)
   if (payload.handoffTargets !== undefined)
     set.handoffTargets = payload.handoffTargets
   if (payload.schedulingConfig !== undefined)
@@ -259,13 +276,17 @@ export async function DELETE(
 
   // Database state is authoritative. Object deletion is best-effort after the
   // transaction so a transient S3 failure cannot leave live rows pointing to
-  // already-deleted objects.
+  // already-deleted objects. Skip any key that addresses another tenant's
+  // namespace — a poisoned fileKeys entry must not let an agent deletion wipe
+  // another tenant's objects.
   await Promise.all(
-    (agent.fileKeys ?? []).map(fileKey =>
-      deleteFile(fileKey).catch(err =>
-        console.error(`Error deleting file ${fileKey}:`, err)
+    (agent.fileKeys ?? [])
+      .filter(fileKey => !isCrossTenantFileKey(fileKey, agent.tenantId))
+      .map(fileKey =>
+        deleteFile(fileKey).catch(err =>
+          console.error(`Error deleting file ${fileKey}:`, err)
+        )
       )
-    )
   )
 
   return new NextResponse(null, { status: 204 })

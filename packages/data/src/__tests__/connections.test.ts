@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest'
 import { randomUUID } from 'node:crypto'
-import CryptoJS from 'crypto-js'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
-import { users, tenants, dataConnections } from '@vibesboard/adapter-postgres/schema'
+import {
+  users,
+  tenants,
+  dataConnections
+} from '@vibesboard/adapter-postgres/schema'
 import { eq } from 'drizzle-orm'
 import { decryptToken } from '@vibesboard/scheduling/connections'
+import { unsealMaybeSealed } from '@vibesboard/utils/secret-box'
 import { rowToDataConnection } from '../db.ts'
 import {
   createDataConnection,
@@ -12,11 +16,11 @@ import {
   getDataConnection,
   updateDataConnection,
   updateDataConnectionStatus,
-  deleteDataConnection,
+  deleteDataConnection
 } from '../connections.ts'
 
-// connections.ts encrypts tokens with CryptoJS.AES using process.env.ENCRYPTION_KEY.
-// Ensure it is set for the whole suite so encrypt/decrypt are deterministic.
+// connections.ts encrypts tokens (AES-256-GCM via secret-box) using
+// process.env.ENCRYPTION_KEY. Ensure it is set for the whole suite.
 const TEST_KEY = 'test-key-123'
 
 beforeAll(() => {
@@ -32,7 +36,7 @@ async function seedTenantRow(adminDb: any) {
     name: 'Acme',
     slug: `acme-${t.slice(0, 8)}`,
     createdBy: u,
-    isPersonal: false,
+    isPersonal: false
   })
   return { u, t }
 }
@@ -67,7 +71,7 @@ describe('rowToDataConnection', () => {
       connectedAt: now,
       createdAt: now,
       updatedAt: now,
-      ...overrides,
+      ...overrides
     } as any
   }
 
@@ -94,8 +98,8 @@ describe('rowToDataConnection', () => {
         email: null,
         spreadsheetId: null,
         sheetName: null,
-        scopes: null,
-      }),
+        scopes: null
+      })
     )
     expect(doc.accessToken).toBeUndefined()
     expect(doc.refreshToken).toBeUndefined()
@@ -131,8 +135,8 @@ describe('rowToDataConnection', () => {
         apiTokenEncrypted: 'enc-api',
         baseId: 'b1',
         tableId: 'tbl1',
-        tableName: 'Leads',
-      }),
+        tableName: 'Leads'
+      })
     )
     expect(doc.provider).toBe('airtable')
     expect(doc.apiToken).toBe('enc-api')
@@ -153,8 +157,8 @@ describe('rowToDataConnection', () => {
         scopes: null,
         webhookUrl: 'https://example.com/hook',
         webhookMethod: 'PUT',
-        webhookHeaders: { 'X-Token': 'abc' },
-      }),
+        webhookHeaders: { 'X-Token': 'abc' }
+      })
     )
     expect(doc.provider).toBe('custom_webhook')
     expect(doc.webhookUrl).toBe('https://example.com/hook')
@@ -179,9 +183,9 @@ describe('credential encryption round-trip', () => {
           tableId: 'tbl1',
           tableName: 'Leads',
           connectedBy: u,
-          name: 'AT',
+          name: 'AT'
         },
-        adminDb,
+        adminDb
       )
 
       // The returned doc carries the ciphertext, never the plaintext.
@@ -218,9 +222,9 @@ describe('credential encryption round-trip', () => {
           sheetName: 'Sheet2',
           scopes: ['https://www.googleapis.com/auth/spreadsheets'],
           connectedBy: u,
-          name: 'GS',
+          name: 'GS'
         },
-        adminDb,
+        adminDb
       )
 
       expect(created.accessToken).not.toBe('access-plain')
@@ -232,12 +236,12 @@ describe('credential encryption round-trip', () => {
       expect(created.sheetName).toBe('Sheet2')
       expect(created.email).toBe('me@example.com')
       expect(created.scopes).toEqual([
-        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/spreadsheets'
       ])
     })
   })
 
-  it('the encrypted blob is not byte-equal to the plaintext (CryptoJS AES)', async () => {
+  it('the encrypted blob is not byte-equal to the plaintext (AES-256-GCM)', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { u, t } = await seedTenantRow(adminDb)
       const created = await createDataConnection(
@@ -248,23 +252,23 @@ describe('credential encryption round-trip', () => {
           baseId: 'b1',
           tableId: 'tbl1',
           connectedBy: u,
-          name: 'AT',
+          name: 'AT'
         },
-        adminDb,
+        adminDb
       )
       const [row] = await adminDb
         .select()
         .from(dataConnections)
         .where(eq(dataConnections.id, created.id))
-      // The stored ciphertext must not contain the plaintext substring.
+      // The stored ciphertext must not contain the plaintext substring, and
+      // must be the modern authenticated (v1 GCM) format that round-trips.
       expect(row.apiTokenEncrypted).not.toContain('super-secret')
-      // Cross-check the round-trip independently of the scheduling helper.
-      const bytes = CryptoJS.AES.decrypt(row.apiTokenEncrypted!, TEST_KEY)
-      expect(bytes.toString(CryptoJS.enc.Utf8)).toBe('super-secret')
+      expect(row.apiTokenEncrypted!.startsWith('v1:')).toBe(true)
+      expect(decryptToken(row.apiTokenEncrypted!)).toBe('super-secret')
     })
   })
 
-  it('webhook connections persist no encrypted credential fields', async () => {
+  it('webhook connections encrypt header values at rest and store no token fields', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { u, t } = await seedTenantRow(adminDb)
       const created = await createDataConnection(
@@ -275,13 +279,20 @@ describe('credential encryption round-trip', () => {
           webhookMethod: 'PUT',
           webhookHeaders: { 'X-Token': 'abc' },
           connectedBy: u,
-          name: 'WH',
+          name: 'WH'
         },
-        adminDb,
+        adminDb
       )
       expect(created.webhookUrl).toBe('https://example.com/hook')
       expect(created.webhookMethod).toBe('PUT')
-      expect(created.webhookHeaders).toEqual({ 'X-Token': 'abc' })
+      // Header values commonly carry an Authorization credential, so they are
+      // sealed at rest and decrypted only at the point of use (the provider
+      // factory). Header NAMES stay cleartext so connections stay debuggable.
+      expect(Object.keys(created.webhookHeaders!)).toEqual(['X-Token'])
+      const stored = created.webhookHeaders!['X-Token']
+      expect(stored).not.toBe('abc')
+      expect(stored.startsWith('v1:')).toBe(true)
+      expect(unsealMaybeSealed(stored)).toBe('abc')
       expect(created.accessToken).toBeUndefined()
       expect(created.apiToken).toBeUndefined()
     })
@@ -304,9 +315,9 @@ describe('createDataConnection defaults', () => {
           spreadsheetId: 'ss1',
           scopes: [],
           connectedBy: u,
-          name: 'GS',
+          name: 'GS'
         },
-        adminDb,
+        adminDb
       )
       expect(created.sheetName).toBe('Sheet1')
     })
@@ -321,9 +332,9 @@ describe('createDataConnection defaults', () => {
           tenantId: t,
           webhookUrl: 'https://example.com/hook',
           connectedBy: u,
-          name: 'WH',
+          name: 'WH'
         },
-        adminDb,
+        adminDb
       )
       expect(created.webhookMethod).toBe('POST')
     })
@@ -340,9 +351,9 @@ describe('createDataConnection defaults', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: u,
-          name: 'AT',
+          name: 'AT'
         },
-        adminDb,
+        adminDb
       )
       expect(created.status).toBe('active')
     })
@@ -365,27 +376,34 @@ describe('data connection CRUD (postgres)', () => {
           tableId: 'tbl1',
           tableName: 'Leads',
           connectedBy: u,
-          name: 'AT',
+          name: 'AT'
         },
-        adminDb,
+        adminDb
       )
       expect(created.apiToken).not.toBe('plain-token') // encrypted
 
       expect((await getDataConnection(t, created.id, adminDb))?.id).toBe(
-        created.id,
+        created.id
       )
       // Tenant isolation: another tenant cannot read this connection.
-      expect(await getDataConnection(randomUUID(), created.id, adminDb)).toBeNull()
+      expect(
+        await getDataConnection(randomUUID(), created.id, adminDb)
+      ).toBeNull()
       expect((await getDataConnections(t, adminDb)).length).toBe(1)
 
-      await updateDataConnection(t, created.id, { tableName: 'Customers' }, adminDb)
+      await updateDataConnection(
+        t,
+        created.id,
+        { tableName: 'Customers' },
+        adminDb
+      )
       expect((await getDataConnection(t, created.id, adminDb))?.tableName).toBe(
-        'Customers',
+        'Customers'
       )
 
       await updateDataConnectionStatus(t, created.id, 'expired', adminDb)
       expect((await getDataConnection(t, created.id, adminDb))?.status).toBe(
-        'expired',
+        'expired'
       )
 
       await deleteDataConnection(t, created.id, adminDb)
@@ -406,9 +424,9 @@ describe('data connection CRUD (postgres)', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: a.u,
-          name: 'A1',
+          name: 'A1'
         },
-        adminDb,
+        adminDb
       )
       await createDataConnection(
         {
@@ -418,9 +436,9 @@ describe('data connection CRUD (postgres)', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: a.u,
-          name: 'A2',
+          name: 'A2'
         },
-        adminDb,
+        adminDb
       )
       await createDataConnection(
         {
@@ -430,15 +448,15 @@ describe('data connection CRUD (postgres)', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: b.u,
-          name: 'B1',
+          name: 'B1'
         },
-        adminDb,
+        adminDb
       )
 
       const aRows = await getDataConnections(a.t, adminDb)
       const bRows = await getDataConnections(b.t, adminDb)
       expect(aRows.length).toBe(2)
-      expect(aRows.every((r) => r.tenantId === a.t)).toBe(true)
+      expect(aRows.every(r => r.tenantId === a.t)).toBe(true)
       expect(bRows.length).toBe(1)
       expect(bRows[0].name).toBe('B1')
     })
@@ -456,15 +474,15 @@ describe('data connection CRUD (postgres)', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: a.u,
-          name: 'A1',
+          name: 'A1'
         },
-        adminDb,
+        adminDb
       )
 
       // Attempt to flip status using the wrong tenant id → no-op.
       await updateDataConnectionStatus(b.t, created.id, 'expired', adminDb)
       expect((await getDataConnection(a.t, created.id, adminDb))?.status).toBe(
-        'active',
+        'active'
       )
     })
   })
@@ -481,9 +499,9 @@ describe('data connection CRUD (postgres)', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: a.u,
-          name: 'A1',
+          name: 'A1'
         },
-        adminDb,
+        adminDb
       )
 
       await deleteDataConnection(b.t, created.id, adminDb)
@@ -501,23 +519,24 @@ describe('data connection CRUD (postgres)', () => {
           tenantId: t,
           webhookUrl: 'https://example.com/a',
           connectedBy: u,
-          name: 'WH',
+          name: 'WH'
         },
-        adminDb,
+        adminDb
       )
-      const before = (await getDataConnection(t, created.id, adminDb))!.updatedAt
+      const before = (await getDataConnection(t, created.id, adminDb))!
+        .updatedAt
 
       await updateDataConnection(
         t,
         created.id,
         { webhookUrl: 'https://example.com/b', name: 'WH2' },
-        adminDb,
+        adminDb
       )
       const after = (await getDataConnection(t, created.id, adminDb))!
       expect(after.webhookUrl).toBe('https://example.com/b')
       expect(after.name).toBe('WH2')
       expect(new Date(after.updatedAt).getTime()).toBeGreaterThanOrEqual(
-        new Date(before).getTime(),
+        new Date(before).getTime()
       )
     })
   })
@@ -552,9 +571,9 @@ describe('getValidDataAccessToken', () => {
           spreadsheetId: 'ss1',
           scopes: [],
           connectedBy: u,
-          name: 'GS',
+          name: 'GS'
         },
-        adminDb,
+        adminDb
       )
       const doc = (await getDataConnection(t, created.id, adminDb))!
       const token = await getValidDataAccessToken(doc, adminDb)
@@ -571,7 +590,7 @@ describe('getValidDataAccessToken', () => {
       refreshUrl = typeof url === 'string' ? url : String(url)
       return new Response(
         JSON.stringify({ access_token: 'fresh-access', expires_in: 3600 }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }) as unknown as typeof fetch
 
@@ -592,9 +611,9 @@ describe('getValidDataAccessToken', () => {
           spreadsheetId: 'ss1',
           scopes: [],
           connectedBy: u,
-          name: 'GS',
+          name: 'GS'
         },
-        adminDb,
+        adminDb
       )
       const doc = (await getDataConnection(t, created.id, adminDb))!
       const token = await getValidDataAccessToken(doc, adminDb)
@@ -630,18 +649,18 @@ describe('getValidDataAccessToken', () => {
           spreadsheetId: 'ss1',
           scopes: [],
           connectedBy: u,
-          name: 'GS',
+          name: 'GS'
         },
-        adminDb,
+        adminDb
       )
       const doc = (await getDataConnection(t, created.id, adminDb))!
 
       await expect(getValidDataAccessToken(doc, adminDb)).rejects.toThrow(
-        /Google Sheets token refresh failed/,
+        /Google Sheets token refresh failed/
       )
       // Side effect: the connection is now marked expired.
       expect((await getDataConnection(t, created.id, adminDb))?.status).toBe(
-        'expired',
+        'expired'
       )
     })
   })
@@ -664,9 +683,9 @@ describe('getValidDataAccessToken', () => {
           baseId: 'b',
           tableId: 'tbl',
           connectedBy: u,
-          name: 'AT',
+          name: 'AT'
         },
-        adminDb,
+        adminDb
       )
       const doc = (await getDataConnection(t, created.id, adminDb))!
       expect(await getValidDataAccessToken(doc, adminDb)).toBe('pat-secret')
@@ -684,9 +703,9 @@ describe('getValidDataAccessToken', () => {
           tenantId: t,
           webhookUrl: 'https://example.com/hook',
           connectedBy: u,
-          name: 'WH',
+          name: 'WH'
         },
-        adminDb,
+        adminDb
       )
       const doc = (await getDataConnection(t, created.id, adminDb))!
       expect(await getValidDataAccessToken(doc, adminDb)).toBe('')

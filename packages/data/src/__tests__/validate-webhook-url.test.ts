@@ -68,7 +68,10 @@ describe('validateWebhookUrl — loopback', () => {
   it('rejects any 127.0.0.0/8 address', () => {
     const r = validateWebhookUrl('http://127.5.5.5/hook')
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error).toBe('Loopback addresses are not allowed')
+    if (!r.ok)
+      expect(r.error).toBe(
+        'Private, loopback, and link-local addresses are not allowed'
+      )
   })
 })
 
@@ -95,7 +98,9 @@ describe('validateWebhookUrl — private + reserved IPv4 ranges', () => {
     const r = validateWebhookUrl('http://10.1.2.3/hook')
     expect(r.ok).toBe(false)
     if (!r.ok)
-      expect(r.error).toBe('Private IP addresses (10.x.x.x) are not allowed')
+      expect(r.error).toBe(
+        'Private, loopback, and link-local addresses are not allowed'
+      )
   })
 
   it('rejects 172.16.0.0/12 boundaries', () => {
@@ -112,7 +117,9 @@ describe('validateWebhookUrl — private + reserved IPv4 ranges', () => {
     const r = validateWebhookUrl('http://192.168.1.1/hook')
     expect(r.ok).toBe(false)
     if (!r.ok)
-      expect(r.error).toBe('Private IP addresses (192.168.x.x) are not allowed')
+      expect(r.error).toBe(
+        'Private, loopback, and link-local addresses are not allowed'
+      )
   })
 
   it('accepts 192.x outside 192.168', () => {
@@ -122,16 +129,40 @@ describe('validateWebhookUrl — private + reserved IPv4 ranges', () => {
   it('rejects 169.254.x.x link-local (non-metadata)', () => {
     const r = validateWebhookUrl('http://169.254.10.10/hook')
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error).toBe('Link-local addresses are not allowed')
+    if (!r.ok)
+      expect(r.error).toBe(
+        'Private, loopback, and link-local addresses are not allowed'
+      )
   })
 
   it('rejects 0.0.0.0/8 (other than 0.0.0.0 loopback alias)', () => {
     const r = validateWebhookUrl('http://0.1.2.3/hook')
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error).toBe('Invalid IP address')
+    if (!r.ok)
+      expect(r.error).toBe(
+        'Private, loopback, and link-local addresses are not allowed'
+      )
   })
 
   it('is case-insensitive on hostnames', () => {
     expect(validateWebhookUrl('http://LOCALHOST/hook').ok).toBe(false)
+  })
+
+  it('rejects *.localhost subdomains', () => {
+    expect(validateWebhookUrl('http://anything.localhost/hook').ok).toBe(false)
+  })
+
+  it('rejects CG-NAT 100.64.0.0/10', () => {
+    expect(validateWebhookUrl('http://100.64.1.1/hook').ok).toBe(false)
+    expect(validateWebhookUrl('http://100.127.255.255/hook').ok).toBe(false)
+    // 100.63 and 100.128 are outside the CG-NAT block
+    expect(validateWebhookUrl('http://100.63.0.1/hook').ok).toBe(true)
+    expect(validateWebhookUrl('http://100.128.0.1/hook').ok).toBe(true)
+  })
+
+  it('rejects IPv6 loopback / link-local / ULA (bracketed)', () => {
+    expect(validateWebhookUrl('http://[::1]/hook').ok).toBe(false)
+    expect(validateWebhookUrl('http://[fe80::1]/hook').ok).toBe(false)
+    expect(validateWebhookUrl('http://[fd00::1]/hook').ok).toBe(false)
   })
 })

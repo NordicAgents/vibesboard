@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
+import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { processFile } from '@vibesboard/ai/file-processor'
 import { insertFiles, listFiles } from '@vibesboard/ai/files-store'
 import { getMigrateDb, type Db } from '@vibesboard/adapter-postgres/client'
@@ -108,6 +109,16 @@ export async function POST(
 
   if (!files.length) {
     return NextResponse.json({ error: 'No files provided' }, { status: 400 })
+  }
+
+  // fileKey is caller-supplied here; refuse any key that reaches into another
+  // tenant's namespace before it is written to the files table or merged into
+  // the agent's fileKeys array.
+  if (files.some(f => isCrossTenantFileKey(f.fileKey, agent.tenantId))) {
+    return NextResponse.json(
+      { error: 'fileKey outside this tenant' },
+      { status: 400 }
+    )
   }
 
   let createdFiles: Array<{

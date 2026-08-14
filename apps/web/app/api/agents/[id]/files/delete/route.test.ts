@@ -17,7 +17,9 @@ vi.mock('@vibesboard/agents/permissions', () => ({
 
 const deleteStorageMock = vi.fn(async (..._args: unknown[]) => undefined)
 vi.mock('@vibesboard/adapter-s3', () => ({
-  deleteFile: (...args: unknown[]) => deleteStorageMock(...args)
+  deleteFile: (...args: unknown[]) => deleteStorageMock(...args),
+  isCrossTenantFileKey: (key: string, tenantId: string) =>
+    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`)
 }))
 
 const getFilesByKeysMock = vi.fn(async (..._args: unknown[]) => [

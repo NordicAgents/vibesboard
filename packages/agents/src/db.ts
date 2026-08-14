@@ -1,6 +1,7 @@
 import { type Message } from '@vibesboard/contracts'
 
 import { eq, and } from 'drizzle-orm'
+import { unsealNotificationConfig } from './notification-secret.ts'
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { agents as agentsTable } from '@vibesboard/adapter-postgres/schema'
 import type {
@@ -11,10 +12,7 @@ import type {
   Hook,
   HookJob
 } from '@vibesboard/adapter-postgres/schema'
-import type {
-  HookDocument,
-  HookJobDocument
-} from '@vibesboard/contracts'
+import type { HookDocument, HookJobDocument } from '@vibesboard/contracts'
 import { type AgentDocument } from '@vibesboard/contracts'
 import {
   type AgentToolType,
@@ -134,7 +132,10 @@ export const mapAgentDoc = (data: Record<string, any>): MappedAgent => ({
   googlePlaceId: data.googlePlaceId ?? null,
   domain: data.domain ?? null,
   retrievalStrategy: data.retrievalStrategy ?? 'direct',
-  notificationConfig: data.notificationConfig ?? undefined,
+  // Idempotent: a plaintext (pre-migration) or already-decrypted value passes
+  // through unchanged, so this is safe regardless of which path fed `data`.
+  notificationConfig:
+    unsealNotificationConfig(data.notificationConfig) ?? undefined,
   handoffTargets: sanitizeStringArray(data.handoffTargets),
   collectionFields: Array.isArray(data.collectionFields)
     ? data.collectionFields
@@ -243,7 +244,9 @@ export const ensureUniqueSlug = async (slug: string, tenantId: string) => {
     const rows = await getMigrateDb()
       .select({ id: agentsTable.id })
       .from(agentsTable)
-      .where(and(eq(agentsTable.tenantId, tenantId), eq(agentsTable.slug, candidate)))
+      .where(
+        and(eq(agentsTable.tenantId, tenantId), eq(agentsTable.slug, candidate))
+      )
       .limit(1)
 
     if (rows.length === 0) {
@@ -306,7 +309,10 @@ export const rowToHookJob = (r: HookJob): HookJobDocument => ({
 })
 
 /** Map a Postgres agents row (+ the tenant's slug) to the VibeAgent shape. */
-export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): MappedAgent => ({
+export const agentRowToVibeAgent = (
+  row: Agent,
+  tenantSlug: string
+): MappedAgent => ({
   id: row.id,
   userId: row.userId ?? '',
   tenantId: row.tenantId,
@@ -336,16 +342,20 @@ export const agentRowToVibeAgent = (row: Agent, tenantSlug: string): MappedAgent
   googlePlaceId: row.googlePlaceId ?? null,
   domain: null,
   retrievalStrategy: row.retrievalStrategy ?? 'direct',
-  notificationConfig: row.notificationConfig ?? undefined,
+  // The webhook secret is stored encrypted; decrypt on the way out so callers
+  // (notification delivery, the settings UI) see plaintext as before.
+  notificationConfig:
+    unsealNotificationConfig(row.notificationConfig) ?? undefined,
   handoffTargets: row.handoffTargets ?? [],
   collectionFields: row.collectionFields ?? undefined,
   schedulingConfig: row.schedulingConfig ?? undefined,
-  dataConfig: (row.dataConfig as unknown) as VibeAgent['dataConfig'] ?? undefined,
+  dataConfig:
+    (row.dataConfig as unknown as VibeAgent['dataConfig']) ?? undefined,
   calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
   bookingConfig: row.bookingConfig ?? undefined,
   llmConfigId: row.llmConfigId ?? null,
   memoryEnabled: row.memoryEnabled ?? false,
   currentVersion: row.currentVersion ?? 1,
   createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString()
 })

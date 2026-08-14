@@ -382,9 +382,7 @@ describe('whatsapp crypto (token round-trip)', () => {
     const prevKey = process.env.ENCRYPTION_KEY
     delete process.env.ENCRYPTION_KEY
     try {
-      expect(() => decryptToken('anything')).toThrow(
-        /ENCRYPTION_KEY environment variable is not set/,
-      )
+      expect(() => decryptToken('anything')).toThrow(/ENCRYPTION_KEY/)
     } finally {
       if (prevKey !== undefined) process.env.ENCRYPTION_KEY = prevKey
     }

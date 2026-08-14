@@ -12,7 +12,7 @@ import { useCompatChat } from '@/lib/hooks/use-compat-chat'
 import { type Message } from '@vibesboard/contracts'
 import { ChevronRight } from 'lucide-react'
 
-import { type AgentMode, type VibeAgent } from '@vibesboard/contracts'
+import { type AgentMode, type PublicAgent } from '@vibesboard/contracts'
 import {
   checkCompletion,
   isNewCollectorConversation
@@ -42,7 +42,9 @@ interface HandoffChainEntry {
 }
 
 interface AgentChatProps {
-  agent: VibeAgent
+  // Accepts the public DTO; a full VibeAgent (dashboard) is structurally
+  // assignable, so authenticated callers keep passing the whole object.
+  agent: PublicAgent
   endpoint: string
   conversationId?: string
   initialMessages?: Message[]

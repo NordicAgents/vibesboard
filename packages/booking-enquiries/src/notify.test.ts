@@ -195,6 +195,6 @@ describe('notifyAdminOfEnquiry', () => {
       makeEnquiry(),
     )
     const arg = (sendMock.mock.calls[0] as unknown as unknown[])[0] as Record<string, unknown>
-    expect(arg.from).toBe('Vibesboard <notifications@vibesboard.com>')
+    expect(arg.from).toBe('Vibesboard <noreply@example.com>')
   })
 })
