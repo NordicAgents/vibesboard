@@ -65,8 +65,15 @@ const decodeText = (buffer: Buffer) => {
   }
 }
 
+// Elements whose text content is code, not prose. Stripping only the tags
+// would leave the script body and CSS rules behind as indexable "text".
+const htmlNonContentBlockRegex =
+  /<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1>/gi
+
 const extractFromHtml = (raw: string) =>
-  cleanText(raw.replace(htmlTagRegex, ' '))
+  cleanText(
+    raw.replace(htmlNonContentBlockRegex, ' ').replace(htmlTagRegex, ' ')
+  )
 
 const extractFromWorkbook = async (buffer: Buffer) => {
   const ExcelJS = await import('exceljs')
@@ -308,23 +315,20 @@ export const extractTextFromBuffer = async (
     return extractTextFromImage(buffer, mimeType)
   }
 
+  // Must precede the generic `text/` branch: text/html starts with `text/`,
+  // so ordering this after it made the HTML extractor unreachable and indexed
+  // every .html upload with its tags, scripts and styles intact.
+  if (mimeType === 'text/html') {
+    return extractFromHtml(decodeText(buffer))
+  }
+
+  // Everything else under text/* (plain, markdown, csv, …) is already
+  // readable as-is, so it just needs decoding.
   if (mimeType.startsWith('text/')) {
     return cleanText(decodeText(buffer))
   }
 
   if (mimeType === 'application/json' || mimeType === 'application/xml') {
-    return cleanText(decodeText(buffer))
-  }
-
-  if (mimeType === 'text/html') {
-    return extractFromHtml(decodeText(buffer))
-  }
-
-  if (mimeType === 'text/markdown') {
-    return cleanText(decodeText(buffer))
-  }
-
-  if (mimeType === 'text/csv') {
     return cleanText(decodeText(buffer))
   }
 
