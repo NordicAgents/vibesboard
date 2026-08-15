@@ -111,7 +111,7 @@ curl -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/
   -d '{ "message": "Summarise account 4471.", "callbackUrl": "https://example.com/vibesboard/callback", "externalUserId": "crm-user-8823" }'
 ```
 
-The `202` body is `jobId`, `status: "pending"`, `agentId`, and `hookId` — no reply yet. The workspace usage limit is checked when the job runs rather than at submission, so an over-limit async call is accepted and then fails with a `Usage limit reached` error. Poll it at any time with the same secret:
+The `202` body is `jobId`, `status: "pending"`, `agentId`, and `hookId` — no reply yet. The workspace usage limit is checked at submission, the same as on `/chat` and `/stream`, so an over-limit call is refused with the same response those routes give instead of being accepted and failing later in the background where the caller could not see it. Poll a job at any time with the same secret:
 
 ```bash
 curl -H "X-Hook-Secret: k8Qw2ZrT7mB4xN1sVpH6yLdA0cJfEuG3" \
@@ -161,20 +161,23 @@ function verify(rawBody, signature, hookSecret) {
 
 ### Callback URL restrictions
 
-`callbackUrl` must parse as a URL (checked at request time, `422` otherwise) and is re-checked in the background before the agent runs. That second check rejects:
+`callbackUrl` must parse as a URL, and is then checked **at request time** — a rejected URL returns `422` with the reason, before any job is created. It rejects:
 
 - schemes other than `http:` and `https:`
 - `localhost`, `127.0.0.1`, `::1`, and any `*.localhost` hostname
 - literal private IPv4 ranges — `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
 - link-local addresses `169.254.0.0/16`, including the `169.254.169.254` metadata endpoint
 
-<Callout type="note" title="A rejected callback URL surfaces as a failed job">
-  Because that check runs after the response is sent, the request still returns
-  `202`. The job is then marked `failed` with the rejection reason as its
-  `error`, and no callback is delivered at all — poll the job to see it.
-  Delivery itself also goes through the platform's DNS-resolving `safeFetch`,
-  which refuses public hostnames resolving to private addresses and re-validates
-  every redirect hop.
+<Callout type="note" title="Checked three times, on purpose">
+  The same check runs again inside the background job, and delivery itself goes
+  through the platform's DNS-resolving `safeFetch`, which refuses public
+  hostnames that resolve to private addresses and re-validates every redirect
+  hop — something a check on the literal URL cannot cover.
+
+  Only the first of the three is new. A blocked URL used to be accepted with a
+  `202` and a job id, and the caller got a success response for work that could
+  never be delivered; the job was marked `failed` later and only polling
+  revealed it.
 </Callout>
 
 ## Streaming
@@ -195,7 +198,7 @@ data: [DONE] {"conversationId":"01927f40-1a2b-7c3d-9e4f-5a6b7c8d9e0f","agentId":
 
 ## Disabling and deleting
 
-The power icon on a hook row toggles it between `active` and `inactive` (`PATCH /api/agents/{agentId}/hooks/{hookId}` with `{ "status": "inactive" }`). An inactive hook's `/chat`, `/async`, and `/stream` calls return `401` immediately; the job-poll endpoint checks only the secret, so results of jobs submitted while it was active stay readable.
+The power icon on a hook row toggles it between `active` and `inactive` (`PATCH /api/agents/{agentId}/hooks/{hookId}` with `{ "status": "inactive" }`). Disabling is a full revocation: `/chat`, `/async`, `/stream`, **and** the job-poll endpoint all return `401` while the hook is inactive. Poll used to verify the secret alone, which left every existing job id — completed reply text included — readable after an operator had turned the integration off.
 
 The trash icon deletes it (`DELETE`, `204`), after a confirmation warning that any external service using it loses access immediately. Deletion is permanent — the secret can't be recovered and the hook ID is not reissued. Disable instead if you only want to pause an integration.
 

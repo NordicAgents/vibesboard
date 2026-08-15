@@ -130,7 +130,7 @@ export const DOCS_NAV: DocNavSection[] = [
       {
         slug: 'integrate/mcp-servers',
         title: 'MCP servers',
-        description: 'Connect agents to tools over the Model Context Protocol.'
+        description: 'Not supported yet — what to use for external tool access.'
       }
     ]
   },
