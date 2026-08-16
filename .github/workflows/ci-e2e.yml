@@ -14,7 +14,7 @@ permissions:
 jobs:
   e2e:
     name: Playwright suites
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: [self-hosted, docker]
     # Backstop only — both suites set a lower globalTimeout so Playwright aborts
     # itself and still uploads its report. Without this, a wedged dev server ran
     # to GitHub's 6-hour job ceiling (run 31392110921 burned exactly that).
@@ -121,3 +121,10 @@ jobs:
       - name: Capture docker logs on failure
         if: failure()
         run: docker compose -f docker-compose.dev.yml logs
+
+      # The self-hosted runner is persistent, so the stack outlives the job.
+      # Tear it down (volumes included) or the next run inherits this run's
+      # database — on GitHub-hosted runners the VM was discarded instead.
+      - name: Tear down the stack
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down -v --remove-orphans
