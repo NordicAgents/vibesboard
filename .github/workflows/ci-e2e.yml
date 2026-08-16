@@ -14,7 +14,7 @@ permissions:
 jobs:
   e2e:
     name: Playwright suites
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     # Backstop only — both suites set a lower globalTimeout so Playwright aborts
     # itself and still uploads its report. Without this, a wedged dev server ran
     # to GitHub's 6-hour job ceiling (run 31392110921 burned exactly that).
