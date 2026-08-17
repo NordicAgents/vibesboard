@@ -74,7 +74,7 @@
     "github-slugger": "^2.0.0",
     "gray-matter": "^4.0.3",
     "jsdom": "^30.0.1",
-    "just-bash": "^2.14.0",
+    "just-bash": "^3.2.0",
     "lucide-react": "^0.554.0",
     "mammoth": "^1.11.0",
     "nanoid": "^5.1.16",
