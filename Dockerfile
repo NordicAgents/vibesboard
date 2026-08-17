@@ -7,7 +7,7 @@
 # The oven/bun image's `node` fallback runs Bun, which is not compatible with
 # Next.js 16's production metadata build. Next must execute under Node.
 FROM oven/bun:1.2.18@sha256:2cdd9c93006af1b433c214016d72a3c60d7aa2c75691cb44dfd5250aa379986b AS bun
-FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS base
+FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS base
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
@@ -66,7 +66,7 @@ RUN bun run --filter @vibesboard/web build
 
 # Production runner (standalone — no separate node_modules needed).
 # Debian (glibc) slim to match the glibc build image above.
-FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS runner
+FROM node:26-slim@sha256:4ebb5ace66f15a24c14c492e01a8beeed4fddf970a856109f5126e703e5fe503 AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=8080 \
