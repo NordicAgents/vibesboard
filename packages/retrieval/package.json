@@ -19,7 +19,7 @@
     "@vibesboard/ai": "workspace:*",
     "@vibesboard/contracts": "workspace:*",
     "@vibesboard/utils": "workspace:*",
-    "just-bash": "^2.14.0",
+    "just-bash": "^3.2.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
