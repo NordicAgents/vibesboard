@@ -64,6 +64,20 @@ describe('sealSecret / unsealSecret', () => {
     process.env.ENCRYPTION_KEY = 'a-totally-different-key-bbbbbbbbbbbb'
     expect(() => unsealSecret(token)).toThrow()
   })
+
+  it('always seals with a full 16-byte auth tag', () => {
+    const [, , , tagB64] = sealSecret('tag-length').split(':')
+    expect(Buffer.from(tagB64, 'base64')).toHaveLength(16)
+  })
+
+  it('rejects a truncated auth tag', () => {
+    // node accepts 4/8/12..16-byte GCM tags unless authTagLength is pinned.
+    // A short tag is far cheaper to forge, so unsealing must refuse one even
+    // though the ciphertext and IV are untouched.
+    const parts = sealSecret('do-not-truncate').split(':')
+    parts[3] = Buffer.from(parts[3], 'base64').subarray(0, 4).toString('base64')
+    expect(() => unsealSecret(parts.join(':'))).toThrow()
+  })
 })
 
 describe('key rotation', () => {

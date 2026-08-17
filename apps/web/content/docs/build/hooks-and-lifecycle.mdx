@@ -76,7 +76,7 @@ Pass the secret in the `X-Hook-Secret` header. Every runtime endpoint checks, in
 ```bash
 curl -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/chat \
   -H "Content-Type: application/json" \
-  -H "X-Hook-Secret: k8Qw2ZrT7mB4xN1sVpH6yLdA0cJfEuG3" \
+  -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
   -d '{ "message": "What is the lead time on order 4471?", "externalUserId": "crm-user-8823" }'
 ```
 
@@ -107,14 +107,14 @@ Use `/async` when the reply may take longer than your caller wants to wait. It r
 ```bash
 curl -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/async \
   -H "Content-Type: application/json" \
-  -H "X-Hook-Secret: k8Qw2ZrT7mB4xN1sVpH6yLdA0cJfEuG3" \
+  -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
   -d '{ "message": "Summarise account 4471.", "callbackUrl": "https://example.com/vibesboard/callback", "externalUserId": "crm-user-8823" }'
 ```
 
 The `202` body is `jobId`, `status: "pending"`, `agentId`, and `hookId` — no reply yet. The workspace usage limit is checked at submission, the same as on `/chat` and `/stream`, so an over-limit call is refused with the same response those routes give instead of being accepted and failing later in the background where the caller could not see it. Poll a job at any time with the same secret:
 
 ```bash
-curl -H "X-Hook-Secret: k8Qw2ZrT7mB4xN1sVpH6yLdA0cJfEuG3" \
+curl -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
   https://<your-host>/api/hooks/01927f3c-.../jobs/01927f44-77aa-7bcd-8123-9e0f1a2b3c4d
 ```
 
@@ -187,7 +187,7 @@ function verify(rawBody, signature, hookSecret) {
 ```bash
 curl -N -X POST https://<your-host>/api/hooks/01927f3c-9c6e-7a41-b2d0-3a5c8f0e1d42/stream \
   -H "Content-Type: application/json" \
-  -H "X-Hook-Secret: k8Qw2ZrT7mB4xN1sVpH6yLdA0cJfEuG3" \
+  -H "X-Hook-Secret: hook_secret_example_not_a_real_secret" \
   -d '{ "message": "Draft a reply to the customer.", "externalUserId": "crm-user-8823" }'
 ```
 

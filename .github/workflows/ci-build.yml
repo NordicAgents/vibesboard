@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     name: Build web application
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     # GitHub does not expose repository secrets to pull requests from forks, so
     # every `secrets.*` below is an empty string on an outside contributor's PR.
     # Each value falls back to a public default so the fork build still compiles
