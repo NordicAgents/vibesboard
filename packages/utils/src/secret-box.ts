@@ -31,6 +31,8 @@ import CryptoJS from 'crypto-js'
 const VERSION = 'v1'
 const HKDF_SALT = Buffer.from('vibesboard/secret-box/v1')
 const HKDF_INFO = Buffer.from('aes-256-gcm')
+/** GCM tag length, pinned on both ends so a truncated tag cannot verify. */
+const TAG_BYTES = 16
 
 interface KeyMaterial {
   keyId: string
@@ -89,7 +91,9 @@ export function isModernToken(token: string): boolean {
 export function sealSecret(plaintext: string): string {
   const { keyId, aesKey } = currentKey()
   const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', aesKey, iv)
+  const cipher = createCipheriv('aes-256-gcm', aesKey, iv, {
+    authTagLength: TAG_BYTES
+  })
   const ciphertext = Buffer.concat([
     cipher.update(plaintext, 'utf8'),
     cipher.final()
@@ -119,10 +123,16 @@ export function unsealSecret(token: string): string {
     const candidates = matched.length ? matched : keys
     for (const k of candidates) {
       try {
+        // authTagLength is pinned so setAuthTag rejects a truncated tag.
+        // Without it, node accepts tags as short as 4 bytes, which would let
+        // anyone who can tamper with a stored token forge at ~2^32 instead of
+        // ~2^128. sealSecret always emits 16 bytes, so this rejects nothing
+        // that was written by this module.
         const decipher = createDecipheriv(
           'aes-256-gcm',
           k.aesKey,
-          Buffer.from(ivB64, 'base64')
+          Buffer.from(ivB64, 'base64'),
+          { authTagLength: TAG_BYTES }
         )
         decipher.setAuthTag(Buffer.from(tagB64, 'base64'))
         return Buffer.concat([
