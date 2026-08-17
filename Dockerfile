@@ -3,11 +3,15 @@
 # Multi-stage build for Next.js targeting Cloud Run
 # Uses standalone output for smaller images
 
-# Copy the pinned Bun package manager into a real Node 22/glibc build image.
+# Copy the pinned Bun package manager into a real Node/glibc build image.
 # The oven/bun image's `node` fallback runs Bun, which is not compatible with
 # Next.js 16's production metadata build. Next must execute under Node.
+#
+# Track the Active LTS line (24 "Krypton"), not Current. Dependabot proposes
+# whatever tag is newest — at time of writing 26, which is Current and does not
+# reach LTS until Oct 2026 — so its Node bumps need a look rather than a merge.
 FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
-FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS base
+FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS base
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
@@ -66,7 +70,7 @@ RUN bun run --filter @vibesboard/web build
 
 # Production runner (standalone — no separate node_modules needed).
 # Debian (glibc) slim to match the glibc build image above.
-FROM node:22-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS runner
+FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=8080 \
