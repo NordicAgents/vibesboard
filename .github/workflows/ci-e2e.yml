@@ -3,6 +3,8 @@ name: E2E
 on:
   pull_request:
     branches: [dev, main]
+  # So the suite can still be run deliberately while it is parked (below).
+  workflow_dispatch:
 
 concurrency:
   group: ci-e2e-${{ github.head_ref }}
@@ -14,6 +16,25 @@ permissions:
 jobs:
   e2e:
     name: Playwright suites
+    # PARKED. On the self-hosted runners the deep suite kills the runner agent
+    # outright ~15 minutes in: no log output, every later step left pending, and
+    # the job force-failed because the runner went away. Reproduced twice,
+    # including once with the box otherwise idle, so it is the suite's own
+    # footprint rather than contention — and `workers: 1` in
+    # playwright.local.config.ts means there is no parallelism left to dial back.
+    # Left on, it burned ~15 minutes of the single docker-labelled runner per PR
+    # and delayed the Tests job queued behind it, all to reproduce a failure we
+    # already understand.
+    #
+    # This is a symptom of running CI on one laptop, which is itself only a
+    # workaround for the Actions billing outage. Restoring billing puts these
+    # suites back on ubuntu-latest, where they passed reliably before
+    # 2026-08-13 — that is the real fix, not tuning this workflow.
+    #
+    # Re-enable by setting the repository variable E2E_ENABLED to 'true', or run
+    # it on demand from the Actions tab via workflow_dispatch. Delete this `if:`
+    # once the gates are back on GitHub-hosted runners.
+    if: vars.E2E_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, docker]
     # Backstop only — both suites set a lower globalTimeout so Playwright aborts
     # itself and still uploads its report. Without this, a wedged dev server ran
