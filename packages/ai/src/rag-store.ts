@@ -52,11 +52,13 @@ export async function replaceFileChunks(
   const table = selectTable(provider)
 
   return db.transaction(async (tx) => {
-    // Delete from all tables to handle provider switches cleanly
-    await tx.delete(embeddings).where(and(eq(embeddings.tenantId, input.tenantId), eq(embeddings.sourceType, 'file_chunk'), eq(embeddings.sourceId, input.fileId)))
-    await tx.delete(embeddings1536).where(and(eq(embeddings1536.tenantId, input.tenantId), eq(embeddings1536.sourceType, 'file_chunk'), eq(embeddings1536.sourceId, input.fileId)))
-    await tx.delete(embeddings384).where(and(eq(embeddings384.tenantId, input.tenantId), eq(embeddings384.sourceType, 'file_chunk'), eq(embeddings384.sourceId, input.fileId)))
-    await tx.delete(embeddings1024).where(and(eq(embeddings1024.tenantId, input.tenantId), eq(embeddings1024.sourceType, 'file_chunk'), eq(embeddings1024.sourceId, input.fileId)))
+    // Delete from every table — handles provider switches, and the target
+    // table's own previous rows (otherwise a re-index duplicates every chunk).
+    // Iterating ALL_EMBEDDING_TABLES rather than hand-listing so a new width
+    // cannot be missed here.
+    for (const t of ALL_EMBEDDING_TABLES) {
+      await tx.delete(t).where(and(eq(t.tenantId, input.tenantId), eq(t.sourceType, 'file_chunk'), eq(t.sourceId, input.fileId)))
+    }
     if (!input.chunks.length) return 0
     await tx.insert(table).values(input.chunks.map((c) => ({
       id: uuidv7(), tenantId: input.tenantId, sourceType: 'file_chunk' as const, sourceId: input.fileId,
@@ -69,12 +71,11 @@ export async function replaceFileChunks(
 }
 
 export async function deleteFileEmbeddings(tenantId: string, fileId: string, db: Db = getMigrateDb()): Promise<void> {
-  await Promise.all([
-    db.delete(embeddings).where(and(eq(embeddings.tenantId, tenantId), eq(embeddings.sourceType, 'file_chunk'), eq(embeddings.sourceId, fileId))),
-    db.delete(embeddings1536).where(and(eq(embeddings1536.tenantId, tenantId), eq(embeddings1536.sourceType, 'file_chunk'), eq(embeddings1536.sourceId, fileId))),
-    db.delete(embeddings384).where(and(eq(embeddings384.tenantId, tenantId), eq(embeddings384.sourceType, 'file_chunk'), eq(embeddings384.sourceId, fileId))),
-    db.delete(embeddings1024).where(and(eq(embeddings1024.tenantId, tenantId), eq(embeddings1024.sourceType, 'file_chunk'), eq(embeddings1024.sourceId, fileId))),
-  ])
+  await Promise.all(
+    ALL_EMBEDDING_TABLES.map(t =>
+      db.delete(t).where(and(eq(t.tenantId, tenantId), eq(t.sourceType, 'file_chunk'), eq(t.sourceId, fileId))),
+    ),
+  )
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
@@ -116,8 +117,8 @@ export async function keywordSearchFileChunks(
     return rows.map((r) => ({ fileId: r.fileId, fileName: r.fileName, fileKey: r.fileKey, mimeType: r.mimeType, chunkIndex: r.chunkIndex, content: r.content, similarity: null as null }))
   }
 
-  const [r768, r1536, r384, r1024] = await Promise.all([searchTable(embeddings), searchTable(embeddings1536), searchTable(embeddings384), searchTable(embeddings1024)])
-  return [...r768, ...r1536, ...r384, ...r1024]
+  const perTable = await Promise.all(ALL_EMBEDDING_TABLES.map(searchTable))
+  return perTable.flat()
     .sort((a, b) => (b.similarity ?? 0) - (a.similarity ?? 0))
     .slice(0, opts.topK)
 }

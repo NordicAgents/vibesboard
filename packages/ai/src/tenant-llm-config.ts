@@ -508,6 +508,10 @@ export async function resolveEmbedder(
         input: texts,
         apiKey: spec.apiKey,
         baseUrl: spec.baseUrl ?? NVIDIA_API_BASE_URL,
+        // baseUrl is now always set, so createEmbedding's private-address check
+        // always runs — honor the tenant's opt-in the same way the
+        // openai/openai_compatible branch does, or a self-hosted NIM is rejected.
+        ...(allowPrivateHost ? { allowPrivateHost: true } : {}),
         ...(spec.modelId.startsWith('nvidia/') ? { inputType: 'passage' as const } : {}),
       })
       return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
