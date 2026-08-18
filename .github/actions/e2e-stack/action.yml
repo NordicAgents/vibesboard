@@ -1,0 +1,60 @@
+name: E2E stack
+description: >
+  Bring up everything a Playwright suite needs on a self-hosted runner —
+  toolchain, dependencies, Postgres + MinIO, migrations and the browser.
+  Shared by the core and deep jobs in ci-e2e.yml so the two cannot drift
+  apart. Assumes the repository is already checked out (a local action has to
+  exist on disk before it can be used) and that the DATABASE_* / S3_* values
+  are set as environment variables by the calling workflow.
+
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: 1.2.18
+
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 22
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install --frozen-lockfile
+
+    - name: Bring up Postgres + MinIO via docker compose
+      shell: bash
+      run: docker compose -f docker-compose.dev.yml up -d --wait postgres minio
+
+    - name: Bootstrap MinIO bucket
+      shell: bash
+      run: |
+        # Wait until MinIO answers /minio/health/live (the compose healthcheck
+        # already covers this but we re-check from the runner's perspective
+        # to ensure host networking is reachable).
+        for i in $(seq 1 30); do
+          if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+            echo "MinIO reachable"; break
+          fi
+          echo "Waiting for MinIO... ($i/30)"; sleep 2
+          if [ "$i" = "30" ]; then
+            echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
+          fi
+        done
+        # Create the bucket via the mc client image. The image's ENTRYPOINT
+        # is 'mc'; override to sh so we can chain commands. --network host
+        # so 'localhost:9000' resolves to the runner-bound minio port.
+        docker run --rm --network host --entrypoint sh minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c "
+          mc alias set local http://localhost:9000 vibesboard vibesboard &&
+          (mc mb -p local/vibesboard-files || true) &&
+          mc anonymous set none local/vibesboard-files
+        "
+
+    - name: Apply database migrations
+      shell: bash
+      run: bun run db:migrate
+
+    - name: Install Playwright browser (chromium)
+      shell: bash
+      run: bunx playwright install chromium
+      working-directory: apps/web
