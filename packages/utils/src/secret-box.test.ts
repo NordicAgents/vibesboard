@@ -142,6 +142,45 @@ describe('legacy CryptoJS compatibility', () => {
     expect(unsealSecret(legacy)).toBe('old-legacy')
   })
 
+  // CryptoJS salts each ciphertext randomly, and only some salts make a
+  // wrong-key decrypt produce invalid UTF-8 — so a fresh encrypt would
+  // reproduce the bug about 2.5% of the time and read as a flake. Pinning the
+  // salt makes it fire every run.
+  //
+  // The salt is supplied rather than the finished ciphertext on purpose: a
+  // hardcoded base64 blob is indistinguishable from a leaked credential to an
+  // entropy-based scanner, and the repository's gitleaks gate rejected exactly
+  // that. This is reproducible *and* obviously not a secret.
+  //
+  // Under this salt: the current key throws, the retired key recovers
+  // 'old-legacy', and an unrelated key yields '' — which is what lets the same
+  // fixture drive both cases below.
+  const PINNED_SALT = CryptoJS.enc.Hex.parse('0000000000000019')
+  const legacyUnderRetiredKey = () =>
+    CryptoJS.AES.encrypt('old-legacy', 'legacy-key-xxxxxxxxxxxx', {
+      salt: PINNED_SALT
+    }).toString()
+
+  it('keeps trying retired keys when the current key throws on a legacy value', () => {
+    // The regression: CryptoJS throws on invalid UTF-8 rather than returning
+    // '', so the decrypt loop used to abort on the current key and never reach
+    // ENCRYPTION_KEYS_OLD. Because the salt is fixed once a value is stored,
+    // that is not intermittent in production — the affected rows are lost for
+    // good after a rotation.
+    process.env.ENCRYPTION_KEYS_OLD = 'legacy-key-xxxxxxxxxxxx'
+    _resetKeyCacheForTests()
+    expect(unsealSecret(legacyUnderRetiredKey())).toBe('old-legacy')
+  })
+
+  it('still reports its own error when no configured key fits', () => {
+    // The catch must not swallow a genuine failure into a silent wrong answer.
+    process.env.ENCRYPTION_KEYS_OLD = 'some-other-retired-key-zzzz'
+    _resetKeyCacheForTests()
+    expect(() => unsealSecret(legacyUnderRetiredKey())).toThrow(
+      /Unable to decrypt legacy token/
+    )
+  })
+
   it('re-sealing a legacy value yields a modern token', () => {
     const legacy = CryptoJS.AES.encrypt(
       'v',
