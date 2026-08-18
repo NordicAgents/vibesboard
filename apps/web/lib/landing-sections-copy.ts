@@ -1,4 +1,9 @@
 import { LANDING_LINKS } from './landing-links'
+import {
+  LANDING_OPERATOR,
+  hasHostedOffering,
+  type LandingOperator
+} from './landing-operator'
 
 /* ── [02] Why Vibesboard ──────────────────────────────────────
    Lifted from the README comparison table: the operational work that starts
@@ -164,39 +169,62 @@ export interface LandingDeployOption {
 export const LANDING_DEPLOY_HEADING = 'Run it yourself, or let us run it.'
 
 export const LANDING_DEPLOY_BODY =
-  'Same codebase either way. Self-hosting is the whole product under the MIT license — there is no feature held back to make the hosted plan look better.'
+  'Same codebase either way. The platform is MIT licensed and self-hosting gets all of it. Commercial add-ons for the managed service live in a separate `ee/` directory under their own license, and you never need them to run Vibesboard yourself.'
 
-export const LANDING_DEPLOY_OPTIONS: LandingDeployOption[] = [
-  {
-    id: 'self-hosted',
-    title: 'Self-hosted',
-    summary: 'Your infrastructure, your data, your provider keys.',
-    points: [
-      'MIT licensed, the complete platform',
-      'Your PostgreSQL with pgvector and your S3-compatible storage',
-      'Bring your own model provider credentials',
-      'No seat limits and no usage ceiling but your own',
-      'You operate upgrades, backups and uptime'
-    ],
-    cta: {
-      label: 'Read the deployment guide',
-      href: LANDING_LINKS.deployment
-    }
-  },
-  {
-    id: 'hosted',
-    title: 'Hosted',
-    summary: 'The same build, operated for you on vibesboard.com.',
-    points: [
-      'Nothing to provision — sign in and create an agent',
-      'Managed PostgreSQL, storage, upgrades and backups',
-      'Platform model credentials included, or bring your own',
-      'Workspace plans and feature flags',
-      'Export and self-host later if you change your mind'
-    ],
-    cta: { label: 'Sign in', href: LANDING_LINKS.signIn }
+const SELF_HOSTED_OPTION: LandingDeployOption = {
+  id: 'self-hosted',
+  title: 'Self-hosted',
+  summary: 'Your infrastructure, your data, your provider keys.',
+  points: [
+    'MIT licensed, the complete platform',
+    'Your PostgreSQL with pgvector and your S3-compatible storage',
+    'Bring your own model provider credentials',
+    'No seat limits and no usage ceiling but your own',
+    'You operate upgrades, backups and uptime'
+  ],
+  cta: {
+    label: 'Read the deployment guide',
+    href: LANDING_LINKS.deployment
   }
-]
+}
+
+/**
+ * The deploy options for this deployment.
+ *
+ * The "Hosted" card only appears when the operator has configured a managed
+ * service (`NEXT_PUBLIC_OPERATOR_HOSTED_NAME`). Without that guard every fork
+ * of this public repository would render a card advertising — and linking
+ * visitors into — the upstream project's paid hosting.
+ */
+export function landingDeployOptions(
+  operator: LandingOperator = LANDING_OPERATOR
+): LandingDeployOption[] {
+  if (!hasHostedOffering(operator)) return [SELF_HOSTED_OPTION]
+
+  return [
+    SELF_HOSTED_OPTION,
+    {
+      id: 'hosted',
+      title: 'Hosted',
+      summary: `The same build, operated for you on ${operator.hostedName}.`,
+      points: [
+        'Nothing to provision — sign in and create an agent',
+        'Managed PostgreSQL, storage, upgrades and backups',
+        'Platform model credentials included, or bring your own',
+        'Workspace plans and feature flags',
+        'Export and self-host later if you change your mind'
+      ],
+      cta: {
+        label: 'Sign in',
+        href: operator.hostedUrl || LANDING_LINKS.signIn,
+        external: operator.hostedUrl.startsWith('http')
+      }
+    }
+  ]
+}
+
+export const LANDING_DEPLOY_OPTIONS: LandingDeployOption[] =
+  landingDeployOptions()
 
 /* ── [07] Security ─────────────────────────────────────────── */
 

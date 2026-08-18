@@ -4,7 +4,8 @@
     "allowJs": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@vibesboard/ee-billing": ["./lib/ee/billing-stub.ts"]
     },
     "types": ["react", "react-dom", "node"],
     "plugins": [{ "name": "next" }],

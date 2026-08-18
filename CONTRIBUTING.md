@@ -128,3 +128,11 @@ License](LICENSE); retained third-party portions are identified in
 is licensed under the MIT terms, and that you have the right to license it — it
 is your own work, or you have permission from whoever owns it. Do not remove or
 replace third-party copyright and licence notices.
+
+The `ee/` directory is the exception. It is the Enterprise Edition and is
+governed by [`ee/LICENSE`](ee/LICENSE), which assigns modifications to
+NordicAgents. If those terms are not acceptable to you, keep your contribution
+in the MIT core — that is where the great majority of the project lives, and a
+contribution there is never blocked by the enterprise terms. MIT code must never
+import from `ee/`; CI enforces this, because a hard dependency in that direction
+would make the licence split untrue.

@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { Building2, FileText, Palette, ArrowRight } from 'lucide-react'
+import { resolveEdition } from '@vibesboard/policy/edition'
+import { getBilling } from '@/lib/billing'
 import {
   Card,
   CardContent,
@@ -32,7 +34,15 @@ const adminCards = [
   }
 ]
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  // Which edition this container is actually running. Worth surfacing: the
+  // edition depends on both an environment variable and whether `ee/` was
+  // present at build time, so "did my enterprise deployment actually come up as
+  // enterprise?" is otherwise only answerable by reading logs. See
+  // /docs/contribute/open-core.
+  const edition = resolveEdition()
+  const billing = await getBilling()
+
   return (
     <div className="space-y-8">
       <div className="animate-fade-slide-in">
@@ -69,6 +79,18 @@ export default function AdminPage() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      <div className="border-t border-[#e4e3e3] pt-6 dark:border-[#344348]">
+        <p className="label-caps mb-1">Edition</p>
+        <p className="text-sm text-[#445e5f] dark:text-[#6f7f80]">
+          Running the{' '}
+          <span className="font-medium text-[#222f30] dark:text-[#f5f8f7]">
+            {edition}
+          </span>{' '}
+          edition, billing provider{' '}
+          <span className="font-mono text-xs">{billing.kind}</span>.
+        </p>
       </div>
     </div>
   )

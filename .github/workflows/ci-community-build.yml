@@ -1,0 +1,75 @@
+# The root LICENSE says everything outside `ee/` is MIT and that `ee/` is
+# licensed separately "if that directory exists". That promise is only true if
+# the community edition actually builds and type-checks without it — which is
+# exactly the thing that rots silently the first time someone imports Enterprise
+# Edition code from the MIT core. This job proves it on every pull request.
+#
+# See ee/README.md for the split.
+name: Community build
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-community-build-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  community-build:
+    name: Build without the Enterprise Edition
+    runs-on: [self-hosted, Linux, X64]
+    # Same public NEXT_PUBLIC_* fallbacks as the main Build job; nothing here is
+    # secret, and a fork PR gets the defaults.
+    env:
+      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_AUTH_GOOGLE: ${{ secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE || 'false' }}
+      NEXT_PUBLIC_META_APP_ID: ${{ secrets.STAGING_NEXT_PUBLIC_META_APP_ID }}
+      NEXT_PUBLIC_FB_LOGIN_CONFIG_ID: ${{ secrets.STAGING_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.18
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Assert only the composition root reaches for Enterprise Edition code
+        run: |
+          # MIT code may name the EE specifier in exactly one place — the
+          # composition root and the files that alias or stub it. Anywhere else
+          # is a hard dependency from MIT code onto a proprietary directory,
+          # which would make the licence carve-out untrue.
+          allowed='^apps/web/(lib/billing\.ts|lib/billing\.test\.ts|lib/ee/billing-stub\.ts|tsconfig\.json|next\.config\.mjs|vitest\.config\.mts)$'
+          offenders=$(grep -rl '@vibesboard/ee-billing' \
+            --include='*.ts' --include='*.tsx' --include='*.mts' \
+            --include='*.mjs' --include='*.json' \
+            apps packages | grep -Ev "$allowed" || true)
+          if [ -n "$offenders" ]; then
+            echo "::error::MIT code references the Enterprise Edition outside the composition root:"
+            echo "$offenders"
+            exit 1
+          fi
+          echo "OK — the EE specifier appears only in the composition root."
+
+      - name: Remove the Enterprise Edition
+        run: rm -rf ee
+
+      - name: Install dependencies
+        # Deliberately not --frozen-lockfile: removing a workspace legitimately
+        # changes resolution, and that is the configuration under test.
+        run: bun install
+
+      - name: Type-check
+        run: bun run type-check
+
+      - name: Build
+        run: bun run build

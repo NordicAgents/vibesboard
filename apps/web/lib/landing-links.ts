@@ -1,3 +1,5 @@
+import { LANDING_OPERATOR } from './landing-operator'
+
 /**
  * Canonical outbound links for the marketing page.
  *
@@ -13,8 +15,8 @@ export const REPO_URL = `https://github.com/${GITHUB_SLUG}`
 
 /**
  * Docs are served from this app at `/docs` — same domain, same tab, so search
- * ranking and analytics compound on vibesboard.com instead of scattering onto
- * GitHub's file browser.
+ * ranking and analytics compound on the deployment's own domain instead of
+ * scattering onto GitHub's file browser.
  */
 export const docsUrl = (path: string) => `/docs/${path}`
 
@@ -37,12 +39,10 @@ export const LANDING_LINKS = {
   signIn: '/sign-in',
   signUp: '/sign-up',
   privacy: '/privacy-policy',
-  terms: '/terms-of-service',
-  email: 'mailto:hi@vibesboard.com',
-  instagram: 'https://www.instagram.com/vibesboard_ai/',
-  x: 'https://x.com/vibesboard_ai',
-  linkedin: 'https://www.linkedin.com/company/vibesboard-ai/',
-  youtube: 'https://www.youtube.com/@vibesboard_ai'
+  terms: '/terms-of-service'
+  // Contact address, social accounts and sibling products are deliberately
+  // absent: they identify whoever *operates* a deployment, not the project, and
+  // this repository is public. See lib/landing-operator.ts.
 } as const
 
 export interface LandingNavLink {
@@ -62,16 +62,11 @@ export const LANDING_NAV_LINKS: LandingNavLink[] = [
   { href: LANDING_LINKS.docs, label: 'Docs' }
 ]
 
-/** Sibling products — footer material, not navbar material. */
-export const LANDING_PRODUCT_LINKS: LandingNavLink[] = [
-  {
-    href: 'https://social.vibesboard.com/',
-    label: 'Feedback vibesboard',
-    external: true
-  },
-  {
-    href: 'https://org.vibesboard.com/',
-    label: 'Enterprise vibesboard',
-    external: true
-  }
-]
+/**
+ * Sibling products — footer material, not navbar material.
+ *
+ * Empty unless the deployment configures `NEXT_PUBLIC_OPERATOR_PRODUCTS`. A
+ * fork must not advertise the upstream project's other products.
+ */
+export const LANDING_PRODUCT_LINKS: LandingNavLink[] =
+  LANDING_OPERATOR.siblingProducts

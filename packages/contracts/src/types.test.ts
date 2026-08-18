@@ -1,5 +1,5 @@
 import { describe, it, expectTypeOf, assertType, expect } from 'vitest'
-import { toPublicAgent } from './index.ts'
+import { ALL_FEATURES, toPublicAgent } from './index.ts'
 import type {
   // domain-types.ts
   PlanId,
@@ -14,6 +14,7 @@ import type {
   AgentDocument,
   UserDocument,
   TenantSubscription,
+  SubscriptionEntitlements,
   HookDocument,
   ConversationDocument,
   // types.ts
@@ -215,5 +216,22 @@ describe('contracts type re-exports (compile-time contract)', () => {
     expectTypeOf<IBilling>().toHaveProperty('kind').toEqualTypeOf<string>()
     // IInboxChannel uses `id` (readonly string), not `kind`.
     expectTypeOf<IInboxChannel>().toHaveProperty('id').toEqualTypeOf<string>()
+  })
+
+  it('pins the IBilling seam between the community core and the EE package', () => {
+    // This port is a licence boundary, not just an interface: @vibesboard/policy
+    // (MIT) and ee/billing (Enterprise) both implement it, and apps/web picks
+    // one at runtime. A change here breaks one of the two silently, so the
+    // shape is asserted rather than inferred.
+    expectTypeOf<IBilling['getEntitlements']>().toBeCallableWith('tenant-1')
+    expectTypeOf<IBilling['isEntitled']>().toBeCallableWith('tenant-1', 'INBOX')
+    expectTypeOf<IBilling['getEntitlements']>().returns.resolves.toEqualTypeOf<SubscriptionEntitlements>()
+    expectTypeOf<IBilling['isEntitled']>().returns.resolves.toEqualTypeOf<boolean>()
+  })
+
+  it('exposes the ALL_FEATURES sentinel as a value, not just a type', () => {
+    // Both editions compare against it; a type-only export would let them
+    // drift apart at runtime.
+    expect(ALL_FEATURES).toBe('*')
   })
 })

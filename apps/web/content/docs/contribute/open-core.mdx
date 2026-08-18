@@ -1,0 +1,91 @@
+---
+title: 'Open core and the ee/ directory'
+description: 'What is MIT licensed, what is not, and how to build without the Enterprise Edition.'
+---
+
+# Open core and the `ee/` directory
+
+Vibesboard is one public repository with two licences. Almost all of it is MIT.
+A single directory, `ee/`, is not.
+
+This is the same structure [PostHog](https://github.com/PostHog/posthog) uses
+for its `ee/` directory and [Chatwoot](https://github.com/chatwoot/chatwoot)
+uses for `enterprise/`: one repository, a directory boundary, and a separate
+licence file inside it.
+
+## What the licences say
+
+The [root `LICENSE`](https://github.com/NordicAgents/vibesboard/blob/main/LICENSE)
+carves the repository into three parts:
+
+- Everything under `ee/`, **if that directory exists**, is licensed by
+  [`ee/LICENSE`](https://github.com/NordicAgents/vibesboard/blob/main/ee/LICENSE).
+- Third-party components keep their own licences.
+- Everything else is MIT.
+
+`ee/LICENSE` lets you read, modify, and run that code **for development and
+testing** without a subscription. Running it **in production** requires a
+Vibesboard Enterprise Edition subscription. You may not redistribute it.
+
+## Where the line is drawn
+
+The tenant boundary is community code. Only the *governance* of that boundary is
+enterprise.
+
+| Community (MIT) | Enterprise (`ee/`) |
+| --- | --- |
+| Workspaces, multi-tenancy, PostgreSQL row-level security | Billing and subscriptions |
+| Memberships, invitations, owner/admin/member roles | SAML and OIDC single sign-on *(planned)* |
+| Usage metering and the feature-flag system | Tenant-scoped audit log *(planned)* |
+| Every agent, channel, retrieval and integration feature | Custom roles beyond owner/admin/member *(planned)* |
+
+Multi-tenancy is deliberately **not** an enterprise feature. A self-hoster gets
+the same tenancy model a paying customer does — they simply run one workspace.
+Both PostHog and Chatwoot draw the line in the same place.
+
+## Running the community edition
+
+It is the default. Nothing under `ee/` is used unless you opt in:
+
+```bash
+VIBESBOARD_EDITION=enterprise   # opt in
+DISABLE_ENTERPRISE=true         # overrides the opt-in, always wins
+```
+
+You can also remove the directory outright:
+
+```bash
+rm -rf ee/
+bun install
+bun run build
+```
+
+That is a supported configuration, which is why the root licence says "if that
+directory exists". `apps/web/next.config.mjs` resolves the enterprise module to
+an MIT stub when `ee/billing` is absent, and the **Community build** workflow
+rebuilds the app that way on every pull request, so it cannot quietly break.
+
+## How the seam works
+
+One interface, `IBilling` in `@vibesboard/contracts`, has two implementations:
+
+- `communityBilling` in `@vibesboard/policy/billing` — one notional plan,
+  nothing metered, every feature entitled.
+- `enterpriseBilling` in `ee/billing` — resolves the tenant's real
+  subscription.
+
+`apps/web/lib/billing.ts` is the only place that chooses between them. It is
+also the only MIT file allowed to name the `@vibesboard/ee-billing` specifier;
+CI fails the build if any other file does, because a hard dependency from MIT
+code onto `ee/` would make the licence carve-out untrue.
+
+Enterprise billing never gates features directly. It reconciles a plan's
+entitlements into the existing `tenant_feature_toggles` table, so every
+`isFeatureEnabled()` call site works unchanged in both editions.
+
+## Contributing
+
+Contributions to the MIT core are welcome as normal — see
+[Contributing](/docs/contribute/contributing). Changes to `ee/` are subject to
+`ee/LICENSE`, which assigns modifications to NordicAgents; if that is not
+acceptable to you, keep your contribution in the MIT core.

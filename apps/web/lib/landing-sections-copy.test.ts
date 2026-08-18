@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest'
 
+import type { LandingOperator } from './landing-operator'
 import {
   LANDING_CAPABILITIES,
   LANDING_CAPABILITIES_HEADING,
   LANDING_CHANNELS_POINTS,
   LANDING_COMMUNITY_ACTIONS,
+  LANDING_DEPLOY_BODY,
   LANDING_DEPLOY_OPTIONS,
+  landingDeployOptions,
   LANDING_MODELS_BODY,
   LANDING_MODEL_PROVIDERS,
   LANDING_SECURITY_POINTS,
@@ -92,12 +95,50 @@ describe('landing models copy', () => {
   })
 })
 
+const OPERATOR_WITH_HOSTING: LandingOperator = {
+  contactEmail: '',
+  socials: [],
+  siblingProducts: [],
+  hostedName: 'example.com',
+  hostedUrl: 'https://example.com/sign-in'
+}
+
+const UNCONFIGURED_OPERATOR: LandingOperator = {
+  contactEmail: '',
+  socials: [],
+  siblingProducts: [],
+  hostedName: '',
+  hostedUrl: ''
+}
+
 describe('landing deploy copy', () => {
-  it('offers self-hosting first and hosted second', () => {
-    expect(LANDING_DEPLOY_OPTIONS.map(option => option.id)).toEqual([
-      'self-hosted',
-      'hosted'
-    ])
+  it('offers self-hosting first and hosted second when hosting is configured', () => {
+    expect(
+      landingDeployOptions(OPERATOR_WITH_HOSTING).map(option => option.id)
+    ).toEqual(['self-hosted', 'hosted'])
+  })
+
+  it('omits the hosted card entirely on an unconfigured fork', () => {
+    // Otherwise every fork of this public repository advertises, and links
+    // visitors into, the upstream project's paid hosting.
+    expect(
+      landingDeployOptions(UNCONFIGURED_OPERATOR).map(option => option.id)
+    ).toEqual(['self-hosted'])
+  })
+
+  it('names the configured operator rather than a hardcoded host', () => {
+    const hosted = landingDeployOptions(OPERATOR_WITH_HOSTING)[1]
+    expect(hosted.summary).toContain('example.com')
+    expect(hosted.cta.href).toBe('https://example.com/sign-in')
+  })
+
+  it('discloses the open-core split instead of claiming nothing is held back', () => {
+    // The repository ships an `ee/` directory under a separate licence. Copy
+    // that says "no feature held back" would be untrue the moment Phase 2
+    // lands, and a reader who opens ee/LICENSE would catch it.
+    expect(LANDING_DEPLOY_BODY).toMatch(/MIT licensed/i)
+    expect(LANDING_DEPLOY_BODY).toMatch(/ee\//)
+    expect(LANDING_DEPLOY_BODY).not.toMatch(/no feature held back/i)
   })
 
   it('admits the cost of self-hosting instead of only selling it', () => {
@@ -132,5 +173,22 @@ describe('landing community copy', () => {
         /^https:\/\/github\.com\/NordicAgents\/vibesboard/
       )
     }
+  })
+})
+
+describe('landing copy carries no operator identity', () => {
+  it('never names the upstream deployment when nothing is configured', () => {
+    // Mirrors the legal-entity regression test: a fork must not inherit the
+    // upstream project's host, contact address or social accounts.
+    const copy = JSON.stringify([
+      LANDING_DEPLOY_BODY,
+      landingDeployOptions(UNCONFIGURED_OPERATOR),
+      LANDING_WHY_ITEMS,
+      LANDING_CAPABILITIES,
+      LANDING_SECURITY_POINTS,
+      LANDING_CHANNELS_POINTS
+    ])
+    expect(copy).not.toMatch(/vibesboard\.com/i)
+    expect(copy).not.toMatch(/@vibesboard/i)
   })
 })

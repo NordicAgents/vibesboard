@@ -1,14 +1,16 @@
 import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 
+import { cn } from '@vibesboard/utils'
 import { LANDING_LINKS, LANDING_PRODUCT_LINKS } from '@/lib/landing-links'
+import { LANDING_OPERATOR } from '@/lib/landing-operator'
 
 interface FooterColumn {
   title: string
   links: { label: string; href: string; external?: boolean }[]
 }
 
-const COLUMNS: FooterColumn[] = [
+const BASE_COLUMNS: FooterColumn[] = [
   {
     title: 'Platform',
     links: [
@@ -48,21 +50,29 @@ const COLUMNS: FooterColumn[] = [
       { label: 'MIT license', href: LANDING_LINKS.license, external: true }
     ]
   },
-  {
-    title: 'More from us',
-    links: [
-      ...LANDING_PRODUCT_LINKS,
-      { label: 'hi@vibesboard.com', href: LANDING_LINKS.email }
-    ]
-  }
 ]
 
-const SOCIALS = [
-  { label: 'X', href: LANDING_LINKS.x },
-  { label: 'LinkedIn', href: LANDING_LINKS.linkedin },
-  { label: 'Instagram', href: LANDING_LINKS.instagram },
-  { label: 'YouTube', href: LANDING_LINKS.youtube }
+/**
+ * The "More from us" column exists only when this deployment's operator has
+ * something to put in it — sibling products or a contact address. On an
+ * unconfigured fork it is omitted entirely rather than rendering the upstream
+ * project's links. See lib/landing-operator.ts.
+ */
+const OPERATOR_LINKS: FooterColumn['links'] = [
+  ...LANDING_PRODUCT_LINKS,
+  ...(LANDING_OPERATOR.contactEmail
+    ? [
+        {
+          label: LANDING_OPERATOR.contactEmail,
+          href: `mailto:${LANDING_OPERATOR.contactEmail}`
+        }
+      ]
+    : [])
 ]
+
+const COLUMNS: FooterColumn[] = OPERATOR_LINKS.length
+  ? [...BASE_COLUMNS, { title: 'More from us', links: OPERATOR_LINKS }]
+  : BASE_COLUMNS
 
 export function LandingFooter() {
   const year = new Date().getFullYear()
@@ -70,7 +80,16 @@ export function LandingFooter() {
   return (
     <footer className="safe-area-inset-bottom dark border-t border-white/10 bg-background px-4 py-12 text-foreground sm:px-6 sm:py-16">
       <div className="container mx-auto">
-        <div className="grid gap-10 lg:grid-cols-[1.4fr_repeat(4,1fr)] lg:gap-8">
+        <div
+          className={cn(
+            'grid gap-10 lg:gap-8',
+            // Both variants are written out so Tailwind's scanner sees them;
+            // an interpolated arbitrary value would not be generated.
+            COLUMNS.length === 4
+              ? 'lg:grid-cols-[1.4fr_repeat(4,1fr)]'
+              : 'lg:grid-cols-[1.4fr_repeat(3,1fr)]'
+          )}
+        >
           <div className="max-w-sm">
             <span className="font-switzer text-2xl font-bold tracking-[-0.08em]">
               vibesboard
@@ -126,7 +145,7 @@ export function LandingFooter() {
             © {year} Vibesboard · Released under the MIT license
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
-            {SOCIALS.map(social => (
+            {LANDING_OPERATOR.socials.map(social => (
               <Link
                 key={social.label}
                 href={social.href}
