@@ -35,7 +35,7 @@ export const FEATURE_FLAG_DESCRIPTIONS: Record<FeatureFlagName, string> = {
   GOOGLE_REVIEW: 'Collect and respond to Google reviews.',
   EMBED_WIDGET: 'Embed an agent as a chat widget on your website.',
   AGENT_LINKS: 'Share public links to your agents.',
-  INBOX: 'Unified inbox for messaging channels (WhatsApp, Instagram).',
+  INBOX: 'Inboxes for messaging channels (WhatsApp, Instagram).',
   WHATSAPP_INBOX: 'Receive and reply to WhatsApp conversations.',
   WHATSAPP_INBOX_OAUTH: 'Connect WhatsApp via Meta OAuth.',
   WHATSAPP_INBOX_API_KEY: 'Connect WhatsApp using an API key.',

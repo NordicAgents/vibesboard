@@ -44,7 +44,7 @@ The **Web Fetch** switch (Knowledge tab, described in the UI as "Let the agent f
 The **File search** switch registers a `file_search` tool (`query` required, `limit` defaulting to 8) over the agent's uploaded files. Its actual behavior — and whether it survives to the model at all — depends on the agent's retrieval strategy, chosen from the **File Retrieval Strategy** card in the agent's right sidebar:
 
 - **Direct** — files are pre-loaded into context, up to 18,000 characters (60% of the 30,000-character budget), smallest file first. If everything fit and the agent has at least one file, `file_search` is **removed from the toolkit even when the toggle is on** — there is nothing left to search for. It only survives when some file overflowed the budget.
-- **RAG** — the retriever injects its own semantic `file_search` whenever the agent has at least one file. Retriever-provided tools take precedence over the toolkit by name, so **RAG agents get `file_search` whether or not the toggle is on**.
+- **RAG** — the retriever injects its own semantic `file_search` when the agent has at least one file **and the toggle is on**. Retriever-provided tools take precedence over the toolkit by name, so under RAG it is the retriever's semantic tool the model sees rather than the built-in one. With the toggle off the retriever exposes no file tool at all, so the agent cannot read uploads — source URLs are unaffected, since those are context rather than a file tool.
 - **Bash** — see below.
 
 ## The bash sandbox tool

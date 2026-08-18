@@ -13,6 +13,13 @@ copyright the Manrope Project Authors and distributed under the SIL Open Font
 License, Version 1.1 (LICENSES/OFL-1.1.txt). Roboto Mono is copyright Google
 LLC and distributed under the Apache License, Version 2.0 (LICENSES/Apache-2.0.txt).
 
+Container images built from this repository include third-party components
+under weak-copyleft licences, distributed as dynamically linked libraries and
+unmodified: libvips (via @img/sharp-libvips) and liblzma (via node-liblzma),
+both under the GNU Lesser General Public License. Their sources are available
+from their respective upstream projects. jszip is offered under a dual licence
+and is used here under the MIT terms.
+
 The MIT licence in the repository root applies to NordicAgents' original
 Vibesboard work. It does not replace the licences or notices above. Other
 third-party dependencies retain their respective licences as identified by
