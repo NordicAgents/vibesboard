@@ -148,12 +148,23 @@ export function unsealSecret(token: string): string {
     )
   }
 
-  // Legacy CryptoJS AES (passphrase mode). Try current then retired keys; a
-  // correct key yields non-empty UTF-8, a wrong one yields ''.
+  // Legacy CryptoJS AES (passphrase mode). Try current then retired keys.
+  //
+  // A wrong key does NOT reliably yield '': CryptoJS decrypts to arbitrary
+  // bytes, and `toString(enc.Utf8)` *throws* "Malformed UTF-8 data" whenever
+  // those bytes are not valid UTF-8. Whether that happens depends on the random
+  // salt baked into each ciphertext, so roughly one legacy value in forty took
+  // the throwing path. Without this catch the loop aborted on the first wrong
+  // key and never reached ENCRYPTION_KEYS_OLD — and because the salt is fixed
+  // once a value is stored, those rows stayed undecryptable for good after a
+  // rotation rather than failing intermittently.
   for (const k of allKeys()) {
-    const plaintext = CryptoJS.AES.decrypt(token, k.raw).toString(
-      CryptoJS.enc.Utf8
-    )
+    let plaintext: string
+    try {
+      plaintext = CryptoJS.AES.decrypt(token, k.raw).toString(CryptoJS.enc.Utf8)
+    } catch {
+      continue // Wrong key for this ciphertext; try the next one.
+    }
     if (plaintext) return plaintext
   }
   throw new Error('[secret-box] Unable to decrypt legacy token')
