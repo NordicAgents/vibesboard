@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { IconMoon, IconSun } from '@/components/ui/icons'
 
 export function ThemeToggle() {
-  const { setTheme, theme } = useTheme()
+  const { setTheme, resolvedTheme } = useTheme()
   const [_, startTransition] = React.useTransition()
   const [mounted, setMounted] = React.useState(false)
 
@@ -19,7 +19,14 @@ export function ThemeToggle() {
     return null
   }
 
-  const isDarkMode = theme === 'dark'
+  // `theme` reports the raw preference — 'system' by default until the
+  // visitor makes an explicit choice — which for a visitor whose OS is
+  // already dark meant this button was mislabeled "Switch to dark mode"
+  // while the page was already rendering dark, and clicking it then always
+  // set an explicit 'light' theme (the opposite of the label). resolvedTheme
+  // always reflects the actual applied appearance, system-preference
+  // included, so both the label and the toggle target track reality.
+  const isDarkMode = resolvedTheme === 'dark'
 
   return (
     <Button
@@ -29,11 +36,11 @@ export function ThemeToggle() {
       aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       onClick={() => {
         startTransition(() => {
-          setTheme(theme === 'light' ? 'dark' : 'light')
+          setTheme(isDarkMode ? 'light' : 'dark')
         })
       }}
     >
-      {!theme ? null : isDarkMode ? (
+      {!resolvedTheme ? null : isDarkMode ? (
         <IconMoon className="transition-all" />
       ) : (
         <IconSun className="transition-all" />

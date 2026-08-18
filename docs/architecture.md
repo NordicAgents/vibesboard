@@ -23,7 +23,7 @@ packages/
   contracts/             Shared domain types and ports
   data/                  Google Sheets, webhook connections, and data actions
   hybrid-memory/         Long-term agent memory engine
-  inbox/                 Unified inbox services
+  inbox/                 Inbox services for the messaging channels
   integrations/          Integration registry and helpers
   policy/                Plans, feature flags, permissions, and usage metering
   retrieval/             Retrieval strategies

@@ -1,6 +1,7 @@
 import { type VibeAgent } from '@vibesboard/contracts'
 import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
 import { createRetriever } from '@vibesboard/retrieval'
+import { deriveToolToggles } from '@vibesboard/agents/tooling'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools/index.ts'
 import { injectActionTools } from './actions/registry.ts'
 
@@ -31,11 +32,18 @@ export async function buildAgentContext(
     key => !isCrossTenantFileKey(key, tenantId)
   )
 
+  // The Knowledge tab's File search switch. Passed to the retriever so the
+  // RAG strategy honors it too — it builds its own file_search tool, which
+  // wins the name-collision merge below, so without this the switch had no
+  // effect under RAG.
+  const { fileSearch: fileSearchEnabled } = deriveToolToggles(agent.tools ?? [])
+
   const retriever = createRetriever(strategy, {
     agentId: agent.id,
     tenantId,
     fileKeys: safeFileKeys,
-    sourceUrls: agent.sourceUrls
+    sourceUrls: agent.sourceUrls,
+    fileSearchEnabled
   })
 
   await retriever.prepare()

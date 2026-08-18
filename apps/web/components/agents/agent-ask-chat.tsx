@@ -4,6 +4,7 @@ import * as React from 'react'
 import { type Message } from '@vibesboard/contracts'
 import { useCompletion } from '@ai-sdk/react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 
 import {
   type VibeAgent,
@@ -64,11 +65,30 @@ export function AgentAskChat({
     api: `/api/agents/${agent.id}/conversations/ask`,
     streamProtocol: 'text',
     onResponse(response: Response) {
+      if (!response.ok) {
+        // Without this the request just vanished: the spinner stopped, no
+        // answer appeared, and nothing said why.
+        response
+          .clone()
+          .json()
+          .then(data => {
+            toast.error(
+              data?.message ?? 'Ask AI could not answer that. Try again.'
+            )
+          })
+          .catch(() => {
+            toast.error('Ask AI could not answer that. Try again.')
+          })
+        return
+      }
       const nextSessionId = response.headers.get('x-session-id')
       if (nextSessionId) {
         sessionIdRef.current = nextSessionId
         setActiveSessionId(nextSessionId)
       }
+    },
+    onError() {
+      toast.error('The connection dropped before Ask AI finished answering.')
     },
     onFinish(prompt: string, result: string) {
       const sessionId = sessionIdRef.current

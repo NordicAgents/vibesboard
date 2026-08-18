@@ -1,0 +1,173 @@
+---
+title: 'Versioning & rollback'
+description: 'Keep a history of agent configuration and restore an earlier version.'
+---
+
+# Versioning & rollback
+
+Every agent keeps an append-only history of its own configuration. Each config-changing write stores an immutable JSON snapshot in `agent_versions`, and the agent row carries a `current_version` pointer to the snapshot its live config reflects. You read that history from the agent's **History** tab and roll back from the same place — but a rollback never erases anything: it applies the old config and appends a _new_ version on top.
+
+## What gets versioned
+
+A version stores the editorial config subset of the agent — the fields you edit in the Setup, Knowledge, Notifications, Reviews, and Actions tabs:
+
+`name`, `instructions`, `mode`, `allowAnonymous`, `greetingText`, `quickSuggestionsMode`, `quickSuggestionsCount`, `tools`, `fileKeys`, `handoffTargets`, `collectionFields`, `maxResponses`, `maxAgentResponses`, `googleReviewEnabled`, `googlePlaceId`, `retrievalStrategy`, `schedulingConfig`, `notificationConfig`, `bookingConfig`, `dataConfig`, `calendarAvailabilityConfig`, `llmConfigId`, `memoryEnabled`.
+
+Deliberately **not** versioned: identity (id, tenant, owner, slug), runtime counters, the version pointer itself, the agent's access-password hash, timestamps, and the notification webhook secret.
+
+<Callout type="note" title="The webhook secret never enters history">
+  The webhook secret is stripped from every snapshot for two reasons: rotating
+  it has to actually erase it, and re-sealing produces fresh ciphertext on every
+  write — which would otherwise read as a config change and create an empty
+  version on every save. Restoring carries the *live* secret forward rather than
+  wiping it.
+</Callout>
+
+Note that `fileKeys` is versioned but file contents and embeddings are not — see [file reconciliation](#file-reconciliation-and-warnings).
+
+## When a new version is written
+
+A version is written inside the same transaction as the change that caused it, so the snapshot and the live row can never disagree. The agent row is locked for the duration, which is what keeps concurrent writers from colliding on a version number.
+
+### Identical saves do not create a version
+
+Before inserting, the new snapshot is compared against the config stored on the current version using an order-insensitive deep comparison — key order and array ordering inside objects don't matter, only values do. If they match, nothing is written, the pointer doesn't move, and the call returns `{ created: false }`.
+
+So re-saving the Setup tab without touching a field, or a files-sync request that ends with the same key list, leaves history untouched. This is what keeps churny system and file writes from filling the tab with empty versions.
+
+Two sources are exempt from that rule:
+
+- **`create`** always writes v1.
+- **`restore`** always writes a new version — a restore is a deliberate user action and must leave an audit entry even when the restored config happens to equal the live config.
+
+<Callout type="tip" title="Label your edits">
+  `PATCH /api/agents/{id}` accepts an optional `changeNote` (max 500
+  characters). It's stored on the version the edit creates and rendered in the
+  History tab, which makes a long list far easier to scan later.
+</Callout>
+
+### Version `source` reference
+
+| Source      | Written by                                   | Meaning                                                                                                                    |
+| ----------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `create`    | `POST /api/agents`                           | v1, atomic with the agent insert. Always written.                                                                          |
+| `update`    | `PATCH /api/agents/{id}`                     | A normal config edit, with the optional `changeNote` attached.                                                             |
+| `restore`   | `POST /api/agents/{id}/versions/{n}/restore` | A rollback. Always written, and carries `restoredFrom`.                                                                    |
+| `file-sync` | Agent file upload and delete routes          | Knowledge-file changes; noted as `Files added` or `File deleted`.                                                          |
+| `system`    | Platform-initiated config changes            | Currently: disabling a Google Calendar connection auto-disables the agents using it, noted `Calendar connection disabled`. |
+| `backfill`  | Migration `0011_agent_versioning.sql`        | A synthetic v1 for every agent that already existed when versioning shipped, attributed to the agent's owner.              |
+
+## The History tab
+
+Open an agent and pick **History** (`/agents/{id}?tab=history`). The tab loads the 50 most recent versions, newest first.
+
+Each row shows:
+
+- The **version number** in the circle on the left.
+- A **source badge** — `Created`, `Updated`, `Restored`, `Backfill`, `File sync`, or `System`.
+- A green **Current** badge on the one version the live config reflects.
+- **`← from vN`** on restore rows, so you can see which version a rollback came from.
+- The **change note**, if the edit supplied one.
+- A **timestamp** and the author's display name. The name is blank for versions written without an actor, or where the user has since been deleted.
+- A **Restore** button on every row that isn't current, shown only if you're allowed to edit the agent.
+
+<Callout type="note" title="History requires edit rights">
+  The version endpoints are restricted to the agent's owner, tenant admins, and
+  super admins. Anyone else gets `403`, and the tab renders a "Version history
+  unavailable" card with a **Try again** button.
+</Callout>
+
+## Restore is forward-only
+
+<Steps>
+<Step title="Pick a version and confirm">
+
+Click **Restore** on any non-current row. A confirmation prompt spells out what
+will happen: _Restore to version N? This will create a new version._
+
+</Step>
+<Step title="The old config is applied to the live agent">
+
+The stored snapshot is written back onto the agent row. Slug, counters, the
+access-password credential, and the version pointer are left alone, and the live
+notification webhook secret is preserved.
+
+</Step>
+<Step title="A brand-new version is appended">
+
+The restore records a fresh version at the top of the history with source
+`restore`, `restoredFrom` set to the version you picked, and a default note of
+`Restored from vN`. The version you restored _from_ stays exactly where it was.
+
+</Step>
+</Steps>
+
+Everything above happens in one transaction, so a partially applied restore isn't possible.
+
+The forward-only property matters more than it looks:
+
+- **Nothing is ever destroyed.** The config you rolled back _away_ from is still v(n−1) and still restorable.
+- **A bad restore is itself undoable** — just restore the version that was current before it.
+- **Version numbers only increase**, so `restoredFrom` chains stay readable and the audit trail reflects what actually happened and when, not a rewritten past.
+
+## File reconciliation and warnings
+
+Snapshots record file _keys_, not file bytes or embeddings. When a restore re-adds keys the agent didn't have immediately before, each one is reconciled:
+
+- Keys that still have a file record are left alone — their embeddings are intact.
+- Keys with no record are checked against object storage. If the object exists, the file is re-created and queued for background processing so it gets re-indexed.
+- If the object is gone, the key is skipped and reported as a warning.
+- Keys addressing another tenant's storage namespace are dropped outright, so an old snapshot can never reintroduce a cross-tenant key.
+
+The restore response returns those skips in a `warnings` array (`N file(s) referenced by this version are no longer in storage and were skipped: …`), and the History tab surfaces them in the success toast alongside the confirmation.
+
+<Callout type="warning" title="Restore does not un-delete files">
+  Rolling back to a version that referenced a deleted file will not bring the
+  file back — the underlying object is gone. Re-upload it from the agent's
+  Knowledge tab; see [knowledge base & RAG](/docs/build/knowledge-base-rag).
+</Callout>
+
+## API
+
+All three endpoints require a signed-in session with edit rights on the agent (`404` if the agent doesn't exist, `403` if you can't edit it).
+
+### List versions
+
+`GET /api/agents/{id}/versions?page=1&limit=50`
+
+Returns `{ versions, currentVersion }`, newest first, each entry carrying `versionNo`, `source`, `changeNote`, `restoredFrom`, `createdBy`, `createdByName`, `createdAt`, and `isCurrent`. `limit` is clamped to 1–100 (default 50) and `page` to a minimum of 1. Config bodies are omitted here.
+
+### Fetch one version
+
+`GET /api/agents/{id}/versions/{versionNo}`
+
+Returns the same metadata plus the full `config` snapshot. A non-integer or sub-1 version number returns `400`; an unknown one returns `404`.
+
+### Restore
+
+```bash
+curl -X POST "https://your-host/api/agents/$AGENT_ID/versions/7/restore" \
+  -H "Cookie: $SESSION_COOKIE"
+```
+
+Returns `{ agent, restoredFrom, versionNo, warnings }` — the updated agent, the version you restored from, the number of the **new** version the restore created, and any missing-file warnings.
+
+## Related
+
+<Cards>
+  <Card href="/docs/build/knowledge-base-rag" title="Knowledge base & RAG">
+    How file keys become embeddings, and how to re-index after a restore
+  </Card>
+  <Card
+    href="/docs/get-started/creating-your-first-agent"
+    title="Create your first agent"
+  >
+    Where v1 comes from
+  </Card>
+  <Card
+    href="/docs/platform/multi-tenancy-and-rls"
+    title="Multi-tenancy and RLS"
+  >
+    Version snapshots are tenant-scoped by row-level security
+  </Card>
+</Cards>

@@ -192,5 +192,16 @@ describe('permissions (db-backed against public schema)', () => {
       const userId = await seedUser()
       expect(await hasTenantAdminAccess(userId)).toBe(false)
     })
+
+    it('is true for a platform super admin who only holds MEMBER in their tenant', async () => {
+      // requireSuperAdmin() (used by e.g. /api/tenants/[id]/config) already
+      // grants a platform super admin full access to any tenant regardless
+      // of their per-tenant role, so this must agree — otherwise the UI hides
+      // controls the API would have allowed.
+      const userId = await seedUser({ isSuperAdmin: true })
+      const tenantId = await seedTenant(userId)
+      await seedMembership(userId, tenantId, 'MEMBER')
+      expect(await hasTenantAdminAccess(userId)).toBe(true)
+    })
   })
 })

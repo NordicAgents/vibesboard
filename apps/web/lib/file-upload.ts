@@ -1,5 +1,11 @@
 export const MAX_FILE_UPLOAD_BYTES = 10 * 1024 * 1024
 
+// Only formats packages/ai/src/file-search.ts can actually extract text from.
+// PowerPoint (.ppt/.pptx) and the legacy binary Word/Excel formats (.doc/.xls)
+// were accepted here but have no working extractor behind them, so they were
+// uploaded, then either indexed as decoded binary noise or failed with an
+// error about a missing ZIP directory. Rejecting them at the picker gives the
+// uploader an answer immediately instead of after a round trip.
 export const ACCEPTED_UPLOAD_MIME_TYPES = new Set([
   'application/pdf',
   'text/plain',
@@ -8,12 +14,8 @@ export const ACCEPTED_UPLOAD_MIME_TYPES = new Set([
   'text/html',
   'application/json',
   'application/xml',
-  'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'image/png',
   'image/jpeg',
   'image/gif',

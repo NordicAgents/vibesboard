@@ -15,6 +15,8 @@ coverage
 .next/
 out/
 build
+# ...but the "Build" docs section is content, not build output
+!apps/web/content/docs/build/
 next-env.d.ts
 
 # misc
@@ -38,10 +40,12 @@ yarn-error.log*
 
 # Agent worktrees (contain copied .env.local) and backup artifacts
 .claude/worktrees/
-.codex/worktrees/
 .gemini/worktrees/
 .worktree-backups/
 .claude/worktree-backups/
+
+# Codex workspace tooling (generated per machine, not shared)
+.codex/
 
 # turbo
 .turbo
@@ -72,11 +76,13 @@ apps/web/e2e/.auth/
 
 # Local Postgres volumes (if overriding the default named volume path)
 docker-volumes/
+
+# Design-system sync tooling — local to a maintainer's machine, not part of
+# the published source. Its outputs (.ds-*) were already ignored; the config
+# and component previews are now ignored too.
+.design-sync/
 .ds-sync/
 ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
 apps/web/.ds-entry.tsx
 apps/web/.ds-tw.css
 apps/web/index.d.ts

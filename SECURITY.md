@@ -48,8 +48,7 @@ repository. The following are in scope:
 - Authentication and session handling
 - Privilege escalation between roles, or into the admin panel
 - Exposure or decryption of stored provider credentials
-- Server-side request forgery through agent tools, webhooks, MCP servers, or
-  model endpoints
+- Server-side request forgery through agent tools, webhooks, or model endpoints
 - Injection, path traversal, or unsafe file handling in ingestion and uploads
 - Remote code execution
 
@@ -73,9 +72,11 @@ returning stored credentials — is in scope, and we want to hear about it.
 
 ## Supported versions
 
-Vibesboard is pre-1.0 and moves quickly. Fixes land on the latest release from
-`main`; there are no long-term support branches. If you self-host, track the
-latest release.
+Vibesboard is pre-1.0 and moves quickly. Fixes land on `main`, and releases are
+cut from it with [release-please](https://github.com/googleapis/release-please);
+there are no long-term support branches and no backports to older versions. If
+you self-host, track `main` or the latest release from it — a fix reported
+against an older commit will be answered against current `main`.
 
 ## For self-hosters
 

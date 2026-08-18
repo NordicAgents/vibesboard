@@ -180,6 +180,45 @@ describe('InMemoryHybridStore', () => {
     expect(idle.find(c => c.conversationId === 'conv-2')).toBeUndefined()
   })
 
+  it('a conversation that resumes after being processed becomes idle again', async () => {
+    // Regression: processed conversations were excluded permanently, so a
+    // thread that went quiet, got observed, then resumed never contributed
+    // to memory again — exactly the long-running threads memory is for.
+    const ctx: EngineContext = { conversationId: 'conv-3', scopeId: 'org-1' }
+    const internal = (store as any).messageEmbeddings as Map<string, any>
+    const processed = (store as any).processedConversations as Map<string, Date>
+
+    // A message two minutes ago, observed one minute ago.
+    await store.saveMessageEmbedding('msg-3a', 'first', [1, 0], ctx)
+    internal.get('msg-3a').createdAt = new Date(Date.now() - 120_000)
+    await store.markConversationProcessed('conv-3')
+    processed.set('conv-3', new Date(Date.now() - 60_000))
+
+    expect(
+      (await store.getIdleConversations(5_000)).find(c => c.conversationId === 'conv-3'),
+    ).toBeUndefined()
+
+    // The visitor comes back after that observation, then goes quiet again.
+    await store.saveMessageEmbedding('msg-3b', 'second', [0, 1], ctx)
+    internal.get('msg-3b').createdAt = new Date(Date.now() - 10_000)
+
+    const idleAgain = await store.getIdleConversations(5_000)
+    expect(idleAgain.find(c => c.conversationId === 'conv-3')).toBeDefined()
+  })
+
+  it('stays excluded when nothing new arrives after processing', async () => {
+    const ctx: EngineContext = { conversationId: 'conv-4', scopeId: 'org-1' }
+    const internal = (store as any).messageEmbeddings as Map<string, any>
+    await store.saveMessageEmbedding('msg-4', 'only message', [1, 0], ctx)
+    internal.get('msg-4').createdAt = new Date(Date.now() - 60_000)
+
+    await store.markConversationProcessed('conv-4')
+    await store.markConversationProcessed('conv-4') // re-runs stay idempotent
+
+    const idle = await store.getIdleConversations(5_000)
+    expect(idle.find(c => c.conversationId === 'conv-4')).toBeUndefined()
+  })
+
   it('searchMessages filters by subScopeId', async () => {
     const ctxA: EngineContext = { conversationId: 'conv-A', scopeId: 'org-1', subScopeId: 'user-A' }
     const ctxB: EngineContext = { conversationId: 'conv-B', scopeId: 'org-1', subScopeId: 'user-B' }

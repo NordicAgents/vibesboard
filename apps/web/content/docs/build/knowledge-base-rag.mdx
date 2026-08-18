@@ -1,0 +1,237 @@
+---
+title: 'Knowledge base & RAG'
+description: 'Ground agents in your documents with retrieval-augmented generation.'
+---
+
+# Knowledge base & RAG
+
+Upload documents to an agent and it can answer from them instead of from the model's general knowledge. Files go browser → bucket via a signed URL, then a server-side pipeline extracts text, splits it into overlapping chunks, embeds each chunk, and writes the vectors to Postgres (`pgvector`). At chat time the agent's **File Retrieval Strategy** decides whether those files are pasted into context wholesale, searched semantically on demand, or mounted into a sandboxed shell.
+
+## What the Knowledge tab controls
+
+The agent editor's **Knowledge** tab renders one card, **Tools & Files**:
+
+- **Web Fetch** — adds the `builtin:web_fetch` tool so the agent can pull a URL mid-conversation.
+- **Source URLs** — up to 5 URLs listed inline under Web Fetch. These are _pre-fetched into context_ on every turn by whichever retrieval strategy is active, independently of the Web Fetch toggle.
+- **File search** — adds the `builtin:file_search` tool. Both switches are staged locally and only persist when you press **Save Tools**.
+- **Reference Files** — an upload button plus a drag-and-drop zone, then the list of attached files with per-file download and delete.
+
+The **File Retrieval Strategy** picker is _not_ on this tab — it lives in the agent editor's right sidebar, alongside a second copy of Tools & Files.
+
+<Callout type="note" title="The file list shows keys, not status">
+  The Reference Files list is built from the agent's `fileKeys` array, so a file
+  appears there whether or not indexing succeeded. Per-file status (`pending` /
+  `processing` / `indexed` / `failed`) and the stored `processingError` are only
+  visible via `GET /api/agents/{id}/files`.
+</Callout>
+
+## File retrieval strategies
+
+Every agent has a `retrievalStrategy` of `direct` (the default), `rag`, or `bash`. It changes which files reach the model and which tools the model gets.
+
+| Strategy | What happens to files                                             | Real budget                                                                     | Tool injected |
+| -------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------- |
+| `direct` | Full text of every file is loaded into context on every turn      | 18,000 chars for files (60% of a 30,000-char ceiling)                           | none          |
+| `rag`    | Files are not preloaded; the model searches them when it wants to | 8 chunks per search by default                                                  | `file_search` |
+| `bash`   | Files are written into an in-memory virtual filesystem            | 200,000 chars per file; 4,000-char commands, 8,000-char stdout, 10s per command | `bash`        |
+
+Source URLs behave identically under all three: the first 5 are fetched and appended while the running total stays within 30,000 characters.
+
+### Direct
+
+`DirectRetriever` reads every attached file in full, sorts them **smallest first**, and appends each one whose length still fits the 18,000-character file budget. Anything that doesn't fit is skipped and sets an overflow flag. When nothing overflowed and the agent has at least one file, `buildAgentContext` strips `file_search` from the toolkit entirely — the model already has the documents, so searching them would be redundant. If something did overflow, `file_search` survives (assuming the toggle is on) as an escape hatch for the files that were left out.
+
+### RAG
+
+`RagRetriever` preloads nothing. It injects its own `file_search` tool whose description says it uses semantic search, and whose `limit` parameter defaults to 8 matches. It is injected when the agent has files **and the File search switch is on**, and it takes precedence over the built-in `file_search` on name collision — so under `rag` the tool the model sees is the retriever's semantic one. The switch used to be ignored here: the retriever injected on "does the agent have files" alone and overrode the toolkit by name, so turning File search off appeared to do nothing under RAG. Source URLs are unaffected by the switch — they are context, not a file tool.
+
+<Callout type="note" title="Google models take a different path">
+  For a `google` provider spec with `retrievalStrategy: 'rag'`, the runtime
+  skips tool calling and pre-searches the knowledge base with the last user
+  message, splicing the top 8 matches straight into context. This works around
+  Google thinking models requiring `thought_signature` to be echoed back in tool
+  responses, which the pinned `@ai-sdk/google` doesn't support.
+</Callout>
+
+### Bash
+
+`BashRetriever` downloads each file, truncates it at 200,000 characters, and writes it to `/home/user/project/` in a `just-bash` in-memory sandbox (filenames sanitised to `[a-zA-Z0-9._-]`, leading dots stripped, `..` collapsed). It then injects a `bash` tool and a context hint listing the available paths. The sandbox advertises `grep`, `rg`, `awk`, `sed`, `head`, `tail`, `cat`, `sort`, `uniq`, `wc`, `cut`, `tr`, `jq`, `xan`, `yq`, `find`, `ls`, and `diff`, with no network and no host filesystem access. Writes persist across calls within one conversation turn; the sandbox is discarded on `dispose()`.
+
+Per-call limits: commands over 4,000 characters are truncated, stdout is clipped to 8,000 characters and stderr to 500, and a command that runs longer than 10 seconds is rejected. Execution limits also cap call depth (50), command count (500), and loop/awk/sed iterations (5,000 each).
+
+## The indexing pipeline
+
+<Steps>
+<Step title="Client-side size check and filename normalisation">
+
+The browser rejects anything over 10 MB before it talks to the server, then rewrites the name to `{timestamp}-{slug}`, where the slug is lowercased and every run of characters outside `[a-z0-9._-]` becomes a hyphen.
+
+</Step>
+<Step title="Signed upload URL">
+
+`POST /api/agents/{id}/files/upload-url` validates the MIME type against the allow-list (`400 Unsupported file type`), the size (`413`), and rejects any name containing `..`, `/`, or `\` (`400 Invalid file name`) — all before checking edit permission. The storage key is minted server-side as `tenants/{tenantId}/agents/{agentId}/files/{fileName}`; callers never choose it. The URL expires in 15 minutes.
+
+</Step>
+<Step title="Browser PUTs to the bucket">
+
+The file goes directly from the browser to object storage with the same `Content-Type` it was signed for. This is the step that needs a bucket CORS policy — see [Troubleshooting](#troubleshooting).
+
+</Step>
+<Step title="Ingest">
+
+`POST /api/agents/{id}/files/ingest` refuses a `fileKey` not already attached to the agent (`400`) or one addressing another tenant's namespace (`403`), upserts a `files` row at status `pending`, and calls `ingestFileForAgent`.
+
+</Step>
+<Step title="Extract, chunk, embed, index">
+
+Text is extracted by MIME type, then split into **1,200-character chunks with 200 characters of overlap** (the cursor advances 1,000 characters per chunk). Chunks are embedded through the tenant's `embed`-task provider if one is configured, otherwise the platform key — see [Bring your own LLM](/docs/platform/bring-your-own-llm). `replaceFileChunks` deletes the file's rows from all four embedding tables, then inserts into the one matching the vector's dimension, storing a `to_tsvector('english', …)` alongside each chunk. Finally the `files` row flips to `indexed` and records which provider kind embedded it.
+
+</Step>
+</Steps>
+
+Vectors are sharded across four tables by dimension so several providers can coexist in one deployment: `embeddings_1536` (OpenAI `text-embedding-3-small`), `embeddings_384` (e5 / Google Cloud MaaS), `embeddings_1024` (BGE, Arctic Embed), and `embeddings` (768-dim, the Ollama `nomic-embed-text` default). Each has its own HNSW index using `vector_cosine_ops`.
+
+## Supported file types
+
+The API's allow-list and the picker's `accept` attribute are close but not identical, and acceptance at upload does not guarantee extraction.
+
+| Type                                | Extraction                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| `.pdf`                              | `pdf-parse` text layer                                                          |
+| `.txt`, `.md`, `.csv`               | UTF-8 decode, whitespace normalised                                             |
+| `.json`                             | UTF-8 decode (raw JSON text)                                                    |
+| `.html`, `.htm`                     | Readable-text extraction — `script`/`style`/`noscript`/`template` dropped whole, remaining tags stripped |
+| `.docx`                             | `mammoth.extractRawText`                                                        |
+| `.xlsx`                             | ExcelJS; one comma-joined block per sheet, headed `# Sheet: <name>`             |
+| Images (png/jpeg/gif/webp/tiff/svg) | Vision-model pass: "extract all visible text … and provide a short description" |
+| `.doc`, `.xls`, `.ppt`, `.pptx`     | Rejected up front with an actionable message — see the warning below            |
+
+`application/xml` is on the API allow-list but missing from the file picker's `accept` list, so XML can be uploaded via the API but not chosen in the dialog. `application/octet-stream` is also accepted, which is how files whose MIME the browser can't guess still get through — they end up on the raw-decode fallback path.
+
+The size cap is **10 MB** (`MAX_FILE_UPLOAD_BYTES`), enforced in the browser and again by the upload-URL route.
+
+<Callout type="warning" title="Legacy Office formats and slide decks are refused, not indexed">
+  `.doc`, `.xls`, `.ppt`, and `.pptx` have no extractor that can read them, so
+  `extractTextFromBuffer` rejects those four MIME types before it tries
+  anything: the file lands in `failed` with *"… files can't be read for search.
+  Save it as PDF, DOCX, XLSX, or plain text and upload again."*
+
+This used to be two separate silent failures. Legacy `.doc`/`.xls` were routed
+to `mammoth`/ExcelJS, which only read the OOXML forms, so they died with
+`Can't find end of central directory : is this a zip file ?` — a message that
+reads like a corrupt file rather than an unsupported format. PowerPoint was
+worse: with no branch at all, a `.pptx` fell through to the raw UTF-8 decode,
+and because a lossily-decoded ZIP is not empty (`PK` magic and internal path
+names survive as ASCII), the binary noise passed the emptiness check and was
+chunked, embedded, and marked `indexed`. Nothing warned you; the agent just
+gained junk chunks that diluted retrieval.
+
+Convert legacy Office files to `.docx` / `.xlsx` / PDF, and export slide decks
+to PDF, before uploading.
+
+</Callout>
+
+<Callout type="note" title="HTML is reduced to readable text">
+  Uploaded HTML used to be indexed as raw source: the generic `text/` branch in
+  `extractTextFromBuffer` ran before the `text/html` one, so the tag-stripping
+  path was unreachable, and the stripper itself removed only the `<script>` tags
+  and not the code between them. Both are fixed — `script`, `style`, `noscript`,
+  and `template` elements are dropped whole before the remaining tags are
+  stripped, so chunks hold prose rather than markup and inline JavaScript.
+</Callout>
+
+## How retrieval works at chat time
+
+When `file_search` runs, `searchAgentFileChunks` calls `retrieveContext`, which:
+
+1. Embeds the query with the tenant's resolved embedder and picks the embedding table by the query vector's dimension.
+2. Runs a cosine search (`ORDER BY` cosine distance, `LIMIT topK`) over that one table, joined to `files` on `agentId` and scoped by `tenantId`. Reported `similarity` is `1 - distance`.
+3. If — and only if — that returns **zero rows**, falls back to Postgres full-text search: `plainto_tsquery('english', …)` ranked by `ts_rank`, run across all four tables and merged.
+
+Matches come back to the model as `File: <name>` / `Snippet:` blocks.
+
+<Callout type="note" title="The relevance floor works, but nothing sets it">
+  `RetrievalConfig.minSimilarity` is a real filter: matches below it are dropped
+  *before* the "did vector search find anything" check, so a result set that is
+  entirely too weak falls through to the keyword fallback instead of returning
+  poor matches. Keyword rows are exempt — they carry `similarity: null` and no
+  score comparable to cosine distance.
+
+  It defaults to **no floor**, and `searchAgentFileChunks` — the only caller on
+  the chat path — does not pass one. So in a stock deployment a query still
+  returns its nearest 8 chunks however poorly they match. The right value
+  depends on your embedding model and corpus; there is no safe guess, which is
+  why none is baked in.
+
+  Separately, the `maxContextChars` budget (6,000) only trims
+  `RAGContext.context`, and the `file_search` path returns `chunks` instead — so
+  that number does not cap what the model receives.
+</Callout>
+
+## Re-embedding after a provider change
+
+Embeddings from different models are not comparable, and here the mismatch is structural: the query vector's dimension chooses the table. Switch a workspace from OpenAI (1536-dim) to an Ollama config (768-dim) and every query searches `embeddings` while all the file chunks still sit in `embeddings_1536`. Vector search returns nothing, the keyword fallback fires on every question, and the agent quietly degrades to plain full-text matching.
+
+The Knowledge tab detects this on load. `GET /api/agents/{id}/files` resolves the provider embedding would actually use — the same way ingestion does, honouring an `embed` task assignment and falling back to the platform provider — and returns it as `currentEmbeddingProvider`. If any `indexed` file's `embeddingProvider` differs from it, the tab shows an amber banner — _"LLM provider changed — file embeddings are stale and may return poor results"_ — with a **Re-embed files** button.
+
+That button calls `POST /api/agents/{id}/reembed`, which re-runs the full ingest for every file currently at status `indexed` and reports `{ reembedded, total, errors }`.
+
+<Callout type="note" title="What the banner will not tell you">
+  The comparison used to run in the browser against the workspace's *default*
+  enabled config, which was wrong in both directions — silent when a config was
+  task-routed to `embed` and genuinely stale, alarming when a default changed in
+  a way that never touched embeddings. It is resolved server-side now.
+
+  Two limits remain. If the server cannot resolve a provider it returns `null`
+  and the client treats that as not-stale rather than guessing, so the banner
+  stays hidden. And re-embed only iterates files already at `indexed`; anything
+  sitting at `failed` is skipped and has to be deleted and re-uploaded.
+</Callout>
+
+## Troubleshooting
+
+### Every upload fails with "Failed to fetch"
+
+The browser PUTs directly to the bucket, so the **bucket** must answer the CORS preflight — the application cannot supply those headers on its own responses. A bucket with no policy fails every upload with an opaque `Failed to fetch` and nothing in the UI explains why.
+
+Apply it with `scripts/apply-bucket-cors.sh`, which grants `GET`, `HEAD`, and `PUT` for the origins you pass:
+
+```bash
+BUCKET=your-bucket ORIGINS="https://your-app.example,https://www.your-app.example" \
+  scripts/apply-bucket-cors.sh
+```
+
+Run it whenever a bucket is created, renamed, or migrated. It is deliberately not automated: the deploy service account holds `roles/storage.objectAdmin`, which does not include `storage.buckets.update`. The deploy workflow does verify the policy on every deploy and fails loudly if the preflight isn't answered. See `docs/deployment.md` for the full policy shape.
+
+### A file is stuck in `failed`
+
+Read `processingError` from `GET /api/agents/{id}/files` (it's truncated to 500 characters). The messages the pipeline actually produces:
+
+| Message                                                             | Cause                                                                                                                                                                  |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `File has no extractable text content.`                             | Empty extraction — a scanned PDF with no text layer, or an image whose vision pass returned nothing (it needs `OPENAI_API_KEY` and returns an empty string without it) |
+| `Embedding API authentication failed — the API key may be expired.` | 401/`Unauthorized`/redirect-loop from the embedding call; suggests refreshing a MaaS token for `openai_compatible`, otherwise checking Settings → LLM Providers        |
+| `Embedding API quota exceeded — check your billing/credits…`        | 429, or `quota`/`credits` in the provider's error                                                                                                                      |
+| `Embedding failed: …`                                               | Any other embedding error, first 200 characters                                                                                                                        |
+| `No embeddings generated for file.`                                 | The provider returned an empty array                                                                                                                                   |
+| A raw exception message                                             | Download or extraction threw — e.g. the legacy `.doc` case above                                                                                                       |
+
+The first five come back as `422`; a thrown exception returns `500`. Both mark the row `failed`. Fix the cause, then delete and re-upload the file — `POST /files/ingest` upserts by `(agentId, fileKey)` and resets the row to `pending`.
+
+### The agent quotes a document that no longer exists
+
+Deleting from the Knowledge tab removes the embeddings, the `files` rows, the key on the agent, and the stored object in one transaction. If a file was removed some other way (a direct bucket delete, for instance) its chunks survive, because retrieval joins on `files.agentId` with no status or existence filter. Re-attach and delete it through the UI to clear it properly.
+
+## Related
+
+<Cards>
+  <Card href="/docs/platform/bring-your-own-llm" title="Bring your own LLM">
+    Which providers can generate embeddings, and how the `embed` task routes.
+  </Card>
+  <Card href="/docs/build/long-term-memory" title="Long-term memory">
+    Per-conversation recall, as distinct from document grounding.
+  </Card>
+  <Card href="/docs/self-host/troubleshooting" title="Troubleshooting">
+    Local bucket, MinIO, and database issues behind a broken upload.
+  </Card>
+</Cards>
