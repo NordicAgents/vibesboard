@@ -17,7 +17,7 @@
     "better-auth": "1.6.26",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
-    "resend": "^4.0.0",
+    "resend": "^6.18.1",
     "server-only": "^0.0.1",
     "uuidv7": "^1.0.2"
   },
