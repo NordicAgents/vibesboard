@@ -142,13 +142,24 @@ describe('legacy CryptoJS compatibility', () => {
     expect(unsealSecret(legacy)).toBe('old-legacy')
   })
 
-  // Recorded fixture, not a fresh encrypt: CryptoJS salts each ciphertext
-  // randomly, and only some salts make a wrong-key decrypt produce invalid
-  // UTF-8. Generating one here would reproduce the bug ~2.5% of the time and
-  // read as a flake. This exact string encrypts 'old-legacy' under
-  // 'legacy-key-xxxxxxxxxxxx' AND throws "Malformed UTF-8 data" when decrypted
-  // with 'current-master-key-aaaaaaaaaaaaaaaa', so it pins the failure every run.
-  const THROWS_UNDER_CURRENT_KEY = 'U2FsdGVkX1+zbNaZyelsrpCPJtdHo7L1GPOx4tHQqAE='
+  // CryptoJS salts each ciphertext randomly, and only some salts make a
+  // wrong-key decrypt produce invalid UTF-8 — so a fresh encrypt would
+  // reproduce the bug about 2.5% of the time and read as a flake. Pinning the
+  // salt makes it fire every run.
+  //
+  // The salt is supplied rather than the finished ciphertext on purpose: a
+  // hardcoded base64 blob is indistinguishable from a leaked credential to an
+  // entropy-based scanner, and the repository's gitleaks gate rejected exactly
+  // that. This is reproducible *and* obviously not a secret.
+  //
+  // Under this salt: the current key throws, the retired key recovers
+  // 'old-legacy', and an unrelated key yields '' — which is what lets the same
+  // fixture drive both cases below.
+  const PINNED_SALT = CryptoJS.enc.Hex.parse('0000000000000019')
+  const legacyUnderRetiredKey = () =>
+    CryptoJS.AES.encrypt('old-legacy', 'legacy-key-xxxxxxxxxxxx', {
+      salt: PINNED_SALT
+    }).toString()
 
   it('keeps trying retired keys when the current key throws on a legacy value', () => {
     // The regression: CryptoJS throws on invalid UTF-8 rather than returning
@@ -158,14 +169,14 @@ describe('legacy CryptoJS compatibility', () => {
     // good after a rotation.
     process.env.ENCRYPTION_KEYS_OLD = 'legacy-key-xxxxxxxxxxxx'
     _resetKeyCacheForTests()
-    expect(unsealSecret(THROWS_UNDER_CURRENT_KEY)).toBe('old-legacy')
+    expect(unsealSecret(legacyUnderRetiredKey())).toBe('old-legacy')
   })
 
   it('still reports its own error when no configured key fits', () => {
     // The catch must not swallow a genuine failure into a silent wrong answer.
     process.env.ENCRYPTION_KEYS_OLD = 'some-other-retired-key-zzzz'
     _resetKeyCacheForTests()
-    expect(() => unsealSecret(THROWS_UNDER_CURRENT_KEY)).toThrow(
+    expect(() => unsealSecret(legacyUnderRetiredKey())).toThrow(
       /Unable to decrypt legacy token/
     )
   })
