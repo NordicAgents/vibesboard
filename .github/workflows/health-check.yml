@@ -15,7 +15,11 @@ permissions:
 jobs:
   staging:
     name: Staging
-    runs-on: ubuntu-latest
+    # See release.yml: an `ubuntu-latest` job is currently refused at dispatch,
+    # so this workflow has been reporting failure without ever running a check.
+    # Red that means "the runner was refused" trains everyone to ignore red that
+    # means "the site is down". Only curl is needed, so the VM runners are fine.
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Health check (staging)
         id: check
@@ -44,7 +48,7 @@ jobs:
 
   production:
     name: Production
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Health check (production)
         id: check

@@ -85,7 +85,7 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 
 ## CI Requirements
 
-PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Bun 1.2.18 via `oven-sh/setup-bun@v2`, Node 22):
+PRs to `dev`/`main` run these workflows (each on the org's self-hosted VM runners — `[self-hosted, Linux, X64]`, or `[self-hosted, docker]` where a Postgres/MinIO stack is needed — with Bun 1.2.18 via `oven-sh/setup-bun@v2` and Node 22). Nothing here targets `ubuntu-latest`: while the org's GitHub-hosted minutes are exhausted such a job is refused at dispatch and shows as a 2-second failure with no steps, which reads like a code failure but is billing.
 
 - **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
 - **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). This job used to set `continue-on-error: true`, which meant a type-check failure could not block a merge; that has been removed and it now gates.
