@@ -1,5 +1,3 @@
-import { LANDING_OPERATOR } from './landing-operator'
-
 /**
  * Canonical outbound links for the marketing page.
  *
@@ -62,11 +60,7 @@ export const LANDING_NAV_LINKS: LandingNavLink[] = [
   { href: LANDING_LINKS.docs, label: 'Docs' }
 ]
 
-/**
- * Sibling products — footer material, not navbar material.
- *
- * Empty unless the deployment configures `NEXT_PUBLIC_OPERATOR_PRODUCTS`. A
- * fork must not advertise the upstream project's other products.
- */
-export const LANDING_PRODUCT_LINKS: LandingNavLink[] =
-  LANDING_OPERATOR.siblingProducts
+// Sibling products used to live here. They moved to lib/landing-operator.ts:
+// they identify the operator, not the project, and this module is pulled into
+// the client bundle through landing-hero-copy.ts — which would have forced the
+// operator settings to be NEXT_PUBLIC_* and inlined at build time.

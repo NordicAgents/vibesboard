@@ -50,3 +50,9 @@ That is a supported configuration, not a hack — the root licence says "if that
 directory exists" for exactly this reason. `apps/web/next.config.mjs` resolves
 the enterprise module to an MIT stub when `ee/billing` is absent, and CI proves
 it on every pull request (`.github/workflows/ci-community-build.yml`).
+
+Note the plain `bun install` above: removing a workspace changes dependency
+resolution, so `bun.lock` no longer matches. If you build the container image,
+commit the regenerated lockfile too — the Dockerfile's dependency stage runs
+`bun install --frozen-lockfile` and will otherwise stop with `lockfile had
+changes`.

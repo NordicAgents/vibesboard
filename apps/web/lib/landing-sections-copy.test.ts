@@ -7,13 +7,28 @@ import {
   LANDING_CHANNELS_POINTS,
   LANDING_COMMUNITY_ACTIONS,
   LANDING_DEPLOY_BODY,
-  LANDING_DEPLOY_OPTIONS,
   landingDeployOptions,
   LANDING_MODELS_BODY,
   LANDING_MODEL_PROVIDERS,
   LANDING_SECURITY_POINTS,
   LANDING_WHY_ITEMS
 } from './landing-sections-copy.ts'
+
+const OPERATOR_WITH_HOSTING: LandingOperator = {
+  contactEmail: '',
+  socials: [],
+  siblingProducts: [],
+  hostedName: 'example.com',
+  hostedUrl: 'https://example.com/sign-in'
+}
+
+const UNCONFIGURED_OPERATOR: LandingOperator = {
+  contactEmail: '',
+  socials: [],
+  siblingProducts: [],
+  hostedName: '',
+  hostedUrl: ''
+}
 
 describe('landing why copy', () => {
   it('answers the six needs from the README comparison', () => {
@@ -57,7 +72,7 @@ describe('landing copy against what the build actually ships', () => {
     const copy = [
       ...LANDING_WHY_ITEMS.map(item => `${item.need} ${item.answer}`),
       ...LANDING_CAPABILITIES.map(c => `${c.title} ${c.body}`),
-      ...LANDING_DEPLOY_OPTIONS.flatMap(option => [
+      ...landingDeployOptions(OPERATOR_WITH_HOSTING).flatMap(option => [
         option.summary,
         ...option.points
       ])
@@ -95,22 +110,6 @@ describe('landing models copy', () => {
   })
 })
 
-const OPERATOR_WITH_HOSTING: LandingOperator = {
-  contactEmail: '',
-  socials: [],
-  siblingProducts: [],
-  hostedName: 'example.com',
-  hostedUrl: 'https://example.com/sign-in'
-}
-
-const UNCONFIGURED_OPERATOR: LandingOperator = {
-  contactEmail: '',
-  socials: [],
-  siblingProducts: [],
-  hostedName: '',
-  hostedUrl: ''
-}
-
 describe('landing deploy copy', () => {
   it('offers self-hosting first and hosted second when hosting is configured', () => {
     expect(
@@ -142,12 +141,14 @@ describe('landing deploy copy', () => {
   })
 
   it('admits the cost of self-hosting instead of only selling it', () => {
-    const selfHosted = LANDING_DEPLOY_OPTIONS[0].points.join(' ')
+    const selfHosted = landingDeployOptions(
+      UNCONFIGURED_OPERATOR
+    )[0].points.join(' ')
     expect(selfHosted).toMatch(/upgrades, backups and uptime/i)
   })
 
   it('does not claim features are withheld from the open-source build', () => {
-    for (const option of LANDING_DEPLOY_OPTIONS) {
+    for (const option of landingDeployOptions(OPERATOR_WITH_HOSTING)) {
       expect(option.points.join(' '), option.id).not.toMatch(
         /enterprise only|premium only|paid tier only/i
       )

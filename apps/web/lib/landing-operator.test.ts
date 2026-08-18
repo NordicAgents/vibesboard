@@ -4,14 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // module after setting the environment it wants to observe. Same shape as
 // legal-entity.test.ts.
 const OPERATOR_KEYS = [
-  'NEXT_PUBLIC_OPERATOR_CONTACT_EMAIL',
-  'NEXT_PUBLIC_OPERATOR_SOCIAL_X',
-  'NEXT_PUBLIC_OPERATOR_SOCIAL_LINKEDIN',
-  'NEXT_PUBLIC_OPERATOR_SOCIAL_INSTAGRAM',
-  'NEXT_PUBLIC_OPERATOR_SOCIAL_YOUTUBE',
-  'NEXT_PUBLIC_OPERATOR_PRODUCTS',
-  'NEXT_PUBLIC_OPERATOR_HOSTED_NAME',
-  'NEXT_PUBLIC_OPERATOR_HOSTED_URL'
+  'OPERATOR_CONTACT_EMAIL',
+  'OPERATOR_SOCIAL_X',
+  'OPERATOR_SOCIAL_LINKEDIN',
+  'OPERATOR_SOCIAL_INSTAGRAM',
+  'OPERATOR_SOCIAL_YOUTUBE',
+  'OPERATOR_PRODUCTS',
+  'OPERATOR_HOSTED_NAME',
+  'OPERATOR_HOSTED_URL'
 ] as const
 
 async function loadModule() {
@@ -36,13 +36,13 @@ describe('LANDING_OPERATOR', () => {
 
   describe('when nothing is configured', () => {
     it('names nobody at all', async () => {
-      const { LANDING_OPERATOR, hasHostedOffering } = await loadModule()
+      const { LANDING_OPERATOR } = await loadModule()
 
       expect(LANDING_OPERATOR.contactEmail).toBe('')
       expect(LANDING_OPERATOR.socials).toEqual([])
       expect(LANDING_OPERATOR.siblingProducts).toEqual([])
       expect(LANDING_OPERATOR.hostedName).toBe('')
-      expect(hasHostedOffering(LANDING_OPERATOR)).toBe(false)
+      expect(LANDING_OPERATOR.hostedUrl).toBe('')
     })
 
     it('cannot leak the upstream project into any field', async () => {
@@ -56,19 +56,19 @@ describe('LANDING_OPERATOR', () => {
 
   describe('when configured', () => {
     it('reads the contact address and hosted service', async () => {
-      process.env.NEXT_PUBLIC_OPERATOR_CONTACT_EMAIL = 'hi@example.com'
-      process.env.NEXT_PUBLIC_OPERATOR_HOSTED_NAME = 'example.com'
-      process.env.NEXT_PUBLIC_OPERATOR_HOSTED_URL = 'https://example.com'
+      process.env.OPERATOR_CONTACT_EMAIL = 'hi@example.com'
+      process.env.OPERATOR_HOSTED_NAME = 'example.com'
+      process.env.OPERATOR_HOSTED_URL = 'https://example.com'
 
-      const { LANDING_OPERATOR, hasHostedOffering } = await loadModule()
+      const { LANDING_OPERATOR } = await loadModule()
       expect(LANDING_OPERATOR.contactEmail).toBe('hi@example.com')
       expect(LANDING_OPERATOR.hostedName).toBe('example.com')
-      expect(hasHostedOffering(LANDING_OPERATOR)).toBe(true)
+      expect(LANDING_OPERATOR.hostedUrl).toBe('https://example.com')
     })
 
     it('lists only the social accounts that were supplied', async () => {
-      process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_X = 'https://x.com/example'
-      process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_YOUTUBE = 'https://youtube.com/@x'
+      process.env.OPERATOR_SOCIAL_X = 'https://x.com/example'
+      process.env.OPERATOR_SOCIAL_YOUTUBE = 'https://youtube.com/@x'
 
       const { LANDING_OPERATOR } = await loadModule()
       expect(LANDING_OPERATOR.socials.map(s => s.label)).toEqual([
@@ -79,7 +79,7 @@ describe('LANDING_OPERATOR', () => {
     })
 
     it('trims whitespace rather than rendering an empty link', async () => {
-      process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_X = '   '
+      process.env.OPERATOR_SOCIAL_X = '   '
       const { LANDING_OPERATOR } = await loadModule()
       expect(LANDING_OPERATOR.socials).toEqual([])
     })

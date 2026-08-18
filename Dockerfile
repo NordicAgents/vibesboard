@@ -46,6 +46,22 @@ COPY packages/scheduling/package.json ./packages/scheduling/
 COPY packages/tenants/package.json ./packages/tenants/
 COPY packages/test-helpers/package.json ./packages/test-helpers/
 COPY packages/utils/package.json ./packages/utils/
+# The Enterprise Edition manifest, if this checkout has one. `ee/*` is a
+# workspace glob in the root package.json, so its manifest has to be present
+# before `bun install --frozen-lockfile` or Bun sees a workspace set that does
+# not match bun.lock and aborts with "lockfile had changes".
+#
+# It is copied through a scratch directory because `ee/` is genuinely optional
+# — the root LICENSE says "if that directory exists" and ee/README.md documents
+# `rm -rf ee/` as a supported build. The `package.jso[n]` bracket glob makes
+# that source optional (Docker only requires that *some* source matches, which
+# bun.lock guarantees), and the conditional copy avoids leaving an empty
+# ee/billing/ behind when the directory was removed.
+COPY bun.lock ee/billing/package.jso[n] /tmp/ee-billing/
+RUN if [ -f /tmp/ee-billing/package.json ]; then \
+      mkdir -p ./ee/billing && cp /tmp/ee-billing/package.json ./ee/billing/; \
+    fi; \
+    rm -rf /tmp/ee-billing
 # Install all deps including dev (needed for build)
 RUN bun install --frozen-lockfile
 

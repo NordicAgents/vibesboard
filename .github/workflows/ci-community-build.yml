@@ -48,11 +48,22 @@ jobs:
           # composition root and the files that alias or stub it. Anywhere else
           # is a hard dependency from MIT code onto a proprietary directory,
           # which would make the licence carve-out untrue.
-          allowed='^apps/web/(lib/billing\.ts|lib/billing\.test\.ts|lib/ee/billing-stub\.ts|tsconfig\.json|next\.config\.mjs|vitest\.config\.mts)$'
-          offenders=$(grep -rl '@vibesboard/ee-billing' \
-            --include='*.ts' --include='*.tsx' --include='*.mts' \
-            --include='*.mjs' --include='*.json' \
-            apps packages | grep -Ev "$allowed" || true)
+          #
+          # Scanned across every tracked file rather than just apps/ and
+          # packages/, so a root-level config, a scripts/*.ts, or any future
+          # source root is covered too. Those live outside the type-check and
+          # build graph, so deleting `ee/` would not necessarily expose them.
+          #
+          # Excluded: `ee/` itself (it is allowed to reference its own
+          # package), Markdown/MDX, which documents the boundary in prose, and
+          # lockfiles, which name every workspace by generation.
+          allowed='^(apps/web/lib/billing\.ts|apps/web/lib/billing\.test\.ts|apps/web/lib/ee/billing-stub\.ts|apps/web/tsconfig\.json|apps/web/next\.config\.mjs|apps/web/vitest\.config\.mts|\.github/workflows/ci-community-build\.yml)$'
+          offenders=$(git ls-files \
+            | grep -Ev '^ee/' \
+            | grep -Ev '\.(md|mdx)$' \
+            | grep -Ev '(^|/)(bun\.lock|package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$' \
+            | grep -Ev "$allowed" \
+            | xargs -r grep -l '@vibesboard/ee-billing' 2>/dev/null || true)
           if [ -n "$offenders" ]; then
             echo "::error::MIT code references the Enterprise Edition outside the composition root:"
             echo "$offenders"

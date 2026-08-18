@@ -10,15 +10,19 @@
  * paid hosting. The unconfigured state therefore shows nothing at all rather
  * than showing the upstream project's details.
  *
- * These are `NEXT_PUBLIC_*` because the landing copy is pulled into the client
- * bundle through `landing-hero-copy.ts`. That means they are inlined at build
- * time and changing one needs a rebuild — unlike the `LEGAL_*` variables, which
- * are read per request on server-rendered pages.
+ * Read per request on the server, exactly like `LEGAL_*`: a container image
+ * built once can be re-pointed at a different operator by changing environment
+ * variables alone, with no rebuild and no Docker build arguments.
  *
- * Each variable is read as a literal `process.env.NEXT_PUBLIC_…` expression.
- * Next.js only inlines statically analysable reads, so a lookup like
- * `process.env[key]` would silently resolve to undefined in the browser.
+ * That only holds while this module stays out of the client bundle, so it is
+ * marked `server-only`. Nothing here may be re-exported from a module a
+ * `'use client'` component imports — `landing-links.ts` deliberately does not,
+ * and `landing-sections-copy.ts` imports the *type* only. If a future change
+ * breaks that, the build fails here rather than silently shipping empty values
+ * to the browser.
  */
+
+import 'server-only'
 
 export interface LandingOperatorLink {
   label: string
@@ -68,26 +72,14 @@ export function parseOperatorProducts(
 }
 
 export const LANDING_OPERATOR: LandingOperator = {
-  contactEmail: clean(process.env.NEXT_PUBLIC_OPERATOR_CONTACT_EMAIL),
+  contactEmail: clean(process.env.OPERATOR_CONTACT_EMAIL),
   socials: [
-    ...socialLink('X', process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_X),
-    ...socialLink('LinkedIn', process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_LINKEDIN),
-    ...socialLink(
-      'Instagram',
-      process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_INSTAGRAM
-    ),
-    ...socialLink('YouTube', process.env.NEXT_PUBLIC_OPERATOR_SOCIAL_YOUTUBE)
+    ...socialLink('X', process.env.OPERATOR_SOCIAL_X),
+    ...socialLink('LinkedIn', process.env.OPERATOR_SOCIAL_LINKEDIN),
+    ...socialLink('Instagram', process.env.OPERATOR_SOCIAL_INSTAGRAM),
+    ...socialLink('YouTube', process.env.OPERATOR_SOCIAL_YOUTUBE)
   ],
-  siblingProducts: parseOperatorProducts(
-    process.env.NEXT_PUBLIC_OPERATOR_PRODUCTS
-  ),
-  hostedName: clean(process.env.NEXT_PUBLIC_OPERATOR_HOSTED_NAME),
-  hostedUrl: clean(process.env.NEXT_PUBLIC_OPERATOR_HOSTED_URL)
-}
-
-/** Whether this deployment advertises a managed version of itself. */
-export function hasHostedOffering(
-  operator: LandingOperator = LANDING_OPERATOR
-): boolean {
-  return operator.hostedName.length > 0
+  siblingProducts: parseOperatorProducts(process.env.OPERATOR_PRODUCTS),
+  hostedName: clean(process.env.OPERATOR_HOSTED_NAME),
+  hostedUrl: clean(process.env.OPERATOR_HOSTED_URL)
 }

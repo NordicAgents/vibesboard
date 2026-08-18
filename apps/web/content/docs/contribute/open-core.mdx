@@ -29,15 +29,15 @@ Vibesboard Enterprise Edition subscription. You may not redistribute it.
 
 ## Where the line is drawn
 
-The tenant boundary is community code. Only the *governance* of that boundary is
+The tenant boundary is community code. Only the _governance_ of that boundary is
 enterprise.
 
-| Community (MIT) | Enterprise (`ee/`) |
-| --- | --- |
-| Workspaces, multi-tenancy, PostgreSQL row-level security | Billing and subscriptions |
-| Memberships, invitations, owner/admin/member roles | SAML and OIDC single sign-on *(planned)* |
-| Usage metering and the feature-flag system | Tenant-scoped audit log *(planned)* |
-| Every agent, channel, retrieval and integration feature | Custom roles beyond owner/admin/member *(planned)* |
+| Community (MIT)                                          | Enterprise (`ee/`)                                 |
+| -------------------------------------------------------- | -------------------------------------------------- |
+| Workspaces, multi-tenancy, PostgreSQL row-level security | Billing and subscriptions                          |
+| Memberships, invitations, owner/admin/member roles       | SAML and OIDC single sign-on _(planned)_           |
+| Usage metering and the feature-flag system               | Tenant-scoped audit log _(planned)_                |
+| Every agent, channel, retrieval and integration feature  | Custom roles beyond owner/admin/member _(planned)_ |
 
 Multi-tenancy is deliberately **not** an enterprise feature. A self-hoster gets
 the same tenancy model a paying customer does — they simply run one workspace.

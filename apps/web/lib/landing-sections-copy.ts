@@ -1,9 +1,8 @@
 import { LANDING_LINKS } from './landing-links'
-import {
-  LANDING_OPERATOR,
-  hasHostedOffering,
-  type LandingOperator
-} from './landing-operator'
+// Type-only: lib/landing-operator.ts is `server-only`, and this module is
+// imported by seven server components. Importing a *value* from it would drag
+// the server-only marker through all of them.
+import type { LandingOperator } from './landing-operator'
 
 /* ── [02] Why Vibesboard ──────────────────────────────────────
    Lifted from the README comparison table: the operational work that starts
@@ -192,14 +191,14 @@ const SELF_HOSTED_OPTION: LandingDeployOption = {
  * The deploy options for this deployment.
  *
  * The "Hosted" card only appears when the operator has configured a managed
- * service (`NEXT_PUBLIC_OPERATOR_HOSTED_NAME`). Without that guard every fork
+ * service (`OPERATOR_HOSTED_NAME`). Without that guard every fork
  * of this public repository would render a card advertising — and linking
  * visitors into — the upstream project's paid hosting.
  */
 export function landingDeployOptions(
-  operator: LandingOperator = LANDING_OPERATOR
+  operator: LandingOperator
 ): LandingDeployOption[] {
-  if (!hasHostedOffering(operator)) return [SELF_HOSTED_OPTION]
+  if (!operator.hostedName) return [SELF_HOSTED_OPTION]
 
   return [
     SELF_HOSTED_OPTION,
@@ -222,9 +221,6 @@ export function landingDeployOptions(
     }
   ]
 }
-
-export const LANDING_DEPLOY_OPTIONS: LandingDeployOption[] =
-  landingDeployOptions()
 
 /* ── [07] Security ─────────────────────────────────────────── */
 

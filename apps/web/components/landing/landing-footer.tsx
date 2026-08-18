@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 
 import { cn } from '@vibesboard/utils'
-import { LANDING_LINKS, LANDING_PRODUCT_LINKS } from '@/lib/landing-links'
+import { LANDING_LINKS } from '@/lib/landing-links'
 import { LANDING_OPERATOR } from '@/lib/landing-operator'
 
 interface FooterColumn {
@@ -49,7 +49,7 @@ const BASE_COLUMNS: FooterColumn[] = [
       },
       { label: 'MIT license', href: LANDING_LINKS.license, external: true }
     ]
-  },
+  }
 ]
 
 /**
@@ -59,7 +59,7 @@ const BASE_COLUMNS: FooterColumn[] = [
  * project's links. See lib/landing-operator.ts.
  */
 const OPERATOR_LINKS: FooterColumn['links'] = [
-  ...LANDING_PRODUCT_LINKS,
+  ...LANDING_OPERATOR.siblingProducts,
   ...(LANDING_OPERATOR.contactEmail
     ? [
         {

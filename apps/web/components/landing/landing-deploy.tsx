@@ -4,10 +4,11 @@ import { ArrowUpRight, Check } from 'lucide-react'
 import { cn } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
 import { LANDING_MEDIA_SHARE_DASHBOARD } from '@/lib/landing-media'
+import { LANDING_OPERATOR } from '@/lib/landing-operator'
 import {
   LANDING_DEPLOY_BODY,
   LANDING_DEPLOY_HEADING,
-  LANDING_DEPLOY_OPTIONS
+  landingDeployOptions
 } from '@/lib/landing-sections-copy'
 
 import { FadeIn } from './fade-in'
@@ -15,6 +16,10 @@ import { LandingMedia } from './landing-media'
 import { BrowserFrame, LandingSection } from './landing-section'
 
 export function LandingDeploy() {
+  // Server component: the operator settings are read from the environment per
+  // request, so an image can be re-pointed without a rebuild.
+  const options = landingDeployOptions(LANDING_OPERATOR)
+
   return (
     <LandingSection
       id="deploy"
@@ -23,7 +28,7 @@ export function LandingDeploy() {
       description={LANDING_DEPLOY_BODY}
       contentClassName="grid gap-6 lg:grid-cols-2"
     >
-      {LANDING_DEPLOY_OPTIONS.map((option, index) => (
+      {options.map((option, index) => (
         <FadeIn key={option.id} delay={0.08 * index}>
           <div
             className={cn(
