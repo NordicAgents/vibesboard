@@ -1,8 +1,24 @@
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import createMDX from '@next/mdx'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// `@vibesboard/ee-billing` is Enterprise Edition source (see /ee/LICENSE) and
+// is allowed to be absent: a community distribution may delete the whole `ee/`
+// directory, which the root LICENSE anticipates with "if that directory
+// exists". Point the specifier at real source when it is there and at the MIT
+// stub when it is not, so `bun run build` succeeds either way.
+// `.github/workflows/ci-community-build.yml` proves the second path.
+// Turbopack resolves alias values relative to the project, not the filesystem
+// root: an absolute path is reinterpreted as `./Users/...` and fails. Both
+// values below are therefore written relative to apps/web.
+const eeBillingAlias = existsSync(
+  path.join(__dirname, '../../ee/billing/src/index.ts')
+)
+  ? '../../ee/billing/src/index.ts'
+  : './lib/ee/billing-stub.ts'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -10,6 +26,11 @@ const nextConfig = {
   // bun workspace lives two levels up — tell Next to trace deps from there.
   outputFileTracingRoot: path.join(__dirname, '../..'),
   reactStrictMode: true,
+  turbopack: {
+    resolveAlias: {
+      '@vibesboard/ee-billing': eeBillingAlias
+    }
+  },
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
   images: {
     remotePatterns: [

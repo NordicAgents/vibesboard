@@ -14,6 +14,8 @@
     "./usage-core": "./src/usage-core.ts",
     "./rate-limit": "./src/rate-limit.ts",
     "./plans": "./src/plans.ts",
+    "./billing": "./src/billing.ts",
+    "./edition": "./src/edition.ts",
     "./agent-links": "./src/agent-links/index.ts",
     "./agent-links/db": "./src/agent-links/db.ts",
     "./agent-links/schema": "./src/agent-links/schema.ts"

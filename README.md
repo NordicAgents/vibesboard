@@ -160,8 +160,16 @@ Please do not report vulnerabilities in a public issue. [SECURITY.md](SECURITY.m
 
 ## License
 
-NordicAgents' original Vibesboard work is released under the [MIT
-License](LICENSE). The repository also contains Apache-2.0-derived template
-code, and the app renders the Manrope (SIL Open Font License 1.1) and Roboto
-Mono (Apache-2.0) typefaces. See [NOTICE](NOTICE) and [LICENSES](LICENSES) for
-the applicable copyright and licence texts.
+Vibesboard is open core. NordicAgents' original Vibesboard work is released
+under the [MIT License](LICENSE), with one exception: everything under the
+[`ee/`](ee/) directory is the Enterprise Edition and is licensed by
+[`ee/LICENSE`](ee/LICENSE) instead. That directory holds commercial add-ons for
+the managed service — you never need it to self-host, and `rm -rf ee/` is a
+supported build. See [Open core & ee/](https://vibesboard.com/docs/contribute/open-core)
+for where the line is drawn; multi-tenancy, workspace isolation, usage metering
+and every agent feature stay in the MIT core.
+
+The repository also contains Apache-2.0-derived template code, and the app
+renders the Manrope (SIL Open Font License 1.1) and Roboto Mono (Apache-2.0)
+typefaces. See [NOTICE](NOTICE) and [LICENSES](LICENSES) for the applicable
+copyright and licence texts.
