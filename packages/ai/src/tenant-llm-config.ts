@@ -11,6 +11,7 @@ import {
   PLATFORM_EMBEDDING_MODEL
 } from '@vibesboard/adapter-openai'
 import { shouldResolveTenantProvider } from './provider-routing.ts'
+import { NVIDIA_API_BASE_URL } from './provider-endpoints.ts'
 
 export type EmbedFn = (texts: string[]) => Promise<number[][]>
 
@@ -358,9 +359,11 @@ function rowToProviderSpec(
 //   openai_compatible → Same endpoint with tenant key + custom baseUrl
 //   google            → Google Generative AI Embeddings (text-embedding-004)
 //   anthropic         → No embedding API — falls back to platform key
-//   nvidia            → Falls back to platform key: NVIDIA's embedding NIMs
-//                       need a non-standard `input_type` param and produce
-//                       1024-dim vectors that don't fit the 768/1536 tables
+//   nvidia            → NVIDIA catalog /embeddings with the config's own modelId.
+//                       NIM-branded models (nvidia/ prefix) also need the
+//                       non-standard `input_type` param; third-party ones
+//                       (baai/, snowflake/) reject it. Dimensions route per
+//                       providerFromDimension — 1024 and 2048 both have tables.
 
 // Two distinct things that used to share one constant:
 //   PLATFORM_EMBEDDING_MODEL — our key, whatever provider it points at. Follows
@@ -427,9 +430,19 @@ async function googleEmbed(texts: string[], apiKey: string): Promise<number[][]>
   return Promise.all(texts.map(t => googleEmbedSingle(t, workingModel!, apiKey)))
 }
 
+/**
+ * NVIDIA NIM embedding models are asymmetric: a document and a search query for
+ * that document are embedded differently, selected by the `input_type` param.
+ * Indexing must send 'passage' and retrieval must send 'query' — sending
+ * 'passage' for a query still returns a vector, so the failure is silent and
+ * shows up only as degraded recall. Callers that embed a query must say so.
+ */
+export type EmbedInputType = 'query' | 'passage'
+
 export async function resolveEmbedder(
   tenantId: string,
   store: CredStore = credStore,
+  inputType: EmbedInputType = 'passage',
 ): Promise<EmbedFn> {
   const [spec, tenantRow] = await Promise.all([
     shouldResolveTenantProvider({ tenantId })
@@ -475,8 +488,9 @@ export async function resolveEmbedder(
     const embeddingModel = spec.kind === 'openai_compatible' ? spec.modelId : TENANT_OPENAI_EMBEDDING_MODEL
     // baseUrl is only applicable for openai and openai_compatible; undefined for others
     const baseUrl = (spec.kind === 'openai' || spec.kind === 'openai_compatible') ? spec.baseUrl : undefined
-    // NVIDIA NIM-branded models (nvidia/ prefix) require input_type='passage' for indexing.
-    // Third-party models on NVIDIA catalog (baai/, snowflake/, etc.) do not.
+    // NVIDIA NIM-branded models (nvidia/ prefix) require input_type, and it must
+    // match what is being embedded (see EmbedInputType). Third-party models on
+    // the NVIDIA catalog (baai/, snowflake/, etc.) reject the param.
     const needsInputType =
       spec.kind === 'openai_compatible' &&
       embeddingModel.startsWith('nvidia/')
@@ -487,13 +501,36 @@ export async function resolveEmbedder(
         apiKey: spec.apiKey,
         ...(baseUrl ? { baseUrl } : {}),
         ...(allowPrivateHost ? { allowPrivateHost: true } : {}),
-        ...(needsInputType ? { inputType: 'passage' } : {}),
+        ...(needsInputType ? { inputType } : {}),
       })
       return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
     }
   }
 
-  // anthropic / nvidia (provider kind) — no usable embedding API, fall back to platform key
+  if (spec.kind === 'nvidia') {
+    // NVIDIA's catalog serves an OpenAI-shaped /embeddings endpoint, so the
+    // config's own modelId is used rather than silently falling back to the
+    // platform OpenAI key (which produced 1536-dim vectors from a provider the
+    // tenant never selected). NIM-branded models (nvidia/ prefix) additionally
+    // require input_type, matching what is being embedded (see EmbedInputType);
+    // third-party ones (baai/, snowflake/) reject it.
+    return async (texts) => {
+      const json = await createEmbedding({
+        model: spec.modelId,
+        input: texts,
+        apiKey: spec.apiKey,
+        baseUrl: spec.baseUrl ?? NVIDIA_API_BASE_URL,
+        // baseUrl is now always set, so createEmbedding's private-address check
+        // always runs — honor the tenant's opt-in the same way the
+        // openai/openai_compatible branch does, or a self-hosted NIM is rejected.
+        ...(allowPrivateHost ? { allowPrivateHost: true } : {}),
+        ...(spec.modelId.startsWith('nvidia/') ? { inputType } : {}),
+      })
+      return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)
+    }
+  }
+
+  // anthropic — no embedding API, fall back to platform key
   return async (texts) => {
     const json = await createEmbedding({ ...platformEmbeddingParams(), input: texts })
     return json.data.sort((a, b) => a.index - b.index).map(d => d.embedding)

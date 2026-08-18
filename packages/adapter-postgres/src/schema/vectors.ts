@@ -126,8 +126,39 @@ export const embeddings1024 = pgTable(
   }),
 )
 
+// ─── 2048-dim embeddings (NVIDIA Nemotron embed NIMs) ───────────────────────
+// Used by nvidia/nemotron-3-embed-1b, which returns 2048-dim vectors.
+// Separate table because pgvector requires a fixed dimension per column.
+
+export const embeddings2048 = pgTable(
+  'embeddings_2048',
+  {
+    id: uuid('id').primaryKey(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    sourceType: text('source_type', {
+      enum: ['file_chunk', 'conversation_chunk'],
+    }).notNull(),
+    sourceId: uuid('source_id').notNull(),
+    chunkIndex: integer('chunk_index').notNull(),
+    content: text('content').notNull(),
+    contentTsv: tsvector('content_tsv'),
+    embedding: vector('embedding', { dimensions: 2048 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    byTenantSource: index('embeddings_2048_tenant_src_idx').on(t.tenantId, t.sourceType, t.sourceId),
+    // No HNSW index: pgvector caps hnsw/ivfflat indexes at 2000 dimensions, so a
+    // 2048-dim column can only be searched by sequential scan. The btree index
+    // above still narrows by tenant/source before the distance sort.
+    tsvIdx: index('embeddings_2048_tsv_idx').using('gin', sql`${t.contentTsv}`),
+  }),
+)
+
 export type Embedding = typeof embeddings.$inferSelect
 export type NewEmbedding = typeof embeddings.$inferInsert
 export type Embedding1536 = typeof embeddings1536.$inferSelect
 export type Embedding384 = typeof embeddings384.$inferSelect
 export type Embedding1024 = typeof embeddings1024.$inferSelect
+export type Embedding2048 = typeof embeddings2048.$inferSelect
