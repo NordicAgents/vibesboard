@@ -92,3 +92,8 @@ apps/web/.ds-shim.ts
 
 # Conductor workspace tooling (personal, not shared)
 .conductor/
+
+# Operator deploy helper — a maintainer's local procedure, not part of the
+# published source. It was already untracked; ignoring it means one stray
+# `git add -A` cannot publish the deployment steps once this repo is public.
+scripts/manual-deploy.sh
