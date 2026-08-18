@@ -127,6 +127,18 @@
         "typescript": "^5.9.3",
       },
     },
+    "ee/billing": {
+      "name": "@vibesboard/ee-billing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@vibesboard/contracts": "workspace:*",
+        "@vibesboard/policy": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^26.1.2",
+        "typescript": "^5.9.3",
+      },
+    },
     "packages/adapter-better-auth": {
       "name": "@vibesboard/adapter-better-auth",
       "version": "0.0.0",
@@ -1271,6 +1283,8 @@
     "@vibesboard/contracts": ["@vibesboard/contracts@workspace:packages/contracts"],
 
     "@vibesboard/data": ["@vibesboard/data@workspace:packages/data"],
+
+    "@vibesboard/ee-billing": ["@vibesboard/ee-billing@workspace:ee/billing"],
 
     "@vibesboard/hybrid-memory": ["@vibesboard/hybrid-memory@workspace:packages/hybrid-memory"],
 

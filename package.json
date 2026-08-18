@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/NordicAgents/vibesboard.git"
   },
-  "workspaces": ["apps/web", "packages/*"],
+  "workspaces": ["apps/web", "packages/*", "ee/*"],
   "packageManager": "bun@1.2.18",
   "scripts": {
     "dev": "bun run --filter @vibesboard/web dev",

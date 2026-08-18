@@ -35,6 +35,10 @@ describe('@vibesboard/contracts barrel', () => {
     // exactly the real values the package defines. If this changes, a new
     // runtime export was added and must get its own behavioral coverage.
     const runtimeKeys = Object.keys(contracts).filter((k) => k !== '__esModule')
-    expect(runtimeKeys.sort()).toEqual(['Collections', 'toPublicAgent'])
+    expect(runtimeKeys.sort()).toEqual([
+      'ALL_FEATURES',
+      'Collections',
+      'toPublicAgent',
+    ])
   })
 })

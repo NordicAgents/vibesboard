@@ -11,7 +11,13 @@ export default defineConfig({
     // not yet added a `vitest.config.mts` are silently skipped during the
     // migration. (An explicit path like 'apps/web/vitest.config.mts' would
     // hard-error with "references a non-existing file" until that file exists.)
-    projects: ['packages/*/vitest.config.mts', 'apps/*/vitest.config.mts'],
+    projects: [
+      'packages/*/vitest.config.mts',
+      'apps/*/vitest.config.mts',
+      // `ee/` is absent in a community distribution; a glob tolerates that,
+      // an explicit path would hard-error. See ee/README.md.
+      'ee/*/vitest.config.mts',
+    ],
     coverage: sharedCoverage,
   },
 })
