@@ -142,6 +142,34 @@ describe('legacy CryptoJS compatibility', () => {
     expect(unsealSecret(legacy)).toBe('old-legacy')
   })
 
+  // Recorded fixture, not a fresh encrypt: CryptoJS salts each ciphertext
+  // randomly, and only some salts make a wrong-key decrypt produce invalid
+  // UTF-8. Generating one here would reproduce the bug ~2.5% of the time and
+  // read as a flake. This exact string encrypts 'old-legacy' under
+  // 'legacy-key-xxxxxxxxxxxx' AND throws "Malformed UTF-8 data" when decrypted
+  // with 'current-master-key-aaaaaaaaaaaaaaaa', so it pins the failure every run.
+  const THROWS_UNDER_CURRENT_KEY = 'U2FsdGVkX1+zbNaZyelsrpCPJtdHo7L1GPOx4tHQqAE='
+
+  it('keeps trying retired keys when the current key throws on a legacy value', () => {
+    // The regression: CryptoJS throws on invalid UTF-8 rather than returning
+    // '', so the decrypt loop used to abort on the current key and never reach
+    // ENCRYPTION_KEYS_OLD. Because the salt is fixed once a value is stored,
+    // that is not intermittent in production — the affected rows are lost for
+    // good after a rotation.
+    process.env.ENCRYPTION_KEYS_OLD = 'legacy-key-xxxxxxxxxxxx'
+    _resetKeyCacheForTests()
+    expect(unsealSecret(THROWS_UNDER_CURRENT_KEY)).toBe('old-legacy')
+  })
+
+  it('still reports its own error when no configured key fits', () => {
+    // The catch must not swallow a genuine failure into a silent wrong answer.
+    process.env.ENCRYPTION_KEYS_OLD = 'some-other-retired-key-zzzz'
+    _resetKeyCacheForTests()
+    expect(() => unsealSecret(THROWS_UNDER_CURRENT_KEY)).toThrow(
+      /Unable to decrypt legacy token/
+    )
+  })
+
   it('re-sealing a legacy value yields a modern token', () => {
     const legacy = CryptoJS.AES.encrypt(
       'v',
