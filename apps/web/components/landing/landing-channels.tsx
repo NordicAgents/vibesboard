@@ -19,7 +19,7 @@ export function LandingChannels() {
       contentClassName="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16"
     >
       <FadeIn>
-        <BrowserFrame label="Unified inbox — WhatsApp thread">
+        <BrowserFrame label="Channel inbox — WhatsApp thread">
           <LandingMedia
             asset={LANDING_MEDIA_INBOX_HANDOFF}
             sizes="(max-width: 1024px) 100vw, 50vw"

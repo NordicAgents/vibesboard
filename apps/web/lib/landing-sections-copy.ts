@@ -21,7 +21,7 @@ export const LANDING_WHY_ITEMS: LandingWhyItem[] = [
   {
     need: 'Agents where customers already are',
     answer:
-      'An embeddable web agent, WhatsApp and Instagram channels, Chatwoot sync and a unified inbox.'
+      'An embeddable web agent, WhatsApp and Instagram channels with an inbox for each, and Chatwoot sync.'
   },
   {
     need: 'Answers that lead to outcomes',

@@ -41,7 +41,7 @@ Many tools make it easy to demo a chatbot. Vibesboard is built for the operation
 | If you need…                             | Vibesboard gives you…                                                                                                            |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | More than a chat playground              | A streaming runtime with tools, lifecycle hooks, public deployment, access gates, configuration history, and rollback            |
-| Agents where customers already are       | An embeddable web agent, WhatsApp and Instagram channels, Chatwoot sync, and a unified inbox                                     |
+| Agents where customers already are       | An embeddable web agent, WhatsApp and Instagram channels with an inbox for each, and Chatwoot sync                               |
 | Answers that lead to outcomes            | RAG and long-term memory connected to Google Calendar, Google Sheets, webhooks, and data actions                                 |
 | One deployment for many teams or clients | Workspaces, memberships, feature flags, usage metering, optional soft caps, and PostgreSQL row-level security                  |
 | Freedom from model lock-in               | OpenAI, Anthropic, Google Gemini, NVIDIA, and OpenAI-compatible providers, routed per agent or task                              |
@@ -54,7 +54,7 @@ flowchart LR
     C["Web chat<br/>WhatsApp<br/>Instagram<br/>Chatwoot"] --> A["Versioned<br/>agent runtime"]
     K["Documents<br/>pgvector<br/>Long-term memory"] --> A
     A <--> T["Google Calendar<br/>Google Sheets<br/>Webhooks"]
-    A --> O["Unified inbox<br/>Usage metering<br/>Workspace admin"]
+    A --> O["Channel inboxes<br/>Usage metering<br/>Workspace admin"]
 ```
 
 Tenant isolation combines application-level ownership/membership checks with PostgreSQL row-level security, which fails closed on the RLS-enforced role when workspace context is missing. See the [security guide](docs/security.md) for the current boundary and a candid note on paths still using the migrate role.
@@ -146,7 +146,7 @@ Full documentation lives at **[vibesboard.com/docs](https://vibesboard.com/docs)
 | [Bring your own LLM](https://vibesboard.com/docs/platform/bring-your-own-llm)             | Provider configuration, task routing, and architecture                            |
 | [Testing](https://vibesboard.com/docs/contribute/testing)                                 | Unit, integration, and end-to-end tests, and how CI runs them                     |
 
-The source Markdown for these guides lives under [`docs/`](docs/) in this repository.
+The source Markdown for these guides lives under [`apps/web/content/docs/`](apps/web/content/docs/); [`docs/`](docs/) holds the shorter contributor-facing notes on architecture, configuration, deployment, and security.
 
 ## Contributing
 
@@ -162,5 +162,6 @@ Please do not report vulnerabilities in a public issue. [SECURITY.md](SECURITY.m
 
 NordicAgents' original Vibesboard work is released under the [MIT
 License](LICENSE). The repository also contains Apache-2.0-derived template
-code and Inter fonts under the SIL Open Font License. See [NOTICE](NOTICE) and
-[LICENSES](LICENSES) for the applicable copyright and licence texts.
+code, and the app renders the Manrope (SIL Open Font License 1.1) and Roboto
+Mono (Apache-2.0) typefaces. See [NOTICE](NOTICE) and [LICENSES](LICENSES) for
+the applicable copyright and licence texts.
