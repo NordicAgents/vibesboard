@@ -15,4 +15,6 @@ regexes = [
   '''wrong-key-32-characters-long-xxx''',
   '''test-encryption-key-1234567890''',
   '''vb_live_8x2Kd9\.\.\.''',
+  '''U2FsdGVkX1\+zbNaZyelsrpCPJtdHo7L1GPOx4tHQqAE=''',
+  '''previous-key-2''',
 ]

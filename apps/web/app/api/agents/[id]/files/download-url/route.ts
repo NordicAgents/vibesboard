@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getSignedDownloadUrl, isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import {
+  getSignedDownloadUrl,
+  isCrossTenantFileKey
+} from '@vibesboard/adapter-s3'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 

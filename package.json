@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "bun run --filter @vibesboard/web test:e2e",
+    "test:e2e:local": "bun run --filter @vibesboard/web test:e2e:local",
     "format:write": "bun run --filter @vibesboard/web format:write",
     "format:check": "bun run --filter @vibesboard/web format:check",
     "db:up": "docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init",

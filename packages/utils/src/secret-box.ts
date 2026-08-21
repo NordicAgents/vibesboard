@@ -31,8 +31,12 @@ import CryptoJS from 'crypto-js'
 const VERSION = 'v1'
 const HKDF_SALT = Buffer.from('vibesboard/secret-box/v1')
 const HKDF_INFO = Buffer.from('aes-256-gcm')
+<<<<<<< HEAD
 /** GCM tag length, pinned on both ends so a truncated tag cannot verify. */
 const TAG_BYTES = 16
+=======
+const AUTH_TAG_LENGTH = 16
+>>>>>>> d5b3f46d (chore: pre-public release audit fixes and code formatting)
 
 interface KeyMaterial {
   keyId: string

@@ -404,9 +404,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
           // effectiveFileKeys can come from the (prompt-injectable) model tool
           // call; refuse any key addressing another tenant's namespace.
-          if (
-            effectiveFileKeys.some(k => isCrossTenantFileKey(k, tenantId))
-          ) {
+          if (effectiveFileKeys.some(k => isCrossTenantFileKey(k, tenantId))) {
             return 'I could not create the agent because one of the referenced files is outside this workspace.'
           }
 

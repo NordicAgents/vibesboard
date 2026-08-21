@@ -58,6 +58,14 @@ describe('sealSecret / unsealSecret', () => {
     expect(() => unsealSecret(parts.join(':'))).toThrow()
   })
 
+  it('rejects a truncated GCM authentication tag', () => {
+    const token = sealSecret('do-not-truncate')
+    const parts = token.split(':')
+    const tag = Buffer.from(parts[3], 'base64')
+    parts[3] = tag.subarray(0, 4).toString('base64')
+    expect(() => unsealSecret(parts.join(':'))).toThrow()
+  })
+
   it('fails to decrypt when the key changes with no old key configured', () => {
     const token = sealSecret('secret')
     _resetKeyCacheForTests()
