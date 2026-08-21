@@ -21,6 +21,8 @@ from their respective upstream projects. jszip is offered under a dual licence
 and is used here under the MIT terms.
 
 The MIT licence in the repository root applies to NordicAgents' original
-Vibesboard work. It does not replace the licences or notices above. Other
-third-party dependencies retain their respective licences as identified by
-their package metadata and lockfile.
+Vibesboard work outside the `ee/` directory. If present, the `ee/` directory is
+the Enterprise Edition and is governed by `ee/LICENSE` instead. Neither licence
+replaces the third-party licences or notices above. Other third-party
+dependencies retain their respective licences as identified by their package
+metadata and lockfile.
