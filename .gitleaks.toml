@@ -19,4 +19,7 @@ regexes = [
   '''previous-key-2''',
   '''hook_secret_example_not_a_real_secret''',
   '''cron_secret_example_not_a_real_secret''',
+  '''ci-e2e-cron-secret''',
+  '''ci-e2e-access-gate-secret''',
+  '''test-encryption-key-1234567890''',
 ]
