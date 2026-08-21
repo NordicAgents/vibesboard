@@ -24,107 +24,103 @@ import {
   createDecipheriv,
   createHash,
   hkdfSync,
-  randomBytes
-} from 'node:crypto'
-import CryptoJS from 'crypto-js'
+  randomBytes,
+} from "node:crypto";
+import CryptoJS from "crypto-js";
 
-const VERSION = 'v1'
-const HKDF_SALT = Buffer.from('vibesboard/secret-box/v1')
-const HKDF_INFO = Buffer.from('aes-256-gcm')
-<<<<<<< HEAD
+const VERSION = "v1";
+const HKDF_SALT = Buffer.from("vibesboard/secret-box/v1");
+const HKDF_INFO = Buffer.from("aes-256-gcm");
 /** GCM tag length, pinned on both ends so a truncated tag cannot verify. */
-const TAG_BYTES = 16
-=======
-const AUTH_TAG_LENGTH = 16
->>>>>>> d5b3f46d (chore: pre-public release audit fixes and code formatting)
+const TAG_BYTES = 16;
 
 interface KeyMaterial {
-  keyId: string
-  aesKey: Buffer
-  raw: string
+  keyId: string;
+  aesKey: Buffer;
+  raw: string;
 }
 
 // Deriving the AES key and fingerprint is deterministic; memoize by the raw
 // master-key string so hot paths do not re-derive on every call.
-const keyCache = new Map<string, KeyMaterial>()
+const keyCache = new Map<string, KeyMaterial>();
 
 function deriveKey(raw: string): KeyMaterial {
-  const cached = keyCache.get(raw)
-  if (cached) return cached
+  const cached = keyCache.get(raw);
+  if (cached) return cached;
   const aesKey = Buffer.from(
-    hkdfSync('sha256', Buffer.from(raw, 'utf8'), HKDF_SALT, HKDF_INFO, 32)
-  )
-  const keyId = createHash('sha256')
-    .update(raw, 'utf8')
-    .digest('hex')
-    .slice(0, 8)
-  const material: KeyMaterial = { keyId, aesKey, raw }
-  keyCache.set(raw, material)
-  return material
+    hkdfSync("sha256", Buffer.from(raw, "utf8"), HKDF_SALT, HKDF_INFO, 32),
+  );
+  const keyId = createHash("sha256")
+    .update(raw, "utf8")
+    .digest("hex")
+    .slice(0, 8);
+  const material: KeyMaterial = { keyId, aesKey, raw };
+  keyCache.set(raw, material);
+  return material;
 }
 
 function currentKey(): KeyMaterial {
-  const raw = process.env.ENCRYPTION_KEY
+  const raw = process.env.ENCRYPTION_KEY;
   if (!raw) {
-    throw new Error('[secret-box] ENCRYPTION_KEY is not set')
+    throw new Error("[secret-box] ENCRYPTION_KEY is not set");
   }
-  return deriveKey(raw)
+  return deriveKey(raw);
 }
 
 /** The current key plus any retired keys, for decrypt-time key selection. */
 function allKeys(): KeyMaterial[] {
-  const keys = [currentKey()]
-  const old = process.env.ENCRYPTION_KEYS_OLD
+  const keys = [currentKey()];
+  const old = process.env.ENCRYPTION_KEYS_OLD;
   if (old) {
     for (const raw of old
-      .split(',')
-      .map(s => s.trim())
+      .split(",")
+      .map((s) => s.trim())
       .filter(Boolean)) {
-      keys.push(deriveKey(raw))
+      keys.push(deriveKey(raw));
     }
   }
-  return keys
+  return keys;
 }
 
 /** True if the token is in the modern (v1 GCM) format rather than legacy. */
 export function isModernToken(token: string): boolean {
-  return token.startsWith(`${VERSION}:`)
+  return token.startsWith(`${VERSION}:`);
 }
 
 /** Encrypt a plaintext secret with the current key. Returns the opaque token. */
 export function sealSecret(plaintext: string): string {
-  const { keyId, aesKey } = currentKey()
-  const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', aesKey, iv, {
-    authTagLength: TAG_BYTES
-  })
+  const { keyId, aesKey } = currentKey();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", aesKey, iv, {
+    authTagLength: TAG_BYTES,
+  });
   const ciphertext = Buffer.concat([
-    cipher.update(plaintext, 'utf8'),
-    cipher.final()
-  ])
-  const tag = cipher.getAuthTag()
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
   return [
     VERSION,
     keyId,
-    iv.toString('base64'),
-    tag.toString('base64'),
-    ciphertext.toString('base64')
-  ].join(':')
+    iv.toString("base64"),
+    tag.toString("base64"),
+    ciphertext.toString("base64"),
+  ].join(":");
 }
 
 /** Recover plaintext from a token (modern or legacy CryptoJS). Throws on failure. */
 export function unsealSecret(token: string): string {
   if (isModernToken(token)) {
-    const parts = token.split(':')
+    const parts = token.split(":");
     if (parts.length !== 5) {
-      throw new Error('[secret-box] Malformed v1 token')
+      throw new Error("[secret-box] Malformed v1 token");
     }
-    const [, keyId, ivB64, tagB64, ctB64] = parts
-    const keys = allKeys()
+    const [, keyId, ivB64, tagB64, ctB64] = parts;
+    const keys = allKeys();
     // Prefer the key whose fingerprint matches; fall back to trying all keys
     // (covers a fingerprint collision or a value sealed before a keyId change).
-    const matched = keys.filter(k => k.keyId === keyId)
-    const candidates = matched.length ? matched : keys
+    const matched = keys.filter((k) => k.keyId === keyId);
+    const candidates = matched.length ? matched : keys;
     for (const k of candidates) {
       try {
         // authTagLength is pinned so setAuthTag rejects a truncated tag.
@@ -133,23 +129,23 @@ export function unsealSecret(token: string): string {
         // ~2^128. sealSecret always emits 16 bytes, so this rejects nothing
         // that was written by this module.
         const decipher = createDecipheriv(
-          'aes-256-gcm',
+          "aes-256-gcm",
           k.aesKey,
-          Buffer.from(ivB64, 'base64'),
-          { authTagLength: TAG_BYTES }
-        )
-        decipher.setAuthTag(Buffer.from(tagB64, 'base64'))
+          Buffer.from(ivB64, "base64"),
+          { authTagLength: TAG_BYTES },
+        );
+        decipher.setAuthTag(Buffer.from(tagB64, "base64"));
         return Buffer.concat([
-          decipher.update(Buffer.from(ctB64, 'base64')),
-          decipher.final()
-        ]).toString('utf8')
+          decipher.update(Buffer.from(ctB64, "base64")),
+          decipher.final(),
+        ]).toString("utf8");
       } catch {
         // Auth failure with this key — try the next.
       }
     }
     throw new Error(
-      '[secret-box] Unable to decrypt: no matching key or auth failure'
-    )
+      "[secret-box] Unable to decrypt: no matching key or auth failure",
+    );
   }
 
   // Legacy CryptoJS AES (passphrase mode). Try current then retired keys.
@@ -163,15 +159,17 @@ export function unsealSecret(token: string): string {
   // once a value is stored, those rows stayed undecryptable for good after a
   // rotation rather than failing intermittently.
   for (const k of allKeys()) {
-    let plaintext: string
+    let plaintext: string;
     try {
-      plaintext = CryptoJS.AES.decrypt(token, k.raw).toString(CryptoJS.enc.Utf8)
+      plaintext = CryptoJS.AES.decrypt(token, k.raw).toString(
+        CryptoJS.enc.Utf8,
+      );
     } catch {
-      continue // Wrong key for this ciphertext; try the next one.
+      continue; // Wrong key for this ciphertext; try the next one.
     }
-    if (plaintext) return plaintext
+    if (plaintext) return plaintext;
   }
-  throw new Error('[secret-box] Unable to decrypt legacy token')
+  throw new Error("[secret-box] Unable to decrypt legacy token");
 }
 
 /**
@@ -185,10 +183,10 @@ export function unsealSecret(token: string): string {
  * legacy format.
  */
 export function unsealMaybeSealed(value: string): string {
-  return isModernToken(value) ? unsealSecret(value) : value
+  return isModernToken(value) ? unsealSecret(value) : value;
 }
 
 /** Test/tooling hook to clear the derived-key cache (e.g. after changing env). */
 export function _resetKeyCacheForTests(): void {
-  keyCache.clear()
+  keyCache.clear();
 }
