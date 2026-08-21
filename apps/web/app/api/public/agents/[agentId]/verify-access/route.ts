@@ -67,7 +67,10 @@ export async function POST(
   // rotating input can't evade all three.
   const externalId = await ensureExternalSessionId({ crossOrigin: isEmbed })
   const salt = getRateLimitSalt()
-  const windowMs = positiveIntegerEnv('VERIFY_ACCESS_RATE_LIMIT_WINDOW_MS', 60_000)
+  const windowMs = positiveIntegerEnv(
+    'VERIFY_ACCESS_RATE_LIMIT_WINDOW_MS',
+    60_000
+  )
   const clientAddress = getTrustedClientAddress(req.headers)
   const checks = [
     consumeRateLimit({

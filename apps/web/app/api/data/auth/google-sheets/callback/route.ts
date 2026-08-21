@@ -23,7 +23,9 @@ async function getAppOrigin(fallback: string): Promise<string> {
 }
 
 function proto(h: Headers): string {
-  return (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim() || 'https'
+  return (
+    (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim() || 'https'
+  )
 }
 
 /**
