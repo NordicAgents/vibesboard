@@ -17,4 +17,6 @@ regexes = [
   '''vb_live_8x2Kd9\.\.\.''',
   '''U2FsdGVkX1\+zbNaZyelsrpCPJtdHo7L1GPOx4tHQqAE=''',
   '''previous-key-2''',
+  '''hook_secret_example_not_a_real_secret''',
+  '''cron_secret_example_not_a_real_secret''',
 ]
