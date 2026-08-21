@@ -7,7 +7,7 @@
     "type": "git",
     "url": "https://github.com/NordicAgents/vibesboard.git"
   },
-  "workspaces": ["apps/web", "packages/*"],
+  "workspaces": ["apps/web", "packages/*", "ee/*"],
   "packageManager": "bun@1.2.18",
   "scripts": {
     "dev": "bun run --filter @vibesboard/web dev",
@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "bun run --filter @vibesboard/web test:e2e",
+    "test:e2e:local": "bun run --filter @vibesboard/web test:e2e:local",
     "format:write": "bun run --filter @vibesboard/web format:write",
     "format:check": "bun run --filter @vibesboard/web format:check",
     "db:up": "docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init",

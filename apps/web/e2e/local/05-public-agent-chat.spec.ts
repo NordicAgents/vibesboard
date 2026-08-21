@@ -21,12 +21,13 @@ import {
   request as playwrightRequest,
   type APIRequestContext,
   type APIResponse,
-  type Page,
+  type Page
 } from '@playwright/test'
 import { STORAGE_STATE, BASE_URL } from '../constants.ts'
 
 // Exactly what mock-openai.mjs replies with (e2e/mock-openai.mjs:15-17).
-const STUB_REPLY = 'This is a deterministic E2E stubbed reply from the mock model.'
+const STUB_REPLY =
+  'This is a deterministic E2E stubbed reply from the mock model.'
 
 // Unique per run: re-runs never collide and no test depends on leftover state.
 const RUN = Date.now()
@@ -61,7 +62,10 @@ async function fillChatInput(page: Page, text: string) {
 
 /** A brand-new anonymous visitor: its own va_ext / va_access_* cookie jar. */
 function newVisitor(): Promise<APIRequestContext> {
-  return playwrightRequest.newContext({ baseURL: BASE_URL, storageState: undefined })
+  return playwrightRequest.newContext({
+    baseURL: BASE_URL,
+    storageState: undefined
+  })
 }
 
 /** All Set-Cookie header values on a response (headersArray keeps duplicates). */
@@ -80,7 +84,7 @@ test.beforeAll(async () => {
   // require the owner session; the public routes below are hit anonymously.
   const ctx = await playwrightRequest.newContext({
     baseURL: BASE_URL,
-    storageState: STORAGE_STATE,
+    storageState: STORAGE_STATE
   })
 
   try {
@@ -100,9 +104,9 @@ test.beforeAll(async () => {
           tenantId,
           allowAnonymous,
           // Keep the widget deterministic: no suggestion fetches, no caps.
-          quickSuggestionsMode: 'off',
+          quickSuggestionsMode: 'off'
         },
-        failOnStatusCode: false,
+        failOnStatusCode: false
       })
       expect(res.status(), `create "${name}": ${await res.text()}`).toBe(200)
       const { agent } = await res.json()
@@ -116,11 +120,16 @@ test.beforeAll(async () => {
     lockedAgentId = await createAgent(LOCKED_AGENT_NAME, false)
 
     // PUT (not POST) sets the access password — 200 { ok: true }.
-    const pwRes = await ctx.put(`/api/agents/${lockedAgentId}/access-password`, {
-      data: { password: GATE_PASSWORD },
-      failOnStatusCode: false,
-    })
-    expect(pwRes.status(), `set access password: ${await pwRes.text()}`).toBe(200)
+    const pwRes = await ctx.put(
+      `/api/agents/${lockedAgentId}/access-password`,
+      {
+        data: { password: GATE_PASSWORD },
+        failOnStatusCode: false
+      }
+    )
+    expect(pwRes.status(), `set access password: ${await pwRes.text()}`).toBe(
+      200
+    )
     expect(await pwRes.json()).toEqual({ ok: true })
   } finally {
     await ctx.dispose()
@@ -130,7 +139,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   const ctx = await playwrightRequest.newContext({
     baseURL: BASE_URL,
-    storageState: STORAGE_STATE,
+    storageState: STORAGE_STATE
   })
   try {
     for (const id of [publicAgentId, gatedAgentId, lockedAgentId]) {
@@ -145,14 +154,14 @@ test.afterAll(async () => {
 
 test.describe('Public Agent Chat — API', () => {
   test('public chat streams the stubbed reply with the widget headers', async ({
-    request,
+    request
   }) => {
     // No storageState on this fixture — a genuinely anonymous visitor.
     // Generous request timeout: `next dev` compiles this route on first hit.
     const res = await request.post(`/api/public/agents/${publicAgentId}/chat`, {
       data: { messages: [{ role: 'user', content: 'Hello from public E2E' }] },
       failOnStatusCode: false,
-      timeout: 60_000,
+      timeout: 60_000
     })
 
     expect(res.status()).toBe(200)
@@ -176,7 +185,7 @@ test.describe('Public Agent Chat — API', () => {
   test('gated agent rejects anonymous chat with 403', async ({ request }) => {
     const res = await request.post(`/api/public/agents/${gatedAgentId}/chat`, {
       data: { messages: [{ role: 'user', content: 'Hello' }] },
-      failOnStatusCode: false,
+      failOnStatusCode: false
     })
 
     // Deterministic 403 from chat/route.ts:83-90. Not ">= 400": a 404 would
@@ -185,14 +194,16 @@ test.describe('Public Agent Chat — API', () => {
     expect(await res.text()).toContain('does not allow anonymous chat')
   })
 
-  test('unknown agent id returns 404 rather than a crash', async ({ request }) => {
+  test('unknown agent id returns 404 rather than a crash', async ({
+    request
+  }) => {
     // A syntactically valid but non-existent uuid — proves the 403 above is the
     // access gate talking and not "agent not found" in disguise.
     const res = await request.post(
       '/api/public/agents/00000000-0000-4000-8000-000000000000/chat',
       {
         data: { messages: [{ role: 'user', content: 'Hello' }] },
-        failOnStatusCode: false,
+        failOnStatusCode: false
       }
     )
     expect(res.status()).toBe(404)
@@ -214,7 +225,7 @@ test.describe('Public Agent Chat — Access gate', () => {
       expect(res.status()).toBe(403)
       expect(await res.json()).toEqual({
         error: 'Invalid password or code',
-        code: 'invalid',
+        code: 'invalid'
       })
       // A failed attempt must not hand out an access cookie.
       expect(
@@ -249,7 +260,9 @@ test.describe('Public Agent Chat — Access gate', () => {
       )
       // verify-access/route.ts:29-34.
       expect(res.status()).toBe(400)
-      expect(await res.json()).toEqual({ error: 'Agent allows anonymous access' })
+      expect(await res.json()).toEqual({
+        error: 'Agent allows anonymous access'
+      })
     } finally {
       await visitor.dispose()
     }
@@ -263,7 +276,7 @@ test.describe('Public Agent Chat — Access gate', () => {
         `/api/public/agents/${lockedAgentId}/chat`,
         {
           data: { messages: [{ role: 'user', content: 'let me in' }] },
-          failOnStatusCode: false,
+          failOnStatusCode: false
         }
       )
       expect(before.status()).toBe(403)
@@ -275,14 +288,18 @@ test.describe('Public Agent Chat — Access gate', () => {
       expect(unlock.status()).toBe(200)
       expect(await unlock.json()).toEqual({ ok: true })
 
-      // access-gate.ts:31-45 — HMAC-signed, httpOnly, session-scoped cookie.
+      // access-gate.ts:31-45 — HMAC-signed, httpOnly cookie with the same
+      // finite lifetime as the server-side access token.
       const accessCookie = setCookies(unlock).find(c =>
         c.startsWith(`va_access_${lockedAgentId}=`)
       )
-      expect(accessCookie, 'verify-access must set va_access_<agentId>').toBeTruthy()
+      expect(
+        accessCookie,
+        'verify-access must set va_access_<agentId>'
+      ).toBeTruthy()
       expect(accessCookie!).toMatch(/httponly/i)
-      // Session cookie: no Max-Age/Expires, so it dies with the browser.
-      expect(accessCookie!).not.toMatch(/max-age=/i)
+      // The default token/cookie lifetime is 12 hours (see .env.example).
+      expect(accessCookie!).toMatch(/max-age=43200/i)
 
       // Same cookie jar → the gate now opens and the model answers.
       const after = await visitor.post(
@@ -290,7 +307,7 @@ test.describe('Public Agent Chat — Access gate', () => {
         {
           data: { messages: [{ role: 'user', content: 'hello gated agent' }] },
           failOnStatusCode: false,
-          timeout: 60_000,
+          timeout: 60_000
         }
       )
       expect(after.status()).toBe(200)
@@ -306,7 +323,7 @@ test.describe('Public Agent Chat — Access gate', () => {
     // password miss → redeemInviteCode. Nothing under e2e/ covered it.
     const owner = await playwrightRequest.newContext({
       baseURL: BASE_URL,
-      storageState: STORAGE_STATE,
+      storageState: STORAGE_STATE
     })
     const visitor = await newVisitor()
     const secondVisitor = await newVisitor()
@@ -340,7 +357,7 @@ test.describe('Public Agent Chat — Access gate', () => {
         {
           data: { messages: [{ role: 'user', content: 'code accepted?' }] },
           failOnStatusCode: false,
-          timeout: 60_000,
+          timeout: 60_000
         }
       )
       expect(chatRes.status()).toBe(200)
@@ -354,7 +371,7 @@ test.describe('Public Agent Chat — Access gate', () => {
       expect(denied.status()).toBe(403)
       expect(await denied.json()).toEqual({
         error: 'This code has reached its usage limit',
-        code: 'max_uses_reached',
+        code: 'max_uses_reached'
       })
 
       // The redemption was persisted, not just accepted in-memory.
@@ -374,7 +391,7 @@ test.describe('Public Agent Chat — Access gate', () => {
       await Promise.all([
         owner.dispose(),
         visitor.dispose(),
-        secondVisitor.dispose(),
+        secondVisitor.dispose()
       ])
     }
   })
@@ -390,7 +407,7 @@ test.describe('Public Agent Chat — Access gate', () => {
         {
           headers: { 'x-embed': 'true' },
           data: { value: GATE_PASSWORD },
-          failOnStatusCode: false,
+          failOnStatusCode: false
         }
       )
       expect(res.status()).toBe(200)
@@ -409,7 +426,7 @@ test.describe('Public Agent Chat — Access gate', () => {
 
 test.describe('Public Agent Widget — UI', () => {
   test('widget renders the agent header and an empty composer', async ({
-    page,
+    page
   }) => {
     await page.goto(`/widget/${publicAgentId}`)
     await expect(page).not.toHaveURL(/sign-in/)
@@ -420,7 +437,9 @@ test.describe('Public Agent Widget — UI', () => {
       page.getByText(PUBLIC_AGENT_NAME, { exact: true })
     ).toBeVisible({ timeout: 15_000 })
 
-    await expect(page.getByTestId('chat-input')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-input')).toBeVisible({
+      timeout: 15_000
+    })
     // prompt-form.tsx:268 — send stays disabled until something is typed.
     await expect(
       page.getByRole('button', { name: 'Send message' })
@@ -428,10 +447,12 @@ test.describe('Public Agent Widget — UI', () => {
   })
 
   test('widget chat sends a message and renders the stubbed reply', async ({
-    page,
+    page
   }) => {
     await page.goto(`/widget/${publicAgentId}`)
-    await expect(page.getByTestId('chat-input')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-input')).toBeVisible({
+      timeout: 15_000
+    })
 
     const question = `What can you help me with? ${RUN}`
     await fillChatInput(page, question)
@@ -454,13 +475,13 @@ test.describe('Public Agent Widget — UI', () => {
     // "some text with 10 letters somewhere on the page".
     await expect(page.getByText(question)).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText(STUB_REPLY).first()).toBeVisible({
-      timeout: 20_000,
+      timeout: 20_000
     })
     await expect(page.getByTestId('chat-input')).toHaveValue('')
   })
 
   test('gated widget shows the access gate instead of the chat', async ({
-    page,
+    page
   }) => {
     await page.goto(`/widget/${gatedAgentId}`)
     await expect(page).not.toHaveURL(/sign-in/)
@@ -469,9 +490,7 @@ test.describe('Public Agent Widget — UI', () => {
     await expect(
       page.getByText('Enter a password or invite code to continue.')
     ).toBeVisible({ timeout: 15_000 })
-    await expect(
-      page.getByPlaceholder('Password or invite code')
-    ).toBeVisible()
+    await expect(page.getByPlaceholder('Password or invite code')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
 
     // The chat surface must NOT be rendered alongside the gate.
@@ -482,7 +501,7 @@ test.describe('Public Agent Widget — UI', () => {
   })
 
   test('entering the access password in the widget reveals the chat', async ({
-    page,
+    page
   }) => {
     await page.goto(`/widget/${lockedAgentId}`)
     const input = page.getByPlaceholder('Password or invite code')
@@ -493,26 +512,28 @@ test.describe('Public Agent Widget — UI', () => {
     await input.fill('not-the-password')
     await submit.click()
     await expect(page.getByText('Invalid password or code')).toBeVisible({
-      timeout: 15_000,
+      timeout: 15_000
     })
     await expect(page.getByTestId('chat-input')).toHaveCount(0)
 
     // Correct value → gated-widget-page.tsx flips to PublicAgentExperience.
     await input.fill(GATE_PASSWORD)
     await submit.click()
-    await expect(page.getByTestId('chat-input')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-input')).toBeVisible({
+      timeout: 15_000
+    })
     await expect(
       page.getByText(LOCKED_AGENT_NAME, { exact: true })
     ).toBeVisible()
-    await expect(
-      page.getByPlaceholder('Password or invite code')
-    ).toHaveCount(0)
+    await expect(page.getByPlaceholder('Password or invite code')).toHaveCount(
+      0
+    )
   })
 })
 
 test.describe('Public Agent Chat — Conversation Feedback', () => {
   test('a thumbs-up is stored and reads back on the conversation', async ({
-    request,
+    request
   }) => {
     // Take the conversation id straight off the chat response header the widget
     // itself uses — no conversation-list detour that can silently come back empty.
@@ -520,10 +541,10 @@ test.describe('Public Agent Chat — Conversation Feedback', () => {
       `/api/public/agents/${publicAgentId}/chat`,
       {
         data: {
-          messages: [{ role: 'user', content: `Feedback E2E ${RUN}` }],
+          messages: [{ role: 'user', content: `Feedback E2E ${RUN}` }]
         },
         failOnStatusCode: false,
-        timeout: 60_000,
+        timeout: 60_000
       }
     )
     expect(chatRes.status()).toBe(200)
@@ -553,16 +574,16 @@ test.describe('Public Agent Chat — Conversation Feedback', () => {
   })
 
   test('an unknown rating is rejected with 400 and stores nothing', async ({
-    request,
+    request
   }) => {
     const chatRes = await request.post(
       `/api/public/agents/${publicAgentId}/chat`,
       {
         data: {
-          messages: [{ role: 'user', content: `Bad rating E2E ${RUN}` }],
+          messages: [{ role: 'user', content: `Bad rating E2E ${RUN}` }]
         },
         failOnStatusCode: false,
-        timeout: 60_000,
+        timeout: 60_000
       }
     )
     expect(chatRes.status()).toBe(200)
@@ -575,7 +596,7 @@ test.describe('Public Agent Chat — Conversation Feedback', () => {
     )
     expect(res.status()).toBe(400)
     expect(await res.json()).toEqual({
-      error: 'Invalid rating. Must be "positive" or "negative".',
+      error: 'Invalid rating. Must be "positive" or "negative".'
     })
 
     const readBack = await request.get(
@@ -588,7 +609,7 @@ test.describe('Public Agent Chat — Conversation Feedback', () => {
   })
 
   test('feedback on an unknown conversation id returns 404', async ({
-    request,
+    request
   }) => {
     const res = await request.post(
       `/api/public/agents/${publicAgentId}/conversations/00000000-0000-4000-8000-000000000000/feedback`,
@@ -600,16 +621,16 @@ test.describe('Public Agent Chat — Conversation Feedback', () => {
   })
 
   test('a second visitor cannot read the first visitor conversation', async ({
-    request,
+    request
   }) => {
     const chatRes = await request.post(
       `/api/public/agents/${publicAgentId}/chat`,
       {
         data: {
-          messages: [{ role: 'user', content: `Visitor scoping E2E ${RUN}` }],
+          messages: [{ role: 'user', content: `Visitor scoping E2E ${RUN}` }]
         },
         failOnStatusCode: false,
-        timeout: 60_000,
+        timeout: 60_000
       }
     )
     expect(chatRes.status()).toBe(200)

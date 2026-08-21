@@ -13,8 +13,8 @@ export const REPO_URL = `https://github.com/${GITHUB_SLUG}`
 
 /**
  * Docs are served from this app at `/docs` — same domain, same tab, so search
- * ranking and analytics compound on vibesboard.com instead of scattering onto
- * GitHub's file browser.
+ * ranking and analytics compound on the deployment's own domain instead of
+ * scattering onto GitHub's file browser.
  */
 export const docsUrl = (path: string) => `/docs/${path}`
 
@@ -37,12 +37,10 @@ export const LANDING_LINKS = {
   signIn: '/sign-in',
   signUp: '/sign-up',
   privacy: '/privacy-policy',
-  terms: '/terms-of-service',
-  email: 'mailto:hi@vibesboard.com',
-  instagram: 'https://www.instagram.com/vibesboard_ai/',
-  x: 'https://x.com/vibesboard_ai',
-  linkedin: 'https://www.linkedin.com/company/vibesboard-ai/',
-  youtube: 'https://www.youtube.com/@vibesboard_ai'
+  terms: '/terms-of-service'
+  // Contact address, social accounts and sibling products are deliberately
+  // absent: they identify whoever *operates* a deployment, not the project, and
+  // this repository is public. See lib/landing-operator.ts.
 } as const
 
 export interface LandingNavLink {
@@ -62,16 +60,7 @@ export const LANDING_NAV_LINKS: LandingNavLink[] = [
   { href: LANDING_LINKS.docs, label: 'Docs' }
 ]
 
-/** Sibling products — footer material, not navbar material. */
-export const LANDING_PRODUCT_LINKS: LandingNavLink[] = [
-  {
-    href: 'https://social.vibesboard.com/',
-    label: 'Feedback vibesboard',
-    external: true
-  },
-  {
-    href: 'https://org.vibesboard.com/',
-    label: 'Enterprise vibesboard',
-    external: true
-  }
-]
+// Sibling products used to live here. They moved to lib/landing-operator.ts:
+// they identify the operator, not the project, and this module is pulled into
+// the client bundle through landing-hero-copy.ts — which would have forced the
+// operator settings to be NEXT_PUBLIC_* and inlined at build time.

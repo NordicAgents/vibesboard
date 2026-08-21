@@ -44,7 +44,7 @@ export const sharedCoverage = {
   provider: 'v8' as const,
   reportsDirectory: fromRoot('./coverage'),
   reporter: ['text-summary', 'html', 'json-summary'] as string[],
-  include: ['packages/*/src/**', 'apps/web/{app,lib,components}/**'],
+  include: ['packages/*/src/**', 'ee/*/src/**', 'apps/web/{app,lib,components}/**'],
   exclude: [
     '**/*.test.ts',
     '**/*.test.tsx',

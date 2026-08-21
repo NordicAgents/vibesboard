@@ -22,14 +22,17 @@ jobs:
     steps:
       - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
         with:
-          stale-issue-message: "This issue has been automatically marked as stale due to 30 days of inactivity. It will be closed in 7 days if no further activity occurs."
-          stale-pr-message: "This PR has been automatically marked as stale due to 14 days of inactivity. It will be closed in 7 days if no further activity occurs."
-          close-issue-message: "Closed due to inactivity. Feel free to reopen if this is still relevant."
-          close-pr-message: "Closed due to inactivity. Feel free to reopen if this is still relevant."
-          days-before-issue-stale: 30
-          days-before-pr-stale: 14
-          days-before-issue-close: 7
-          days-before-pr-close: 7
+          stale-issue-message: "This issue has been automatically marked as stale due to 90 days of inactivity. It will be closed in 14 days if no further activity occurs — a comment reopens the clock, and a closed issue can always be reopened."
+          stale-pr-message: "This PR has been automatically marked as stale due to 30 days of inactivity. It will be closed in 14 days if no further activity occurs."
+          close-issue-message: "Closed due to inactivity. This is housekeeping, not a judgement on the report — comment or reopen if it is still relevant."
+          close-pr-message: "Closed due to inactivity. Feel free to reopen if you want to pick it back up."
+          # Deliberately slow. An unanswered bug report from a new contributor
+          # closing itself in five weeks reads as a project that does not want
+          # reports; the exempt labels below only help once someone has triaged.
+          days-before-issue-stale: 90
+          days-before-pr-stale: 30
+          days-before-issue-close: 14
+          days-before-pr-close: 14
           stale-issue-label: stale
           stale-pr-label: stale
-          exempt-issue-labels: "pinned,security,bug"
+          exempt-issue-labels: "pinned,security,bug,enhancement,good first issue"

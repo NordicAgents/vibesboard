@@ -18,6 +18,13 @@ export default defineProject({
         replacement,
       })),
       { find: /^@\//, replacement: `${appRoot}/` },
+      // Enterprise Edition source may be absent (see ee/README.md). Tests
+      // always resolve the specifier to the MIT stub; lib/billing.test.ts
+      // injects a fake module to exercise the enterprise branch.
+      {
+        find: '@vibesboard/ee-billing',
+        replacement: `${appRoot}/lib/ee/billing-stub.ts`,
+      },
     ],
   },
   test: {

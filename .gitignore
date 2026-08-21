@@ -40,10 +40,12 @@ yarn-error.log*
 
 # Agent worktrees (contain copied .env.local) and backup artifacts
 .claude/worktrees/
-.codex/worktrees/
 .gemini/worktrees/
 .worktree-backups/
 .claude/worktree-backups/
+
+# Codex workspace tooling (generated per machine, not shared)
+.codex/
 
 # turbo
 .turbo
@@ -74,11 +76,13 @@ apps/web/e2e/.auth/
 
 # Local Postgres volumes (if overriding the default named volume path)
 docker-volumes/
+
+# Design-system sync tooling — local to a maintainer's machine, not part of
+# the published source. Its outputs (.ds-*) were already ignored; the config
+# and component previews are now ignored too.
+.design-sync/
 .ds-sync/
 ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
 apps/web/.ds-entry.tsx
 apps/web/.ds-tw.css
 apps/web/index.d.ts
@@ -88,3 +92,8 @@ apps/web/.ds-shim.ts
 
 # Conductor workspace tooling (personal, not shared)
 .conductor/
+
+# Operator deploy helper — a maintainer's local procedure, not part of the
+# published source. It was already untracked; ignoring it means one stray
+# `git add -A` cannot publish the deployment steps once this repo is public.
+scripts/manual-deploy.sh

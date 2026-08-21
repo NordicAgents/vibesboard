@@ -130,7 +130,7 @@ export const DOCS_NAV: DocNavSection[] = [
       {
         slug: 'integrate/mcp-servers',
         title: 'MCP servers',
-        description: 'Connect agents to tools over the Model Context Protocol.'
+        description: 'Not supported yet — what to use for external tool access.'
       }
     ]
   },
@@ -199,6 +199,12 @@ export const DOCS_NAV: DocNavSection[] = [
         title: 'Contributing',
         description:
           'Branching, commit conventions, and how to open a pull request.'
+      },
+      {
+        slug: 'contribute/open-core',
+        title: 'Open core & ee/',
+        description:
+          'What is MIT licensed, what is not, and how to build without the Enterprise Edition.'
       }
     ]
   }

@@ -6,8 +6,11 @@ description: 'How the monorepo, packages, and runtime fit together.'
 # Architecture
 
 Vibesboard is a Bun monorepo: one Next.js application (`apps/web`) and 22
-workspace packages under `packages/*`. The workspace globs are `apps/web` and
-`packages/*`, declared in the root `package.json`. This page is the map —
+workspace packages under `packages/*`. The workspace globs are `apps/web`,
+`packages/*` and `ee/*`, declared in the root `package.json`. Everything under
+`ee/` is the Enterprise Edition and is **not** MIT licensed — see
+[Open core & ee/](/docs/contribute/open-core). It is optional: the community
+edition builds with that directory deleted. This page is the map —
 where things live, how the two database connections split, and how a chat
 request gets routed to a model provider. For the code-level pointers behind
 each claim, read the package itself; most ship their own `README.md`.
@@ -32,7 +35,7 @@ packages/
   contracts/             Shared domain types and ports
   data/                  Google Sheets, webhook connections, and data actions
   hybrid-memory/         Long-term agent memory engine
-  inbox/                 Unified inbox services
+  inbox/                 Inbox services for the messaging channels
   integrations/          Integration registry and helpers
   policy/                Plans, feature flags, permissions, and usage metering
   retrieval/             Retrieval strategies

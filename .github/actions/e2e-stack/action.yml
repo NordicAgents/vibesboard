@@ -1,0 +1,100 @@
+name: E2E stack
+description: >
+  Bring up everything a Playwright suite needs on a self-hosted runner —
+  toolchain, dependencies, Postgres + MinIO, migrations and the browser.
+  Shared by the core and deep jobs in ci-e2e.yml so the two cannot drift
+  apart. Assumes the repository is already checked out (a local action has to
+  exist on disk before it can be used) and that the DATABASE_* / S3_* values
+  are set as environment variables by the calling workflow.
+
+runs:
+  using: composite
+  steps:
+    - name: Free the dev-server ports left by any earlier suite
+      # `next dev` allows only one instance per project directory — a second one
+      # exits with "Another next dev server is already running", whatever port it
+      # was given. Every suite runs `bun run --filter @vibesboard/web dev` on the
+      # same directory and port, and Playwright's teardown does not always reap
+      # the `next dev` grandchild behind the bun wrapper.
+      #
+      # When an orphan survives, this suite's own server exits on the directory
+      # lock, but Playwright's `url` health check still gets a 200 from the
+      # orphan and proceeds. The suite then runs against a torn-down process:
+      # routes the earlier run already compiled keep answering, while any
+      # first-hit compile hangs until the test times out. That is the
+      # "forgot-password / create-chat / api-smoke hang for 90s while /,
+      # /sign-in and /agents pass" failure, and why it came and went between
+      # branches.
+      #
+      # The self-hosted runners are persistent, so an orphan outlives the job
+      # that created it and poisons the *next* job to land on that machine —
+      # which is why this is a pre-flight check in the shared setup rather than
+      # a step between two suites. A no-op when teardown worked.
+      shell: bash
+      run: |
+        pkill -f "next dev" || true
+        pkill -f "next-server" || true
+        pkill -f "mock-openai.mjs" || true
+        for port in 3100 4010; do
+          for _ in $(seq 1 30); do
+            if curl -s -o /dev/null --max-time 2 "http://localhost:$port"; then
+              sleep 1
+            else
+              break
+            fi
+          done
+          if curl -s -o /dev/null --max-time 2 "http://localhost:$port"; then
+            echo "::error::port $port still answering after 30s; a stale server would silently break this suite"
+            exit 1
+          fi
+          echo "port $port is free"
+        done
+
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: 1.2.18
+
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 22
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install --frozen-lockfile
+
+    - name: Bring up Postgres + MinIO via docker compose
+      shell: bash
+      run: docker compose -f docker-compose.dev.yml up -d --wait postgres minio
+
+    - name: Bootstrap MinIO bucket
+      shell: bash
+      run: |
+        # Wait until MinIO answers /minio/health/live (the compose healthcheck
+        # already covers this but we re-check from the runner's perspective
+        # to ensure host networking is reachable).
+        for i in $(seq 1 30); do
+          if curl -fsS http://localhost:9000/minio/health/live >/dev/null; then
+            echo "MinIO reachable"; break
+          fi
+          echo "Waiting for MinIO... ($i/30)"; sleep 2
+          if [ "$i" = "30" ]; then
+            echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
+          fi
+        done
+        # Create the bucket via the mc client image. The image's ENTRYPOINT
+        # is 'mc'; override to sh so we can chain commands. --network host
+        # so 'localhost:9000' resolves to the runner-bound minio port.
+        docker run --rm --network host --entrypoint sh minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c "
+          mc alias set local http://localhost:9000 vibesboard vibesboard &&
+          (mc mb -p local/vibesboard-files || true) &&
+          mc anonymous set none local/vibesboard-files
+        "
+
+    - name: Apply database migrations
+      shell: bash
+      run: bun run db:migrate
+
+    - name: Install Playwright browser (chromium)
+      shell: bash
+      run: bunx playwright install chromium
+      working-directory: apps/web

@@ -31,7 +31,8 @@ const CreateConnectionSchema = z.object({
     .string()
     .url('Invalid URL format')
     .refine(v => validateWebhookUrl(v).ok, {
-      message: 'URL resolves to a disallowed (private/loopback/metadata) address'
+      message:
+        'URL resolves to a disallowed (private/loopback/metadata) address'
     }),
   apiToken: z.string().min(1, 'API token is required'),
   inboxId: z.number().int().positive('Invalid inbox ID'),

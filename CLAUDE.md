@@ -24,6 +24,7 @@ Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, 
 
 - `apps/web/app/` — Next.js App Router application source (layouts, pages, `api/` route handlers, `[tenantSlug]` route group)
 - `packages/` — Shared workspace packages and database adapters (e.g. `adapter-postgres`, `adapter-better-auth`, `adapter-s3`, `adapter-openai`, `ai`, `agents`)
+- `ee/` — **Enterprise Edition. NOT MIT licensed** (see `ee/LICENSE`). Commercial add-ons only; the community edition builds with this directory deleted.
 
 ## AI Dev Tooling
 
@@ -36,6 +37,26 @@ Development here historically used the [Superpowers](https://github.com/obra/sup
 - Use systematic debugging for non-obvious bugs — find root causes, don't patch symptoms
 - Security is a priority — this is a multi-tenant SaaS, tenant isolation matters
 - Optimize SQL queries and rely on Postgres indexes for performance
+
+### The `ee/` licence boundary (IMPORTANT)
+
+This repo is open core: everything is MIT **except** `ee/`, which `ee/LICENSE`
+covers. Two rules follow, and CI enforces the first:
+
+- **MIT code must never import from `ee/`.** The only file allowed to name the
+  `@vibesboard/ee-billing` specifier is the composition root
+  `apps/web/lib/billing.ts`, plus the three files that alias or stub it
+  (`apps/web/tsconfig.json`, `next.config.mjs`, `vitest.config.mts`) and its
+  test. The "Community build" workflow fails the PR on any other reference.
+- **The community edition must keep building without `ee/`.** Same workflow
+  deletes the directory and runs install + type-check + build.
+
+`ee/` may depend on MIT packages; the reverse is what breaks the licence.
+Enterprise code is reached through the `IBilling` port in
+`@vibesboard/contracts`, never by direct import. Multi-tenancy, RLS, usage
+metering and the feature-flag system are core and stay MIT — only the
+governance of the tenant boundary (billing, SSO, audit log, custom roles) is
+enterprise. See `apps/web/content/docs/contribute/open-core.mdx`.
 
 ## Branching & Release Strategy
 
@@ -64,7 +85,7 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 
 ## CI Requirements
 
-PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Bun 1.2.18 via `oven-sh/setup-bun@v2`, Node 22):
+PRs to `dev`/`main` run these workflows (each on the org's self-hosted VM runners — `[self-hosted, Linux, X64]`, or `[self-hosted, docker]` where a Postgres/MinIO stack is needed — with Bun 1.2.18 via `oven-sh/setup-bun@v2` and Node 22). Nothing here targets `ubuntu-latest`: while the org's GitHub-hosted minutes are exhausted such a job is refused at dispatch and shows as a 2-second failure with no steps, which reads like a code failure but is billing.
 
 - **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
 - **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). This job used to set `continue-on-error: true`, which meant a type-check failure could not block a merge; that has been removed and it now gates.
@@ -73,6 +94,7 @@ PRs to `dev`/`main` run these workflows (each on `ubuntu-latest`, Bun 1.2.18 via
   - `bun run test:e2e` — the specs directly under `apps/web/e2e/`; `globalSetup` seeds an E2E user/tenant.
   - `bun run test:e2e:local` — the deep suite under `apps/web/e2e/local/` (agents, chat, settings, BYO-LLM, public widget, conversations, knowledge base, sharing, admin panel, tenant flow, cross-tenant isolation). Its `globalSetup` additionally seeds an outsider account and a superadmin. See `docs/local-e2e.md` for running it locally, including the no-Docker path.
 - **Build** (`.github/workflows/ci-build.yml`, "Build") — `bun run build` (Next.js production build of `apps/web`) using `NEXT_PUBLIC_*` values from `STAGING_*` secrets.
+- **Community build** (`.github/workflows/ci-community-build.yml`, "Build without the Enterprise Edition") — asserts no MIT file imports `@vibesboard/ee-billing` outside the composition root, then `rm -rf ee` followed by `bun install` (deliberately not `--frozen-lockfile`), `bun run type-check` and `bun run build`. This is what keeps the root `LICENSE` carve-out honest.
 - **Security** (`.github/workflows/security.yml`, "Security & Quality", on PR and push to `dev`/`main`) — Semgrep SAST + Trivy filesystem vulnerability scan (CRITICAL,HIGH) + Lizard complexity (CCN 15).
 
 Deployment to Cloud Run is handled separately by `.github/workflows/deploy-cloudrun.yml` on push to `dev`/`main` (migrate then build/push image and deploy via Workload Identity Federation).

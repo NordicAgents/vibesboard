@@ -15,13 +15,14 @@
   "dependencies": {
     "@vibesboard/adapter-postgres": "workspace:*",
     "better-auth": "1.6.26",
-    "resend": "^4.0.0",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.5",
+    "resend": "^6.18.1",
     "server-only": "^0.0.1",
     "uuidv7": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "drizzle-orm": "^0.45.2",
     "typescript": "^5.9.3"
   }
 }

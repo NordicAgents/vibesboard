@@ -192,7 +192,9 @@ function buildRAGContext(
 
 async function generateQueryEmbedding(query: string, tenantId: string): Promise<number[] | null> {
   try {
-    const embed = await resolveEmbedder(tenantId)
+    // 'query' — this is the retrieval side. NVIDIA NIM embedders are asymmetric
+    // and embedding a query as a 'passage' silently costs recall.
+    const embed = await resolveEmbedder(tenantId, undefined, 'query')
     const results = await embed([query.trim()])
     return results[0] ?? null
   } catch (error) {

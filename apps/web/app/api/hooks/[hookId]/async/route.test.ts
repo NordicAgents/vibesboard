@@ -8,9 +8,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('next/server', async () => {
-  const actual = await vi.importActual<typeof import('next/server')>(
-    'next/server'
-  )
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server')
   return { ...actual, after: (fn: () => unknown) => void fn }
 })
 
