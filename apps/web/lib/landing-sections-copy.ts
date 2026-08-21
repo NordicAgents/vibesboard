@@ -168,14 +168,14 @@ export interface LandingDeployOption {
 export const LANDING_DEPLOY_HEADING = 'Run it yourself, or let us run it.'
 
 export const LANDING_DEPLOY_BODY =
-  'Same codebase either way. The platform is MIT licensed and self-hosting gets all of it. Commercial add-ons for the managed service live in a separate `ee/` directory under their own license, and you never need them to run Vibesboard yourself.'
+  'Same codebase either way. The MIT-licensed core is complete for self-hosting. Commercial add-ons for the managed service live in a separate `ee/` directory under their own license, and you never need them to run Vibesboard yourself.'
 
 const SELF_HOSTED_OPTION: LandingDeployOption = {
   id: 'self-hosted',
   title: 'Self-hosted',
   summary: 'Your infrastructure, your data, your provider keys.',
   points: [
-    'MIT licensed, the complete platform',
+    'MIT-licensed core',
     'Your PostgreSQL with pgvector and your S3-compatible storage',
     'Bring your own model provider credentials',
     'No seat limits and no usage ceiling but your own',
@@ -252,7 +252,7 @@ export const LANDING_SECURITY_POINTS = [
 export const LANDING_COMMUNITY_HEADING = 'Built in the open.'
 
 export const LANDING_COMMUNITY_BODY =
-  'Vibesboard is MIT licensed and developed in the open. Read the code, file what is broken, or take a first issue.'
+  "Vibesboard's MIT-licensed core is developed in the open. Read the code, file what is broken, or take a first issue."
 
 export const LANDING_COMMUNITY_ACTIONS = [
   { label: 'Star the repo', href: LANDING_LINKS.repo, primary: true },

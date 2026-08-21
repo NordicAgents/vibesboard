@@ -3,7 +3,7 @@
 <h1 align="center">Vibesboard</h1>
 
 <p align="center">
-  <strong>Open-source platform for AI agents that answer, act, and book—across web and messaging channels.</strong>
+  <strong>Open-core platform for AI agents that answer, act, and book—across web and messaging channels.</strong>
 </p>
 
 <p align="center">
@@ -18,11 +18,18 @@
 </p>
 
 <p align="center">
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/status-public%20beta-F59E0B" alt="Pre-1.0 public beta"></a>
   <a href="https://vibesboard.com/docs/self-host/cloud-run-deployment"><img src="https://img.shields.io/badge/deployment-self--hosted-0F766E" alt="Self-hosted"></a>
   <a href="https://vibesboard.com/docs/platform/multi-tenancy-and-rls"><img src="https://img.shields.io/badge/tenancy-PostgreSQL%20RLS-4169E1" alt="Multi-tenant with PostgreSQL row-level security"></a>
   <a href="https://vibesboard.com/docs/platform/bring-your-own-llm"><img src="https://img.shields.io/badge/models-bring%20your%20own-7C3AED" alt="Bring your own model"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-750014" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%20core-750014" alt="MIT core license"></a>
 </p>
+
+> **Pre-1.0 public beta:** Vibesboard is ready for evaluation and carefully
+> operated self-hosting, not a blanket production-readiness claim. APIs and
+> deployment requirements may change. Read the [roadmap](ROADMAP.md),
+> [support policy](SUPPORT.md), and [security policy](SECURITY.md) before
+> deploying it for real users.
 
 <img src="./.github/assets/agent-builder.webp" width="100%" alt="Creating an AI agent in Vibesboard and opening its configuration or public share link">
 

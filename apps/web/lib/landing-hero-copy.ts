@@ -8,7 +8,7 @@ export interface LandingCta {
 
 /** Chips above the headline: the three facts a self-hoster checks first. */
 export const LANDING_HERO_BADGES = [
-  'MIT licensed',
+  'MIT core',
   'Self-hosted',
   'Bring your own model'
 ]

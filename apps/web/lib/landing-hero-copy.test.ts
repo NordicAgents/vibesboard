@@ -36,7 +36,7 @@ describe('landing hero copy', () => {
 
   it('badges the three facts a self-hoster checks first', () => {
     expect(LANDING_HERO_BADGES).toEqual([
-      'MIT licensed',
+      'MIT core',
       'Self-hosted',
       'Bring your own model'
     ])

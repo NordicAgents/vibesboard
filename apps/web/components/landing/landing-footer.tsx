@@ -47,7 +47,7 @@ const BASE_COLUMNS: FooterColumn[] = [
         href: LANDING_LINKS.contributors,
         external: true
       },
-      { label: 'MIT license', href: LANDING_LINKS.license, external: true }
+      { label: 'MIT core license', href: LANDING_LINKS.license, external: true }
     ]
   }
 ]
@@ -100,7 +100,7 @@ export function LandingFooter() {
               your own model, keep your data.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {['MIT licensed', 'Self-hosted', 'Postgres RLS'].map(chip => (
+              {['MIT core', 'Self-hosted', 'Postgres RLS'].map(chip => (
                 <span
                   key={chip}
                   className="rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
@@ -142,7 +142,7 @@ export function LandingFooter() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-muted-foreground sm:flex-row sm:gap-0">
           <p className="text-center sm:text-left">
-            © {year} Vibesboard · Released under the MIT license
+            © {year} Vibesboard · MIT-licensed core · Public beta
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
             {LANDING_OPERATOR.socials.map(social => (

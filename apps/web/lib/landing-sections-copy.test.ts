@@ -135,7 +135,7 @@ describe('landing deploy copy', () => {
     // The repository ships an `ee/` directory under a separate licence. Copy
     // that says "no feature held back" would be untrue the moment Phase 2
     // lands, and a reader who opens ee/LICENSE would catch it.
-    expect(LANDING_DEPLOY_BODY).toMatch(/MIT licensed/i)
+    expect(LANDING_DEPLOY_BODY).toMatch(/MIT-licensed core/i)
     expect(LANDING_DEPLOY_BODY).toMatch(/ee\//)
     expect(LANDING_DEPLOY_BODY).not.toMatch(/no feature held back/i)
   })
