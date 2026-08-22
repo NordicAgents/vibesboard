@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import {
   getSignedDownloadUrl,
-  isCrossTenantFileKey
+  isPermittedAgentFileKey
 } from '@vibesboard/adapter-s3'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
@@ -51,10 +51,16 @@ export async function GET(
   if (!(agent.fileKeys ?? []).includes(fileKey)) {
     return new NextResponse('Forbidden', { status: 403 })
   }
-  // ...and membership alone is not enough: the fileKeys array is caller-writable
-  // (see PATCH), so a key poisoned into it that addresses another tenant's
-  // namespace must still be refused here.
-  if (isCrossTenantFileKey(fileKey, agent.tenantId)) {
+  // ...and membership alone is not enough: the fileKeys array is caller-
+  // writable, so require a key bound to this exact agent as defence in depth.
+  if (
+    !isPermittedAgentFileKey(
+      fileKey,
+      agent.tenantId,
+      agent.id,
+      agent.userId
+    )
+  ) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 

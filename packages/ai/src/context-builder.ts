@@ -1,5 +1,5 @@
 import { type VibeAgent } from '@vibesboard/contracts'
-import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { isPermittedAgentFileKey } from '@vibesboard/adapter-s3'
 import { createRetriever } from '@vibesboard/retrieval'
 import { deriveToolToggles } from '@vibesboard/agents/tooling'
 import { buildToolKit, type ToolExecutionContext, type ToolKit } from './tools/index.ts'
@@ -24,12 +24,13 @@ export async function buildAgentContext(
   const strategy = agent.retrievalStrategy ?? 'direct'
 
   // Defence in depth against a poisoned fileKeys array: never retrieve (and
-  // thus never read into the model context) a key that addresses another
-  // tenant's storage. This path is reachable anonymously via public chat, so
-  // it is the last line before another tenant's document could be exfiltrated.
+  // thus never read into the model context) a key not bound to this exact
+  // agent. This path is reachable anonymously via public chat, so it is the
+  // last line before another agent's document could be exfiltrated.
   const tenantId = agent.tenantId ?? ''
   const safeFileKeys = (agent.fileKeys ?? []).filter(
-    key => !isCrossTenantFileKey(key, tenantId)
+    key =>
+      isPermittedAgentFileKey(key, tenantId, agent.id, agent.userId ?? '')
   )
 
   // The Knowledge tab's File search switch. Passed to the retriever so the

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/auth'
-import { deleteFile, isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { deleteFile, isPermittedAgentFileKey } from '@vibesboard/adapter-s3'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
@@ -58,8 +58,15 @@ export async function POST(
     return new NextResponse('Forbidden', { status: 403 })
   }
   // ...and the array is caller-writable, so refuse a poisoned key that would
-  // delete another tenant's stored object.
-  if (isCrossTenantFileKey(fileKey, agent.tenantId)) {
+  // delete another agent's stored object.
+  if (
+    !isPermittedAgentFileKey(
+      fileKey,
+      agent.tenantId,
+      agent.id,
+      agent.userId
+    )
+  ) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 

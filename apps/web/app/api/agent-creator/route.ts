@@ -24,7 +24,7 @@ import {
   isResponsesModel
 } from '@vibesboard/adapter-openai'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
-import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { isLegacyUserFileKey } from '@vibesboard/adapter-s3'
 import { fetchUrlContent } from '@vibesboard/ai/fetch-url-content'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
 import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
@@ -402,10 +402,15 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
             return 'I could not create the agent because no workspace/tenant is available. Please create a tenant/workspace and try again.'
           }
 
-          // effectiveFileKeys can come from the (prompt-injectable) model tool
-          // call; refuse any key addressing another tenant's namespace.
-          if (effectiveFileKeys.some(k => isCrossTenantFileKey(k, tenantId))) {
-            return 'I could not create the agent because one of the referenced files is outside this workspace.'
+          // effectiveFileKeys can come from the prompt-injectable model tool
+          // call. Before an agent exists, only current-user staging uploads
+          // may be attached; canonical agent keys cannot yet be legitimate.
+          if (
+            effectiveFileKeys.some(
+              k => !isLegacyUserFileKey(k, session.user.id)
+            )
+          ) {
+            return 'I could not create the agent because one of the referenced files is not one of your uploads.'
           }
 
           const slug = await ensureUniqueSlug(

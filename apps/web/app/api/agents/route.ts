@@ -17,11 +17,10 @@ import { isMemberOfTenant, isSuperAdmin } from '@vibesboard/policy/permissions'
 import { getActiveTenant, getTenantById } from '@/lib/tenant-context'
 import { upsertAgentSchema } from '@vibesboard/agents/schema'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
-import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { isLegacyUserFileKey } from '@vibesboard/adapter-s3'
 import { recordAgentVersion } from '@vibesboard/agents/versioning'
 import {
-  sealNotificationConfig,
-  unsealNotificationConfig
+  sealNotificationConfig
 } from '@vibesboard/agents/notification-secret'
 import { toPublicAgentResponse } from '@/lib/public-agent'
 
@@ -58,8 +57,9 @@ function toAgentRecord(
     googleReviewEnabled: row.googleReviewEnabled,
     googlePlaceId: row.googlePlaceId,
     retrievalStrategy: row.retrievalStrategy ?? 'direct',
-    notificationConfig:
-      unsealNotificationConfig(row.notificationConfig) ?? undefined,
+    // Do not decrypt the webhook signing secret in this generic list mapper.
+    // The response boundary removes it as defence in depth.
+    notificationConfig: row.notificationConfig ?? undefined,
     schedulingConfig: row.schedulingConfig ?? undefined,
     dataConfig: row.dataConfig ?? undefined,
     calendarAvailabilityConfig: row.calendarAvailabilityConfig ?? undefined,
@@ -169,12 +169,12 @@ export async function POST(req: Request) {
   const tenant = await getTenantById(tenantId)
   const tenantSlug = tenant?.slug ?? 'unknown'
 
-  // fileKeys is caller-supplied. The agent id does not exist yet, so legitimate
-  // keys are same-tenant staging/canonical keys; refuse anything addressing
-  // another tenant's namespace before it is persisted or processed.
-  if ((payload.fileKeys ?? []).some(k => isCrossTenantFileKey(k, tenantId))) {
+  // The agent id does not exist yet, so only legacy staging objects owned by
+  // the creator can be attached here. Existing-agent uploads use canonical,
+  // agent-scoped keys and are validated in that route.
+  if ((payload.fileKeys ?? []).some(k => !isLegacyUserFileKey(k, user.id))) {
     return NextResponse.json(
-      { error: 'fileKeys contains keys outside this tenant' },
+      { error: 'fileKeys must be uploads owned by the current user' },
       { status: 400 }
     )
   }

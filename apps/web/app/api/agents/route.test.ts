@@ -44,7 +44,14 @@ const agentRow = {
   googleReviewEnabled: false,
   googlePlaceId: null,
   retrievalStrategy: 'direct',
-  notificationConfig: null,
+  notificationConfig: {
+    enabled: true,
+    webhook: {
+      enabled: true,
+      url: 'https://hooks.example.test/notify',
+      secret: 'live-hmac-signing-secret'
+    }
+  },
   schedulingConfig: null,
   dataConfig: null,
   calendarAvailabilityConfig: null,
@@ -98,5 +105,8 @@ describe('GET /api/agents', () => {
     expect(body.agents[0].hasAccessPassword).toBe(true)
     expect(body.agents[0]).not.toHaveProperty('accessPassword')
     expect(body.agents[0]).not.toHaveProperty('accessPasswordHash')
+    expect(body.agents[0].notificationConfig.webhook).not.toHaveProperty(
+      'secret'
+    )
   })
 })

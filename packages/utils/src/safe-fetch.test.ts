@@ -161,6 +161,9 @@ describe('safeFetch', () => {
     expect(res.status).toBe(200)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect((fetchSpy.mock.calls[0][1] as RequestInit).redirect).toBe('manual')
+    // The dispatcher uses the address we just resolved, rather than allowing
+    // fetch to perform a second, attacker-controlled DNS lookup at connect.
+    expect(fetchSpy.mock.calls[0][1]).toHaveProperty('dispatcher')
   })
 
   it('re-validates the redirect target and strips auth on cross-origin hop', async () => {

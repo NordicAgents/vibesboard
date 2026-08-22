@@ -20,4 +20,27 @@ describe('toPublicAgentResponse', () => {
     expect(response).not.toHaveProperty('accessPassword')
     expect(response).not.toHaveProperty('accessPasswordHash')
   })
+
+  it('removes a nested notification webhook signing secret', () => {
+    const response = toPublicAgentResponse({
+      id: 'agent-1',
+      notificationConfig: {
+        enabled: true,
+        webhook: {
+          enabled: true,
+          url: 'https://hooks.example.test/notify',
+          secret: 'live-hmac-signing-secret'
+        }
+      }
+    })
+
+    expect(response.notificationConfig).toEqual({
+      enabled: true,
+      webhook: {
+        enabled: true,
+        url: 'https://hooks.example.test/notify'
+      }
+    })
+    expect(response.notificationConfig.webhook).not.toHaveProperty('secret')
+  })
 })

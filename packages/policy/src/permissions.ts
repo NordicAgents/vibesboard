@@ -26,15 +26,10 @@ export async function isSuperAdmin(userId: string): Promise<boolean> {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)
-  if (rows[0]?.isSuperAdmin === true) return true
-
-  // Fallback: SUPER_ADMIN role in any tenant
-  const memberRows = await getMigrateDb()
-    .select({ role: tenantMembers.role })
-    .from(tenantMembers)
-    .where(and(eq(tenantMembers.userId, userId), eq(tenantMembers.role, 'SUPER_ADMIN')))
-    .limit(1)
-  return memberRows.length > 0
+  // Platform authority has one source of truth. A legacy SUPER_ADMIN tenant
+  // membership remains tenant-scoped (and is handled by isTenantAdmin), but
+  // must never grant access to unrelated tenants or platform endpoints.
+  return rows[0]?.isSuperAdmin === true
 }
 
 export async function isTenantAdmin(

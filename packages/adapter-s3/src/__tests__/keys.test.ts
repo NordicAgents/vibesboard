@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { agentFileKey, isAgentFileKey, isCrossTenantFileKey } from '../keys.ts'
+import {
+  agentFileKey,
+  isAgentFileKey,
+  isCrossTenantFileKey,
+  isLegacyUserFileKey,
+  isPermittedAgentFileKey
+} from '../keys.ts'
 // Also re-exported from the package entry point.
 import {
   agentFileKey as agentFileKeyFromIndex,
@@ -108,5 +114,36 @@ describe('isCrossTenantFileKey', () => {
 
   it('is re-exported from the package index', () => {
     expect(isCrossTenantFileKeyFromIndex).toBe(isCrossTenantFileKey)
+  })
+})
+
+describe('isPermittedAgentFileKey', () => {
+  it('accepts only the exact agent namespace or an owner legacy key', () => {
+    expect(
+      isPermittedAgentFileKey(
+        'tenants/t1/agents/a1/files/doc.pdf',
+        't1',
+        'a1',
+        'user-1'
+      )
+    ).toBe(true)
+    expect(isLegacyUserFileKey('user-1/doc.pdf', 'user-1')).toBe(true)
+    expect(
+      isPermittedAgentFileKey('user-1/doc.pdf', 't1', 'a1', 'user-1')
+    ).toBe(true)
+  })
+
+  it('rejects another agent or user namespace', () => {
+    expect(
+      isPermittedAgentFileKey(
+        'tenants/t1/agents/a2/files/doc.pdf',
+        't1',
+        'a1',
+        'user-1'
+      )
+    ).toBe(false)
+    expect(
+      isPermittedAgentFileKey('user-2/doc.pdf', 't1', 'a1', 'user-1')
+    ).toBe(false)
   })
 })

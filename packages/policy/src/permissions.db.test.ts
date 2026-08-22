@@ -101,11 +101,11 @@ describe('permissions (db-backed against public schema)', () => {
       expect(await isSuperAdmin(userId)).toBe(true)
     })
 
-    it('falls back to true when the user has a SUPER_ADMIN membership role', async () => {
+    it('does not treat a tenant-scoped SUPER_ADMIN role as platform access', async () => {
       const userId = await seedUser({ isSuperAdmin: false })
       const tenantId = await seedTenant(userId)
       await seedMembership(userId, tenantId, 'SUPER_ADMIN')
-      expect(await isSuperAdmin(userId)).toBe(true)
+      expect(await isSuperAdmin(userId)).toBe(false)
     })
 
     it('is false for a plain user with only a MEMBER role', async () => {

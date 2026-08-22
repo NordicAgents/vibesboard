@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   sealNotificationConfig,
   unsealNotificationConfig,
-  stripNotificationSecret
+  stripNotificationSecret,
+  preserveNotificationSecret
 } from '../notification-secret.ts'
 import {
   toAgentConfigSnapshot,
@@ -123,5 +124,23 @@ describe('stripNotificationSecret', () => {
     const stripped = stripNotificationSecret(config('x'))
     expect(stripped.webhook.secret).toBeNull()
     expect(stripped.webhook.enabled).toBe(true)
+  })
+})
+
+describe('preserveNotificationSecret', () => {
+  it('keeps the existing secret when a redacted response is saved', () => {
+    const updated = preserveNotificationSecret(config('live-secret'), {
+      ...config(null),
+      webhook: { enabled: true, url: 'https://new.example.test' }
+    } as never)
+
+    expect(updated.webhook.secret).toBe('live-secret')
+  })
+
+  it('allows an explicit null to clear the secret', () => {
+    expect(
+      preserveNotificationSecret(config('live-secret'), config(null)).webhook
+        .secret
+    ).toBeNull()
   })
 })
