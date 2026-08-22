@@ -36,7 +36,6 @@ Dockerfile
 env.yaml
 
 # Tooling directories not needed in container
-supabase
 .ds-sync
 .design-sync
 ds-bundle
