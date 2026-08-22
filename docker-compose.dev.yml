@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16@sha256:a36250871de0833b8757561c72f2477ef1ddd1101afa4e617fb552e0de514c6b
+    environment:
+      POSTGRES_DB: vibesboard_dev
+      POSTGRES_USER: vibesboard
+      POSTGRES_PASSWORD: vibesboard
+    ports:
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432'
+    volumes:
+      - vibesboard_pg:/var/lib/postgresql/data
+      - ./packages/adapter-postgres/docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vibesboard -d vibesboard_dev']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  adminer:
+    image: adminer:4@sha256:c1c24d89d06fcb8fc0fb5a049240dc292ff4a121ae05d7e74d64b58c421d2921
+    ports:
+      - '127.0.0.1:8888:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  minio:
+    image: minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: vibesboard
+      MINIO_ROOT_PASSWORD: vibesboard
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+    volumes:
+      - vibesboard_minio:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9000/minio/health/live || exit 1']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  minio-init:
+    image: minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        mc alias set local http://minio:9000 vibesboard vibesboard &&
+        (mc mb -p local/vibesboard-files || true) &&
+        mc anonymous set none local/vibesboard-files
+      "
+
+volumes:
+  vibesboard_pg:
+  vibesboard_minio:

@@ -1,0 +1,150 @@
+name: E2E
+
+on:
+  pull_request:
+    branches: [dev, main]
+  # So the deep suite can still be run deliberately while it is parked (below).
+  workflow_dispatch:
+
+concurrency:
+  group: ci-e2e-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Shared by both jobs below.
+env:
+  # Match docker-compose.dev.yml + packages/adapter-postgres/docker/init.sql
+  DATABASE_URL: postgres://vibesboard_app:vibesboard_app@localhost:5432/vibesboard_dev
+  DATABASE_MIGRATE_URL: postgres://vibesboard_migrate:vibesboard_migrate@localhost:5432/vibesboard_dev
+  S3_ENDPOINT: http://localhost:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: vibesboard-files
+  S3_ACCESS_KEY_ID: vibesboard
+  S3_SECRET_ACCESS_KEY: vibesboard
+  S3_FORCE_PATH_STYLE: 'true'
+  # better-auth needs a secret to boot; the Playwright config points the app
+  # at a local mock OpenAI server, so no real OpenAI key is required.
+  BETTER_AUTH_SECRET: ci-e2e-better-auth-secret-0123456789
+  NEXT_PUBLIC_APP_URL: http://localhost:3100
+  # Required by playwright.local.config.ts, which fails fast if any is unset.
+  # All are dev-only throwaways: ENCRYPTION_KEY is a CryptoJS AES passphrase
+  # (any non-empty string), the rest are plain shared-secret comparisons.
+  # Nothing encrypted with this key outlives the CI run.
+  ENCRYPTION_KEY: ci-e2e-encryption-key-0123456789
+  CRON_SECRET: ci-e2e-cron-secret
+  ACCESS_GATE_SECRET: ci-e2e-access-gate-secret
+
+# The two suites are separate jobs on purpose. The deep one reliably kills the
+# self-hosted runner agent (see its comment below), and a dead runner fails the
+# whole job — so while they shared a job, the deep suite took the core suite's
+# result down with it and a PR got no E2E signal at all. Split, the core suite
+# still reports even when the deep one destroys its own runner.
+jobs:
+  e2e-core:
+    name: Playwright core suite
+    runs-on: [self-hosted, docker]
+    # Backstop only — the config sets a lower globalTimeout (10 min) so
+    # Playwright aborts itself and still uploads its report. Without this, a
+    # wedged dev server ran to GitHub's 6-hour job ceiling (run 31392110921
+    # burned exactly that).
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/e2e-stack
+
+      - name: Run Playwright E2E
+        # The specs directly under apps/web/e2e/. The Playwright config boots a
+        # mock OpenAI server + `next dev` (OPENAI_BASE_URL pointed at the mock
+        # so the model is stubbed at the network boundary), seeds an E2E
+        # user/tenant in globalSetup, then runs. Completes in well under a
+        # minute on the self-hosted runners.
+        run: bun run test:e2e
+        working-directory: apps/web
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Capture docker logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml logs
+
+      # The self-hosted runner is persistent, so the stack outlives the job.
+      # Tear it down (volumes included) or the next run inherits this run's
+      # database — on GitHub-hosted runners the VM was discarded instead.
+      - name: Tear down the stack
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down -v --remove-orphans
+
+  e2e-deep:
+    name: Playwright deep suite
+    # PARKED. This suite kills the self-hosted runner agent outright: the job is
+    # force-failed with the test step still in_progress, every later step left
+    # pending, and no logs uploaded because the runner died before it could send
+    # them. The check-run annotation is the only place the reason appears —
+    # "The self-hosted runner lost communication with the server… anything that
+    # terminates the runner process, starves it for CPU/Memory, or blocks its
+    # network access can cause this error."
+    #
+    # Reproduced on the laptop runner (2026-08-17, twice, once with the box
+    # otherwise idle) and again on the VM fleet (2026-08-18, run 32108551723,
+    # died 13m11s in on mx-vm-nordicagents-1) — so it is this suite's own
+    # footprint, not one machine. `workers: 1` in playwright.local.config.ts
+    # means there is no parallelism left to dial back. Note the core suite
+    # passes in ~37s on the same runner, so the harness itself is healthy.
+    #
+    # This is downstream of running CI on self-hosted boxes at all, which is
+    # itself only a workaround for the Actions billing outage. Restoring billing
+    # puts this back on ubuntu-latest, where it passed reliably before
+    # 2026-08-13 — that is the real fix, not tuning this workflow.
+    #
+    # Run it on demand from the Actions tab (workflow_dispatch), or set the
+    # repository variable E2E_ENABLED to 'true' to gate PRs on it again — but
+    # expect the above until the footprint is diagnosed. Delete this `if:` once
+    # the gates are back on GitHub-hosted runners.
+    if: vars.E2E_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, docker]
+    # Backstop only — the config sets a lower globalTimeout (20 min).
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/e2e-stack
+
+      - name: Run local Playwright E2E (deep suite)
+        # The e2e/local/ suite — agents, chat, settings, BYO-LLM, public widget,
+        # conversations, knowledge base, sharing, admin panel, tenant flow and
+        # cross-tenant isolation. Its globalSetup seeds everything it needs
+        # (including the base E2E user, plus an outsider and a superadmin), so
+        # it does not depend on the core job having run.
+        run: bun run test:e2e:local
+        working-directory: apps/web
+
+      - name: Upload local Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-local
+          path: apps/web/playwright-report-local/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Capture docker logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.dev.yml logs
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose -f docker-compose.dev.yml down -v --remove-orphans

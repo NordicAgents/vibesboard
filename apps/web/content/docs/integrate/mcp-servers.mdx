@@ -1,0 +1,39 @@
+---
+title: 'MCP servers'
+description: 'Not supported yet — what to use instead for external tool access.'
+---
+
+# MCP servers
+
+The Model Context Protocol (MCP) is an open, transport-agnostic protocol for connecting an LLM to an external server that exposes tools, resources, and prompts. It lets a product point a model at an arbitrary third-party service without hard-coding a client for each one.
+
+<Callout type="warning" title="Not supported yet">
+  Vibesboard has no MCP client, no `mcp:*` tool type, and no place to configure
+  an MCP server — in the UI or the API. An agent cannot be connected to one
+  today. This page exists so the gap is documented rather than discovered.
+</Callout>
+
+## What exists instead
+
+Each of these is narrower than MCP: a fixed set of tools defined by the platform, rather than a way to point an agent at an arbitrary tool server.
+
+- **[Data actions & tools](/docs/build/data-actions-and-tools)** — an agent can append or update records in Google Sheets, Airtable, or a webhook you control. The tool shapes (`submit_data`, `update_record`) are fixed by the platform, not by the destination.
+- **[Webhooks](/docs/integrate/webhooks)** — the most generic data-action provider: Vibesboard `POST`s or `PUT`s a fixed JSON envelope to a URL you configure. You control what happens on your side, but the request and response contract is set here, not negotiated per tool the way MCP does it.
+- **`builtin:web_fetch`** — lets an agent fetch and read the text of an arbitrary URL. A one-way read, not a callable tool server.
+- **[Hooks & lifecycle](/docs/build/hooks-and-lifecycle)** — the inverse direction: an external system invokes an agent and receives an HMAC-signed callback.
+
+If you specifically need an agent to discover and call tools on an arbitrary external server, none of these do it. Plan around the gap rather than around a roadmap.
+
+## Next steps
+
+<Cards>
+  <Card href="/docs/build/data-actions-and-tools" title="Data actions & tools">
+    The built-in mechanism for giving an agent tools today.
+  </Card>
+  <Card href="/docs/integrate/webhooks" title="Webhooks">
+    The most flexible of the built-in data-action providers.
+  </Card>
+  <Card href="/docs/build/hooks-and-lifecycle" title="Hooks & lifecycle">
+    Invoke an agent from outside and get a signed callback.
+  </Card>
+</Cards>

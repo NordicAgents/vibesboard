@@ -15,6 +15,8 @@ coverage
 .next/
 out/
 build
+# ...but the "Build" docs section is content, not build output
+!apps/web/content/docs/build/
 next-env.d.ts
 
 # misc
@@ -26,13 +28,24 @@ tsconfig.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+.bun-debug.log*
 
-# local env files
+# local env files (never commit — these contain real secrets)
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
+.env.staging
+
+# Agent worktrees (contain copied .env.local) and backup artifacts
+.claude/worktrees/
+.gemini/worktrees/
+.worktree-backups/
+.claude/worktree-backups/
+
+# Codex workspace tooling (generated per machine, not shared)
+.codex/
 
 # turbo
 .turbo
@@ -49,7 +62,38 @@ env.yaml
 .kilocode
 
 # Cloud Functions build output
-functions/lib
+apps/functions/lib
+
+# Debug logs
+*-debug.log
 
 # test artifacts
 .playwright-mcp/
+playwright-report/
+playwright-report-local/
+test-results/
+apps/web/e2e/.auth/
+
+# Local Postgres volumes (if overriding the default named volume path)
+docker-volumes/
+
+# Design-system sync tooling — local to a maintainer's machine, not part of
+# the published source. Its outputs (.ds-*) were already ignored; the config
+# and component previews are now ignored too.
+.design-sync/
+.ds-sync/
+ds-bundle/
+apps/web/.ds-entry.tsx
+apps/web/.ds-tw.css
+apps/web/index.d.ts
+apps/web/types/.ds-dts/
+apps/web/.ds-dts.tsconfig.json
+apps/web/.ds-shim.ts
+
+# Conductor workspace tooling (personal, not shared)
+.conductor/
+
+# Operator deploy helper — a maintainer's local procedure, not part of the
+# published source. It was already untracked; ignoring it means one stray
+# `git add -A` cannot publish the deployment steps once this repo is public.
+scripts/manual-deploy.sh

@@ -5,15 +5,28 @@ on:
     - cron: "0 3 * * 0"  # Every Sunday at 03:00 UTC
   workflow_dispatch:
 
+concurrency:
+  group: artifact-registry-cleanup
+  cancel-in-progress: false
+
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   cleanup:
+    name: Delete expired images
     runs-on: ubuntu-latest
+    # The `maintenance` environment carries a deployment branch policy (dev and
+    # main only), so a modified copy of this workflow pushed to an arbitrary
+    # branch cannot mint deploy-SA tokens via workflow_dispatch.
+    environment: maintenance
+    permissions:
+      contents: read
+      id-token: write # Required for keyless GCP Workload Identity authentication.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Authenticate to GCP
         uses: ./.github/actions/gcp-auth
@@ -22,8 +35,11 @@ jobs:
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Delete old images
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          REPO="us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app"
+          : "${GCP_PROJECT:?GCP_PROJECT_ID secret is not set}"
+          REPO="us-docker.pkg.dev/$GCP_PROJECT/vibeagent/app"
           KEEP_RECENT=10
           CUTOFF_DATE=$(date -d "30 days ago" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -v-30d +%Y-%m-%dT%H:%M:%S)
 

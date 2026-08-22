@@ -1,70 +1,118 @@
 # syntax=docker/dockerfile:1
 
-# Multi-stage build for Next.js (pnpm) targeting Cloud Run
+# Multi-stage build for Next.js targeting Cloud Run
 # Uses standalone output for smaller images
 
-FROM node:20-alpine AS base
+# Copy the pinned Bun package manager into a real Node/glibc build image.
+# The oven/bun image's `node` fallback runs Bun, which is not compatible with
+# Next.js 16's production metadata build. Next must execute under Node.
+#
+# Track the Active LTS line (24 "Krypton"), not Current. Dependabot proposes
+# whatever tag is newest — at time of writing 26, which is Current and does not
+# reach LTS until Oct 2026 — so its Node bumps need a look rather than a merge.
+FROM oven/bun:1.3.14@sha256:e10577f0db68676a7024391c6e5cb4b879ebd17188ab750cf10024a6d700e5c4 AS bun
+FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS base
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
-RUN corepack enable
 
 # Install deps (cached layer)
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
+COPY package.json bun.lock ./
+COPY apps/web/package.json ./apps/web/
+# Every workspace package's manifest must be present before `bun install`
+# resolves the workspace:* refs in apps/web/package.json. The workspace
+# globs themselves live in the root package.json copied above.
+COPY packages/adapter-better-auth/package.json ./packages/adapter-better-auth/
+COPY packages/adapter-google/package.json ./packages/adapter-google/
+COPY packages/adapter-openai/package.json ./packages/adapter-openai/
+COPY packages/adapter-postgres/package.json ./packages/adapter-postgres/
+COPY packages/adapter-s3/package.json ./packages/adapter-s3/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/ai/package.json ./packages/ai/
+COPY packages/booking-enquiries/package.json ./packages/booking-enquiries/
+COPY packages/channel-chatwoot/package.json ./packages/channel-chatwoot/
+COPY packages/channel-instagram/package.json ./packages/channel-instagram/
+COPY packages/channel-whatsapp/package.json ./packages/channel-whatsapp/
+COPY packages/contracts/package.json ./packages/contracts/
+COPY packages/data/package.json ./packages/data/
+COPY packages/hybrid-memory/package.json ./packages/hybrid-memory/
+COPY packages/inbox/package.json ./packages/inbox/
+COPY packages/integrations/package.json ./packages/integrations/
+COPY packages/policy/package.json ./packages/policy/
+COPY packages/retrieval/package.json ./packages/retrieval/
+COPY packages/scheduling/package.json ./packages/scheduling/
+COPY packages/tenants/package.json ./packages/tenants/
+COPY packages/test-helpers/package.json ./packages/test-helpers/
+COPY packages/utils/package.json ./packages/utils/
+# The Enterprise Edition manifest, if this checkout has one. `ee/*` is a
+# workspace glob in the root package.json, so its manifest has to be present
+# before `bun install --frozen-lockfile` or Bun sees a workspace set that does
+# not match bun.lock and aborts with "lockfile had changes".
+#
+# It is copied through a scratch directory because `ee/` is genuinely optional
+# — the root LICENSE says "if that directory exists" and ee/README.md documents
+# `rm -rf ee/` as a supported build. The `package.jso[n]` bracket glob makes
+# that source optional (Docker only requires that *some* source matches, which
+# bun.lock guarantees), and the conditional copy avoids leaving an empty
+# ee/billing/ behind when the directory was removed.
+COPY bun.lock ee/billing/package.jso[n] /tmp/ee-billing/
+RUN if [ -f /tmp/ee-billing/package.json ]; then \
+      mkdir -p ./ee/billing && cp /tmp/ee-billing/package.json ./ee/billing/; \
+    fi; \
+    rm -rf /tmp/ee-billing
 # Install all deps including dev (needed for build)
-RUN pnpm install --no-frozen-lockfile --prod=false
+RUN bun install --frozen-lockfile
 
 # Build application
-FROM base AS builder
+# Start from the deps stage so the installed node_modules + manifests
+# are already present, then layer the source on top.
+FROM deps AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY . .
 # Inject public runtime configuration at build time for client bundles
-ARG NEXT_PUBLIC_FIREBASE_API_KEY
-ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-ARG NEXT_PUBLIC_FIREBASE_APP_ID
 ARG NEXT_PUBLIC_AUTH_GOOGLE
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_META_APP_ID
 ARG NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
-ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY \
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID \
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID \
-    NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID \
-    NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
+ENV NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID \
-    NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID \
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-# Build Next.js (standalone output)
-RUN pnpm run build
+    NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=$NEXT_PUBLIC_FB_LOGIN_CONFIG_ID
+# Bun orchestrates the workspace script; the `next` executable uses real Node.
+RUN bun run --filter @vibesboard/web build
 
-# Production runner (standalone — no separate node_modules needed)
-FROM node:20-alpine AS runner
+# Production runner (standalone — no separate node_modules needed).
+# Debian (glibc) slim to match the glibc build image above.
+FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runner
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=8080 \
     HOSTNAME=0.0.0.0
 WORKDIR /app
-RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+RUN groupadd --gid 1001 nodejs \
+    && useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin nextjs
+
+# The standalone server only needs Node. Remove package managers from the
+# runtime image to reduce its attack surface (and avoid shipping npm's bundled
+# dependency tree, which is not used by the application).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /opt/yarn-v1.22.22 \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 # Copy standalone build (includes server + minimal node_modules)
-COPY --from=builder /app/.next/standalone ./
-# Copy static assets and public files into standalone
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# Next.js standalone in a monorepo places the server under apps/web/
+COPY --from=builder /app/apps/web/.next/standalone ./
+# Copy static assets and public files into the standalone server root
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
 
 # Create cache dir writable by nextjs user (image optimization, etc.)
 RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next/cache
 
 USER nextjs
 EXPOSE 8080
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]

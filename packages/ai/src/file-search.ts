@@ -1,0 +1,518 @@
+import { Buffer } from 'node:buffer'
+
+import { downloadFile } from '@vibesboard/adapter-s3'
+import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
+import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
+import { replaceFileChunks, providerFromDimension } from '@vibesboard/ai/rag-store'
+import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
+import { shouldResolveTenantProvider } from './provider-routing.ts'
+import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
+import { eq } from 'drizzle-orm'
+const VISION_MODEL = OPENAI_VISION_MODEL
+
+const IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/webp',
+  'image/tiff',
+  'image/svg+xml'
+])
+
+const htmlTagRegex = /<[^>]+>/g
+
+const cleanText = (value: string) =>
+  value
+    .replace(/\r\n/g, '\n')
+    .replace(/\u0000/g, '')
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+export const guessMimeFromPath = (path: string) => {
+  const lower = path.toLowerCase()
+  if (lower.endsWith('.pdf')) return 'application/pdf'
+  if (lower.endsWith('.docx'))
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (lower.endsWith('.doc')) return 'application/msword'
+  if (lower.endsWith('.xlsx'))
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel'
+  if (lower.endsWith('.pptx'))
+    return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  if (lower.endsWith('.ppt')) return 'application/vnd.ms-powerpoint'
+  if (lower.endsWith('.csv')) return 'text/csv'
+  if (lower.endsWith('.md')) return 'text/markdown'
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'text/html'
+  if (lower.endsWith('.txt')) return 'text/plain'
+  if (lower.endsWith('.json')) return 'application/json'
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.tiff') || lower.endsWith('.tif')) return 'image/tiff'
+  if (lower.endsWith('.svg')) return 'image/svg+xml'
+  return 'application/octet-stream'
+}
+
+const decodeText = (buffer: Buffer) => {
+  try {
+    return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
+  } catch {
+    return ''
+  }
+}
+
+// Elements whose text content is code, not prose. Stripping only the tags
+// would leave the script body and CSS rules behind as indexable "text".
+const htmlNonContentBlockRegex =
+  /<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1>/gi
+
+const extractFromHtml = (raw: string) =>
+  cleanText(
+    raw.replace(htmlNonContentBlockRegex, ' ').replace(htmlTagRegex, ' ')
+  )
+
+const extractFromWorkbook = async (buffer: Buffer) => {
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer as any)
+  const parts: string[] = []
+
+  workbook.eachSheet((worksheet, _sheetId) => {
+    const rows: string[] = []
+    worksheet.eachRow(row => {
+      const values = Array.isArray(row.values)
+        ? (row.values as unknown[]).slice(1) // exceljs row.values is 1-indexed with empty [0]
+        : []
+      rows.push(values.map(v => (v != null ? String(v) : '')).join(','))
+    })
+    if (rows.length > 0) {
+      parts.push(`# Sheet: ${worksheet.name}\n${rows.join('\n')}`)
+    }
+  })
+
+  return cleanText(parts.join('\n\n'))
+}
+
+const extractFromDoc = async (buffer: Buffer) => {
+  const mammothModule = await import('mammoth')
+  const mammoth: any = (mammothModule as any).default ?? mammothModule
+  const result = await mammoth.extractRawText({ buffer })
+  return cleanText(result.value || '')
+}
+
+let pdfWorkerConfigured = false
+let pdfWorkerGetPath: (() => string) | undefined
+let pdfWorkerGetData: (() => string) | undefined
+let pdfCanvasFactory: any
+
+const ensurePdfWorker = async (PDFParseClass: any) => {
+  if (pdfWorkerConfigured) return
+
+  try {
+    const workerModule: any = await import('pdf-parse/worker').catch(() => null)
+
+    if (workerModule) {
+      pdfWorkerGetPath =
+        typeof workerModule.getPath === 'function'
+          ? workerModule.getPath
+          : undefined
+      pdfWorkerGetData =
+        typeof workerModule.getData === 'function'
+          ? workerModule.getData
+          : undefined
+      pdfCanvasFactory = workerModule.CanvasFactory ?? undefined
+    }
+
+    if (typeof PDFParseClass?.setWorker === 'function') {
+      const workerSource =
+        (pdfWorkerGetPath && pdfWorkerGetPath()) ||
+        (pdfWorkerGetData && pdfWorkerGetData()) ||
+        undefined
+
+      if (workerSource) {
+        PDFParseClass.setWorker(workerSource)
+      }
+    }
+
+    pdfWorkerConfigured = true
+  } catch {
+    // Ignore worker configuration errors
+  }
+}
+
+const extractFromPdf = async (buffer: Buffer) => {
+  const pdfModule = await import('pdf-parse')
+
+  const PDFParseClass: any = (pdfModule as any).PDFParse
+  if (typeof PDFParseClass === 'function') {
+    await ensurePdfWorker(PDFParseClass)
+
+    const parser = new PDFParseClass({
+      data: buffer,
+      ...(pdfCanvasFactory ? { CanvasFactory: pdfCanvasFactory } : {})
+    })
+    try {
+      const result = await parser.getText?.()
+      return cleanText(result?.text || '')
+    } finally {
+      if (typeof parser.destroy === 'function') {
+        await parser.destroy().catch(() => {})
+      }
+    }
+  }
+
+  const legacyParser: any =
+    typeof (pdfModule as any).default === 'function'
+      ? (pdfModule as any).default
+      : typeof pdfModule === 'function'
+        ? pdfModule
+        : null
+
+  if (legacyParser) {
+    const data = await legacyParser(buffer)
+    return cleanText(data?.text || '')
+  }
+
+  throw new Error('Unsupported pdf-parse import shape')
+}
+
+const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
+  const base64 = buffer.toString('base64')
+  const dataUrl = `data:${mimeType};base64,${base64}`
+  const prompt =
+    'Extract all visible text from this image and provide a short description. Return plain text only.'
+
+  if (isResponsesModel(VISION_MODEL)) {
+    // Use the Responses API for gpt-5.4-nano and similar models
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) return ''
+
+    // Honor OPENAI_BASE_URL (E2E mock / proxy), defaulting to public OpenAI.
+    const baseUrl =
+      process.env.OPENAI_BASE_URL?.trim().replace(/\/+$/, '') ??
+      'https://api.openai.com/v1'
+    const res = await fetch(`${baseUrl}/responses`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        input: [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: prompt },
+              { type: 'input_image', image_url: dataUrl }
+            ]
+          }
+        ]
+      })
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '')
+      console.error(
+        '[extractTextFromImage] Responses API error',
+        res.status,
+        errorText
+      )
+      return ''
+    }
+
+    const json = await res.json()
+    // Parse Responses API output format
+    const output = json?.output
+    if (Array.isArray(output)) {
+      for (const item of output) {
+        if (item?.type !== 'message' || !Array.isArray(item.content)) continue
+        const parts: string[] = []
+        for (const part of item.content) {
+          if (part?.type === 'output_text' && typeof part.text === 'string') {
+            parts.push(part.text)
+          }
+        }
+        if (parts.length) return cleanText(parts.join(''))
+      }
+    }
+    return ''
+  }
+
+  // Fallback: Chat Completions API for older vision models
+  const visionJson = await chatCompletionWithVision({
+    model: VISION_MODEL,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: dataUrl } }
+        ]
+      }
+    ]
+  })
+
+  const rawContent = visionJson?.choices?.[0]?.message?.content
+  const content =
+    Array.isArray(rawContent) && rawContent.length
+      ? rawContent
+          .map((entry: any) =>
+            typeof entry?.text === 'string' ? entry.text : ''
+          )
+          .join('\n')
+      : rawContent || ''
+
+  return cleanText(String(content))
+}
+
+/**
+ * Formats the upload allow-list accepts but no extractor here can read.
+ *
+ * These must be rejected explicitly. The fallback at the end of
+ * extractTextFromBuffer lossily decodes whatever it is handed, and a binary
+ * container (an OLE document, a ZIP-based OOXML package) decodes to
+ * non-empty mojibake — which passes the "has extractable text" check and
+ * gets chunked, embedded and marked `indexed`. The file then looks
+ * searchable while contributing nothing but noise to retrieval.
+ *
+ * PPT/PPTX have no extractor at all. Legacy .doc/.xls are worse than
+ * missing: they route to mammoth/exceljs, which only understand the OOXML
+ * (ZIP) forms, so they fail with "Can't find end of central directory",
+ * which reads like corruption rather than an unsupported format.
+ */
+const UNSUPPORTED_MIME_TYPES: Record<string, string> = {
+  'application/vnd.ms-powerpoint': 'PowerPoint (.ppt)',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    'PowerPoint (.pptx)',
+  'application/msword': 'legacy Word (.doc)',
+  'application/vnd.ms-excel': 'legacy Excel (.xls)'
+}
+
+export class UnsupportedFileTypeError extends Error {
+  constructor(label: string) {
+    super(
+      `${label} files can't be read for search. Save it as PDF, DOCX, XLSX, or plain text and upload again.`
+    )
+    this.name = 'UnsupportedFileTypeError'
+  }
+}
+
+export const extractTextFromBuffer = async (
+  buffer: Buffer,
+  mimeType: string
+): Promise<string> => {
+  const unsupported = UNSUPPORTED_MIME_TYPES[mimeType]
+  if (unsupported) {
+    throw new UnsupportedFileTypeError(unsupported)
+  }
+
+  if (IMAGE_MIME_TYPES.has(mimeType)) {
+    return extractTextFromImage(buffer, mimeType)
+  }
+
+  // Must precede the generic `text/` branch: text/html starts with `text/`,
+  // so ordering this after it made the HTML extractor unreachable and indexed
+  // every .html upload with its tags, scripts and styles intact.
+  if (mimeType === 'text/html') {
+    return extractFromHtml(decodeText(buffer))
+  }
+
+  // Everything else under text/* (plain, markdown, csv, …) is already
+  // readable as-is, so it just needs decoding.
+  if (mimeType.startsWith('text/')) {
+    return cleanText(decodeText(buffer))
+  }
+
+  if (mimeType === 'application/json' || mimeType === 'application/xml') {
+    return cleanText(decodeText(buffer))
+  }
+
+  if (mimeType === 'application/pdf') {
+    return extractFromPdf(buffer)
+  }
+
+  // OOXML only — the legacy binary forms are rejected above, since mammoth
+  // and exceljs can only read the ZIP-based formats.
+  if (
+    mimeType ===
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    return extractFromDoc(buffer)
+  }
+
+  if (
+    mimeType ===
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ) {
+    return extractFromWorkbook(buffer)
+  }
+
+  return cleanText(decodeText(buffer))
+}
+
+const chunkText = (input: string, targetLength = 1200, overlap = 200) => {
+  const chunks: string[] = []
+  let cursor = 0
+  const normalized = cleanText(input)
+
+  while (cursor < normalized.length) {
+    const end = Math.min(normalized.length, cursor + targetLength)
+    const slice = normalized.slice(cursor, end)
+    chunks.push(slice)
+    cursor += targetLength - overlap
+  }
+
+  return chunks
+}
+
+export const ingestFileForAgent = async (args: {
+  tenantId: string
+  agentId: string
+  fileId: string
+  fileKey: string
+  fileName?: string
+  mimeType?: string | null
+}) => {
+  const { tenantId, fileId, fileKey } = args
+  const fileName = args.fileName || fileKey.split('/').pop() || fileKey
+  const mimeType = args.mimeType || guessMimeFromPath(fileName)
+
+  // Download from storage
+  const buffer = await downloadFile(fileKey)
+
+  let text: string
+  try {
+    text = await extractTextFromBuffer(buffer, mimeType)
+  } catch (err: any) {
+    // An unsupported format is a normal outcome, not a server fault: report
+    // it the same way as the other graceful failures so the file lands in
+    // `failed` with a reason the uploader can act on, rather than 500ing.
+    if (err instanceof UnsupportedFileTypeError) {
+      return { chunksInserted: 0, message: err.message }
+    }
+    throw err
+  }
+
+  if (!text.trim()) {
+    return {
+      chunksInserted: 0,
+      message: 'File has no extractable text content.'
+    }
+  }
+
+  const chunks = chunkText(text)
+  const spec = shouldResolveTenantProvider({ tenantId })
+    ? await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
+    : null
+  const providerKind = spec?.kind ?? 'openai'
+  const embed = await resolveEmbedder(tenantId)
+
+  let embeddings: number[][]
+  try {
+    embeddings = await embed(chunks)
+  } catch (err: any) {
+    // Surface a human-readable reason so the UI can show actionable guidance
+    const msg: string = err?.message ?? String(err)
+    const reason =
+      msg.includes('redirect count exceeded') || msg.includes('401') || msg.includes('Unauthorized') || msg.includes('authentication')
+        ? 'Embedding API authentication failed — the API key may be expired. ' +
+          (spec?.kind === 'openai_compatible'
+            ? 'For Google Cloud MaaS, refresh the access token with: gcloud auth print-access-token'
+            : 'Check your embedding provider API key in Settings → LLM Providers.')
+        : msg.includes('429') || msg.includes('quota') || msg.includes('credits')
+        ? 'Embedding API quota exceeded — check your billing/credits for the embedding provider.'
+        : `Embedding failed: ${msg.slice(0, 200)}`
+    return { chunksInserted: 0, message: reason }
+  }
+
+  if (!embeddings.length) {
+    return {
+      chunksInserted: 0,
+      message: 'No embeddings generated for file.'
+    }
+  }
+
+  // Write chunks to Postgres (replaceFileChunks deletes existing then inserts)
+  const embeddingDim = embeddings[0]?.length ?? 768
+  await replaceFileChunks({
+    tenantId,
+    fileId,
+    provider: providerFromDimension(embeddingDim),
+    chunks: chunks.map((content, index) => ({
+      chunkIndex: index,
+      content,
+      embedding: embeddings[index] ?? []
+    }))
+  })
+
+  // Mark file as indexed and record which provider embedded it
+  await getMigrateDb()
+    .update(filesTable)
+    .set({
+      status: 'indexed',
+      embeddingProvider: providerKind,
+      processingCompletedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(filesTable.id, fileId))
+
+  const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
+
+  return {
+    chunksInserted: chunks.length,
+    totalChars,
+    message: `Ingested ${chunks.length} chunk(s) for search.`
+  }
+}
+
+/**
+ * Read the full text content of an uploaded file (no chunking, no embedding).
+ * Used for direct context injection when files are small enough.
+ */
+export const readFullFileContent = async (
+  fileKey: string,
+  fileName?: string
+): Promise<{ text: string; fileName: string; charCount: number }> => {
+  const name = fileName || fileKey.split('/').pop() || fileKey
+  const mimeType = guessMimeFromPath(name)
+  const buffer = await downloadFile(fileKey)
+  const text = await extractTextFromBuffer(buffer, mimeType)
+  return { text, fileName: name, charCount: text.length }
+}
+
+/**
+ * Search agent file chunks — delegates to rag-retriever for a single search path.
+ */
+export const searchAgentFileChunks = async (args: {
+  tenantId: string
+  agentId: string
+  query: string
+  limit?: number
+}) => {
+  const { tenantId, agentId, query, limit = 8 } = args
+
+  try {
+    const { retrieveContext } = await import('@vibesboard/ai/rag-retriever')
+    const ragContext = await retrieveContext(tenantId, agentId, query, {
+      topK: limit,
+      enableFallback: true
+    })
+
+    const matches = ragContext.chunks.map(chunk => ({
+      fileName: chunk.fileName,
+      fileKey: chunk.fileKey,
+      snippet: chunk.content,
+      score: chunk.similarity
+    }))
+
+    return { matches }
+  } catch (err: any) {
+    console.error('[file-search] Search failed:', err?.message)
+    return { matches: [], error: err?.message ?? 'Search failed.' }
+  }
+}

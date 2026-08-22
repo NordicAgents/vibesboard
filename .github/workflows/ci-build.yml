@@ -13,33 +13,33 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build web application
+    runs-on: [self-hosted, Linux, X64]
+    # GitHub does not expose repository secrets to pull requests from forks, so
+    # every `secrets.*` below is an empty string on an outside contributor's PR.
+    # Each value falls back to a public default so the fork build still compiles
+    # what it can. Nothing here is secret — these are NEXT_PUBLIC_* values that
+    # ship to the browser anyway, and every consumer guards against a missing one.
     env:
-      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_FIREBASE_API_KEY }}
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.STAGING_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.STAGING_NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.STAGING_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGING_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-      NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.STAGING_NEXT_PUBLIC_FIREBASE_APP_ID }}
-      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL }}
-      NEXT_PUBLIC_AUTH_GOOGLE: ${{ secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE }}
+      NEXT_PUBLIC_APP_URL: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_AUTH_GOOGLE: ${{ secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE || 'false' }}
       NEXT_PUBLIC_META_APP_ID: ${{ secrets.STAGING_NEXT_PUBLIC_META_APP_ID }}
       NEXT_PUBLIC_FB_LOGIN_CONFIG_ID: ${{ secrets.STAGING_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID }}
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          version: 10
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.18
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: bun run build

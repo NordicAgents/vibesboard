@@ -1,0 +1,188 @@
+---
+title: 'Instagram'
+description: 'Connect an agent to Instagram Direct Messages.'
+---
+
+# Instagram
+
+Vibesboard can connect to an Instagram professional account and route its Direct Messages through the same inbox and agent-handoff model as WhatsApp. Messages arrive over a Meta webhook, are stored per-tenant in Postgres, and can be answered manually from the inbox UI or automatically by an assigned agent. This is implemented in `packages/channel-instagram` and the `/instagram-inbox` app routes — everything below is grounded in that code.
+
+<Callout type="note">
+  Instagram DMs only work with an Instagram **Business or Creator** account that
+  is linked to a Facebook Page. A personal Instagram account cannot be connected
+  — the connect flow looks up the Page's linked `instagram_business_account` via
+  the Meta Graph API and fails if there isn't one.
+</Callout>
+
+## Requirements
+
+- A Meta developer App with Instagram messaging permissions (`instagram_basic`, `instagram_manage_messages`, `pages_manage_metadata`, and, for OAuth, `pages_messaging`).
+- An Instagram Business/Creator account linked to a Facebook Page you (or, for BYOA, your customer) administer.
+- The feature enabled for the workspace — see below.
+
+## Enable the feature
+
+Instagram Inbox sits under the `INBOX` feature flag and is **disabled by default** for every tenant. A workspace admin has to turn it on in workspace settings before the `/instagram-inbox` pages or APIs become reachable — the layout at `apps/web/app/instagram-inbox/layout.tsx` redirects to `/agents` if `INSTAGRAM_INBOX` resolves to `false`.
+
+The flags form a hierarchy (`packages/policy/src/feature-flags.ts`); a child is only effectively on if every ancestor is also on:
+
+| Flag                      | Gates                                                          |
+| ------------------------- | -------------------------------------------------------------- |
+| `INBOX`                   | Parent for all inbox channels (WhatsApp + Instagram)           |
+| `INSTAGRAM_INBOX`         | The Instagram inbox itself — accounts, conversations, messages |
+| `INSTAGRAM_INBOX_OAUTH`   | The "Connect Instagram" (Meta Login) button                    |
+| `INSTAGRAM_INBOX_API_KEY` | The "Connect via API Key" dialog                               |
+| `INSTAGRAM_INBOX_BYOA`    | The "Connect via BYOA" dialog                                  |
+
+Only the connection methods whose flag is enabled show up as buttons on the Instagram Accounts page.
+
+## Connecting an account
+
+There are three connect methods, each hitting its own route under `/api/instagram-inbox/auth/`. All three validate the account by fetching the Facebook Page's linked Instagram Business Account before storing anything, and all three attempt to subscribe the Page to the `messages` webhook field. Connecting requires only a signed-in workspace member with an active tenant (`requireAuth`); disconnecting or permanently deleting an account requires a tenant admin (`requireTenantAdmin`).
+
+### OAuth (Meta Login)
+
+This is the flow behind the **Connect Instagram** button (`components/instagram-inbox/connect-instagram-button.tsx`). It uses the Facebook JS SDK's `FB.login()` with a Facebook Login for Business `config_id` — not a manually built OAuth redirect URL.
+
+<Steps>
+<Step title="Configure the Meta App">
+  Set `NEXT_PUBLIC_META_APP_ID`, `NEXT_PUBLIC_FB_LOGIN_CONFIG_ID`, and `META_APP_SECRET` (see [Environment variables](#environment-variables)).
+</Step>
+<Step title="User clicks Connect Instagram">
+  The Facebook SDK opens a login popup and returns an authorization `code`.
+</Step>
+<Step title="Code is exchanged server-side">
+  The client POSTs `{ "code": "..." }` to `/api/instagram-inbox/auth/callback`, which calls `connectOAuthAccount`:
+  1. Exchanges `code` for a short-lived user token, then a long-lived (~60 day) user token.
+  2. Lists the user's Facebook Pages and picks the **first** one with a linked Instagram Business Account — there is no page picker if the user manages more than one Page with a linked IG account.
+  3. Fetches that Page's access token and Instagram account info.
+  4. Subscribes the Page to the `messages` webhook field.
+  5. Encrypts the Page token with `ENCRYPTION_KEY` and stores the account row.
+</Step>
+</Steps>
+
+The stored scopes for an OAuth connection are `instagram_basic`, `instagram_manage_messages`, `pages_manage_metadata`, `pages_messaging`.
+
+### API Key
+
+`POST /api/instagram-inbox/auth/api-key` with `{ accessToken, pageId }` (`pageId` must be a numeric string). This is for pasting in a Page access token you already have, rather than going through the OAuth popup. Webhook subscription is best-effort: if the token turns out to be a user token rather than a Page token (Meta error `#210`), the server tries exchanging it for a Page token and retries once; if that also fails, the account is still created with `webhookSubscribed: false` and you'll need to subscribe the Page manually in the Meta App Dashboard.
+
+### BYOA (Bring Your Own App)
+
+`POST /api/instagram-inbox/auth/byoa` with `{ metaAppId, metaAppSecret, accessToken, webhookVerifyToken, pageId }`. Use this when a customer wants to connect their **own** Meta App instead of using the platform's. The server generates a dedicated webhook URL for the account, `{NEXT_PUBLIC_APP_URL}/api/webhooks/instagram-inbox/byoa/{accountId}`, which must be registered as the Webhook callback URL in the customer's own Meta App (subscribed to the `messages` field), using the `webhookVerifyToken` supplied in the connect request. The customer's App Secret and verify token are encrypted with `ENCRYPTION_KEY` before storage — the same as the access token.
+
+<Callout type="warning">
+  BYOA accounts carry their own App ID/Secret and webhook verify token per
+  account. If a BYOA webhook stops verifying, check that the customer's Meta App
+  still has the same verify token and that its App Secret hasn't rotated —
+  signature verification for that account's webhook uses the stored secret, not
+  `META_APP_SECRET`.
+</Callout>
+
+## Managing accounts
+
+The Instagram Accounts page (`/instagram-inbox/accounts`) lists connected accounts and calls:
+
+- `GET /api/tenants/[id]/instagram-inbox/accounts` — list accounts for the tenant (encrypted token stripped from the response).
+- `GET /api/tenants/[id]/instagram-inbox/accounts/[accountId]` — a single account.
+- `PATCH /api/tenants/[id]/instagram-inbox/accounts/[accountId]` — body `{ assignedAgentId?, agentAutoReply? }`, sets the default agent for the account and whether it replies automatically.
+- `DELETE /api/tenants/[id]/instagram-inbox/accounts/[accountId]` — disconnects an active account (soft delete, `status: 'disconnected'`); calling it again on an already-disconnected account permanently deletes the row. Conversations and messages cascade-delete with the account (`onDelete: 'cascade'`).
+
+## Conversations and messages
+
+The inbox UI lives at `/instagram-inbox` and `/instagram-inbox/conversations`, backed by:
+
+- `GET /api/tenants/[id]/instagram-inbox/accounts/[accountId]/conversations?status=open|resolved|snoozed`
+- `GET .../conversations/[contactId]` — a single conversation
+- `PATCH .../conversations/[contactId]` — body `{ status?, assignedTo?, markAsRead?, assignedAgentId?, agentPaused?, agentHandedOff? }`
+- `GET .../conversations/[contactId]/messages?limit=50&before=<ISO timestamp>` — `limit` capped at 100
+- `POST .../conversations/[contactId]/messages` — body `{ text: string }` (max 1000 characters), sends via the Meta Graph API and records the outbound message
+
+```json
+// POST .../conversations/{contactId}/messages
+{ "text": "Thanks for reaching out — we'll follow up shortly." }
+```
+
+Inbound messages can be text, or one of `image`, `video`, `story_mention`, `story_reply`, `media_share` depending on the attachment type Meta sends — media is stored by URL reference, not re-uploaded. **Outbound replies are text-only**; there's no API for sending media back to a contact.
+
+<Callout type="warning" title="24-hour messaging window">
+  Meta only allows replying to a contact within 24 hours of their last message.
+  Every inbound message resets `windowExpiresAt` to 24 hours out; `sendReply`
+  checks it before calling the Graph API and returns HTTP 400 ("The 24-hour
+  messaging window has expired…") once it's passed. This applies to both manual
+  replies and agent auto-replies.
+</Callout>
+
+## Automatic agent replies
+
+Assigning an agent lets it answer DMs without a human in the loop:
+
+- Set a **default agent** for the whole account via the account `PATCH` (`assignedAgentId` + `agentAutoReply`), or override it for a single conversation via the conversation `PATCH`.
+- Resolution order (`packages/inbox/src/resolve-agent.ts`): a conversation-level `assignedAgentId` wins if set; otherwise it falls back to the account's `assignedAgentId`, but only if the account's `agentAutoReply` is not explicitly `false`.
+- A conversation with `agentPaused` or `agentHandedOff` set is skipped — no auto-reply.
+- When an agent is triggered (`packages/inbox/src/handler.ts`), its instructions get an appended note asking it to end its reply with a `[HANDOFF_TO_HUMAN]` marker if the customer asks for a human or the agent can't help. If that marker fires, `agentHandedOff` is set on the conversation and further auto-replies stop until a human clears it (`agentHandedOff: false` via the conversation `PATCH`).
+- Only messages with non-empty text trigger the agent — an inbound attachment with no caption text does not.
+
+## Webhooks
+
+Platform-connected accounts (OAuth and API Key) share one webhook endpoint; BYOA accounts each get their own.
+
+| Method | Route                                            | Purpose                                                                                                                            |
+| ------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/webhooks/instagram-inbox`                  | Meta's verification handshake — checks `hub.verify_token` against `INSTAGRAM_INBOX_VERIFY_TOKEN` and echoes `hub.challenge`        |
+| `POST` | `/api/webhooks/instagram-inbox`                  | Inbound messages, delivery receipts, read receipts. Signature-verified with `META_APP_SECRET` via the `X-Hub-Signature-256` header |
+| `GET`  | `/api/webhooks/instagram-inbox/byoa/[accountId]` | Verification for a specific BYOA account, checked against that account's own stored verify token                                   |
+| `POST` | `/api/webhooks/instagram-inbox/byoa/[accountId]` | Inbound events for that BYOA account, signature-verified with that account's own App Secret                                        |
+
+An invalid signature returns `403`; an unrecognized `object` type returns `400`. Any other processing error is logged and swallowed, and the handler still returns `200` — this is intentional, so Meta doesn't retry-storm a webhook that's failing for an internal reason. Read receipts are received but not applied per-message: Instagram's `read` webhook only carries a watermark timestamp, not specific message IDs, so `processReadUpdate` is currently a no-op that does nothing with the event.
+
+## Environment variables
+
+| Variable                         | Used for                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_META_APP_ID`        | Client-side Facebook SDK init and the OAuth token exchange                              |
+| `NEXT_PUBLIC_FB_LOGIN_CONFIG_ID` | The Facebook Login for Business config ID the "Connect Instagram" button uses           |
+| `META_APP_SECRET`                | OAuth token exchange, and webhook signature verification for platform-managed accounts  |
+| `INSTAGRAM_INBOX_VERIFY_TOKEN`   | Verifies Meta's webhook subscription handshake on the shared (non-BYOA) endpoint        |
+| `ENCRYPTION_KEY`                 | Encrypts stored access tokens and, for BYOA, the customer's App Secret and verify token |
+| `NEXT_PUBLIC_APP_URL`            | Base URL used to build the per-account BYOA webhook URL                                 |
+
+See [Environment variables](/docs/self-host/environment-variables) for the full reference and [Security & credentials](/docs/platform/security-and-credentials) for how encrypted credentials are handled generally.
+
+## Meta data-deletion callback
+
+Meta's App Review for Instagram messaging permissions requires a Data Deletion Request callback URL. Vibesboard implements it:
+
+- `POST /api/meta/data-deletion` — verifies Meta's `signed_request` form field (HMAC-SHA256 over the payload using `META_APP_SECRET`), then deletes every Instagram inbox account connected by that Meta app-scoped user ID, across **all** tenants (conversations and messages cascade with the account). Returns `{ url, confirmation_code }` as Meta's callback contract requires.
+- `GET /api/meta/data-deletion/status?id=<confirmation_code>` — returns `{ confirmation_code, status, created_at, completed_at }`, where `status` is `pending`, `completed`, or `failed`.
+
+Register `/api/meta/data-deletion` as the app's Data Deletion Request Callback URL in the Meta App Dashboard's Advanced settings.
+
+<Callout type="warning" title="Only OAuth-connected accounts are matched">
+  The deletion lookup matches on the stored `metaUserId` (the Facebook
+  app-scoped user ID). That field is only populated by the OAuth connect flow
+  (`connectOAuthAccount` fetches it via `/me` during the flow, best-effort).
+  Accounts connected via API Key or BYOA don't have a `metaUserId` on record, so
+  a data-deletion callback for that Meta user won't find or remove them. Confirm
+  this matches your compliance requirements before relying on it for non-OAuth
+  connections.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card href="/docs/deploy/whatsapp" title="WhatsApp">
+    The parallel inbox channel — same account model, conversation window, and
+    agent-handoff mechanics.
+  </Card>
+  <Card href="/docs/build/hooks-and-lifecycle" title="Hooks & lifecycle">
+    Where the `[HANDOFF_TO_HUMAN]` completion marker and agent notifications
+    come from.
+  </Card>
+  <Card
+    href="/docs/platform/security-and-credentials"
+    title="Security & credentials"
+  >
+    How `ENCRYPTION_KEY` and encrypted credential storage work platform-wide.
+  </Card>
+</Cards>

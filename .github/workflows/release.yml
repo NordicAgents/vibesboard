@@ -4,15 +4,26 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions: {}
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    name: Release Please
+    # Self-hosted for the same reason as every other workflow here: the org's
+    # GitHub-hosted minutes are exhausted, so an `ubuntu-latest` job is refused
+    # at dispatch and reports as a 2-second failure with no steps. That left
+    # release-please silently not running on push to `main` — no version bump,
+    # no changelog, no tag.
+    runs-on: [self-hosted, Linux, X64]
+    permissions:
+      contents: write # Required to create release commits, tags, and releases.
+      pull-requests: write # Required to create and update the release PR.
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           release-type: simple
           target-branch: main

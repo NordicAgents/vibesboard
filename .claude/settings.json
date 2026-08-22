@@ -4,21 +4,5 @@
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:raw.githubusercontent.com)"
     ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "CLAUDE_PLUGIN_ROOT=\"$(pwd)/.claude/plugins/superpowers\" \"$(pwd)/.claude/plugins/superpowers/hooks/session-start\"",
-            "async": false
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "superpowers@claude-plugins-official": true
   }
 }

@@ -1,0 +1,33 @@
+{
+  "name": "@vibesboard/data",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./connections": "./src/connections.ts",
+    "./action-logs": "./src/action-logs.ts",
+    "./google-sheets-auth": "./src/google-sheets-auth.ts",
+    "./validate-webhook-url": "./src/validate-webhook-url.ts",
+    "./providers": "./src/providers/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vibesboard/adapter-postgres": "workspace:*",
+    "@vibesboard/contracts": "workspace:*",
+    "@vibesboard/scheduling": "workspace:*",
+    "@vibesboard/utils": "workspace:*",
+    "crypto-js": "^4.2.0",
+    "drizzle-orm": "^0.45.2",
+    "uuidv7": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^26.1.2",
+    "typescript": "^5.9.3"
+  }
+}

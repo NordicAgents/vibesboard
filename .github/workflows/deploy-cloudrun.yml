@@ -4,17 +4,12 @@ on:
   push:
     branches: [dev, main]
     paths:
-      - "src/**"
-      - "app/**"
-      - "components/**"
-      - "lib/**"
-      - "public/**"
+      - "apps/web/**"
+      - "packages/**"
       - "package.json"
-      - "package-lock.json"
-      - "pnpm-lock.yaml"
+      - "bun.lock"
+      - "tsconfig.base.json"
       - "Dockerfile"
-      - "next.config.*"
-      - "tailwind.config.*"
   workflow_dispatch:
 
 concurrency:
@@ -23,24 +18,105 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
+  migrate:
+    name: Migrate database
+    # Applies Drizzle migrations to the target env's Postgres VM over an IAP TCP
+    # tunnel before the service deploys. Runs for both staging (dev) and prod (main).
+    if: github.ref_name == 'dev' || github.ref_name == 'main'
+    # Self-hosted while the org's GitHub-hosted runners are billing-blocked
+    # (see the deploy job for the full rationale). No docker needed here, so
+    # this job takes the whole pool; gcloud arrives via setup-gcloud.
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    permissions:
+      contents: read
+      id-token: write # Required for keyless GCP Workload Identity authentication.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.2.18
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - name: Authenticate to GCP
+        uses: ./.github/actions/gcp-auth
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      - name: Open IAP tunnel to the target Postgres VM
+        # VM names and zone come from repository variables so the tracked file
+        # carries no map of our infrastructure (see docs/deployment.md).
+        env:
+          PG_VM: ${{ github.ref_name == 'main' && vars.PROD_PG_VM_NAME || vars.STAGING_PG_VM_NAME }}
+          PG_VM_ZONE: ${{ vars.PG_VM_ZONE }}
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          : "${PG_VM:?Repository variable PROD_PG_VM_NAME / STAGING_PG_VM_NAME is not set}"
+          : "${PG_VM_ZONE:?Repository variable PG_VM_ZONE is not set}"
+          gcloud compute start-iap-tunnel "$PG_VM" 5432 \
+            --local-host-port=localhost:5432 --zone="$PG_VM_ZONE" \
+            --project="$GCP_PROJECT" &
+          for i in $(seq 1 30); do (echo > /dev/tcp/localhost/5432) >/dev/null 2>&1 && break; sleep 1; done
+      - name: Run migrations
+        env:
+          DATABASE_MIGRATE_URL: ${{ github.ref_name == 'main' && secrets.PROD_DATABASE_MIGRATE_URL || secrets.STAGING_DATABASE_MIGRATE_URL }}
+        run: bun run db:migrate
+
   deploy:
-    runs-on: ubuntu-latest
+    name: Build and deploy
+    needs: [migrate]
+    # Never interpret an arbitrary workflow-dispatch branch as staging.
+    if: >-
+      always() &&
+      (github.ref_name == 'dev' || github.ref_name == 'main') &&
+      needs.migrate.result == 'success'
+    # Self-hosted: GitHub-hosted runners have refused every job since
+    # 2026-08-13 ("recent account payments have failed"), so this workflow died
+    # in ~5s with zero steps and staging shipped nothing. PR #282 moved the PR
+    # gates over but deliberately left deploy behind; setup-gcloud installs the
+    # SDK itself, so nothing here actually needed a GitHub-hosted image.
+    #
+    # `docker` is the narrower label: only one runner carries it, so the image
+    # build queues behind Tests/E2E instead of racing them for the box's 8 GB
+    # of RAM against a builder stage that asks for a 4 GB Node heap.
+    runs-on: [self-hosted, docker]
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write # Required for keyless GCP Workload Identity authentication.
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
       PREFIX: ${{ github.ref_name == 'main' && 'PROD' || 'STAGING' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set environment
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          PROD_CLOUD_RUN_SERVICE: ${{ secrets.PROD_CLOUD_RUN_SERVICE }}
+          STAGING_CLOUD_RUN_SERVICE: ${{ secrets.STAGING_CLOUD_RUN_SERVICE }}
+          CLOUD_RUN_REGION: ${{ vars.CLOUD_RUN_REGION }}
+          S3_BUCKET: ${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || vars.STAGING_S3_BUCKET }}
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "ENV=prod" >> $GITHUB_ENV
-            echo "CLOUD_RUN_SERVICE=${{ secrets.PROD_CLOUD_RUN_SERVICE }}" >> $GITHUB_ENV
+          : "${CLOUD_RUN_REGION:?Repository variable CLOUD_RUN_REGION is not set}"
+          : "${S3_BUCKET:?Repository variable PROD_S3_BUCKET / STAGING_S3_BUCKET is not set}"
+          if [ "$REF_NAME" = "main" ]; then
+            echo "ENV=prod" >> "$GITHUB_ENV"
+            echo "CLOUD_RUN_SERVICE=$PROD_CLOUD_RUN_SERVICE" >> "$GITHUB_ENV"
           else
-            echo "ENV=staging" >> $GITHUB_ENV
-            echo "CLOUD_RUN_SERVICE=${{ secrets.STAGING_CLOUD_RUN_SERVICE }}" >> $GITHUB_ENV
+            echo "ENV=staging" >> "$GITHUB_ENV"
+            echo "CLOUD_RUN_SERVICE=$STAGING_CLOUD_RUN_SERVICE" >> "$GITHUB_ENV"
           fi
 
       - name: Authenticate to GCP
@@ -53,57 +129,175 @@ jobs:
         run: gcloud auth configure-docker us-docker.pkg.dev --quiet
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           push: true
           tags: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
           build-args: |
-            NEXT_PUBLIC_FIREBASE_API_KEY=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_API_KEY || secrets.STAGING_NEXT_PUBLIC_FIREBASE_API_KEY }}
-            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || secrets.STAGING_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-            NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_PROJECT_ID || secrets.STAGING_NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || secrets.STAGING_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || secrets.STAGING_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-            NEXT_PUBLIC_FIREBASE_APP_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FIREBASE_APP_ID || secrets.STAGING_NEXT_PUBLIC_FIREBASE_APP_ID }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
             NEXT_PUBLIC_AUTH_GOOGLE=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_AUTH_GOOGLE || secrets.STAGING_NEXT_PUBLIC_AUTH_GOOGLE }}
             NEXT_PUBLIC_META_APP_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_META_APP_ID || secrets.STAGING_NEXT_PUBLIC_META_APP_ID }}
             NEXT_PUBLIC_FB_LOGIN_CONFIG_ID=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID || secrets.STAGING_NEXT_PUBLIC_FB_LOGIN_CONFIG_ID }}
-            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || secrets.STAGING_NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
+        uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d # v3
         with:
           service: ${{ env.CLOUD_RUN_SERVICE }}
-          region: europe-north1
+          region: ${{ vars.CLOUD_RUN_REGION }}
           image: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/vibeagent/app:${{ github.sha }}
+          # Direct VPC egress so the service can reach the private-IP Postgres VM
+          # (both staging and prod run a private VM in the default network).
+          flags: ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && '--network=default --subnet=default --vpc-egress=private-ranges-only' || '' }}
           env_vars: |
-            OPENAI_MODEL=gpt-4o-mini
+            OPENAI_MODEL=gemini-3.5-flash-lite
+            OPENAI_VISION_MODEL=gemini-3.5-flash-lite
+            OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+            # gemini-embedding-001 is 3072-dim by default, which has no pgvector
+            # table; pinned to 1536 so vectors land in the existing
+            # embeddings_1536 table with no migration.
+            OPENAI_EMBEDDINGS_MODEL=gemini-embedding-001
+            OPENAI_EMBEDDINGS_DIMENSIONS=1536
             GCS_BUCKET_NAME=${{ github.ref_name == 'main' && secrets.PROD_GCS_BUCKET_NAME || secrets.STAGING_GCS_BUCKET_NAME }}
             NEXT_PUBLIC_APP_URL=${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
-            NOTIFICATION_EMAIL_FROM=VibeAgent <notifications@vibeagent.com>
+            NOTIFICATION_EMAIL_FROM=${{ vars.NOTIFICATION_EMAIL_FROM }}
+            MONTHLY_MESSAGE_LIMIT=${{ vars.MONTHLY_MESSAGE_LIMIT }}
+            ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_ENDPOINT=https://storage.googleapis.com' || '' }}
+            ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_REGION=us-east-1' || '' }}
+            S3_BUCKET=${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || (github.ref_name == 'dev' && vars.STAGING_S3_BUCKET) || '' }}
+            ${{ (github.ref_name == 'dev' || github.ref_name == 'main') && 'S3_FORCE_PATH_STYLE=false' || '' }}
+            ${{ github.ref_name == 'main' && format('BETTER_AUTH_URL={0}', secrets.PROD_NEXT_PUBLIC_APP_URL) || (github.ref_name == 'dev' && format('BETTER_AUTH_URL={0}', secrets.STAGING_NEXT_PUBLIC_APP_URL)) || '' }}
           secrets: |
-            OPENAI_API_KEY=openai-api-key:latest
-            FIREBASE_SERVICE_ACCOUNT_KEY=${{ github.ref_name == 'main' && 'firebase-service-account-key' || 'firebase-service-account-key-staging' }}:latest
-            WHATSAPP_ACCESS_TOKEN=whatsapp-access-token:latest
-            VERIFY_TOKEN=whatsapp-verify-token:latest
-            ENCRYPTION_KEY=encryption-key:latest
-            CRON_SECRET=cron-secret:latest
-            META_APP_SECRET=meta-app-secret:latest
-            WHATSAPP_INBOX_VERIFY_TOKEN=whatsapp-inbox-verify-token:latest
-            INSTAGRAM_INBOX_VERIFY_TOKEN=instagram-inbox-verify-token:latest
-            RESEND_API_KEY=resend-api-key:latest
-            STRIPE_SECRET_KEY=stripe-secret-key:latest
-            STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest
-            STRIPE_PRICE_PRO_BASE=stripe-price-pro-base:latest
-            STRIPE_PRICE_PRO_OVERAGE=stripe-price-pro-overage:latest
-            STRIPE_PRICE_TEAM_BASE=stripe-price-team-base:latest
-            STRIPE_PRICE_TEAM_OVERAGE=stripe-price-team-overage:latest
-            GOOGLE_CALENDAR_CLIENT_ID=google-calendar-client-id:latest
-            GOOGLE_CALENDAR_CLIENT_SECRET=google-calendar-client-secret:latest
-            GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
+            OPENAI_API_KEY=${{ github.ref_name == 'main' && 'openai-api-key-prod:latest' || 'openai-api-key-staging:latest' }}
+            ENCRYPTION_KEY=${{ github.ref_name == 'main' && 'encryption-key-prod:latest' || 'encryption-key-staging:latest' }}
+            RATE_LIMIT_SALT=${{ github.ref_name == 'main' && 'rate-limit-salt-prod:latest' || 'rate-limit-salt-staging:latest' }}
+            CRON_SECRET=${{ github.ref_name == 'main' && 'cron-secret-prod:latest' || 'cron-secret-staging:latest' }}
+            WHATSAPP_INBOX_VERIFY_TOKEN=${{ github.ref_name == 'main' && 'whatsapp-inbox-verify-token-prod:latest' || 'whatsapp-inbox-verify-token-staging:latest' }}
+            INSTAGRAM_INBOX_VERIFY_TOKEN=${{ github.ref_name == 'main' && 'instagram-inbox-verify-token-prod:latest' || 'instagram-inbox-verify-token-staging:latest' }}
+            META_APP_SECRET=${{ github.ref_name == 'main' && 'meta-app-secret-prod:latest' || 'meta-app-secret-staging:latest' }}
+            RESEND_API_KEY=${{ github.ref_name == 'main' && 'resend-api-key-prod:latest' || 'resend-api-key-staging:latest' }}
+            GOOGLE_CALENDAR_CLIENT_ID=${{ github.ref_name == 'main' && 'google-calendar-client-id-prod:latest' || 'google-calendar-client-id-staging:latest' }}
+            GOOGLE_CALENDAR_CLIENT_SECRET=${{ github.ref_name == 'main' && 'google-calendar-client-secret-prod:latest' || 'google-calendar-client-secret-staging:latest' }}
+            GOOGLE_OAUTH_CLIENT_ID=${{ github.ref_name == 'main' && 'google-oauth-client-id-prod:latest' || 'google-oauth-client-id-staging:latest' }}
+            AUTH_GOOGLE_ID=${{ github.ref_name == 'main' && 'auth-google-id-prod:latest' || 'auth-google-id-staging:latest' }}
+            AUTH_GOOGLE_SECRET=${{ github.ref_name == 'main' && 'auth-google-secret-prod:latest' || 'auth-google-secret-staging:latest' }}
+            ACCESS_GATE_SECRET=${{ github.ref_name == 'main' && 'access-gate-secret-prod:latest' || 'access-gate-secret-staging:latest' }}
+            DATABASE_URL=${{ github.ref_name == 'main' && 'database-url-prod:latest' || (github.ref_name == 'dev' && 'database-url-staging:latest') || '' }}
+            DATABASE_MIGRATE_URL=${{ github.ref_name == 'main' && 'database-migrate-url-prod:latest' || (github.ref_name == 'dev' && 'database-migrate-url-staging:latest') || '' }}
+            BETTER_AUTH_SECRET=${{ github.ref_name == 'main' && 'better-auth-secret-prod:latest' || (github.ref_name == 'dev' && 'better-auth-secret-staging:latest') || '' }}
+            S3_ACCESS_KEY_ID=${{ github.ref_name == 'main' && 's3-access-key-id-prod:latest' || (github.ref_name == 'dev' && 's3-access-key-id-staging:latest') || '' }}
+            S3_SECRET_ACCESS_KEY=${{ github.ref_name == 'main' && 's3-secret-access-key-prod:latest' || (github.ref_name == 'dev' && 's3-secret-access-key-staging:latest') || '' }}
+
+      # Knowledge Base uploads go browser -> bucket via a presigned URL, so the
+      # bucket must answer the CORS preflight itself. A bucket with no policy
+      # breaks every upload with an opaque "Failed to fetch", and nothing in the
+      # app surfaces it -- this shipped broken to both environments once already,
+      # after a bucket rename dropped the manually-applied policy.
+      #
+      # This only verifies; it cannot apply. The deploy service account holds
+      # roles/storage.objectAdmin, which does not include storage.buckets.update.
+      # Repair with scripts/apply-bucket-cors.sh, then re-run.
+      #
+      # Checked over plain HTTPS against the public endpoint, so it needs no GCP
+      # permissions and reflects what a browser actually receives.
+      - name: Verify storage bucket CORS
+        env:
+          S3_BUCKET: ${{ github.ref_name == 'main' && vars.PROD_S3_BUCKET || vars.STAGING_S3_BUCKET }}
+          APP_URL: ${{ github.ref_name == 'main' && secrets.PROD_NEXT_PUBLIC_APP_URL || secrets.STAGING_NEXT_PUBLIC_APP_URL }}
+        run: |
+          set -euo pipefail
+          : "${S3_BUCKET:?Repository variable PROD_S3_BUCKET / STAGING_S3_BUCKET is not set}"
+          : "${APP_URL:?Secret PROD_NEXT_PUBLIC_APP_URL / STAGING_NEXT_PUBLIC_APP_URL is not set}"
+
+          origin="${APP_URL%/}"
+          if curl -sS -o /dev/null -D - -X OPTIONS \
+               "https://${S3_BUCKET}.storage.googleapis.com/cors-preflight-probe" \
+               -H "Origin: ${origin}" \
+               -H "Access-Control-Request-Method: PUT" \
+               -H "Access-Control-Request-Headers: content-type" \
+             | grep -qi '^access-control-allow-origin:'; then
+            echo "Bucket CORS OK: the upload preflight is answered for this deployment's origin."
+          else
+            echo "::error::Storage bucket CORS is missing or does not cover this deployment's origin."
+            echo "::error::Knowledge Base file upload will fail for every user."
+            echo "::error::Fix: BUCKET=${S3_BUCKET} ORIGINS=<this environment's origins> scripts/apply-bucket-cors.sh"
+            exit 1
+          fi
+
+      # The runner is persistent, so whatever this job leaves behind is still
+      # here on the next deploy. buildx keeps its cache inside the builder
+      # container and it grows without bound; a week's worth is plenty to keep
+      # layer reuse working. Never fails the deploy -- the image is already live
+      # by this point.
+      - name: Reclaim builder disk
+        if: always()
+        run: |
+          docker buildx prune -f --filter until=168h || true
+          docker image prune -f || true
+
+  lighthouse:
+    name: Audit staging deployment
+    needs: [deploy]
+    # Parked while CI is self-hosted. This job scores a live URL and fails the
+    # run under 50 perf; run it on a shared laptop and the score reflects the
+    # box's load, not the deployment. Set repo variable LIGHTHOUSE_ENABLED=true
+    # (or just delete this clause) once GitHub-hosted runners are back.
+    if: >-
+      github.ref_name == 'dev' && needs.deploy.result == 'success' &&
+      vars.LIGHTHOUSE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    permissions:
+      contents: write # Required to post the Lighthouse result as a commit comment.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # v12.6.2
+        with:
+          urls: ${{ secrets.STAGING_NEXT_PUBLIC_APP_URL }}
+          runs: 3
+          configPath: .github/lighthouse/lighthouserc.json
+
+      - name: Format results
+        if: always()
+        id: results
+        run: |
+          if [ -f ".lighthouseci/lhr-0.json" ]; then
+            PERF=$(jq '.categories.performance.score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            A11Y=$(jq '.categories.accessibility.score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            BP=$(jq '.categories["best-practices"].score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            SEO=$(jq '.categories.seo.score * 100' .lighthouseci/lhr-0.json | cut -d. -f1)
+            echo "PERF=$PERF" >> "$GITHUB_OUTPUT"
+            echo "A11Y=$A11Y" >> "$GITHUB_OUTPUT"
+            echo "BP=$BP" >> "$GITHUB_OUTPUT"
+            echo "SEO=$SEO" >> "$GITHUB_OUTPUT"
+            echo "summary=Performance: $PERF | Accessibility: $A11Y | Best Practices: $BP | SEO: $SEO" >> "$GITHUB_OUTPUT"
+            if [ "$PERF" -lt 50 ]; then
+              echo "::error::Performance score $PERF is below threshold of 50"
+              exit 1
+            fi
+          fi
+
+      - name: Post commit comment
+        if: always() && steps.results.outputs.summary
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          LIGHTHOUSE_SUMMARY: ${{ steps.results.outputs.summary }}
+        with:
+          script: |
+            const summary = process.env.LIGHTHOUSE_SUMMARY;
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `### Lighthouse Audit Results\n\n${summary}\n\n[View full report](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            });

@@ -1,6 +1,8 @@
 # Dependencies and build artifacts
 node_modules
+**/node_modules
 .next
+**/.next
 out
 dist
 
@@ -14,24 +16,26 @@ dist
 # Test, tooling, and local caches
 coverage
 tests
+**/test-results
+**/playwright-report
+.turbo
+**/.cache
 *.log
-pnpm-debug.log*
+bun-debug.log*
 
 # Docker
 Dockerfile
 .dockerignore
 
-# Env files (prefer passing via Cloud Run)
-.env
-.env.local
-.env.development
-.env.test
-.env.*.local
+# Never send credentials to the Docker daemon or persist them in build layers.
+# Public NEXT_PUBLIC_* values are passed as explicit build arguments instead.
+# The `**/` prefix matters: a bare `.env*` only matches the repo root, while
+# the real secrets live in nested files like apps/web/.env.local.
+**/.env*
+!.env.example
 env.yaml
 
-# Note: If you rely on build-time NEXT_PUBLIC_* vars via .env.production,
-# do not ignore it. Next automatically reads it at build time.
-# .env.production
-
 # Tooling directories not needed in container
-supabase
+.ds-sync
+.design-sync
+ds-bundle

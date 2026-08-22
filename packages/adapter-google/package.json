@@ -1,0 +1,25 @@
+{
+  "name": "@vibesboard/adapter-google",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./risc": "./src/risc.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vibesboard/adapter-better-auth": "workspace:*",
+    "@vibesboard/adapter-postgres": "workspace:*",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "drizzle-orm": "^0.45.2",
+    "typescript": "^5.9.3"
+  }
+}
