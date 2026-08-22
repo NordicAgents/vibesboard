@@ -6,18 +6,14 @@ export interface LandingCta {
   external?: boolean
 }
 
-/** Chips above the headline: the three facts a self-hoster checks first. */
-export const LANDING_HERO_BADGES = [
-  'MIT core',
-  'Self-hosted',
-  'Bring your own model'
-]
+/** Chips above the headline: the two facts a self-hoster checks first. */
+export const LANDING_HERO_BADGES = ['Self-hosted', 'Bring your own model']
 
-export const LANDING_HERO_HEADING_LEAD = 'The agent platform'
-export const LANDING_HERO_HEADING_HIGHLIGHT = 'you host yourself.'
+export const LANDING_HERO_HEADING_LEAD = 'Know the real'
+export const LANDING_HERO_HEADING_HIGHLIGHT = 'vibe of your customers.'
 
 export const LANDING_HERO_SUBHEADING =
-  'One agent, every channel. Grounded in your data, connected to your tools, running on your servers.'
+  'Your own agentic platform to build, deploy, and scale agents that vibe with people.'
 
 export const LANDING_HERO_PRIMARY_CTA: LandingCta = {
   label: 'Start self-hosting',

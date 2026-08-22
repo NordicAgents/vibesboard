@@ -197,6 +197,24 @@ describe('checkCompletion — completion markers', () => {
     expect(result.shouldClearCorrecting).toBe(true)
   })
 
+  it('detects CHAT_COMPLETE HTML markers with whitespace before the close', () => {
+    const result = checkCompletion({
+      messages: [
+        {
+          id: '1',
+          role: 'assistant',
+          content:
+            'Goodbye! <!--CHAT_COMPLETE:{"chatComplete":true,"reason":"info_complete"} -->'
+        }
+      ],
+      isAgentDisabled: false,
+      remainingResponses: null,
+      isCorrecting: false
+    })
+    expect(result.shouldComplete).toBe(true)
+    expect(result.shouldClearCorrecting).toBe(true)
+  })
+
   it('does NOT complete for CHAT_COMPLETE with chatComplete:false (handoff)', () => {
     const result = checkCompletion({
       messages: [

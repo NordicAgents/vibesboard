@@ -102,6 +102,7 @@ export const agents = pgTable(
     quickSuggestionsCount: integer('quick_suggestions_count').notNull().default(0),
     tools: jsonb('tools').$type<string[]>().notNull().default([]),
     fileKeys: jsonb('file_keys').$type<string[]>().notNull().default([]),
+    sourceUrls: jsonb('source_urls').$type<string[]>().notNull().default([]),
     handoffTargets: jsonb('handoff_targets').$type<string[]>().notNull().default([]),
     collectionFields: jsonb('collection_fields').$type<CollectionField[]>(),
     maxResponses: integer('max_responses'),
@@ -150,6 +151,7 @@ export type AgentConfigSnapshot = {
   quickSuggestionsCount: number
   tools: string[]
   fileKeys: string[]
+  sourceUrls: string[]
   handoffTargets: string[]
   collectionFields: CollectionField[] | null
   maxResponses: number | null

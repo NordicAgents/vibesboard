@@ -11,6 +11,9 @@ export type CompletionReason =
 
 const SUGGESTIONS_MARKER_REGEX = /<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/g
 const HANDOFF_TO_AGENT_REGEX = /\[HANDOFF_TO_AGENT:([a-zA-Z0-9_-]+)\]/
+const CHAT_COMPLETE_MARKER_REGEX =
+  /<!--CHAT_COMPLETE:\s*(\{[\s\S]*?\})\s*-->/g
+const CHAT_COMPLETE_START = '<!--CHAT_COMPLETE:'
 
 /**
  * Detects completion markers in text and returns the reason
@@ -27,6 +30,25 @@ export function detectCompletionMarker(text: string): CompletionReason {
   }
   if (HANDOFF_TO_AGENT_REGEX.test(text)) {
     return 'handoff_to_agent'
+  }
+  const chatCompleteMatch = text.match(CHAT_COMPLETE_MARKER_REGEX)
+  if (chatCompleteMatch) {
+    try {
+      const metadata = JSON.parse(
+        chatCompleteMatch[0].match(
+          /<!--CHAT_COMPLETE:\s*(\{[\s\S]*?\})\s*-->/
+        )?.[1] ?? ''
+      ) as { chatComplete?: boolean; reason?: CompletionReason }
+      if (
+        metadata.chatComplete !== false &&
+        metadata.reason &&
+        metadata.reason !== 'handoff_to_agent'
+      ) {
+        return metadata.reason
+      }
+    } catch {
+      // Ignore malformed model-authored metadata.
+    }
   }
   return null
 }
@@ -50,6 +72,7 @@ export function stripCompletionMarkers(text: string): string {
     .replace(COMPLETION_MARKERS.HANDOFF_TO_HUMAN, '')
     .replace(HANDOFF_TO_AGENT_REGEX, '')
     .replace(SUGGESTIONS_MARKER_REGEX, '')
+    .replace(CHAT_COMPLETE_MARKER_REGEX, '')
     .trim()
 }
 
@@ -88,6 +111,17 @@ export function createCompletionTransformStream(
         if (suggestionsIdx > 0) {
           controller.enqueue(encoder.encode(held.slice(0, suggestionsIdx)))
           held = held.slice(suggestionsIdx)
+        }
+        return
+      }
+
+      // Hold model-authored completion metadata until the full marker is
+      // available so its opening fragment cannot leak into the response.
+      const completionIdx = held.indexOf(CHAT_COMPLETE_START)
+      if (completionIdx !== -1) {
+        if (completionIdx > 0) {
+          controller.enqueue(encoder.encode(held.slice(0, completionIdx)))
+          held = held.slice(completionIdx)
         }
         return
       }
