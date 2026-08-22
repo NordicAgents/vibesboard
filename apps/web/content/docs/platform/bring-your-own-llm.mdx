@@ -14,17 +14,18 @@ BYO-LLM is gated by the `BYO_LLM` feature flag, which is **on by default**. A wo
 | Kind                | Chat | Embeddings                                                | Notes                                                                                                                                               |
 | ------------------- | ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `openai`            | Yes  | Yes — `text-embedding-3-small` (pinned)                   | Standard OpenAI API                                                                                                                                 |
-| `anthropic`         | Yes  | No — platform fallback                                    | Anthropic has no embeddings API                                                                                                                     |
-| `google`            | Yes  | Yes — `text-embedding-004`, falls back to `embedding-001` | Not every API key has embedding access; falls back to the platform key if neither model works                                                       |
-| `nvidia`            | Yes  | No — platform fallback                                    | NVIDIA API Catalog chat models; hosted base URL (`https://integrate.api.nvidia.com/v1`) is supplied automatically unless overridden                 |
+| `anthropic`         | Yes  | No — assign a separate `embed` provider                   | Anthropic has no embeddings API; embedding fails closed rather than sending data through the platform key                                          |
+| `google`            | Yes  | Yes — configured model, then Google legacy alternatives  | Every attempt uses the tenant's Google key; an unavailable embedding model is reported as a configuration error                                     |
+| `nvidia`            | Yes  | Yes — configured model                                    | NVIDIA's OpenAI-shaped embeddings endpoint uses the tenant key; the hosted base URL (`https://integrate.api.nvidia.com/v1`) is the default          |
 | `openai_compatible` | Yes  | Yes, if the endpoint serves `/embeddings`                 | Groq, Mistral, Together AI, Ollama, LM Studio, and embedding NIM endpoints — anything that speaks the OpenAI chat/completions and embeddings shapes |
 
-For `openai_compatible` configs, the embedding call uses the config's own `modelId` (so Ollama's `nomic-embed-text` or an NVIDIA NIM's `nvidia/`-prefixed model works as-is); for a tenant's real `openai` provider, the embedding call is pinned to `text-embedding-3-small` regardless of the chat `modelId`. A tenant's Google config tries `text-embedding-004` then falls back to `embedding-001`, in that order, and falls back further to the platform's OpenAI key if neither works for the tenant's key.
+For `openai_compatible` and `nvidia` configs, the embedding call uses the config's own `modelId` (so Ollama's `nomic-embed-text` or an NVIDIA NIM's `nvidia/`-prefixed model works as-is); for a tenant's real `openai` provider, the embedding call is pinned to `text-embedding-3-small` regardless of the chat `modelId`. A tenant's Google config tries `GOOGLE_EMBEDDING_MODEL`, `text-embedding-004`, and `embedding-001` with the tenant's own key.
 
-<Callout type="note">
-  `anthropic` and `nvidia` configs have no usable embeddings API. Chat still
-  runs on the tenant's key; embeddings for those workspaces silently fall back
-  to the platform's OpenAI key.
+<Callout type="warning" title="Embedding routing fails closed">
+  Once an `embed` task or workspace default resolves to a tenant provider,
+  document and query text is never silently rerouted to the platform key. If
+  that provider cannot embed (for example Anthropic), assign a compatible
+  provider specifically to the `embed` task.
 </Callout>
 
 ## Configuring a provider
@@ -111,7 +112,7 @@ Switching a workspace's default (or a task-routed) provider changes the embeddin
 `openai_compatible` configs accept a tenant-supplied `baseUrl`. It's validated in two places:
 
 - At save time — `POST`/`PATCH /api/tenants/llm-configs` reject the request before writing the row.
-- At call time — `buildProviderModel` re-validates immediately before constructing the model client, so a URL that passed the save-time check but was later re-pointed (e.g. via DNS) is still blocked.
+- At call time — the provider client resolves and validates DNS, pins the validated address for the connection, and re-validates every redirect hop.
 
 By default, non-HTTP(S) schemes and private/loopback/link-local hosts are rejected: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` (carrier-grade NAT), `169.254.0.0/16` (link-local, including the cloud metadata endpoint), `127.0.0.0/8` / `localhost`, and their IPv6 equivalents (`::1`, `fe80::/10`, unique-local `fc00::/7`).
 
@@ -131,7 +132,7 @@ A workspace admin can opt out of this for legitimate on-premise setups via `PATC
 
 ## Secret storage
 
-API keys are never stored in plaintext. `createLlmConfig`/`updateLlmConfig` encrypt the key via the `CredStore` interface (`seal` / `unseal` / `revoke`) before writing `api_key_encrypted` on `tenant_llm_configs`; the default implementation, `EncryptedDbCredStore`, is AES encryption (CryptoJS) keyed by the `ENCRYPTION_KEY` environment variable. The key is decrypted in-process only at inference time. Swapping the `credStore` export in `packages/ai/src/cred-store/index.ts` is the integration point for an external secrets backend — no other code changes required.
+API keys are never stored in plaintext. `createLlmConfig`/`updateLlmConfig` encrypt the key via the `CredStore` interface (`seal` / `unseal` / `revoke`) before writing `api_key_encrypted` on `tenant_llm_configs`; the default implementation uses versioned AES-256-GCM authenticated encryption keyed by `ENCRYPTION_KEY`, with read compatibility for legacy CryptoJS ciphertext during rotation. The key is decrypted in-process only at inference time. Swapping the `credStore` export in `packages/ai/src/cred-store/index.ts` is the integration point for an external secrets backend — no other code changes required.
 
 `GET /api/tenants/llm-configs` and `GET /api/tenants/llm-configs/[id]` never include `apiKeyEncrypted` in their response.
 

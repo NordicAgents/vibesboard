@@ -11,6 +11,9 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@vibesboard/utils": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^26.1.2",
     "typescript": "^5.9.3"

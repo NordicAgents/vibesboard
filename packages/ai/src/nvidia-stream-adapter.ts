@@ -30,9 +30,14 @@
  * See packages/ai/src/provider-registry.ts.
  */
 
-export function buildNvidiaFetch(): typeof fetch {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const upstream = await fetch(input, init)
+export function buildNvidiaFetch(
+  baseFetch: typeof fetch = fetch
+): typeof fetch {
+  return async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> => {
+    const upstream = await baseFetch(input, init)
 
     if (
       !upstream.body ||
@@ -47,7 +52,9 @@ export function buildNvidiaFetch(): typeof fetch {
   }
 }
 
-function transformNvidiaSSE(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+function transformNvidiaSSE(
+  body: ReadableStream<Uint8Array>
+): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   let buffer = ''
@@ -73,7 +80,8 @@ function transformNvidiaSSE(body: ReadableStream<Uint8Array>): ReadableStream<Ui
             if (buffer.trim()) {
               const result = processLine(buffer)
               if (result.type === 'real') seenRealContent = true
-              if (result.type === 'reasoning') lastReasoningContent = result.text
+              if (result.type === 'reasoning')
+                lastReasoningContent = result.text
               pendingLines.push(result.output + '\n')
             }
 
@@ -84,7 +92,9 @@ function transformNvidiaSSE(body: ReadableStream<Uint8Array>): ReadableStream<Ui
                 controller.enqueue(encoder.encode(raw))
               } else if (!seenRealContent) {
                 // Fallback: model only produced reasoning — emit it as content
-                controller.enqueue(encoder.encode(raw.slice('__SUPPRESS__'.length)))
+                controller.enqueue(
+                  encoder.encode(raw.slice('__SUPPRESS__'.length))
+                )
               }
             }
 
@@ -94,9 +104,17 @@ function transformNvidiaSSE(body: ReadableStream<Uint8Array>): ReadableStream<Ui
                 id: 'nvidia-fallback',
                 object: 'chat.completion.chunk',
                 model: 'nvidia',
-                choices: [{ index: 0, delta: { content: lastReasoningContent }, finish_reason: null }],
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: lastReasoningContent },
+                    finish_reason: null
+                  }
+                ]
               }
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify(fallback)}\n`))
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify(fallback)}\n`)
+              )
             }
 
             controller.close()
@@ -134,19 +152,20 @@ function transformNvidiaSSE(body: ReadableStream<Uint8Array>): ReadableStream<Ui
     // finishes generating the response nobody is reading any more.
     cancel(reason) {
       return reader?.cancel(reason) ?? body.cancel(reason)
-    },
+    }
   })
 }
 
 type LineResult =
-  | { type: 'real'; output: string }         // has delta.content
+  | { type: 'real'; output: string } // has delta.content
   | { type: 'reasoning'; output: string; text: string } // only reasoning_content
-  | { type: 'passthrough'; output: string }  // non-data or [DONE]
+  | { type: 'passthrough'; output: string } // non-data or [DONE]
 
 function processLine(line: string): LineResult {
   if (!line.startsWith('data: ')) return { type: 'passthrough', output: line }
   const payload = line.slice(6).trim()
-  if (!payload || payload === '[DONE]') return { type: 'passthrough', output: line }
+  if (!payload || payload === '[DONE]')
+    return { type: 'passthrough', output: line }
 
   let chunk: any
   try {

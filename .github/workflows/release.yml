@@ -13,11 +13,8 @@ permissions: {}
 jobs:
   release:
     name: Release Please
-    # Self-hosted for the same reason as every other workflow here: the org's
-    # GitHub-hosted minutes are exhausted, so an `ubuntu-latest` job is refused
-    # at dispatch and reports as a 2-second failure with no steps. That left
-    # release-please silently not running on push to `main` — no version bump,
-    # no changelog, no tag.
+    # This job runs only trusted code after a push to main. Pull-request jobs
+    # use ephemeral GitHub-hosted VMs and never share this persistent runner.
     runs-on: [self-hosted, Linux, X64]
     permissions:
       contents: write # Required to create release commits, tags, and releases.

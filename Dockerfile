@@ -84,6 +84,13 @@ ENV NEXT_PUBLIC_AUTH_GOOGLE=$NEXT_PUBLIC_AUTH_GOOGLE \
 # Bun orchestrates the workspace script; the `next` executable uses real Node.
 RUN bun run --filter @vibesboard/web build
 
+# Collect notices in a stable path that survives the standalone copy. The EE
+# licence is optional because deleting ee/ is a supported community build.
+RUN mkdir -p /tmp/vibesboard-legal/LICENSES \
+    && cp LICENSE NOTICE /tmp/vibesboard-legal/ \
+    && cp LICENSES/* /tmp/vibesboard-legal/LICENSES/ \
+    && if [ -f ee/LICENSE ]; then cp ee/LICENSE /tmp/vibesboard-legal/EE-LICENSE; fi
+
 # Production runner (standalone — no separate node_modules needed).
 # Debian (glibc) slim to match the glibc build image above.
 FROM node:24-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03 AS runner
@@ -109,6 +116,7 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 # Copy static assets and public files into the standalone server root
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /tmp/vibesboard-legal ./legal
 
 # Create cache dir writable by nextjs user (image optimization, etc.)
 RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next/cache

@@ -31,6 +31,8 @@ yarn-error.log*
 .bun-debug.log*
 
 # local env files (never commit — these contain real secrets)
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -55,6 +57,8 @@ yarn-error.log*
 env.yaml
 .vercel
 .vscode
+.idea/
+.fleet/
 
 .cursor
 
@@ -65,7 +69,23 @@ env.yaml
 apps/functions/lib
 
 # Debug logs
+*.log
 *-debug.log
+
+# Local databases, exports, caches, and user-upload staging
+*.dump
+*.sqlite
+*.sqlite3
+.cache/
+tmp/
+temp/
+uploads/
+apps/web/public/uploads/
+
+# Private signing and client-certificate material
+*.key
+*.p12
+*.pfx
 
 # test artifacts
 .playwright-mcp/

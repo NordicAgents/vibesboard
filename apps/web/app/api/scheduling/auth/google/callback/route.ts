@@ -13,6 +13,7 @@ import {
   getSafeSchedulingReturnTo
 } from '@vibesboard/scheduling/oauth-return'
 import { OAUTH_NONCE_COOKIE } from '../route'
+import { getCanonicalOrigin } from '@/lib/app-url'
 
 export const runtime = 'nodejs'
 
@@ -22,8 +23,8 @@ async function getAppOrigin(fallback: string): Promise<string> {
     ?.split(',')[0]
     ?.trim()
   const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
-  if (host) return `${proto}://${host}`
-  return fallback
+  const headerOrigin = host ? `${proto}://${host}` : fallback
+  return getCanonicalOrigin(headerOrigin)
 }
 
 function getReturnToFromStateParam(stateParam: string | null): string | null {

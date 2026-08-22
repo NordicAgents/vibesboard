@@ -254,10 +254,16 @@ export async function safeFetch(
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
     const validated = await validatePublicUrl(currentUrl, opts)
+    const timeoutSignal = AbortSignal.timeout(timeoutMs)
+    const signal = currentInit.signal
+      ? AbortSignal.any([currentInit.signal, timeoutSignal])
+      : timeoutSignal
     const requestInit: RequestInit & { dispatcher?: Agent } = {
       ...currentInit,
       redirect: 'manual' as const,
-      signal: AbortSignal.timeout(timeoutMs),
+      // Preserve caller cancellation (for example, a disconnected streaming
+      // chat request) while still applying the outbound timeout.
+      signal,
       ...(validated.addresses?.[0]
         ? {
             dispatcher: pinnedDispatcher(

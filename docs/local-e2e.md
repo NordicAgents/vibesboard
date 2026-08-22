@@ -2,9 +2,9 @@
 
 Two Playwright suites live in this repo:
 
-| Suite | Config | Specs | Runs in CI? |
-| --- | --- | --- | --- |
-| CI suite | `apps/web/playwright.config.ts` | `apps/web/e2e/*.spec.ts` | yes (`.github/workflows/ci-e2e.yml`) |
+| Suite      | Config                                | Specs                          | Runs in CI?                          |
+| ---------- | ------------------------------------- | ------------------------------ | ------------------------------------ |
+| CI suite   | `apps/web/playwright.config.ts`       | `apps/web/e2e/*.spec.ts`       | yes (`.github/workflows/ci-e2e.yml`) |
 | Deep suite | `apps/web/playwright.local.config.ts` | `apps/web/e2e/local/*.spec.ts` | yes (`.github/workflows/ci-e2e.yml`) |
 
 The second suite is the deep one, covering agents, chat, settings, BYO-LLM
@@ -118,7 +118,7 @@ bun install
 If the app boots but every route returns 500 with a Turbopack
 `Module not found` / `Export … doesn't exist in target module` error, the
 `node_modules` tree is partial — a plain `bun install` on a stale tree can install
-top-level packages while failing to materialise the *nested* copies the lockfile
+top-level packages while failing to materialise the _nested_ copies the lockfile
 requires. Two failures seen in practice:
 
 - `Can't resolve '@ai-sdk/anthropic'` from `packages/ai/src/provider-registry.ts`
@@ -131,11 +131,11 @@ Both are fixed by forcing a full re-materialisation:
 bun install --force
 ```
 
-> Note: bun 1.2.18 rewrites `bun.lock` without the `configVersion` key that newer
-> bun versions write. That single-line diff is a bun-version artifact, not a
+> Note: older Bun releases may rewrite `bun.lock` metadata written by the
+> repository's pinned Bun version. That diff is a tool-version artifact, not a
 > dependency change — revert it with `git checkout bun.lock` before committing.
 
-A module error in one route can leave the dev server returning 500 for *every*
+A module error in one route can leave the dev server returning 500 for _every_
 route, including `/` and `/api/health`. After fixing dependencies, restart the
 dev server and delete `apps/web/.next` so nothing stale is served.
 
@@ -168,7 +168,7 @@ and `superadmin@vibesboard.local`, saves both cookie jars, and deletes leftovers
 
 - team tenants matching `e2e-team-%`, `e2e-extra-team-%`, `e2e-collision-%`,
   `e2e-admin-tenant-%` — this keeps the account under `MAX_TEAM_WORKSPACES` (5)
-- `tenant_llm_configs` rows labelled `E2E %` — these live on the *personal*
+- `tenant_llm_configs` rows labelled `E2E %` — these live on the _personal_
   tenant, which is never deleted, so without this they accumulate every run
 
 There is no `globalTeardown`; cleanup happens at the start of the next run.

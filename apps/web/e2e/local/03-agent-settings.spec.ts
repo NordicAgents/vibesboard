@@ -203,9 +203,12 @@ test.describe('Agent Settings — Setup tab', () => {
     // The list page reads /api/agents; the renamed agent is the newest row in
     // the tenant, so it is on page 1 of the 9-per-page grid.
     await page.goto('/agents')
-    // The renamed agent appears twice by design — once as a grid card and once
-    // in the sidebar list — so this must not be a strict single-element match.
-    await expect(page.getByText(newName, { exact: true }).first()).toBeVisible()
+    // Responsive desktop/mobile copies can coexist in the DOM. Select the
+    // rendered copy explicitly instead of relying on DOM order, which can make
+    // `.first()` point at a hidden navigation item.
+    await expect(
+      page.getByText(newName, { exact: true }).filter({ visible: true }),
+    ).toHaveCount(1)
     // The old name must be gone from *both* places.
     await expect(page.getByText(agent.name, { exact: true })).toHaveCount(0)
   })

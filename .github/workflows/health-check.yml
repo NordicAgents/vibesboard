@@ -2,7 +2,7 @@ name: Health Check
 
 on:
   schedule:
-    - cron: "0 */6 * * *"  # Every 6 hours
+    - cron: "0 */6 * * *" # Every 6 hours
   workflow_dispatch:
 
 concurrency:
@@ -15,10 +15,8 @@ permissions:
 jobs:
   staging:
     name: Staging
-    # See release.yml: an `ubuntu-latest` job is currently refused at dispatch,
-    # so this workflow has been reporting failure without ever running a check.
-    # Red that means "the runner was refused" trains everyone to ignore red that
-    # means "the site is down". Only curl is needed, so the VM runners are fine.
+    # This workflow executes only the trusted, hard-coded health probes below;
+    # it never checks out or runs pull-request code.
     runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Health check (staging)

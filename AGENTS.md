@@ -5,6 +5,7 @@
 ## Project Overview
 
 Vibesboard is a multi-tenant AI agent platform. It allows businesses to create, configure, and deploy AI agents with features including:
+
 - Multi-tenant workspace isolation
 - RAG (Retrieval-Augmented Generation) for knowledge bases
 - Calendar availability & scheduling
@@ -85,12 +86,12 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 
 ## CI Requirements
 
-PRs to `dev`/`main` run these workflows (each on the org's self-hosted VM runners — `[self-hosted, Linux, X64]`, or `[self-hosted, docker]` where a Postgres/MinIO stack is needed — with Bun 1.2.18 via `oven-sh/setup-bun@v2` and Node 22). Nothing here targets `ubuntu-latest`: while the org's GitHub-hosted minutes are exhausted such a job is refused at dispatch and shows as a 2-second failure with no steps, which reads like a code failure but is billing.
+PRs to `dev`/`main` run these workflows on ephemeral `ubuntu-latest` runners with Bun 1.3.14 via `oven-sh/setup-bun@v2` and Node 24. Pull-request code must never run on the persistent self-hosted fleet: fork authors control the checked-out source and build scripts. Push-only deployment and release workflows may use self-hosted runners because they execute trusted branch code. GitHub-hosted Actions billing must therefore be enabled before accepting public pull requests.
 
 - **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
 - **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). This job used to set `continue-on-error: true`, which meant a type-check failure could not block a merge; that has been removed and it now gates.
 - **Tests** (`.github/workflows/ci-test.yml`, "Tests") — `bun run test:coverage` (`vitest run --coverage`, a single unified Vitest run across all workspace projects with v8 coverage; coverage is reported as an artifact and gated by a ratchet threshold in `vitest.shared.mts`). The workflow first brings up Postgres + MinIO via `docker-compose.dev.yml`, bootstraps the MinIO bucket, and runs `bun run db:migrate` before tests. Each package has its own `vitest.config.mts` (and `"test": "vitest run"`); packages without one are simply absent from the root `projects` glob.
-- **E2E** (`.github/workflows/ci-e2e.yml`, "E2E") — runs **two** Playwright suites against one Postgres + MinIO stack, with the Chromium browser installed first. Both boot a deterministic mock OpenAI server plus `next dev` with `OPENAI_BASE_URL` pointed at the mock, so the model is stubbed at the network boundary.
+- **E2E** (`.github/workflows/ci-e2e.yml`, "E2E") — runs **two** Playwright suites in separate ephemeral jobs, each with its own Postgres + MinIO stack and Chromium installation. Both boot a deterministic mock OpenAI server plus `next dev` with `OPENAI_BASE_URL` pointed at the mock, so the model is stubbed at the network boundary.
   - `bun run test:e2e` — the specs directly under `apps/web/e2e/`; `globalSetup` seeds an E2E user/tenant.
   - `bun run test:e2e:local` — the deep suite under `apps/web/e2e/local/` (agents, chat, settings, BYO-LLM, public widget, conversations, knowledge base, sharing, admin panel, tenant flow, cross-tenant isolation). Its `globalSetup` additionally seeds an outsider account and a superadmin. See `docs/local-e2e.md` for running it locally, including the no-Docker path.
 - **Build** (`.github/workflows/ci-build.yml`, "Build") — `bun run build` (Next.js production build of `apps/web`) using `NEXT_PUBLIC_*` values from `STAGING_*` secrets.

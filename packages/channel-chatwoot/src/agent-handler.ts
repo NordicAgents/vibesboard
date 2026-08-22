@@ -15,7 +15,10 @@ import {
   updateConversationMessages
 } from '@vibesboard/agents/conversations'
 import { maybeAutoSummarize } from '@vibesboard/agents/auto-summarize'
-import { sendChatwootMessage, handoffChatwootConversation } from './api-client.ts'
+import {
+  sendChatwootMessage,
+  handoffChatwootConversation
+} from './api-client.ts'
 import { decryptToken, updateConnectionStats } from './connections.ts'
 import {
   dispatchAgentNotification,
@@ -31,7 +34,7 @@ export interface ChatwootMessagePayload {
   accountId: number
 }
 
-/** Fire-and-forget connection stats update; errors are logged, not thrown. */
+/** Best-effort connection stats update; errors are logged, not thrown. */
 async function recordConnectionStats(
   tenantId: string,
   agentId: string,
@@ -40,7 +43,9 @@ async function recordConnectionStats(
   try {
     await updateConnectionStats(tenantId, agentId, connectionId)
   } catch (err) {
-    console.error('[chatwoot] Failed to update connection stats:', err)
+    console.error('[chatwoot] Failed to update connection stats', {
+      error: err instanceof Error ? err.name : 'UnknownError'
+    })
   }
 }
 
@@ -56,9 +61,7 @@ export async function handleChatwootMessage(
   const { conversationId, content, accountId } = payload
   const externalId = `chatwoot:${accountId}:${conversationId}`
 
-  console.log(
-    `[chatwoot] Processing message for agent ${agent.name} (conversation ${conversationId})`
-  )
+  console.log('[chatwoot] Processing authenticated message')
 
   try {
     // 1. Ensure conversation
@@ -117,7 +120,7 @@ export async function handleChatwootMessage(
           messages: nextMessages
         })
 
-        maybeAutoSummarize({
+        await maybeAutoSummarize({
           tenantId: agent.tenantId!,
           agentId: agent.id,
           conversationId: conversation.id,
@@ -125,7 +128,11 @@ export async function handleChatwootMessage(
           currentSummary: conversation.summary,
           summaryResponseCount: conversation.summaryResponseCount,
           responseCounts: conversation.responseCounts
-        }).catch(err => console.error('[chatwoot] Auto-summarize failed:', err))
+        }).catch(err =>
+          console.error('[chatwoot] Auto-summarize failed', {
+            error: err instanceof Error ? err.name : 'UnknownError'
+          })
+        )
 
         const event = mapCompletionToEvent(reason)
         if (event) {
@@ -177,22 +184,26 @@ export async function handleChatwootMessage(
           agent.id,
           conversation.id
         )
-        console.log(
-          `[chatwoot] Handed off conversation ${conversationId} to human agents`
-        )
+        console.log('[chatwoot] Conversation handed off to human agents')
       } catch (handoffErr) {
-        console.error('[chatwoot] Failed to hand off conversation:', handoffErr)
+        console.error('[chatwoot] Failed to hand off conversation', {
+          error: handoffErr instanceof Error ? handoffErr.name : 'UnknownError'
+        })
       }
     }
 
-    // 5. Update stats (fire-and-forget)
-    void recordConnectionStats(connection.tenantId, connection.agentId, connection.id)
-
-    console.log(
-      `[chatwoot] Reply sent (${reply.length} chars) to conversation ${conversationId}`
+    // 5. Update stats before the serverless request can be frozen.
+    await recordConnectionStats(
+      connection.tenantId,
+      connection.agentId,
+      connection.id
     )
+
+    console.log(`[chatwoot] Reply sent (${reply.length} chars)`)
   } catch (error) {
-    console.error('[chatwoot] Error processing message:', error)
+    console.error('[chatwoot] Error processing message', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
 
     // Attempt to send error reply to Chatwoot
     try {
@@ -208,7 +219,9 @@ export async function handleChatwootMessage(
         'Sorry, I encountered an error processing your message. Please try again later.'
       )
     } catch (sendError) {
-      console.error('[chatwoot] Failed to send error message:', sendError)
+      console.error('[chatwoot] Failed to send error message', {
+        error: sendError instanceof Error ? sendError.name : 'UnknownError'
+      })
     }
   }
 }

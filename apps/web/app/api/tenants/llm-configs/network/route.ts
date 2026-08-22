@@ -4,10 +4,20 @@ import { eq } from 'drizzle-orm'
 import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { withDb, type DbTx } from '@vibesboard/adapter-postgres/client'
+import { withTenant } from '@vibesboard/adapter-postgres/tenant-context'
 import { tenants } from '@vibesboard/adapter-postgres/schema'
 
 export const runtime = 'nodejs'
+
+function withNetworkDb<T>(
+  tenantId: string,
+  work: (db: DbTx) => Promise<T> | T
+) {
+  return withTenant({ tenantId, userId: null, isSuperAdmin: false }, () =>
+    withDb(work)
+  )
+}
 
 const updateSchema = z.object({
   llmAllowPrivateHosts: z.boolean().optional(),
@@ -49,14 +59,16 @@ export async function GET() {
   const g = await guard(authResult.user.id)
   if (!g.ok) return g.response
 
-  const [row] = await getMigrateDb()
-    .select({
-      llmAllowPrivateHosts: tenants.llmAllowPrivateHosts,
-      llmHostAllowlist: tenants.llmHostAllowlist
-    })
-    .from(tenants)
-    .where(eq(tenants.id, g.tenantId))
-    .limit(1)
+  const [row] = await withNetworkDb(g.tenantId, db =>
+    db
+      .select({
+        llmAllowPrivateHosts: tenants.llmAllowPrivateHosts,
+        llmHostAllowlist: tenants.llmHostAllowlist
+      })
+      .from(tenants)
+      .where(eq(tenants.id, g.tenantId))
+      .limit(1)
+  )
 
   return NextResponse.json({
     llmAllowPrivateHosts: row?.llmAllowPrivateHosts ?? false,
@@ -89,10 +101,9 @@ export async function PATCH(request: NextRequest) {
   if (parsed.data.llmHostAllowlist !== undefined)
     patch.llmHostAllowlist = parsed.data.llmHostAllowlist
 
-  await getMigrateDb()
-    .update(tenants)
-    .set(patch)
-    .where(eq(tenants.id, g.tenantId))
+  await withNetworkDb(g.tenantId, db =>
+    db.update(tenants).set(patch).where(eq(tenants.id, g.tenantId))
+  )
 
   return NextResponse.json({ ok: true })
 }

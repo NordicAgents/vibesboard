@@ -51,12 +51,20 @@ const nextConfig = {
   // Ensure pdf-parse and its native canvas dependency are available
   // to the Node.js runtime (and serverless targets) without bundling
   // their worker files incorrectly.
-  serverExternalPackages: ['pdf-parse', '@napi-rs/canvas', '@google-cloud/storage', '@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', 'crypto-js', 'csv-parse', 'just-bash'],
+  serverExternalPackages: [
+    'pdf-parse',
+    '@napi-rs/canvas',
+    '@google-cloud/storage',
+    '@aws-sdk/client-s3',
+    '@aws-sdk/s3-request-presigner',
+    'crypto-js',
+    'csv-parse',
+    'just-bash'
+  ],
   async headers() {
-    // Baseline hardening applied to every response. Deliberately NOT a script
-    // CSP (the app relies on Next's inline runtime; a strict script-src needs
-    // nonce plumbing — tracked as a follow-up). frame-ancestors is handled
-    // per-path below so the embeddable widget keeps working.
+    // Baseline hardening applied to every response. The request-specific,
+    // nonce-bearing CSP is emitted by proxy.ts; a static CSP here would create
+    // a second policy and prevent Next from attaching the nonce to its scripts.
     const baseline = [
       {
         key: 'Strict-Transport-Security',
@@ -72,19 +80,9 @@ const nextConfig = {
     return [
       { source: '/:path*', headers: baseline },
       {
-        // The widget is intentionally embeddable on customer sites.
-        source: '/widget/:path*',
-        headers: [
-          { key: 'Content-Security-Policy', value: 'frame-ancestors *' }
-        ]
-      },
-      {
         // Everything except the widget refuses cross-origin framing.
         source: '/((?!widget/).*)',
-        headers: [
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" }
-        ]
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }]
       }
     ]
   }

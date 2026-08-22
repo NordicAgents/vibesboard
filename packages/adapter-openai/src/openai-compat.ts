@@ -2,6 +2,7 @@
  * Lightweight OpenAI API helpers that replace openai-edge.
  * Uses direct fetch — no SDK dependency.
  */
+import { safeFetch } from '@vibesboard/utils/safe-fetch'
 
 // Honor OPENAI_BASE_URL (E2E mock / proxy / gateway), defaulting to public OpenAI.
 const OPENAI_BASE_URL =
@@ -62,6 +63,8 @@ export async function createEmbedding(params: {
   baseUrl?: string
   /** When true, skips the private-host SSRF check (tenant opted in via allowPrivateHosts). */
   allowPrivateHost?: boolean
+  /** Specific private/on-prem hostnames approved for this tenant. */
+  hostAllowlist?: string[]
   /**
    * NVIDIA NIM-specific: `input_type` parameter required by models like
    * `nvidia/nv-embed-v2` and `nvidia/llama-3.2-nv-embedqa-1b-v2`.
@@ -81,32 +84,33 @@ export async function createEmbedding(params: {
    */
   dimensions?: number
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
-  // Defense-in-depth: reject private/loopback baseUrls unless the tenant has
-  // explicitly opted in via the per-tenant allowPrivateHosts flag.
-  if (params.baseUrl && !params.allowPrivateHost) {
-    const { hostname, protocol } = new URL(params.baseUrl)
-    if (!['http:', 'https:'].includes(protocol)) {
-      throw new Error('Embedding baseUrl must use HTTP or HTTPS')
-    }
-    if (/^(localhost|127\.|169\.254\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(hostname) || hostname === '::1') {
-      throw new Error('Embedding baseUrl must not point to a private or loopback address')
-    }
-  }
-
   const url = params.baseUrl
     ? `${params.baseUrl.replace(/\/+$/, '')}/embeddings`
     : OPENAI_EMBEDDINGS
   const key = params.apiKey ?? getApiKey()
-  const res = await fetch(url, {
+  const request = {
     method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({
       model: params.model,
       input: params.input,
       ...(params.inputType ? { input_type: params.inputType } : {}),
-      ...(params.dimensions ? { dimensions: params.dimensions } : {}),
+      ...(params.dimensions ? { dimensions: params.dimensions } : {})
     })
-  })
+  }
+  // Tenant-controlled endpoints are DNS-resolved, pinned, redirect-bounded,
+  // and revalidated on every hop. Platform endpoints remain on ordinary fetch
+  // so local test gateways configured through OPENAI_BASE_URL still work.
+  const res = params.baseUrl
+    ? await safeFetch(url, request, {
+        allowPrivateHosts: params.allowPrivateHost,
+        hostAllowlist: params.hostAllowlist,
+        sensitiveHeaders: ['api-key', 'x-api-key']
+      })
+    : await fetch(url, request)
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')

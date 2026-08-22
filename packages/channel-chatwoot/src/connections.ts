@@ -1,13 +1,14 @@
 import 'server-only'
 
-import { createHash, timingSafeEqual } from 'crypto'
+import { createHash, createHmac, timingSafeEqual } from 'crypto'
 import { customAlphabet } from 'nanoid'
 import { sealSecret, unsealSecret } from '@vibesboard/utils/secret-box'
 import { and, eq, desc, sql } from 'drizzle-orm'
 import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import * as schema from '@vibesboard/adapter-postgres/schema'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { getMigrateDb, withDb } from '@vibesboard/adapter-postgres/client'
+import { withTenant } from '@vibesboard/adapter-postgres/tenant-context'
 import { chatwootConnections } from '@vibesboard/adapter-postgres/schema'
 import { rowToChatwootConnection } from './db.ts'
 import {
@@ -16,6 +17,12 @@ import {
 } from '@vibesboard/contracts'
 
 type Db = PostgresJsDatabase<typeof schema>
+
+function withChatwootDb<T>(tenantId: string, work: (db: Db) => Promise<T>) {
+  return withTenant({ tenantId, userId: null, isSuperAdmin: false }, () =>
+    withDb(tx => work(tx as unknown as Db))
+  )
+}
 
 // ─── ID / Secret generators ─────────────────────────────────────────
 
@@ -50,6 +57,54 @@ export function verifyWebhookSecret(
   const stored = Buffer.from(storedHash, 'hex')
   if (incoming.length !== stored.length) return false
   return timingSafeEqual(incoming, stored)
+}
+
+const CHATWOOT_SIGNING_SECRET_PREFIX = 'chatwoot-signing:v1:'
+
+function sealWebhookSigningSecret(secret: string): string {
+  return `${CHATWOOT_SIGNING_SECRET_PREFIX}${sealSecret(secret)}`
+}
+
+/**
+ * Verify Chatwoot's timestamp-bound signature over `${timestamp}.${rawBody}`.
+ * The freshness check limits replay even before the durable delivery-ID guard.
+ */
+export function verifyChatwootSignature(
+  rawBody: string,
+  signatureHeader: string,
+  timestampHeader: string,
+  storedSecret: string,
+  options: { nowMs?: number; toleranceSeconds?: number } = {}
+): boolean {
+  if (!storedSecret.startsWith(CHATWOOT_SIGNING_SECRET_PREFIX)) return false
+  const suppliedHex = signatureHeader.replace(/^sha256=/i, '')
+  if (!/^[0-9a-f]{64}$/i.test(suppliedHex)) return false
+  if (!/^\d{1,12}$/.test(timestampHeader)) return false
+
+  const timestampSeconds = Number(timestampHeader)
+  const nowSeconds = Math.floor((options.nowMs ?? Date.now()) / 1_000)
+  const toleranceSeconds = options.toleranceSeconds ?? 300
+  if (
+    !Number.isSafeInteger(timestampSeconds) ||
+    Math.abs(nowSeconds - timestampSeconds) > toleranceSeconds
+  ) {
+    return false
+  }
+
+  try {
+    const secret = unsealSecret(
+      storedSecret.slice(CHATWOOT_SIGNING_SECRET_PREFIX.length)
+    )
+    const expected = createHmac('sha256', secret)
+      .update(`${timestampHeader}.${rawBody}`)
+      .digest()
+    const supplied = Buffer.from(suppliedHex, 'hex')
+    return (
+      supplied.length === expected.length && timingSafeEqual(supplied, expected)
+    )
+  } catch {
+    return false
+  }
 }
 
 // ─── Public API ──────────────────────────────────────────────────────
@@ -87,8 +142,20 @@ export async function createChatwootConnection(
   params: CreateChatwootConnectionParams,
   userId: string,
   connectionId?: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<CreatedChatwootConnection> {
+  if (!db) {
+    return withChatwootDb(tenantId, scopedDb =>
+      createChatwootConnection(
+        tenantId,
+        agentId,
+        params,
+        userId,
+        connectionId,
+        scopedDb
+      )
+    )
+  }
   const id =
     connectionId && /^[0-9a-f-]{36}$/i.test(connectionId)
       ? connectionId
@@ -110,7 +177,10 @@ export async function createChatwootConnection(
       agentBotName: params.agentBotName ?? null,
       botTokenEncrypted: params.botToken ? encryptToken(params.botToken) : null,
       useAgentBot: params.useAgentBot ?? false,
-      webhookSecretHash: hashSecret(params.webhookSecret),
+      // Column name retained for a migration-free rollout. Legacy rows contain
+      // a one-way hash and intentionally fail signed-header verification;
+      // reconnecting replaces them with this authenticated encrypted value.
+      webhookSecretHash: sealWebhookSigningSecret(params.webhookSecret),
       status: 'active',
       totalConversations: 0
     })
@@ -128,8 +198,20 @@ export async function createChatwootConnection(
  */
 export async function getChatwootConnectionById(
   connectionId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<ChatwootConnectionDocument | null> {
+  if (!db) {
+    const [ref] = await getMigrateDb()
+      .select({ tenantId: chatwootConnections.tenantId })
+      .from(chatwootConnections)
+      .where(eq(chatwootConnections.id, connectionId))
+      .limit(1)
+    return ref
+      ? withChatwootDb(ref.tenantId, scopedDb =>
+          getChatwootConnectionById(connectionId, scopedDb)
+        )
+      : null
+  }
   const [row] = await db
     .select()
     .from(chatwootConnections)
@@ -147,8 +229,13 @@ export async function getChatwootConnection(
   tenantId: string,
   agentId: string,
   connectionId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<ChatwootConnectionDocument | null> {
+  if (!db) {
+    return withChatwootDb(tenantId, scopedDb =>
+      getChatwootConnection(tenantId, agentId, connectionId, scopedDb)
+    )
+  }
   const [row] = await db
     .select()
     .from(chatwootConnections)
@@ -167,8 +254,13 @@ export async function listChatwootConnections(
   tenantId: string,
   agentId: string,
   status?: ChatwootConnectionStatus,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<ChatwootConnectionDocument[]> {
+  if (!db) {
+    return withChatwootDb(tenantId, scopedDb =>
+      listChatwootConnections(tenantId, agentId, status, scopedDb)
+    )
+  }
   const conds = [
     eq(chatwootConnections.tenantId, tenantId),
     eq(chatwootConnections.agentId, agentId)
@@ -187,8 +279,19 @@ export async function disconnectChatwootConnection(
   agentId: string,
   connectionId: string,
   reason?: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withChatwootDb(tenantId, scopedDb =>
+      disconnectChatwootConnection(
+        tenantId,
+        agentId,
+        connectionId,
+        reason,
+        scopedDb
+      )
+    )
+  }
   const now = new Date()
   await db
     .update(chatwootConnections)
@@ -211,8 +314,13 @@ export async function deleteChatwootConnection(
   tenantId: string,
   agentId: string,
   connectionId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withChatwootDb(tenantId, scopedDb =>
+      deleteChatwootConnection(tenantId, agentId, connectionId, scopedDb)
+    )
+  }
   await db
     .delete(chatwootConnections)
     .where(
@@ -232,8 +340,13 @@ export async function updateConnectionStats(
   tenantId: string,
   agentId: string,
   connectionId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withChatwootDb(tenantId, scopedDb =>
+      updateConnectionStats(tenantId, agentId, connectionId, scopedDb)
+    )
+  }
   await db
     .update(chatwootConnections)
     .set({

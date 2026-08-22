@@ -56,12 +56,7 @@ export async function POST(
   // The fileKeys array is caller-writable, so only ingest objects bound to the
   // exact agent (or its owner-scoped legacy staging namespace).
   if (
-    !isPermittedAgentFileKey(
-      fileKey,
-      agent.tenantId,
-      agent.id,
-      agent.userId
-    )
+    !isPermittedAgentFileKey(fileKey, agent.tenantId, agent.id, agent.userId)
   ) {
     return new NextResponse('Forbidden', { status: 403 })
   }
@@ -108,7 +103,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ingestion failed'
+    console.error('[file-ingest] Unexpected ingestion failure', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
+    const message = 'File ingestion failed. Please try again.'
     await setFileStatus(fileRecord.id, 'failed', { error: message }).catch(
       () => undefined
     )

@@ -59,7 +59,7 @@ body:
       label: Environment
       description: Bun and Node versions, operating system, and browser if relevant.
       placeholder: |
-        Bun 1.2.18, Node 22.11, macOS 15.4, Chrome 140
+        Bun 1.3.14, Node 24, macOS 15.4, Chrome 140
     validations:
       required: false
 

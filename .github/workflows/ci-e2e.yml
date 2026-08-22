@@ -23,7 +23,7 @@ env:
   S3_BUCKET: vibesboard-files
   S3_ACCESS_KEY_ID: vibesboard
   S3_SECRET_ACCESS_KEY: vibesboard
-  S3_FORCE_PATH_STYLE: 'true'
+  S3_FORCE_PATH_STYLE: "true"
   # better-auth needs a secret to boot; the Playwright config points the app
   # at a local mock OpenAI server, so no real OpenAI key is required.
   BETTER_AUTH_SECRET: ci-e2e-better-auth-secret-0123456789
@@ -36,15 +36,12 @@ env:
   CRON_SECRET: ci-e2e-cron-secret
   ACCESS_GATE_SECRET: ci-e2e-access-gate-secret
 
-# The two suites are separate jobs on purpose. The deep one reliably kills the
-# self-hosted runner agent (see its comment below), and a dead runner fails the
-# whole job — so while they shared a job, the deep suite took the core suite's
-# result down with it and a PR got no E2E signal at all. Split, the core suite
-# still reports even when the deep one destroys its own runner.
+# The suites remain separate jobs so each gets a fresh, isolated VM and a clear
+# check result. Pull-request code never reaches the persistent deployment fleet.
 jobs:
   e2e-core:
     name: Playwright core suite
-    runs-on: [self-hosted, docker]
+    runs-on: ubuntu-latest
     # Backstop only — the config sets a lower globalTimeout (10 min) so
     # Playwright aborts itself and still uploads its report. Without this, a
     # wedged dev server ran to GitHub's 6-hour job ceiling (run 31392110921
@@ -62,15 +59,15 @@ jobs:
         # mock OpenAI server + `next dev` (OPENAI_BASE_URL pointed at the mock
         # so the model is stubbed at the network boundary), seeds an E2E
         # user/tenant in globalSetup, then runs. Completes in well under a
-        # minute on the self-hosted runners.
+        # minute on the hosted runners.
         run: bun run test:e2e
         working-directory: apps/web
 
       - name: Run tenant-isolation E2E
-        # Keep the cross-tenant IDOR coverage required even while the broader
-        # local/deep suite is parked for runner-footprint reasons. This single
-        # spec uses the same mocked-provider boundary, seeds its own outsider
-        # account, and is intentionally small enough for the core job.
+        # Keep the highest-risk cross-tenant IDOR coverage in the fast core job
+        # as an early signal, in addition to its coverage in the deep suite.
+        # This spec uses the same mocked-provider boundary and seeds its own
+        # outsider account.
         run: bunx playwright test --config playwright.local.config.ts 12-tenant-isolation.spec.ts
         working-directory: apps/web
 
@@ -87,41 +84,14 @@ jobs:
         if: failure()
         run: docker compose -f docker-compose.dev.yml logs
 
-      # The self-hosted runner is persistent, so the stack outlives the job.
-      # Tear it down (volumes included) or the next run inherits this run's
-      # database — on GitHub-hosted runners the VM was discarded instead.
+      # Keep explicit cleanup for deterministic local action replays.
       - name: Tear down the stack
         if: always()
         run: docker compose -f docker-compose.dev.yml down -v --remove-orphans
 
   e2e-deep:
     name: Playwright deep suite
-    # PARKED. This suite kills the self-hosted runner agent outright: the job is
-    # force-failed with the test step still in_progress, every later step left
-    # pending, and no logs uploaded because the runner died before it could send
-    # them. The check-run annotation is the only place the reason appears —
-    # "The self-hosted runner lost communication with the server… anything that
-    # terminates the runner process, starves it for CPU/Memory, or blocks its
-    # network access can cause this error."
-    #
-    # Reproduced on the laptop runner (2026-08-17, twice, once with the box
-    # otherwise idle) and again on the VM fleet (2026-08-18, run 32108551723,
-    # died 13m11s in on mx-vm-nordicagents-1) — so it is this suite's own
-    # footprint, not one machine. `workers: 1` in playwright.local.config.ts
-    # means there is no parallelism left to dial back. Note the core suite
-    # passes in ~37s on the same runner, so the harness itself is healthy.
-    #
-    # This is downstream of running CI on self-hosted boxes at all, which is
-    # itself only a workaround for the Actions billing outage. Restoring billing
-    # puts this back on ubuntu-latest, where it passed reliably before
-    # 2026-08-13 — that is the real fix, not tuning this workflow.
-    #
-    # Run it on demand from the Actions tab (workflow_dispatch), or set the
-    # repository variable E2E_ENABLED to 'true' to gate PRs on it again — but
-    # expect the above until the footprint is diagnosed. Delete this `if:` once
-    # the gates are back on GitHub-hosted runners.
-    if: vars.E2E_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: [self-hosted, docker]
+    runs-on: ubuntu-latest
     # Backstop only — the config sets a lower globalTimeout (20 min).
     timeout-minutes: 30
     steps:

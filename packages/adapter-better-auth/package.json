@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@react-email/render": "^1.1.2",
     "@vibesboard/adapter-postgres": "workspace:*",
     "better-auth": "1.6.26",
     "drizzle-orm": "^0.45.2",
