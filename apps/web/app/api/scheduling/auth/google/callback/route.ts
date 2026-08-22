@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { headers, cookies } from 'next/headers'
-import { requireAuth } from '@/lib/auth/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import {
   exchangeCode,
@@ -155,6 +155,18 @@ export async function GET(req: Request) {
         returnTo,
         'scheduling_error',
         'no_tenant'
+      )
+    )
+  }
+
+  const adminResult = await requireTenantAdmin(tenantId)
+  if (!adminResult.ok) {
+    return NextResponse.redirect(
+      getSchedulingRedirectUrl(
+        appOrigin,
+        returnTo,
+        'scheduling_error',
+        'forbidden'
       )
     )
   }

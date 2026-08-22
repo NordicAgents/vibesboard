@@ -70,7 +70,15 @@ vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
 vi.mock('@vibesboard/adapter-s3', () => ({
   deleteFile: async () => undefined,
   isCrossTenantFileKey: (key: string, tenantId: string) =>
-    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`)
+    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`),
+  isPermittedAgentFileKey: (
+    key: string,
+    tenantId: string,
+    agentId: string,
+    userId: string
+  ) =>
+    key.startsWith(`tenants/${tenantId}/agents/${agentId}/files/`) ||
+    key.startsWith(`${userId}/`)
 }))
 const getFilesForAgentMock = vi.fn(async (..._args: unknown[]) => [
   {
@@ -212,6 +220,18 @@ describe('PATCH /api/agents/[id]', () => {
       ctx('agent-1')
     )
     expect(res.status).toBe(403)
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
+  it('refuses a same-tenant key belonging to a different agent', async () => {
+    const res = await PATCH(
+      patchReq({
+        fileKeys: ['tenants/tenant-b/agents/other-agent/files/private.pdf']
+      }) as never,
+      ctx('agent-1')
+    )
+
+    expect(res.status).toBe(400)
     expect(updateSpy).not.toHaveBeenCalled()
   })
 })

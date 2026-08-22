@@ -66,6 +66,14 @@ jobs:
         run: bun run test:e2e
         working-directory: apps/web
 
+      - name: Run tenant-isolation E2E
+        # Keep the cross-tenant IDOR coverage required even while the broader
+        # local/deep suite is parked for runner-footprint reasons. This single
+        # spec uses the same mocked-provider boundary, seeds its own outsider
+        # account, and is intentionally small enough for the core job.
+        run: bunx playwright test --config playwright.local.config.ts 12-tenant-isolation.spec.ts
+        working-directory: apps/web
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

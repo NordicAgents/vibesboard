@@ -25,6 +25,38 @@ export function isAgentFileKey(
 }
 
 /**
+ * True iff `key` is a legacy pre-agent upload owned by `userId`.
+ *
+ * New uploads use agentFileKey(), but existing agents may still reference the
+ * original `{userId}/{fileName}` staging object. Restricting that legacy form
+ * to its owner preserves those files without allowing one member to attach
+ * another member's staging object to an agent they control.
+ */
+export function isLegacyUserFileKey(key: string, userId: string): boolean {
+  const prefix = `${userId}/`
+  if (!key.startsWith(prefix)) return false
+  const rest = key.slice(prefix.length)
+  return rest.length > 0 && !rest.includes('/') && !rest.includes('\\') && !rest.includes('..')
+}
+
+/**
+ * Whether a key may be attached to, retrieved by, or deleted through this
+ * exact agent. Canonical keys are agent-scoped; only owner-scoped legacy
+ * staging keys remain supported for backwards compatibility.
+ */
+export function isPermittedAgentFileKey(
+  key: string,
+  tenantId: string,
+  agentId: string,
+  ownerUserId: string,
+): boolean {
+  return (
+    isAgentFileKey(key, tenantId, agentId) ||
+    isLegacyUserFileKey(key, ownerUserId)
+  )
+}
+
+/**
  * True iff `key` explicitly addresses a DIFFERENT tenant's namespace
  * (`tenants/{otherTenant}/…`). This is the guard that stops a caller from
  * attaching, downloading, ingesting, or deleting another tenant's storage

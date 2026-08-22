@@ -64,3 +64,23 @@ export function stripNotificationSecret<
 >(config: T): T {
   return mapSecret(config, () => null)
 }
+
+/**
+ * Preserve an existing secret when a response-redacted config is saved without
+ * a `webhook.secret` field. An explicit `null` remains a deliberate clear.
+ */
+export function preserveNotificationSecret<
+  T extends NotificationConfigLike | null | undefined
+>(existing: T, updated: T): T {
+  if (
+    updated?.webhook &&
+    updated.webhook.secret === undefined &&
+    existing?.webhook?.secret
+  ) {
+    return {
+      ...updated,
+      webhook: { ...updated.webhook, secret: existing.webhook.secret }
+    } as T
+  }
+  return updated
+}

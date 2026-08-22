@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth/route-handler'
+import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getCalendarConnections } from '@vibesboard/scheduling/connections'
@@ -20,6 +20,9 @@ export async function GET() {
   if (!tenantId) {
     return NextResponse.json({ error: 'No active tenant' }, { status: 400 })
   }
+
+  const adminResult = await requireTenantAdmin(tenantId)
+  if (!adminResult.ok) return adminResult.response
 
   const enabled = await isFeatureEnabled(tenantId, 'AGENT_ACTIONS')
   if (!enabled) {
