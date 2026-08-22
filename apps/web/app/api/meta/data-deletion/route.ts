@@ -5,6 +5,7 @@ import {
   updateDeletionRequest,
   deleteInstagramDataForMetaUser
 } from '@vibesboard/channel-instagram/data-deletion'
+import { getCanonicalOrigin } from '@/lib/app-url'
 
 export const runtime = 'nodejs'
 
@@ -46,7 +47,9 @@ function parseSignedRequest(
 
     return JSON.parse(payload.toString('utf-8'))
   } catch (error) {
-    console.error('[Data Deletion] Failed to parse signed_request:', error)
+    console.error('[Data Deletion] Failed to parse signed request', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
     return null
   }
 }
@@ -96,16 +99,20 @@ export async function POST(request: NextRequest) {
     // Store the deletion request for status tracking
     await createDeletionRequest(confirmationCode, metaUserId)
 
-    // Find and delete Instagram inbox data for this Meta user asynchronously
-    deleteUserData(metaUserId, confirmationCode).catch(err => {
-      console.error('[Data Deletion] Background deletion failed:', err)
+    // Complete deletion before acknowledging the callback. Cloud Run may stop
+    // the instance as soon as the response is sent, so an unawaited promise is
+    // not a durable job queue and can leave the request pending forever.
+    await deleteUserData(metaUserId, confirmationCode).catch(error => {
+      console.error('[Data Deletion] Deletion failed', {
+        name: error instanceof Error ? error.name : 'UnknownError'
+      })
     })
 
     // Build status URL
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXTAUTH_URL ||
-      `https://${request.headers.get('host')}`
+    const fallbackOrigin = process.env.NEXTAUTH_URL
+      ? new URL(process.env.NEXTAUTH_URL).origin
+      : new URL(request.url).origin
+    const baseUrl = getCanonicalOrigin(fallbackOrigin)
 
     const statusUrl = `${baseUrl}/deletion-status?id=${confirmationCode}`
 
@@ -113,8 +120,10 @@ export async function POST(request: NextRequest) {
       url: statusUrl,
       confirmation_code: confirmationCode
     })
-  } catch (error: any) {
-    console.error('[Data Deletion] Error:', error)
+  } catch (error: unknown) {
+    console.error('[Data Deletion] Request failed', {
+      name: error instanceof Error ? error.name : 'UnknownError'
+    })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -140,14 +149,12 @@ async function deleteUserData(
       completedAt: new Date()
     })
 
-    console.log(
-      `[Data Deletion] Completed for Meta user ${metaUserId}: ${deletedCount} account(s) deleted`
-    )
+    console.log('[Data Deletion] Completed', { deletedAccounts: deletedCount })
   } catch (error) {
     // Mark as failed
     await updateDeletionRequest(confirmationCode, {
       status: 'failed',
-      error: String(error)
+      error: 'Deletion failed; retry required.'
     })
     throw error
   }

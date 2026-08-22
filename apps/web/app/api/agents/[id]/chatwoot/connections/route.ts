@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { requireAuth } from '@/lib/auth/route-handler'
+import { getCanonicalOrigin } from '@/lib/app-url'
 import { getAgentById } from '@vibesboard/agents/server'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
@@ -16,8 +17,7 @@ import {
 import {
   createChatwootConnection,
   listChatwootConnections,
-  generateConnectionId,
-  generateWebhookSecret
+  generateConnectionId
 } from '@vibesboard/channel-chatwoot/connections'
 import { validateWebhookUrl } from '@vibesboard/data/validate-webhook-url'
 
@@ -108,23 +108,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // 3. Generate connection ID, webhook secret, and build URL
+    // 3. Generate the opaque connection ID and build a canonical URL. Secrets
+    // never belong in query strings: reverse proxies and access logs routinely
+    // retain full request URLs.
     const connectionId = generateConnectionId()
-    const webhookSecret = generateWebhookSecret()
-
-    let appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000')
+    let appUrl = getCanonicalOrigin(request.nextUrl.origin)
     // Ensure HTTPS in production — HTTP webhooks get silently dropped by redirects
     if (!appUrl.startsWith('http://localhost')) {
       appUrl = appUrl.replace(/^http:\/\//, 'https://')
     }
-    const webhookUrl = `${appUrl}/api/webhooks/chatwoot/${connectionId}?secret=${webhookSecret}`
+    const webhookUrl = `${appUrl}/api/webhooks/chatwoot/${connectionId}`
 
     // 4. Create webhook in Chatwoot
     let chatwootWebhookId: number | null = null
+    let webhookSigningSecret: string | null = null
     try {
       const webhook = await createChatwootWebhook(
         validated.chatwootUrl,
@@ -133,12 +130,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         webhookUrl
       )
       chatwootWebhookId = webhook.id
+      webhookSigningSecret = webhook.secret?.trim() || null
     } catch (err) {
       console.error('[chatwoot] Failed to create webhook:', err)
       return NextResponse.json(
         {
           error:
             'Failed to create webhook in Chatwoot. Please ensure your token has permission to manage webhooks.'
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!webhookSigningSecret) {
+      if (chatwootWebhookId) {
+        await deleteChatwootWebhook(
+          validated.chatwootUrl,
+          validated.apiToken,
+          credResult.accountId,
+          chatwootWebhookId
+        )
+      }
+      return NextResponse.json(
+        {
+          error:
+            'This Chatwoot version does not provide signed webhooks. Upgrade Chatwoot and reconnect.'
         },
         { status: 400 }
       )
@@ -158,7 +174,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           validated.chatwootUrl,
           validated.apiToken,
           credResult.accountId,
-          { name: botName, outgoingUrl: webhookUrl }
+          // Account webhooks deliver the signed event. Agent Bot outgoing
+          // callbacks are unsigned, so do not register a second insecure path.
+          { name: botName }
         )
         console.log(
           `[chatwoot] Agent bot created: id=${bot?.id}, has_token=${!!bot?.access_token}`
@@ -174,9 +192,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             chatwootWebhookId
           )
         }
-        const detail = err instanceof Error ? err.message : String(err)
         return NextResponse.json(
-          { error: `Failed to create agent bot: ${detail}` },
+          {
+            error:
+              'Failed to create agent bot. Verify the Chatwoot permissions and try again.'
+          },
           { status: 400 }
         )
       }
@@ -237,10 +257,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             chatwootWebhookId
           )
         }
-        const detail = err instanceof Error ? err.message : String(err)
         return NextResponse.json(
           {
-            error: `Agent bot created but failed to assign to inbox: ${detail}`
+            error:
+              'Agent bot was created but could not be assigned to the inbox.'
           },
           { status: 400 }
         )
@@ -258,7 +278,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         inboxId: validated.inboxId,
         inboxName: selectedInbox.name,
         chatwootWebhookId,
-        webhookSecret,
+        webhookSecret: webhookSigningSecret,
         agentBotId,
         agentBotName,
         botToken: botAccessToken,

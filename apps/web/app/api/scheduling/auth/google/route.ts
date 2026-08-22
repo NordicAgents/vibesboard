@@ -6,6 +6,7 @@ import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import { getGoogleAuthUrl } from '@vibesboard/scheduling/google-auth'
 import { getSafeSchedulingReturnTo } from '@vibesboard/scheduling/oauth-return'
+import { getCanonicalOrigin } from '@/lib/app-url'
 
 export const runtime = 'nodejs'
 
@@ -44,7 +45,8 @@ export async function GET(req: Request) {
     ?.split(',')[0]
     ?.trim()
   const proto = (h.get('x-forwarded-proto') || 'https').split(',')[0]?.trim()
-  const origin = host ? `${proto}://${host}` : new URL(req.url).origin
+  const headerOrigin = host ? `${proto}://${host}` : new URL(req.url).origin
+  const origin = getCanonicalOrigin(headerOrigin)
   const redirectUri = `${origin}${CALLBACK_PATH}`
 
   // Generate a random CSRF nonce, store it in an httpOnly cookie, and embed it

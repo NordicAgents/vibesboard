@@ -40,10 +40,8 @@ async function chatwootFetch<T>(
   )
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(
-      `Chatwoot API error ${res.status}: ${text || res.statusText}`
-    )
+    await res.body?.cancel().catch(() => undefined)
+    throw new Error(`Chatwoot API error ${res.status}`)
   }
 
   // Handle empty responses (204 No Content, or 200 with empty body)
@@ -78,6 +76,8 @@ export interface ChatwootWebhook {
   url: string
   subscriptions: string[]
   account_id: number
+  /** HMAC key returned once by Chatwoot 4.11+ when the webhook is created. */
+  secret?: string
 }
 
 export interface ChatwootAgentBot {
@@ -166,7 +166,9 @@ export async function createChatwootWebhook(
   webhookUrl: string
 ): Promise<ChatwootWebhook> {
   const data = await chatwootFetch<
-    ChatwootWebhook & { payload?: ChatwootWebhook }
+    ChatwootWebhook & {
+      payload?: ChatwootWebhook | { webhook?: ChatwootWebhook }
+    }
   >(chatwootUrl, `/api/v1/accounts/${accountId}/webhooks`, apiToken, {
     method: 'POST',
     body: JSON.stringify({
@@ -175,8 +177,17 @@ export async function createChatwootWebhook(
     })
   })
 
-  // Chatwoot returns the webhook directly, not wrapped in payload
-  return data.payload ?? data
+  // Current Chatwoot wraps create responses as payload.webhook; older
+  // releases returned either payload or the webhook directly.
+  const payload = data.payload
+  let webhook: ChatwootWebhook | undefined
+  if (!payload) webhook = data
+  else if ('id' in payload) webhook = payload
+  else webhook = payload.webhook
+  if (!webhook || !Number.isInteger(webhook.id)) {
+    throw new Error('Chatwoot returned an invalid webhook response')
+  }
+  return webhook
 }
 
 /**
@@ -196,7 +207,9 @@ export async function deleteChatwootWebhook(
       { method: 'DELETE' }
     )
   } catch (err) {
-    console.error('[chatwoot] Failed to delete webhook:', err)
+    console.error('[chatwoot] Failed to delete webhook', {
+      error: err instanceof Error ? err.name : 'UnknownError'
+    })
   }
 }
 
@@ -286,7 +299,9 @@ export async function deleteChatwootAgentBot(
       { method: 'DELETE' }
     )
   } catch (err) {
-    console.error('[chatwoot] Failed to delete agent bot:', err)
+    console.error('[chatwoot] Failed to delete agent bot', {
+      error: err instanceof Error ? err.name : 'UnknownError'
+    })
   }
 }
 
@@ -332,7 +347,9 @@ export async function unassignAgentBotFromInbox(
       }
     )
   } catch (err) {
-    console.error('[chatwoot] Failed to unassign agent bot from inbox:', err)
+    console.error('[chatwoot] Failed to unassign agent bot from inbox', {
+      error: err instanceof Error ? err.name : 'UnknownError'
+    })
   }
 }
 

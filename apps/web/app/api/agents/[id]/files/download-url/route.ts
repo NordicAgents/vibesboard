@@ -54,12 +54,7 @@ export async function GET(
   // ...and membership alone is not enough: the fileKeys array is caller-
   // writable, so require a key bound to this exact agent as defence in depth.
   if (
-    !isPermittedAgentFileKey(
-      fileKey,
-      agent.tenantId,
-      agent.id,
-      agent.userId
-    )
+    !isPermittedAgentFileKey(fileKey, agent.tenantId, agent.id, agent.userId)
   ) {
     return new NextResponse('Forbidden', { status: 403 })
   }
@@ -67,9 +62,12 @@ export async function GET(
   try {
     const downloadUrl = await getSignedDownloadUrl(fileKey)
     return NextResponse.json({ downloadUrl })
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[file-download] Failed to create signed download URL', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
     return NextResponse.json(
-      { error: error?.message ?? 'Failed to generate download URL' },
+      { error: 'Failed to generate download URL' },
       { status: 500 }
     )
   }

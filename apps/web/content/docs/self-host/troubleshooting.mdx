@@ -59,7 +59,7 @@ Free the conflicting port, or override the relevant service configuration:
 
 ### Every route returns 500 after `bun install`
 
-<Callout type="warning" title="Bun 1.2.18 can materialize a partial node_modules tree">
+<Callout type="warning" title="A stale install can materialize a partial node_modules tree">
   On a stale tree, a plain `bun install` can install top-level packages while
   failing to materialize the *nested* copies the lockfile requires. In the
   Next.js/Turbopack dev server this shows up as every route — including `/`
@@ -84,10 +84,8 @@ rm -rf apps/web/.next
 
 </Callout>
 
-Bun 1.2.18 also rewrites `bun.lock` without the `configVersion` key that newer
-Bun versions write. If `bun install --force` leaves that single-line diff in
-`bun.lock`, it's a Bun-version artifact, not a real dependency change — revert
-it with `git checkout bun.lock` before committing.
+Use the repository-pinned Bun release when regenerating `bun.lock`; different
+tool versions can rewrite lockfile metadata even when dependencies are unchanged.
 
 ### Emails don't arrive locally
 

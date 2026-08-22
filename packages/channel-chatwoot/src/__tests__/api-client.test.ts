@@ -97,7 +97,7 @@ describe('chatwootFetch transport contract (via public functions)', () => {
       new Response('nope', { status: 403, statusText: 'Forbidden' })
     await expect(
       sendChatwootMessage('https://cw.example.com', 'tok', 1, 2, 'hi')
-    ).rejects.toThrow(/Chatwoot API error 403: nope/)
+    ).rejects.toThrow(/Chatwoot API error 403/)
   })
 
   it('falls back to statusText when the error body is empty', async () => {
@@ -105,7 +105,7 @@ describe('chatwootFetch transport contract (via public functions)', () => {
       new Response('', { status: 500, statusText: 'Internal Server Error' })
     await expect(
       sendChatwootMessage('https://cw.example.com', 'tok', 1, 2, 'hi')
-    ).rejects.toThrow(/Chatwoot API error 500: Internal Server Error/)
+    ).rejects.toThrow(/Chatwoot API error 500/)
   })
 
   it('returns undefined for an empty (no-content) body', async () => {
@@ -264,7 +264,8 @@ describe('createChatwootWebhook', () => {
         id: 100,
         url: 'https://app/hook',
         subscriptions: ['message_created'],
-        account_id: 7
+        account_id: 7,
+        secret: 'signing-secret'
       })
     const hook = await createChatwootWebhook(
       'https://cw.example.com',
@@ -273,6 +274,7 @@ describe('createChatwootWebhook', () => {
       'https://app/hook'
     )
     expect(hook.id).toBe(100)
+    expect(hook.secret).toBe('signing-secret')
     expect(calls[0]!.url).toBe(
       'https://cw.example.com/api/v1/accounts/7/webhooks'
     )
@@ -283,11 +285,34 @@ describe('createChatwootWebhook', () => {
     })
   })
 
-  it('unwraps a payload-wrapped webhook response', async () => {
+  it('unwraps the current payload.webhook response shape', async () => {
     responder = () =>
       jsonResponse({
         payload: {
-          id: 200,
+          webhook: {
+            id: 200,
+            url: 'https://app/hook',
+            subscriptions: ['message_created'],
+            account_id: 7,
+            secret: 'nested-signing-secret'
+          }
+        }
+      })
+    const hook = await createChatwootWebhook(
+      'https://cw.example.com',
+      'tok',
+      7,
+      'https://app/hook'
+    )
+    expect(hook.id).toBe(200)
+    expect(hook.secret).toBe('nested-signing-secret')
+  })
+
+  it('unwraps the legacy payload response shape', async () => {
+    responder = () =>
+      jsonResponse({
+        payload: {
+          id: 201,
           url: 'https://app/hook',
           subscriptions: ['message_created'],
           account_id: 7
@@ -299,7 +324,7 @@ describe('createChatwootWebhook', () => {
       7,
       'https://app/hook'
     )
-    expect(hook.id).toBe(200)
+    expect(hook.id).toBe(201)
   })
 })
 
@@ -466,6 +491,6 @@ describe('conversation status toggles', () => {
       new Response('boom', { status: 422, statusText: 'Unprocessable' })
     await expect(
       handoffChatwootConversation('https://cw.example.com', 'tok', 7, 44)
-    ).rejects.toThrow(/Chatwoot API error 422: boom/)
+    ).rejects.toThrow(/Chatwoot API error 422/)
   })
 })

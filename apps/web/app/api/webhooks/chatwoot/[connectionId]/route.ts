@@ -4,10 +4,14 @@ import { nanoid } from 'nanoid'
 
 import {
   getChatwootConnectionById,
-  verifyWebhookSecret
+  verifyChatwootSignature
 } from '@vibesboard/channel-chatwoot/connections'
 import { handleChatwootMessage } from '@vibesboard/channel-chatwoot/agent-handler'
 import { getAgentById } from '@vibesboard/agents/server'
+import {
+  consumeRateLimit,
+  getRateLimitSalt
+} from '@vibesboard/policy/rate-limit'
 import {
   isConversationHandedOff,
   ensureConversation,
@@ -23,41 +27,67 @@ export async function POST(
   try {
     const { connectionId } = await params
 
-    // ── 1. Verify webhook secret ──────────────────────────────────────
-    const secret = req.nextUrl.searchParams.get('secret')
-    if (!secret) {
-      return new NextResponse('Missing secret', { status: 401 })
-    }
-
+    // ── 1. Resolve the connection, then verify Chatwoot's HMAC over the
+    // exact raw bytes before parsing attacker-controlled JSON.
     let connection
     try {
       connection = await getChatwootConnectionById(connectionId)
     } catch (err) {
-      console.error(
-        `[chatwoot] Error looking up connection ${connectionId}:`,
-        err
-      )
+      console.error('[chatwoot] Connection lookup failed', {
+        error: err instanceof Error ? err.name : 'UnknownError'
+      })
       return new NextResponse('Internal error', { status: 500 })
     }
 
     if (!connection) {
-      console.warn(
-        `[chatwoot] No active connection found for ID: ${connectionId}`
-      )
+      console.warn('[chatwoot] No active connection found')
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    if (!verifyWebhookSecret(secret, connection.webhookSecretHash)) {
-      console.warn(
-        `[chatwoot] Invalid webhook secret for connection: ${connectionId}`
+    const signature = req.headers.get('x-chatwoot-signature')
+    const timestamp = req.headers.get('x-chatwoot-timestamp')
+    const deliveryId = req.headers.get('x-chatwoot-delivery')
+    if (
+      !signature ||
+      !timestamp ||
+      !deliveryId ||
+      !/^[0-9a-f-]{36}$/i.test(deliveryId)
+    ) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    const rawBody = await req.text()
+    if (
+      !verifyChatwootSignature(
+        rawBody,
+        signature,
+        timestamp,
+        connection.webhookSecretHash
       )
+    ) {
+      console.warn('[chatwoot] Invalid webhook signature')
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    // Chatwoot reuses X-Chatwoot-Delivery for retries. Anchor the fixed window
+    // to the signed timestamp so the same delivery cannot cross a wall-clock
+    // bucket boundary and execute twice.
+    const replayGuard = await consumeRateLimit({
+      scope: 'chatwoot-webhook-delivery',
+      identifier: `${connection.id}:${deliveryId}`,
+      salt: getRateLimitSalt(),
+      limit: 1,
+      windowMs: 24 * 60 * 60_000,
+      now: new Date(Number(timestamp) * 1_000)
+    })
+    if (!replayGuard.allowed) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
     // ── 2. Parse Chatwoot webhook payload ─────────────────────────────
     let body: Record<string, any>
     try {
-      body = await req.json()
+      body = JSON.parse(rawBody)
     } catch {
       return new NextResponse('Invalid JSON', { status: 400 })
     }
@@ -134,9 +164,7 @@ export async function POST(
         externalId
       )
       if (handedOff) {
-        console.log(
-          `[chatwoot] Conversation ${chatwootConvId} was handed off, storing message without bot response`
-        )
+        console.log('[chatwoot] Handed-off message stored without bot response')
         // Store the customer message so the human agent can see it in Vibesboard
         const userMessage = {
           id: nanoid(),
@@ -162,33 +190,31 @@ export async function POST(
     // ── 3. Load agent ─────────────────────────────────────────────────
     const agent = await getAgentById(connection.agentId)
     if (!agent) {
-      console.error(`[chatwoot] Agent ${connection.agentId} not found`)
+      console.error('[chatwoot] Configured agent not found')
       return NextResponse.json({ ok: true })
     }
 
-    // ── 4. Fire-and-forget: handle message async ──────────────────────
+    // ── 4. Handle before acknowledging. Serverless runtimes may terminate
+    // work as soon as the response is returned.
     const chatwootConversationId = body.conversation?.id
     const sender = body.sender ?? {}
 
-    console.log(
-      `[chatwoot] Processing message for agent "${agent.name}" from ${sender.name ?? 'Unknown'} in conversation ${chatwootConversationId}`
-    )
+    console.log('[chatwoot] Processing authenticated incoming message')
 
-    handleChatwootMessage(connection, agent, {
+    await handleChatwootMessage(connection, agent, {
       conversationId: chatwootConversationId,
       content: content.trim(),
       senderName: sender.name ?? 'Unknown',
       senderId: sender.id ?? 0,
       inboxId: inboxId ?? connection.chatwootInboxId,
       accountId: connection.chatwootAccountId
-    }).catch(err => {
-      console.error('[chatwoot] Error handling message:', err)
     })
 
-    // Always return 200 immediately to acknowledge the webhook
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[chatwoot] Unexpected webhook error:', err)
+    console.error('[chatwoot] Unexpected webhook error', {
+      error: err instanceof Error ? err.name : 'UnknownError'
+    })
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

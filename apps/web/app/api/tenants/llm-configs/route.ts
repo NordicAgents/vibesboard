@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
 import { requireAuth, requireTenantAdmin } from '@/lib/auth/route-handler'
 import { getActiveTenant } from '@/lib/tenant-context'
 import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   listLlmConfigs,
-  createLlmConfig
+  createLlmConfig,
+  resolveTenantNetworkOpts
 } from '@vibesboard/ai/tenant-llm-config'
 import { validateProviderBaseUrl } from '@vibesboard/ai/provider-ssrf-guard'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { tenants } from '@vibesboard/adapter-postgres/schema'
 
 export const runtime = 'nodejs'
 
@@ -68,17 +66,10 @@ async function guardAdminAndFlag(userId: string) {
 }
 
 async function loadNetworkSettings(tenantId: string) {
-  const [row] = await getMigrateDb()
-    .select({
-      llmAllowPrivateHosts: tenants.llmAllowPrivateHosts,
-      llmHostAllowlist: tenants.llmHostAllowlist
-    })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId))
-    .limit(1)
+  const row = await resolveTenantNetworkOpts(tenantId)
   return {
-    allowPrivateHosts: row?.llmAllowPrivateHosts ?? false,
-    hostAllowlist: (row?.llmHostAllowlist ?? []) as string[]
+    allowPrivateHosts: row.allowPrivateHosts,
+    hostAllowlist: row.hostAllowlist
   }
 }
 

@@ -4,7 +4,8 @@ import { uuidv7 } from 'uuidv7'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 
 import * as schema from '@vibesboard/adapter-postgres/schema'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { withDb } from '@vibesboard/adapter-postgres/client'
+import { withTenant } from '@vibesboard/adapter-postgres/tenant-context'
 import {
   conversations as conversationsTable,
   messages as messagesTable,
@@ -16,6 +17,15 @@ import { type VibeAgentConversation } from '@vibesboard/contracts'
 import { isUuid } from '@vibesboard/utils'
 
 type Db = PostgresJsDatabase<typeof schema>
+
+function withConversationDb<T>(
+  tenantId: string,
+  work: (db: Db) => Promise<T>
+): Promise<T> {
+  return withTenant({ tenantId, userId: null, isSuperAdmin: false }, () =>
+    withDb(tx => work(tx as unknown as Db))
+  )
+}
 
 /** Load a conversation row + its ordered messages + latest feedback, mapped. */
 async function loadConversation(
@@ -58,7 +68,7 @@ async function insertMessages(
 ) {
   if (!messages.length) return
   await db.insert(messagesTable).values(
-    messages.map((m) => ({
+    messages.map(m => ({
       id: isUuid(m.id) ? m.id : uuidv7(),
       tenantId,
       conversationId,
@@ -68,7 +78,8 @@ async function insertMessages(
       role: (m.role === 'assistant' ? 'assistant' : 'user') as
         | 'user'
         | 'assistant',
-      content: typeof m.content === 'string' ? m.content : String(m.content ?? '')
+      content:
+        typeof m.content === 'string' ? m.content : String(m.content ?? '')
     }))
   )
 }
@@ -94,18 +105,40 @@ export async function ensureConversation(
     externalId,
     initialMessages = []
   }: EnsureConversationArgs,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<VibeAgentConversation> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      ensureConversation(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          userId,
+          externalId,
+          initialMessages
+        },
+        scopedDb
+      )
+    )
+  }
   if (conversationId) {
     const existing = await loadConversation(db, tenantId, null, conversationId)
     if (existing) {
       if (existing.agentId !== agentId) {
         throw new Error('Conversation does not belong to agent')
       }
-      if (userId && existing.userId && existing.userId !== userId) {
-        throw new Error('Unauthorized conversation access')
-      }
-      if (externalId && existing.externalId && existing.externalId !== externalId) {
+      // Conversations have exactly one caller identity mode. Requiring the
+      // stored and supplied identity to match prevents a public visitor from
+      // attaching to a user-bound conversation (and vice versa) merely by
+      // learning its UUID.
+      const userIdentityMatches = existing.userId
+        ? userId === existing.userId && !externalId
+        : !userId
+      const externalIdentityMatches = existing.externalId
+        ? externalId === existing.externalId && !userId
+        : !externalId
+      if (!userIdentityMatches || !externalIdentityMatches) {
         throw new Error('Unauthorized conversation access')
       }
       return existing
@@ -127,8 +160,9 @@ export async function ensureConversation(
     if (row) return (await loadConversation(db, tenantId, agentId, row.id))!
   }
 
-  const id = conversationId && isUuid(conversationId) ? conversationId : uuidv7()
-  return db.transaction(async (tx) => {
+  const id =
+    conversationId && isUuid(conversationId) ? conversationId : uuidv7()
+  return db.transaction(async tx => {
     await tx.insert(conversationsTable).values({
       id,
       tenantId,
@@ -159,13 +193,38 @@ export async function updateConversationMessages(
     summary,
     respondingAgentId
   }: UpdateConversationArgs,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
-  await db.transaction(async (tx) => {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      updateConversationMessages(
+        {
+          tenantId,
+          agentId,
+          conversationId,
+          messages,
+          summary,
+          respondingAgentId
+        },
+        scopedDb
+      )
+    )
+  }
+  await db.transaction(async tx => {
     await tx
       .delete(messagesTable)
-      .where(eq(messagesTable.conversationId, conversationId))
-    await insertMessages(tx as unknown as Db, tenantId, conversationId, messages)
+      .where(
+        and(
+          eq(messagesTable.tenantId, tenantId),
+          eq(messagesTable.conversationId, conversationId)
+        )
+      )
+    await insertMessages(
+      tx as unknown as Db,
+      tenantId,
+      conversationId,
+      messages
+    )
 
     const patch: Partial<typeof conversationsTable.$inferInsert> = {
       updatedAt: new Date()
@@ -209,8 +268,13 @@ export async function listAgentConversations(
     userId?: string
     externalId?: string
   },
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<VibeAgentConversation[]> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      listAgentConversations(tenantId, agentId, filter, scopedDb)
+    )
+  }
   const conds = [
     eq(conversationsTable.tenantId, tenantId),
     eq(conversationsTable.agentId, agentId)
@@ -224,7 +288,7 @@ export async function listAgentConversations(
     .where(and(...conds))
     .orderBy(desc(conversationsTable.updatedAt))
   if (!rows.length) return []
-  const ids = rows.map((r) => r.id)
+  const ids = rows.map(r => r.id)
   const msgs = await db
     .select()
     .from(messagesTable)
@@ -236,15 +300,20 @@ export async function listAgentConversations(
     arr.push(m)
     byConv.set(m.conversationId, arr)
   }
-  return rows.map((r) => rowToConversation(r, byConv.get(r.id) ?? [], null))
+  return rows.map(r => rowToConversation(r, byConv.get(r.id) ?? [], null))
 }
 
 export async function getConversation(
   tenantId: string,
   agentId: string,
   id: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<VibeAgentConversation | null> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      getConversation(tenantId, agentId, id, scopedDb)
+    )
+  }
   return loadConversation(db, tenantId, agentId, id)
 }
 
@@ -255,8 +324,13 @@ export async function isConversationHandedOff(
   tenantId: string,
   agentId: string,
   externalId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<boolean> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      isConversationHandedOff(tenantId, agentId, externalId, scopedDb)
+    )
+  }
   const [row] = await db
     .select({ handedOff: conversationsTable.handedOff })
     .from(conversationsTable)
@@ -278,8 +352,13 @@ export async function markConversationHandedOff(
   tenantId: string,
   agentId: string,
   conversationId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      markConversationHandedOff(tenantId, agentId, conversationId, scopedDb)
+    )
+  }
   await db
     .update(conversationsTable)
     .set({ handedOff: true, updatedAt: new Date() })
@@ -298,8 +377,13 @@ export async function resumeConversation(
   tenantId: string,
   agentId: string,
   conversationId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      resumeConversation(tenantId, agentId, conversationId, scopedDb)
+    )
+  }
   await db
     .update(conversationsTable)
     .set({ handedOff: false, updatedAt: new Date() })
@@ -326,8 +410,19 @@ export async function recordConversationHandoff(
     toAgentId: string
     toAgentName: string
   },
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      recordConversationHandoff(
+        tenantId,
+        agentId,
+        conversationId,
+        handoff,
+        scopedDb
+      )
+    )
+  }
   const entry = { ...handoff, timestamp: new Date().toISOString() }
   await db
     .update(conversationsTable)
@@ -353,9 +448,14 @@ export async function recordConversationHandoff(
 export async function listHandoffConversationsForAgent(
   tenantId: string,
   agentId: string,
-  db: Db = getMigrateDb(),
+  db?: Db,
   limit = 10
 ): Promise<VibeAgentConversation[]> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      listHandoffConversationsForAgent(tenantId, agentId, scopedDb, limit)
+    )
+  }
   const rows = await db
     .select()
     .from(conversationsTable)
@@ -370,7 +470,7 @@ export async function listHandoffConversationsForAgent(
     .orderBy(desc(conversationsTable.updatedAt))
     .limit(limit)
   if (!rows.length) return []
-  const ids = rows.map((r) => r.id)
+  const ids = rows.map(r => r.id)
   const msgs = await db
     .select()
     .from(messagesTable)
@@ -382,7 +482,7 @@ export async function listHandoffConversationsForAgent(
     arr.push(m)
     byConv.set(m.conversationId, arr)
   }
-  return rows.map((r) => rowToConversation(r, byConv.get(r.id) ?? [], null))
+  return rows.map(r => rowToConversation(r, byConv.get(r.id) ?? [], null))
 }
 
 /**
@@ -394,9 +494,14 @@ export async function deleteConversation(
   tenantId: string,
   agentId: string,
   conversationId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<boolean> {
-  return db.transaction(async (tx) => {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      deleteConversation(tenantId, agentId, conversationId, scopedDb)
+    )
+  }
+  return db.transaction(async tx => {
     const [row] = await tx
       .select({ id: conversationsTable.id })
       .from(conversationsTable)
@@ -434,8 +539,13 @@ export async function recordConversationFeedback(
   tenantId: string,
   conversationId: string,
   feedback: { rating: 'positive' | 'negative'; comment?: string },
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      recordConversationFeedback(tenantId, conversationId, feedback, scopedDb)
+    )
+  }
   await db.insert(conversationFeedbackTable).values({
     id: uuidv7(),
     tenantId,
@@ -453,8 +563,13 @@ export async function closeConversation(
   agentId: string,
   conversationId: string,
   summary: string | null,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<boolean> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      closeConversation(tenantId, agentId, conversationId, summary, scopedDb)
+    )
+  }
   const now = new Date()
   const res = await db
     .update(conversationsTable)
@@ -483,8 +598,19 @@ export async function updateConversationSummary(
   agentId: string,
   conversationId: string,
   summary: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<void> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      updateConversationSummary(
+        tenantId,
+        agentId,
+        conversationId,
+        summary,
+        scopedDb
+      )
+    )
+  }
   const now = new Date()
   await db
     .update(conversationsTable)
@@ -506,8 +632,13 @@ export async function listUnsummarizedVisitorConversations(
   tenantId: string,
   agentId: string,
   limit: number,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<VibeAgentConversation[]> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      listUnsummarizedVisitorConversations(tenantId, agentId, limit, scopedDb)
+    )
+  }
   const rows = await db
     .select()
     .from(conversationsTable)
@@ -523,7 +654,7 @@ export async function listUnsummarizedVisitorConversations(
     .orderBy(desc(conversationsTable.updatedAt))
     .limit(limit)
   if (!rows.length) return []
-  const ids = rows.map((r) => r.id)
+  const ids = rows.map(r => r.id)
   const msgs = await db
     .select()
     .from(messagesTable)
@@ -535,7 +666,7 @@ export async function listUnsummarizedVisitorConversations(
     arr.push(m)
     byConv.set(m.conversationId, arr)
   }
-  return rows.map((r) => rowToConversation(r, byConv.get(r.id) ?? [], null))
+  return rows.map(r => rowToConversation(r, byConv.get(r.id) ?? [], null))
 }
 
 /**
@@ -545,7 +676,12 @@ export async function listUnsummarizedVisitorConversations(
 export async function getConversationAnyAgent(
   tenantId: string,
   conversationId: string,
-  db: Db = getMigrateDb()
+  db?: Db
 ): Promise<VibeAgentConversation | null> {
+  if (!db) {
+    return withConversationDb(tenantId, scopedDb =>
+      getConversationAnyAgent(tenantId, conversationId, scopedDb)
+    )
+  }
   return loadConversation(db, tenantId, null, conversationId)
 }

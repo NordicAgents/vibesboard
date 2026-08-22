@@ -6,12 +6,10 @@ import { isFeatureEnabled } from '@vibesboard/policy/features'
 import {
   getLlmConfig,
   updateLlmConfig,
-  deleteLlmConfig
+  deleteLlmConfig,
+  resolveTenantNetworkOpts
 } from '@vibesboard/ai/tenant-llm-config'
 import { validateProviderBaseUrl } from '@vibesboard/ai/provider-ssrf-guard'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
-import { tenants } from '@vibesboard/adapter-postgres/schema'
-import { eq } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 
@@ -107,17 +105,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   // SSRF check with per-tenant network settings
   if (parsed.data.baseUrl) {
-    const [row] = await getMigrateDb()
-      .select({
-        llmAllowPrivateHosts: tenants.llmAllowPrivateHosts,
-        llmHostAllowlist: tenants.llmHostAllowlist
-      })
-      .from(tenants)
-      .where(eq(tenants.id, guard.tenantId))
-      .limit(1)
+    const row = await resolveTenantNetworkOpts(guard.tenantId)
     const check = validateProviderBaseUrl(parsed.data.baseUrl, {
-      allowPrivateHosts: row?.llmAllowPrivateHosts ?? false,
-      hostAllowlist: (row?.llmHostAllowlist ?? []) as string[]
+      allowPrivateHosts: row.allowPrivateHosts,
+      hostAllowlist: row.hostAllowlist
     })
     if (!check.ok)
       return NextResponse.json({ error: check.error }, { status: 400 })

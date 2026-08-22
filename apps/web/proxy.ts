@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { randomBytes } from 'node:crypto'
 
 // Better Auth's session cookie. On secure (HTTPS) connections it is prefixed
 // with `__Secure-`; on plain http (local dev) it is not. Check both so the
@@ -32,8 +33,55 @@ const RESERVED_SLUGS = new Set([
   'public'
 ])
 
+export function buildContentSecurityPolicy(
+  nonce: string,
+  options: { widget: boolean; development: boolean }
+): string {
+  const scriptSrc = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
+    ...(options.development ? ["'unsafe-eval'"] : [])
+  ].join(' ')
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    // Next, Radix, and the embedded widget currently emit inline style
+    // attributes. Script execution remains nonce-bound; styles are not an
+    // executable trust boundary in modern browsers.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https: wss:",
+    "frame-src 'self' https:",
+    "worker-src 'self' blob:",
+    "media-src 'self' blob: https:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    `frame-ancestors ${options.widget ? '*' : "'self'"}`,
+    ...(options.development ? [] : ['upgrade-insecure-requests'])
+  ].join('; ')
+}
+
+function secureNextResponse(req: NextRequest, nonce: string) {
+  const requestHeaders = new Headers(req.headers)
+  const csp = buildContentSecurityPolicy(nonce, {
+    widget: req.nextUrl.pathname.startsWith('/widget/'),
+    development: process.env.NODE_ENV !== 'production'
+  })
+  requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', csp)
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
+  response.headers.set('Content-Security-Policy', csp)
+  return response
+}
+
 export async function proxy(req: NextRequest) {
-  const res = NextResponse.next()
+  const nonce = randomBytes(16).toString('base64')
+  const res = secureNextResponse(req, nonce)
   const pathname = req.nextUrl.pathname
 
   // Allow public access to invitation pages
@@ -53,7 +101,7 @@ export async function proxy(req: NextRequest) {
 
   // Check for session cookie (secure-prefixed in prod, plain in local dev)
   const sessionCookie = SESSION_COOKIE_NAMES.map(
-    (name) => req.cookies.get(name)?.value
+    name => req.cookies.get(name)?.value
   ).find(Boolean)
 
   // Detect potential /{tenantSlug}/{agentSlug} pattern:
@@ -94,7 +142,15 @@ export async function proxy(req: NextRequest) {
     const redirectUrl = req.nextUrl.clone()
     redirectUrl.pathname = '/sign-in'
     redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+    const redirect = NextResponse.redirect(redirectUrl)
+    redirect.headers.set(
+      'Content-Security-Policy',
+      buildContentSecurityPolicy(nonce, {
+        widget: false,
+        development: process.env.NODE_ENV !== 'production'
+      })
+    )
+    return redirect
   }
 
   // For authenticated users, verify session and check RBAC.

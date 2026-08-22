@@ -15,21 +15,6 @@ import { sealSecret, unsealSecret } from '@vibesboard/utils/secret-box'
 
 type Db = PostgresJsDatabase<typeof schema>
 
-// ─── Startup Validation ─────────────────────────────────────────────
-
-// Fail fast on the server so misconfiguration is caught at boot time,
-// not silently at the first token encrypt/decrypt call.
-// Key rotation IS supported now (see @vibesboard/utils/secret-box): set the new
-// key as ENCRYPTION_KEY and keep the previous one in ENCRYPTION_KEYS_OLD so
-// stored tokens keep decrypting until they are re-sealed on next write.
-if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
-  console.error(
-    '[scheduling/connections] FATAL: ENCRYPTION_KEY environment variable is not set. ' +
-      'Calendar OAuth tokens cannot be encrypted or decrypted. ' +
-      'Set ENCRYPTION_KEY before deploying.'
-  )
-}
-
 // ─── Token Encryption ───────────────────────────────────────────────
 
 // Authenticated (AES-256-GCM) encryption with key rotation and transparent

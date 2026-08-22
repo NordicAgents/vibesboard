@@ -17,8 +17,8 @@ For security problems, do **not** open an issue. Follow
 
 Requirements:
 
-- [Bun](https://bun.sh) 1.2.18
-- Node.js 22
+- [Bun](https://bun.sh) 1.3.14
+- Node.js 24 LTS
 - Docker with Compose
 - An OpenAI API key for the platform fallback model
 

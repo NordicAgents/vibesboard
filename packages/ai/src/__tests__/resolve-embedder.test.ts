@@ -3,15 +3,21 @@ import type { CredStore } from '../cred-store/types.ts'
 
 // vi.mock is hoisted by vitest before imports, so both modules are mocked
 // before tenant-llm-config.ts is evaluated.
-vi.mock('@vibesboard/adapter-postgres/client', () => ({
-  getMigrateDb: vi.fn(),
-}))
+vi.mock('@vibesboard/adapter-postgres/client', () => {
+  const getMigrateDb = vi.fn()
+  return {
+    getMigrateDb,
+    withDb: vi.fn(work => work(getMigrateDb()))
+  }
+})
 
 // Partial mock: only the network call is stubbed, so the module's real
 // constants (PLATFORM_EMBEDDING_MODEL, dimensions, ...) keep their values.
-vi.mock('@vibesboard/adapter-openai', async (importOriginal) => ({
+vi.mock('@vibesboard/adapter-openai', async importOriginal => ({
   ...(await importOriginal<typeof import('@vibesboard/adapter-openai')>()),
-  createEmbedding: vi.fn(async () => ({ data: [{ index: 0, embedding: [0.1, 0.2] }] })),
+  createEmbedding: vi.fn(async () => ({
+    data: [{ index: 0, embedding: [0.1, 0.2] }]
+  }))
 }))
 
 import { getTableName } from 'drizzle-orm'
@@ -28,7 +34,7 @@ const TENANT_ID = 'tenant-abc-123'
 const mockStore: CredStore = {
   seal: vi.fn(async (p: string) => `sealed:${p}`),
   unseal: vi.fn(async () => 'decrypted-key'),
-  revoke: vi.fn(async () => {}),
+  revoke: vi.fn(async () => {})
 }
 
 /**
@@ -50,11 +56,13 @@ function makeDb(rowsFor: (tableName: string) => unknown[]) {
         where: () => chain,
         orderBy: () => chain,
         limit: () => chain,
-        then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
-          Promise.resolve(rows).then(resolve as any, reject),
+        then: (
+          resolve?: (v: unknown) => unknown,
+          reject?: (e: unknown) => unknown
+        ) => Promise.resolve(rows).then(resolve as any, reject)
       }
       return chain
-    },
+    }
   }
   return db
 }
@@ -72,7 +80,7 @@ function makeConfigRow(overrides: Record<string, unknown> = {}) {
     isDefault: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -81,25 +89,32 @@ function makeConfigRow(overrides: Record<string, unknown> = {}) {
  * tenant default is used), the config row itself, and tenants for the
  * private-host opt-in.
  */
-function primeDb(configRow: Record<string, unknown> | null, allowPrivateHosts = false) {
+function primeDb(
+  configRow: Record<string, unknown> | null,
+  allowPrivateHosts = false
+) {
   vi.mocked(getMigrateDb).mockReturnValue(
-    makeDb((table) => {
+    makeDb(table => {
       if (table === TABLE_CONFIGS) return configRow ? [configRow] : []
-      if (table === TABLE_TENANTS) return [{ llmAllowPrivateHosts: allowPrivateHosts }]
+      if (table === TABLE_TENANTS)
+        return [{ llmAllowPrivateHosts: allowPrivateHosts }]
       return []
-    }) as any,
+    }) as any
   )
 }
 
 /** The params createEmbedding was last called with. */
 function lastCall() {
-  return vi.mocked(createEmbedding).mock.calls.at(-1)?.[0] as Record<string, unknown>
+  return vi.mocked(createEmbedding).mock.calls.at(-1)?.[0] as Record<
+    string,
+    unknown
+  >
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(createEmbedding).mockResolvedValue({
-    data: [{ index: 0, embedding: [0.1, 0.2] }],
+    data: [{ index: 0, embedding: [0.1, 0.2] }]
   } as any)
 })
 
@@ -174,8 +189,8 @@ describe('resolveEmbedder — NVIDIA input_type', () => {
     vi.mocked(createEmbedding).mockResolvedValue({
       data: [
         { index: 1, embedding: [2] },
-        { index: 0, embedding: [1] },
-      ],
+        { index: 0, embedding: [1] }
+      ]
     } as any)
 
     const embed = await resolveEmbedder(TENANT_ID, mockStore)
@@ -187,11 +202,13 @@ describe('resolveEmbedder — NVIDIA input_type', () => {
 describe('resolveEmbedder — openai_compatible input_type', () => {
   it("passes the caller's input type through for NIM models", async () => {
     // openai_compatible requires a baseUrl — rowToProviderSpec drops the row without one.
-    primeDb(makeConfigRow({
-      kind: 'openai_compatible',
-      modelId: 'nvidia/nv-embedqa-e5-v5',
-      baseUrl: 'https://integrate.api.nvidia.com/v1',
-    }))
+    primeDb(
+      makeConfigRow({
+        kind: 'openai_compatible',
+        modelId: 'nvidia/nv-embedqa-e5-v5',
+        baseUrl: 'https://integrate.api.nvidia.com/v1'
+      })
+    )
 
     const embed = await resolveEmbedder(TENANT_ID, mockStore, 'query')
     await embed(['a search query'])
@@ -200,15 +217,72 @@ describe('resolveEmbedder — openai_compatible input_type', () => {
   })
 
   it('omits input_type for non-NIM models', async () => {
-    primeDb(makeConfigRow({
-      kind: 'openai_compatible',
-      modelId: 'nomic-embed-text',
-      baseUrl: 'http://ollama.local:11434/v1',
-    }))
+    primeDb(
+      makeConfigRow({
+        kind: 'openai_compatible',
+        modelId: 'nomic-embed-text',
+        baseUrl: 'http://ollama.local:11434/v1'
+      })
+    )
 
     const embed = await resolveEmbedder(TENANT_ID, mockStore, 'query')
     await embed(['a search query'])
 
     expect(lastCall()).not.toHaveProperty('inputType')
+  })
+})
+
+describe('resolveEmbedder — tenant privacy boundary', () => {
+  it('fails instead of sending Anthropic-tenant content to the platform embedder', async () => {
+    primeDb(
+      makeConfigRow({
+        kind: 'anthropic',
+        modelId: 'claude-sonnet-4-5'
+      })
+    )
+
+    await expect(resolveEmbedder(TENANT_ID, mockStore)).rejects.toThrow(
+      /does not provide an embeddings API/i
+    )
+    expect(createEmbedding).not.toHaveBeenCalled()
+  })
+
+  it('propagates tenant credential resolution errors instead of using the platform key', async () => {
+    primeDb(makeConfigRow({ kind: 'openai', modelId: 'gpt-5-mini' }))
+    const failingStore: CredStore = {
+      ...mockStore,
+      unseal: vi.fn(async () => {
+        throw new Error('unable to decrypt tenant credential')
+      })
+    }
+
+    await expect(resolveEmbedder(TENANT_ID, failingStore)).rejects.toThrow(
+      'unable to decrypt tenant credential'
+    )
+    expect(createEmbedding).not.toHaveBeenCalled()
+  })
+
+  it('propagates Google embedding failures instead of using the platform key', async () => {
+    primeDb(
+      makeConfigRow({
+        kind: 'google',
+        modelId: 'gemini-2.5-flash'
+      })
+    )
+    const fetchMock = vi.fn(
+      async () => new Response('embedding model unavailable', { status: 403 })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const embed = await resolveEmbedder(TENANT_ID, mockStore)
+      await expect(embed(['private tenant document'])).rejects.toThrow(
+        /not available for this API key/i
+      )
+      expect(fetchMock).toHaveBeenCalled()
+      expect(createEmbedding).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

@@ -18,14 +18,14 @@ This page lists all provider configs for the active workspace. A fresh workspace
 
 Click **Add Provider**. Fill in the form:
 
-| Field | Description |
-|---|---|
-| **Label** | Friendly name shown in the UI (e.g. "Our Anthropic Key") |
-| **Provider** | `OpenAI`, `Anthropic`, `Google Gemini`, `NVIDIA`, or `OpenAI-Compatible` (Groq, Mistral, Together, Ollama, etc.) |
-| **Model** | Dropdown of official model IDs for the selected provider (★ = recommended). "Custom model ID…" at the bottom for unlisted models. |
-| **API Key** | Your provider API key — stored encrypted at rest, never returned by the API |
-| **Base URL** | _(OpenAI-Compatible only)_ The provider's endpoint (e.g. `https://api.groq.com/openai/v1`). Private/internal addresses require an explicit Network Access opt-in. |
-| **Set as default** | When checked, all agents in this workspace use this config unless they have an explicit override |
+| Field              | Description                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Label**          | Friendly name shown in the UI (e.g. "Our Anthropic Key")                                                                                                          |
+| **Provider**       | `OpenAI`, `Anthropic`, `Google Gemini`, `NVIDIA`, or `OpenAI-Compatible` (Groq, Mistral, Together, Ollama, etc.)                                                  |
+| **Model**          | Dropdown of official model IDs for the selected provider (★ = recommended). "Custom model ID…" at the bottom for unlisted models.                                 |
+| **API Key**        | Your provider API key — stored encrypted at rest, never returned by the API                                                                                       |
+| **Base URL**       | _(OpenAI-Compatible only)_ The provider's endpoint (e.g. `https://api.groq.com/openai/v1`). Private/internal addresses require an explicit Network Access opt-in. |
+| **Set as default** | When checked, all agents in this workspace use this config unless they have an explicit override                                                                  |
 
 Click **Save Provider**. The config is stored immediately.
 
@@ -90,12 +90,12 @@ The BYO-LLM layer is **transparent to end users**. There is no visible change to
 
 ### What changes under the hood
 
-| Scenario | Model used |
-|---|---|
-| Workspace has no provider config | Platform default (`OPENAI_MODEL` env var) |
-| Workspace has a default config (enabled) | Tenant's configured model via tenant's API key |
-| Agent has an explicit `llmConfigId` | That specific config's model, regardless of workspace default |
-| Selected config is disabled or unavailable | Falls through to task, workspace, or platform defaults |
+| Scenario                                             | Model used                                                                                   |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Workspace has no provider config                     | Platform default (`OPENAI_MODEL` env var)                                                    |
+| Workspace has a default config (enabled)             | Tenant's configured model via tenant's API key                                               |
+| Agent has an explicit `llmConfigId`                  | That specific config's model, regardless of workspace default                                |
+| Selected config is disabled or unavailable           | Falls through to task, workspace, or platform defaults                                       |
 | Selected config has an invalid key or provider error | The request fails with a sanitized provider error; test configurations before assigning them |
 
 ### Agent Builder
@@ -135,11 +135,14 @@ resolveEmbedder(tenantId, task='embed')
   │     └──▶ OpenAI Embeddings API with tenant key
   │
   ├─ assigned/default config is google?
-  │     └──▶ Google text-embedding-004 via native API
-  │          (falls back to platform key if embedding model unavailable)
+  │     └──▶ Google embedding models via native API and tenant key
+  │          (fails closed if none is available)
   │
-  ├─ assigned/default config is anthropic or nvidia?
-  │     └──▶ No compatible embedding API — platform key fallback
+  ├─ assigned/default config is nvidia?
+  │     └──▶ Configured model via NVIDIA-compatible embeddings endpoint
+  │
+  ├─ assigned/default config is anthropic?
+  │     └──▶ Configuration error — assign a separate embed-task provider
   │
   └─ no config ──▶ platform OPENAI_API_KEY
 ```
@@ -150,7 +153,7 @@ resolveEmbedder(tenantId, task='embed')
 
 ## Secret Storage
 
-API keys are **never stored in plaintext**. They are encrypted with AES (CryptoJS) using the `ENCRYPTION_KEY` environment variable before being written to `api_key_encrypted` in `tenant_llm_configs`. The same scheme is used for OAuth tokens across calendar and channel integrations.
+API keys are **never stored in plaintext**. They are encrypted with versioned AES-256-GCM authenticated encryption using the `ENCRYPTION_KEY` environment variable before being written to `api_key_encrypted` in `tenant_llm_configs`. Legacy CryptoJS ciphertext remains read-compatible during migration and key rotation. The same secret-box scheme is used for OAuth tokens across calendar and channel integrations.
 
 The key is decrypted in-process at inference time via the `CredStore` interface (`seal` / `unseal` / `revoke`). The current implementation is `EncryptedDbCredStore` — swap the export in `packages/ai/src/cred-store/index.ts` to switch to AWS Secrets Manager or Vault with no other code changes.
 
@@ -160,13 +163,13 @@ Keys are never returned by the API — `GET /api/tenants/llm-configs` omits the 
 
 ## Supported Providers
 
-| Kind | Chat | Embeddings | Notes |
-|---|---|---|---|
-| `openai` | ✅ | ✅ `text-embedding-3-small` | Standard OpenAI API |
-| `anthropic` | ✅ | ❌ Platform fallback | Anthropic has no embedding API |
-| `google` | ✅ | ✅ `text-embedding-004` | Some API keys may not have embedding access; falls back to platform key |
-| `nvidia` | ✅ | ❌ Platform fallback | NVIDIA API Catalog chat models; hosted base URL is supplied automatically |
-| `openai_compatible` | ✅ | ✅ (if endpoint supports `/embeddings`) | Groq, Mistral, Together AI, Ollama, LM Studio, and embedding NIM endpoints |
+| Kind                | Chat | Embeddings                              | Notes                                                                      |
+| ------------------- | ---- | --------------------------------------- | -------------------------------------------------------------------------- |
+| `openai`            | ✅   | ✅ `text-embedding-3-small`             | Standard OpenAI API                                                        |
+| `anthropic`         | ✅   | ❌ Assign an `embed` provider           | Anthropic has no embedding API; routing fails closed                       |
+| `google`            | ✅   | ✅ Tenant-key embedding models          | Unavailable models produce a configuration error; there is no platform hop |
+| `nvidia`            | ✅   | ✅ Configured model                     | Hosted catalog or self-hosted NIM endpoint                                 |
+| `openai_compatible` | ✅   | ✅ (if endpoint supports `/embeddings`) | Groq, Mistral, Together AI, Ollama, LM Studio, and embedding NIM endpoints |
 
 Override the Google embedding model via `GOOGLE_EMBEDDING_MODEL` env var.
 
@@ -175,9 +178,11 @@ Override the Google embedding model via `GOOGLE_EMBEDDING_MODEL` env var.
 ## Security
 
 ### SSRF protection on baseUrl
-`openai_compatible` configs accept a tenant-supplied `baseUrl`. The API validates it at save time and again before model construction. Private IP ranges (`10.x`, `192.168.x`, `169.254.x` IMDS, localhost, and link-local IPv6) are rejected by default. A workspace administrator can explicitly allow private hosts or add specific hosts to the tenant allowlist for on-premise deployments. Only HTTP and HTTPS are accepted.
+
+`openai_compatible` configs accept a tenant-supplied `baseUrl`. The API validates it at save time and the outbound client resolves and pins its DNS address while re-validating redirects. Private IP ranges (`10.x`, `192.168.x`, `169.254.x` IMDS, localhost, and link-local IPv6) are rejected by default. A workspace administrator can explicitly allow private hosts or add specific hosts to the tenant allowlist for on-premise deployments. Only HTTP and HTTPS are accepted.
 
 ### Test-connection error sanitisation
+
 The `/test` endpoint returns sanitised error messages (e.g. "Authentication failed"). Raw provider error bodies (which could expose internal service content) are logged server-side only.
 
 ---
@@ -193,4 +198,3 @@ BYO-LLM is gated by the `BYO_LLM` feature flag (defaults **on**). Platform admin
 - [ ] Migrate secret storage to AWS Secrets Manager for production hardening
 - [ ] Add `provider` + `configId` columns to `usage_counters` for per-provider cost attribution
 - [ ] Health metrics (success rate, last error) per config
-- [ ] DNS rebinding protection on baseUrl (current guard is IP-based, not post-resolution)

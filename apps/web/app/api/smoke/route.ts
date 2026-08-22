@@ -105,10 +105,10 @@ export async function GET(req: Request) {
     return new Response(stream, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' }
     })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message ?? 'Smoke test failed' },
-      { status: 500 }
-    )
+  } catch (error) {
+    console.error('[smoke] Model smoke test failed', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
+    return NextResponse.json({ error: 'Smoke test failed' }, { status: 500 })
   }
 }
