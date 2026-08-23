@@ -48,6 +48,8 @@ function passwordDigest(plaintext: string, salt: string): string {
 
 function legacyV2Digest(plaintext: string, salt: string): string {
   return createHmac('sha256', getSecret())
+    // lgtm[js/insufficient-password-hash] Compatibility-only verification of
+    // existing v2 hashes; hashPassword never creates this format.
     .update(`${LEGACY_HMAC_VERSION}:${salt}:`)
     .update(plaintext)
     .digest('hex')
@@ -58,31 +60,40 @@ function equalHex(left: string, right: string): boolean {
   return timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'))
 }
 
+function parseVersionedHash(
+  hash: string,
+  expectedVersion: string
+): { salt: string; digest: string } | null {
+  const [version, salt, digest, extra] = hash.split('$')
+  if (version !== expectedVersion || extra) return null
+  if (!HEX_16_BYTES.test(salt ?? '') || !HEX_32_BYTES.test(digest ?? '')) {
+    return null
+  }
+  return { salt, digest }
+}
+
 export function hashPassword(plaintext: string): string {
   const salt = randomBytes(16).toString('hex')
   return `${PASSWORD_HASH_VERSION}$${salt}$${passwordDigest(plaintext, salt)}`
 }
 
 export function verifyPassword(plaintext: string, hash: string): boolean {
-  const [version, salt, digest, extra] = hash.split('$')
-  if (
-    version === PASSWORD_HASH_VERSION &&
-    !extra &&
-    HEX_16_BYTES.test(salt ?? '') &&
-    HEX_32_BYTES.test(digest ?? '')
-  ) {
-    return equalHex(passwordDigest(plaintext, salt), digest)
+  const current = parseVersionedHash(hash, PASSWORD_HASH_VERSION)
+  if (current) {
+    return equalHex(
+      passwordDigest(plaintext, current.salt),
+      current.digest
+    )
   }
 
   // Migration path for v2 hashes. New and changed passwords are always v3;
   // this branch can disappear after existing access gates have been rotated.
-  if (
-    version === LEGACY_HMAC_VERSION &&
-    !extra &&
-    HEX_16_BYTES.test(salt ?? '') &&
-    HEX_32_BYTES.test(digest ?? '')
-  ) {
-    return equalHex(legacyV2Digest(plaintext, salt), digest)
+  const legacyV2 = parseVersionedHash(hash, LEGACY_HMAC_VERSION)
+  if (legacyV2) {
+    return equalHex(
+      legacyV2Digest(plaintext, legacyV2.salt),
+      legacyV2.digest
+    )
   }
 
   // Backward compatibility: existing rows contain the old unsalted 64-char
