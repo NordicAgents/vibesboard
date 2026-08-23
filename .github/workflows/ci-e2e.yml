@@ -121,7 +121,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-local
+          # Matrix jobs cannot upload to the same artifact name. job-index is
+          # a stable, slash-free identifier for each shard.
+          name: playwright-report-local-${{ strategy.job-index }}
           path: apps/web/playwright-report-local/
           if-no-files-found: ignore
           retention-days: 14
