@@ -47,10 +47,10 @@ function passwordDigest(plaintext: string, salt: string): string {
 }
 
 function legacyV2Digest(plaintext: string, salt: string): string {
+  // Compatibility-only verification of existing v2 hashes; hashPassword
+  // never creates this format.
   return createHmac('sha256', getSecret())
-    // lgtm[js/insufficient-password-hash] Compatibility-only verification of
-    // existing v2 hashes; hashPassword never creates this format.
-    .update(`${LEGACY_HMAC_VERSION}:${salt}:`)
+    .update(`${LEGACY_HMAC_VERSION}:${salt}:`) // lgtm[js/insufficient-password-hash]
     .update(plaintext)
     .digest('hex')
 }
