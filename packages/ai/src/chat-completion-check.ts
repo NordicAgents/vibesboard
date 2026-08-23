@@ -9,7 +9,7 @@
 const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
   INFO_COMPLETE: '[INFO_COMPLETE]',
-  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/
+  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:\s*(\{[\s\S]*?\})\s*-->/
 }
 
 interface MinimalMessage {

@@ -1,0 +1,1 @@
+ALTER TABLE "agents" ADD COLUMN "source_urls" jsonb DEFAULT '[]'::jsonb NOT NULL;

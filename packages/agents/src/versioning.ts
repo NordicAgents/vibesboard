@@ -32,6 +32,7 @@ export function toAgentConfigSnapshot(row: Agent): AgentConfigSnapshot {
     quickSuggestionsCount: row.quickSuggestionsCount,
     tools: row.tools ?? [],
     fileKeys: row.fileKeys ?? [],
+    sourceUrls: row.sourceUrls ?? [],
     handoffTargets: row.handoffTargets ?? [],
     collectionFields: row.collectionFields ?? null,
     maxResponses: row.maxResponses ?? null,
@@ -91,6 +92,8 @@ export function applySnapshotToAgentUpdate(
     quickSuggestionsCount: snapshot.quickSuggestionsCount,
     tools: snapshot.tools,
     fileKeys: snapshot.fileKeys,
+    // Older snapshots predate persisted website sources.
+    sourceUrls: snapshot.sourceUrls ?? [],
     handoffTargets: snapshot.handoffTargets,
     collectionFields: snapshot.collectionFields,
     maxResponses: snapshot.maxResponses,

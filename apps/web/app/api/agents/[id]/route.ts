@@ -136,7 +136,6 @@ export async function PATCH(
   }
 
   // Build set object from payload — ONLY real columns.
-  // NOTE: sourceUrls & domain intentionally NOT written — no such columns in agents table.
   const set: Record<string, unknown> = { updatedAt: new Date() }
   if (payload.name !== undefined) set.name = payload.name
   if (payload.instructions !== undefined)
@@ -156,6 +155,7 @@ export async function PATCH(
     }
     set.fileKeys = payload.fileKeys
   }
+  if (payload.sourceUrls !== undefined) set.sourceUrls = payload.sourceUrls
   if (payload.tools !== undefined) set.tools = payload.tools
   if (typeof payload.allowAnonymous === 'boolean')
     set.allowAnonymous = payload.allowAnonymous

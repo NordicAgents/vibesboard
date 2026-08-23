@@ -41,8 +41,8 @@ const DEFAULT_AGENT_CREATOR_MODEL = 'gpt-5.4-nano'
 type AgentCreatorPayload = ReturnType<typeof upsertAgentSchema.parse>
 
 // Mirrors the Postgres insert shape used by `api/agents/route.ts` POST. The
-// legacy `tenantSlug`/`agentUrl`/`sourceUrls` fields are not columns
-// (slug + tenant join provide them); `totalResponseCount` defaults to 0.
+// legacy `tenantSlug`/`agentUrl` fields are not columns (slug + tenant join
+// provide them); `totalResponseCount` defaults to 0.
 function buildAgentInsertValues(input: {
   agentId: string
   tenantId: string
@@ -67,6 +67,7 @@ function buildAgentInsertValues(input: {
     quickSuggestionsCount: payload.quickSuggestionsCount ?? 4,
     tools: (payload.tools as unknown as string[]) ?? [],
     fileKeys: payload.fileKeys ?? [],
+    sourceUrls: payload.sourceUrls ?? [],
     maxResponses: input.maxResponses,
     maxAgentResponses: input.maxAgentResponses,
     totalResponseCount: 0,

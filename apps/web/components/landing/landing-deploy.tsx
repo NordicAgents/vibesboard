@@ -3,7 +3,6 @@ import { ArrowUpRight, Check } from 'lucide-react'
 
 import { cn } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
-import { LANDING_MEDIA_SHARE_DASHBOARD } from '@/lib/landing-media'
 import { LANDING_OPERATOR } from '@/lib/landing-operator'
 import {
   LANDING_DEPLOY_BODY,
@@ -12,8 +11,7 @@ import {
 } from '@/lib/landing-sections-copy'
 
 import { FadeIn } from './fade-in'
-import { LandingMedia } from './landing-media'
-import { BrowserFrame, LandingSection } from './landing-section'
+import { LandingSection } from './landing-section'
 
 export function LandingDeploy() {
   // Server component: the operator settings are read from the environment per
@@ -26,7 +24,10 @@ export function LandingDeploy() {
       label="[06] Deploy"
       heading={LANDING_DEPLOY_HEADING}
       description={LANDING_DEPLOY_BODY}
-      contentClassName="grid gap-6 lg:grid-cols-2"
+      contentClassName={cn(
+        'grid gap-6',
+        options.length > 1 && 'lg:grid-cols-2'
+      )}
     >
       {options.map((option, index) => (
         <FadeIn key={option.id} delay={0.08 * index}>
@@ -76,18 +77,6 @@ export function LandingDeploy() {
           </div>
         </FadeIn>
       ))}
-
-      <FadeIn className="lg:col-span-2">
-        <BrowserFrame
-          label="Every agent gets a public link and a QR code"
-          className="mt-4"
-        >
-          <LandingMedia
-            asset={LANDING_MEDIA_SHARE_DASHBOARD}
-            sizes="(max-width: 1024px) 100vw, 80vw"
-          />
-        </BrowserFrame>
-      </FadeIn>
     </LandingSection>
   )
 }

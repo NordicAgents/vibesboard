@@ -24,9 +24,24 @@ export interface ChatPanelProps {
   agentMode?: AgentMode
   agentName?: string
   onChatComplete?: () => void
+  onClose?: () => void
   onCorrect?: () => void
   onEndConversation?: () => void
   quickSuggestions?: string[]
+}
+
+export function shouldShowChatCompletion({
+  isChatComplete,
+  isAgentDisabled,
+  isLoading,
+  agentMode
+}: Pick<
+  ChatPanelProps,
+  'isChatComplete' | 'isAgentDisabled' | 'isLoading' | 'agentMode'
+>) {
+  if (isLoading) return false
+  if (isAgentDisabled) return true
+  return agentMode === 'collector' && Boolean(isChatComplete)
 }
 
 export function ChatPanel({
@@ -42,6 +57,7 @@ export function ChatPanel({
   agentMode = 'provider',
   agentName,
   onChatComplete,
+  onClose,
   onCorrect,
   onEndConversation,
   quickSuggestions = []
@@ -65,7 +81,12 @@ export function ChatPanel({
       {/* Centered content column — matches message column width */}
       <div className="mx-auto w-full max-w-full px-3 pb-5 pt-2 sm:max-w-[760px] sm:px-6">
         <AnimatePresence mode="wait">
-          {isChatComplete && !isLoading ? (
+          {shouldShowChatCompletion({
+            isChatComplete,
+            isAgentDisabled,
+            isLoading,
+            agentMode
+          }) ? (
             <motion.div
               key="complete"
               initial={{ opacity: 0, y: 8 }}
@@ -127,12 +148,14 @@ export function ChatPanel({
                 setInput={setInput}
                 isLoading={isLoading}
                 onStop={() => stop()}
+                onClose={onClose}
                 canRegenerate={canRegenerate}
                 onRegenerate={() => reload()}
               />
 
               {/* Escape hatch — always accessible so the user is never stuck */}
               {onEndConversation &&
+                agentMode === 'collector' &&
                 !isLoading &&
                 messages &&
                 messages.length > 1 && (
