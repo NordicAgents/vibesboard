@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-Open-source platform agentic platform to build, deploy, and scale agents that vibe with people.Vibesboard — build agents for vibing with people. 
+Open-source platform agentic platform to build, deploy, and scale agents that vibe with people.
 </p>
 
 <p align="center">
