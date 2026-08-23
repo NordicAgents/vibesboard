@@ -11,10 +11,17 @@ describe('safeImageUrl', () => {
     )
   })
 
+  it('preserves safe same-origin root-relative image URLs', () => {
+    expect(safeImageUrl('/api/tenants/tenant-1/branding/logo?v=123')).toBe(
+      '/api/tenants/tenant-1/branding/logo?v=123'
+    )
+  })
+
   it('rejects executable, inline, and malformed URLs', () => {
     expect(safeImageUrl('javascript:alert(1)')).toBeNull()
     expect(safeImageUrl('data:image/svg+xml,<svg onload=alert(1)>')).toBeNull()
     expect(safeImageUrl('//example.com/logo.png')).toBeNull()
+    expect(safeImageUrl('/\\example.com/logo.png')).toBeNull()
     expect(safeImageUrl('not-a-url')).toBeNull()
   })
 })

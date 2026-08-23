@@ -91,7 +91,7 @@ describe('PUT /api/agents/[id]/access-password', () => {
     expect(id).toBe('agent-1')
     expect(hash).not.toBe('hunter2')
     expect(hash).toContain(':')
-    expect(verifyPassword('hunter2', hash)).toBe(true)
+    await expect(verifyPassword('hunter2', hash)).resolves.toBe(true)
   })
 
   it('returns 401 when unauthenticated', async () => {

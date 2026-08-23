@@ -2,7 +2,7 @@ import {
   createHmac,
   randomBytes,
   randomInt,
-  scryptSync,
+  scrypt,
   timingSafeEqual
 } from 'crypto'
 
@@ -32,18 +32,27 @@ const SCRYPT_OPTIONS = {
   maxmem: 64 * 1024 * 1024
 } as const
 
-function passwordDigest(plaintext: string, salt: string): string {
+function derivePasswordDigest(
+  plaintext: string,
+  salt: string
+): Promise<string> {
   const peppered = Buffer.concat([
     Buffer.from(plaintext, 'utf8'),
     Buffer.from([0]),
     Buffer.from(getSecret(), 'utf8')
   ])
-  return scryptSync(
-    peppered,
-    Buffer.from(salt, 'hex'),
-    32,
-    SCRYPT_OPTIONS
-  ).toString('hex')
+  return new Promise((resolve, reject) => {
+    scrypt(
+      peppered,
+      Buffer.from(salt, 'hex'),
+      32,
+      SCRYPT_OPTIONS,
+      (error, derivedKey) => {
+        if (error) reject(error)
+        else resolve(derivedKey.toString('hex'))
+      }
+    )
+  })
 }
 
 function legacyV2Digest(plaintext: string, salt: string): string {
@@ -72,16 +81,20 @@ function parseVersionedHash(
   return { salt, digest }
 }
 
-export function hashPassword(plaintext: string): string {
+export async function hashPassword(plaintext: string): Promise<string> {
   const salt = randomBytes(16).toString('hex')
-  return `${PASSWORD_HASH_VERSION}$${salt}$${passwordDigest(plaintext, salt)}`
+  const digest = await derivePasswordDigest(plaintext, salt)
+  return `${PASSWORD_HASH_VERSION}$${salt}$${digest}`
 }
 
-export function verifyPassword(plaintext: string, hash: string): boolean {
+export async function verifyPassword(
+  plaintext: string,
+  hash: string
+): Promise<boolean> {
   const current = parseVersionedHash(hash, PASSWORD_HASH_VERSION)
   if (current) {
     return equalHex(
-      passwordDigest(plaintext, current.salt),
+      await derivePasswordDigest(plaintext, current.salt),
       current.digest
     )
   }

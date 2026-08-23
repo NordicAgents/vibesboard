@@ -31,24 +31,30 @@ describe('getSecret', () => {
 })
 
 describe('hashPassword', () => {
-  it('uses a memory-hard v3 digest and a different salt for the same password', () => {
-    const hash1 = hashPassword('mypassword')
-    const hash2 = hashPassword('mypassword')
+  it('is asynchronous so memory-hard derivation does not block request handling', async () => {
+    const pending = hashPassword('mypassword')
+    expect(pending).toBeInstanceOf(Promise)
+    await pending
+  })
+
+  it('uses a memory-hard v3 digest and a different salt for the same password', async () => {
+    const hash1 = await hashPassword('mypassword')
+    const hash2 = await hashPassword('mypassword')
     expect(hash1).not.toBe(hash2)
     expect(hash1).toMatch(/^v3\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
   })
 
-  it('produces different hashes for different inputs', () => {
-    const hash1 = hashPassword('password1')
-    const hash2 = hashPassword('password2')
+  it('produces different hashes for different inputs', async () => {
+    const hash1 = await hashPassword('password1')
+    const hash2 = await hashPassword('password2')
     expect(hash1).not.toBe(hash2)
   })
 
-  it('throws when ACCESS_GATE_SECRET is not set', () => {
+  it('throws when ACCESS_GATE_SECRET is not set', async () => {
     const original = process.env.ACCESS_GATE_SECRET
     delete process.env.ACCESS_GATE_SECRET
     try {
-      expect(() => hashPassword('test')).toThrow(/ACCESS_GATE_SECRET/)
+      await expect(hashPassword('test')).rejects.toThrow(/ACCESS_GATE_SECRET/)
     } finally {
       process.env.ACCESS_GATE_SECRET = original
     }
@@ -56,40 +62,46 @@ describe('hashPassword', () => {
 })
 
 describe('verifyPassword', () => {
-  it('returns true for matching password', () => {
-    const hash = hashPassword('correct-password')
-    expect(verifyPassword('correct-password', hash)).toBe(true)
+  it('is asynchronous so verification does not block request handling', async () => {
+    const pending = verifyPassword('anything', 'short')
+    expect(pending).toBeInstanceOf(Promise)
+    await pending
   })
 
-  it('returns false for wrong password', () => {
-    const hash = hashPassword('correct-password')
-    expect(verifyPassword('wrong-password', hash)).toBe(false)
+  it('returns true for matching password', async () => {
+    const hash = await hashPassword('correct-password')
+    await expect(verifyPassword('correct-password', hash)).resolves.toBe(true)
   })
 
-  it('returns false for different-length hash', () => {
-    expect(verifyPassword('anything', 'short')).toBe(false)
+  it('returns false for wrong password', async () => {
+    const hash = await hashPassword('correct-password')
+    await expect(verifyPassword('wrong-password', hash)).resolves.toBe(false)
   })
 
-  it('returns false for empty hash', () => {
-    expect(verifyPassword('anything', '')).toBe(false)
+  it('returns false for different-length hash', async () => {
+    await expect(verifyPassword('anything', 'short')).resolves.toBe(false)
   })
 
-  it('returns false for tampered hash (single char difference)', () => {
-    const hash = hashPassword('mypassword')
+  it('returns false for empty hash', async () => {
+    await expect(verifyPassword('anything', '')).resolves.toBe(false)
+  })
+
+  it('returns false for tampered hash (single char difference)', async () => {
+    const hash = await hashPassword('mypassword')
     const lastChar = hash[hash.length - 1]
     const tampered = hash.slice(0, -1) + (lastChar === '0' ? '1' : '0')
-    expect(verifyPassword('mypassword', tampered)).toBe(false)
+    await expect(verifyPassword('mypassword', tampered)).resolves.toBe(false)
   })
 
-  it('verifies legacy unsalted hashes during migration', () => {
+  it('verifies legacy unsalted hashes during migration', async () => {
     const legacy = createHmac('sha256', getSecret())
       .update('legacy-password')
       .digest('hex')
-    expect(verifyPassword('legacy-password', legacy)).toBe(true)
-    expect(verifyPassword('wrong-password', legacy)).toBe(false)
+    await expect(verifyPassword('legacy-password', legacy)).resolves.toBe(true)
+    await expect(verifyPassword('wrong-password', legacy)).resolves.toBe(false)
   })
 
-  it('verifies versioned v2 HMAC hashes during migration', () => {
+  it('verifies versioned v2 HMAC hashes during migration', async () => {
     const salt = '0123456789abcdef0123456789abcdef'
     const digest = createHmac('sha256', getSecret())
       .update(`v2:${salt}:`)
@@ -97,8 +109,10 @@ describe('verifyPassword', () => {
       .digest('hex')
     const legacy = `v2$${salt}$${digest}`
 
-    expect(verifyPassword('legacy-v2-password', legacy)).toBe(true)
-    expect(verifyPassword('wrong-password', legacy)).toBe(false)
+    await expect(
+      verifyPassword('legacy-v2-password', legacy)
+    ).resolves.toBe(true)
+    await expect(verifyPassword('wrong-password', legacy)).resolves.toBe(false)
   })
 })
 
