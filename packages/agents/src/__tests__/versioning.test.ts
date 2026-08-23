@@ -64,6 +64,7 @@ describe('snapshot builder + equality (pure)', () => {
     quickSuggestionsCount: 0,
     tools: ['builtin:calc'],
     fileKeys: [],
+    sourceUrls: ['https://theunseenhook.com'],
     handoffTargets: [],
     collectionFields: null,
     maxResponses: null,
@@ -91,6 +92,7 @@ describe('snapshot builder + equality (pure)', () => {
     expect(snap).not.toHaveProperty('currentVersion')
     expect(snap).not.toHaveProperty('slug')
     expect(snap.instructions).toBe('hi')
+    expect(snap.sourceUrls).toEqual(['https://theunseenhook.com'])
   })
 
   it('snapshotsEqual is order-insensitive and diff-sensitive', () => {

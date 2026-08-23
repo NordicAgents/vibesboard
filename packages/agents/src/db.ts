@@ -363,7 +363,7 @@ export const agentRowToVibeAgent = (
   totalResponseCount: row.totalResponseCount ?? 0,
   quickSuggestionsMode: row.quickSuggestionsMode ?? 'off',
   quickSuggestionsCount: row.quickSuggestionsCount ?? 4,
-  sourceUrls: [],
+  sourceUrls: row.sourceUrls ?? [],
   lastEmbeddingsSyncAt: row.lastEmbeddingsSyncAt?.toISOString() ?? null,
   googleReviewEnabled: row.googleReviewEnabled ?? false,
   googlePlaceId: row.googlePlaceId ?? null,

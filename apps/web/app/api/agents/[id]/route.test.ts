@@ -25,7 +25,8 @@ const AGENT = {
   hasAccessPassword: true,
   accessPassword: 'legacy-secret',
   accessPasswordHash: 'database-secret',
-  fileKeys: [] as string[]
+  fileKeys: [] as string[],
+  sourceUrls: ['https://theunseenhook.com']
 }
 let agent: typeof AGENT | null = AGENT
 const getAgentByIdMock = vi.fn(async (_id: string) => agent)
@@ -139,6 +140,7 @@ describe('GET /api/agents/[id]', () => {
     const body = await res.json()
     expect(body.agent.id).toBe('agent-1')
     expect(body.agent.hasAccessPassword).toBe(true)
+    expect(body.agent.sourceUrls).toEqual(['https://theunseenhook.com'])
     expect(body.agent).not.toHaveProperty('accessPassword')
     expect(body.agent).not.toHaveProperty('accessPasswordHash')
   })
@@ -183,6 +185,19 @@ describe('PATCH /api/agents/[id]', () => {
     )
     expect(res.status).toBe(200)
     expect(updateSpy).toHaveBeenCalledOnce()
+  })
+
+  it('persists website source URLs when they are updated', async () => {
+    const res = await PATCH(
+      patchReq({ sourceUrls: ['https://theunseenhook.com'] }) as never,
+      ctx('agent-1')
+    )
+    expect(res.status).toBe(200)
+    expect(updateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceUrls: ['https://theunseenhook.com']
+      })
+    )
   })
 
   it('returns 401 when unauthenticated', async () => {

@@ -28,6 +28,7 @@ const agentRow = {
   name: 'Support',
   instructions: 'Help customers',
   fileKeys: [],
+  sourceUrls: ['https://theunseenhook.com'],
   tools: [],
   allowAnonymous: false,
   accessPasswordHash: 'must-not-leak',
@@ -103,6 +104,7 @@ describe('GET /api/agents', () => {
 
     const body = await response.json()
     expect(body.agents[0].hasAccessPassword).toBe(true)
+    expect(body.agents[0].sourceUrls).toEqual(['https://theunseenhook.com'])
     expect(body.agents[0]).not.toHaveProperty('accessPassword')
     expect(body.agents[0]).not.toHaveProperty('accessPasswordHash')
     expect(body.agents[0].notificationConfig.webhook).not.toHaveProperty(

@@ -78,11 +78,11 @@ export function LandingFooter() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="safe-area-inset-bottom dark border-t border-white/10 bg-background px-4 py-12 text-foreground sm:px-6 sm:py-16">
+    <footer className="safe-area-inset-bottom dark border-t border-white/10 bg-background px-4 py-8 text-foreground sm:px-6 md:py-16">
       <div className="container mx-auto">
         <div
           className={cn(
-            'grid gap-10 lg:gap-8',
+            'hidden gap-10 md:grid lg:gap-8',
             // Both variants are written out so Tailwind's scanner sees them;
             // an interpolated arbitrary value would not be generated.
             COLUMNS.length === 4
@@ -140,7 +140,7 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-muted-foreground sm:flex-row sm:gap-0">
+        <div className="mt-0 flex flex-col items-center justify-between gap-4 text-xs text-muted-foreground md:mt-12 md:flex-row md:gap-0 md:border-t md:border-white/10 md:pt-6">
           <p className="text-center sm:text-left">
             © {year} Vibesboard · MIT-licensed core · Public beta
           </p>

@@ -156,6 +156,7 @@ describe('schema integrity', () => {
             email: { enabled: false, address: null },
             webhook: { enabled: false, url: null, secret: null },
           },
+          sourceUrls: ['https://theunseenhook.com'],
         })
       })
       const [row] = await adminDb.transaction(async (tx: any) => {
@@ -164,6 +165,7 @@ describe('schema integrity', () => {
       })
       expect(row.notificationConfig?.events).toEqual(['completed', 'handoff'])
       expect(row.notificationConfig?.email.enabled).toBe(false)
+      expect(row.sourceUrls).toEqual(['https://theunseenhook.com'])
     })
   })
 

@@ -32,7 +32,7 @@ import { nanoid } from '@vibesboard/utils'
 const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
   INFO_COMPLETE: '[INFO_COMPLETE]',
-  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/,
+  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:\s*(\{[\s\S]*?\})\s*-->/,
   SUGGESTIONS_REGEX: /<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/g,
   AGENT_HANDOFF_REGEX: /<!--AGENT_HANDOFF:(\{.*?\})-->/,
   HANDOFF_TO_AGENT_MARKER: /\[HANDOFF_TO_AGENT:[a-zA-Z0-9_-]+\]/
@@ -55,6 +55,7 @@ interface AgentChatProps {
   initialMessages?: Message[]
   className?: string
   onChatComplete?: (messages?: Message[], conversationId?: string) => void
+  onClose?: () => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
   agentLogoUrl?: string | null
@@ -70,6 +71,7 @@ export function AgentChat({
   initialMessages,
   className,
   onChatComplete,
+  onClose,
   agentAvatarGradient = 'from-violet-400 to-purple-500',
   agentAvatarInitial = 'A',
   agentLogoUrl,
@@ -602,6 +604,7 @@ export function AgentChat({
           agentMode={agentMode}
           agentName={activeAgentName}
           onChatComplete={handleChatComplete}
+          onClose={onClose}
           onCorrect={handleCorrection}
           onEndConversation={handleEndConversation}
           quickSuggestions={quickSuggestions}
