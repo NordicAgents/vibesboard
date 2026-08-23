@@ -56,7 +56,7 @@ test('landing page renders the hero for a logged-out visitor', async ({
   // — rendered by this page only, never by the shared layout.
   await expect(
     page.getByRole('heading', {
-      name: /the agent platform you host yourself/i,
+      name: /know the real vibe of your customers/i,
       level: 1
     })
   ).toBeVisible()
