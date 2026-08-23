@@ -151,7 +151,8 @@ The channel integrations receive events at fixed endpoints rather than ones you 
   </Card>
   <Card href="/docs/deploy/chatwoot-sync" title="Chatwoot sync">
     Chatwoot posts conversation events to a per-connection URL authenticated by
-    a secret query parameter.
+    a timestamp-bound `X-Chatwoot-Signature` HMAC and a replay-protected
+    `X-Chatwoot-Delivery` identifier.
   </Card>
 </Cards>
 

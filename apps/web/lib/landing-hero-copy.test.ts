@@ -19,27 +19,20 @@ const README = readFileSync(
 )
 
 describe('landing hero copy', () => {
-  it('leads with what the project is, not with a mood', () => {
+  it('leads with a concise promise, not with a mood', () => {
     const heading = `${LANDING_HERO_HEADING_LEAD} ${LANDING_HERO_HEADING_HIGHLIGHT}`
-    expect(heading).toMatch(/agent platform/i)
-    expect(heading).toMatch(/host yourself/i)
+    expect(heading).toBe('Know the real vibe of your customers.')
     expect(heading).not.toMatch(/vibing with people/i)
   })
 
-  it('keeps the promise channel-agnostic and self-hosted', () => {
-    expect(LANDING_HERO_SUBHEADING).toMatch(/every channel/i)
-    expect(LANDING_HERO_SUBHEADING).toMatch(/your data/i)
-    expect(LANDING_HERO_SUBHEADING).toMatch(/your servers/i)
-    // Naming individual networks dates the copy every time one is added.
-    expect(LANDING_HERO_SUBHEADING).not.toMatch(/WhatsApp|Instagram/i)
+  it('makes ownership and business scalability explicit', () => {
+    expect(LANDING_HERO_SUBHEADING).toBe(
+      'Your own agentic platform to build, deploy, and scale agents that vibe with people.'
+    )
   })
 
-  it('badges the three facts a self-hoster checks first', () => {
-    expect(LANDING_HERO_BADGES).toEqual([
-      'MIT core',
-      'Self-hosted',
-      'Bring your own model'
-    ])
+  it('badges the two facts a self-hoster checks first', () => {
+    expect(LANDING_HERO_BADGES).toEqual(['Self-hosted', 'Bring your own model'])
   })
 
   it('sends the primary CTA to the quickstart, not to a signup wall', () => {

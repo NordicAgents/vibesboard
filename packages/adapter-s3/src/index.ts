@@ -8,7 +8,13 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getS3Client, getBucket } from './client.ts'
 
-export { agentFileKey, isAgentFileKey, isCrossTenantFileKey } from './keys.ts'
+export {
+  agentFileKey,
+  isAgentFileKey,
+  isCrossTenantFileKey,
+  isLegacyUserFileKey,
+  isPermittedAgentFileKey
+} from './keys.ts'
 
 /**
  * Generate a signed URL for uploading a file directly from the browser.

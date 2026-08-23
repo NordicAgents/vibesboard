@@ -19,6 +19,10 @@ Connect an agent to a Chatwoot inbox so the agent answers conversations that arr
 
 - A Chatwoot instance (self-hosted or `app.chatwoot.com`) with an account you can administer.
 - A **User Access Token** from that account: Chatwoot → Profile Settings → Access Token.
+- A Chatwoot release whose webhook-create response returns a signing `secret`
+  and whose deliveries include a matching `X-Chatwoot-Signature` HMAC header.
+  Unsigned legacy webhooks are rejected; reconnect pre-existing connections
+  after upgrading so Vibesboard can store the signing key.
 - If you want the agent bot mode (below), the token needs permission to create webhooks and agent bots on the account — Chatwoot only exposes agent-bot management to admin-level tokens.
 
 ## Connecting an inbox
@@ -60,7 +64,7 @@ Request body for the create call:
 }
 ```
 
-The response omits secrets — `encryptedApiToken`, `encryptedBotToken`, and `webhookSecretHash` are stripped before the connection object is returned, both on create and on `GET /api/agents/{id}/chatwoot/connections` (list). The webhook secret itself is never returned to the client at all: it's generated server-side and embedded directly in the webhook URL registered with Chatwoot (`.../api/webhooks/chatwoot/{connectionId}?secret=...`), since Vibesboard is the only party that needs it.
+The response omits secrets — `encryptedApiToken`, `encryptedBotToken`, and the encrypted webhook signing secret are stripped before the connection object is returned, both on create and on `GET /api/agents/{id}/chatwoot/connections` (list). Chatwoot returns the signing secret once when the webhook is created; Vibesboard encrypts it with `ENCRYPTION_KEY`. It is never placed in a URL or returned to the browser.
 
 <Callout type="warning" title="Only the agent's owner can manage connections">
   `connections`, `connections/{id}`, and `validate` all check that the
@@ -79,17 +83,18 @@ The response omits secrets — `encryptedApiToken`, `encryptedBotToken`, and `we
 
 ## Message flow
 
-Chatwoot calls `POST /api/webhooks/chatwoot/{connectionId}?secret=...` on every inbox event it's subscribed to (`message_created`). The handler:
+Chatwoot calls `POST /api/webhooks/chatwoot/{connectionId}` on every inbox event it's subscribed to (`message_created`). The handler:
 
-1. Looks up the connection by `connectionId` and checks the `secret` query param against the stored SHA-256 hash with a timing-safe comparison — no match or no connection returns `401`.
-2. Ignores everything except `message_created` events where `message_type` is `incoming` (Chatwoot sends this as either the string `"incoming"` or `0`).
-3. Ignores messages sent by the connection's own agent bot (`sender.type === 'agent_bot'`), to avoid the bot's own replies triggering itself.
-4. Ignores messages from any inbox other than the one the connection was created for.
-5. Extracts the message text, falling back to a description of attachments (`[image]`, etc.) for media-only messages.
-6. For agent-bot connections, checks whether the conversation was already handed off. If so, the incoming message is stored on the Vibesboard conversation (so a human can see it) but the agent is **not** run.
-7. Otherwise, loads the agent and calls the handler asynchronously, then immediately responds `200 { ok: true }` to acknowledge the webhook regardless of how the agent run turns out.
+1. Reads the exact raw request bytes and verifies `X-Chatwoot-Signature` as HMAC-SHA256 over `X-Chatwoot-Timestamp + "." + rawBody` with the encrypted per-webhook signing key. Requests outside the five-minute timestamp window are rejected.
+2. Atomically consumes `X-Chatwoot-Delivery` in the database so a signed delivery or retry can execute only once. A missing/invalid signature, reused delivery ID, legacy connection, or unknown connection returns `401`.
+3. Ignores everything except `message_created` events where `message_type` is `incoming` (Chatwoot sends this as either the string `"incoming"` or `0`).
+4. Ignores messages sent by the connection's own agent bot (`sender.type === 'agent_bot'`), to avoid the bot's own replies triggering itself.
+5. Ignores messages from any inbox other than the one the connection was created for.
+6. Extracts the message text, falling back to a description of attachments (`[image]`, etc.) for media-only messages.
+7. For agent-bot connections, checks whether the conversation was already handed off. If so, the incoming message is stored on the Vibesboard conversation (so a human can see it) but the agent is **not** run.
+8. Otherwise, loads the agent and awaits the handler before returning `200 { ok: true }`, so a serverless runtime cannot terminate message processing after an early acknowledgement.
 
-The async handler (`handleChatwootMessage`) ties the Chatwoot conversation to a Vibesboard conversation keyed by `chatwoot:{accountId}:{conversationId}`, runs the agent over the full message history, and on completion:
+The handler (`handleChatwootMessage`) ties the Chatwoot conversation to a Vibesboard conversation keyed by `chatwoot:{accountId}:{conversationId}`, runs the agent over the full message history, and on completion:
 
 - Persists the assistant's reply to the conversation and runs auto-summarization.
 - Sends the reply back to Chatwoot — using the bot's token in agent bot mode, or your API token in direct mode.

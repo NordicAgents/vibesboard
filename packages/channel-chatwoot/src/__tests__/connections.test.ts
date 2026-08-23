@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, createHmac, randomUUID } from 'node:crypto'
 import { withTestDb } from '@vibesboard/adapter-postgres/test-utils'
 import { users, tenants, agents } from '@vibesboard/adapter-postgres/schema'
 import { rowToChatwootConnection } from '../db.ts'
@@ -14,7 +14,8 @@ import {
   generateConnectionId,
   generateWebhookSecret,
   verifyWebhookSecret,
-  decryptToken,
+  verifyChatwootSignature,
+  decryptToken
 } from '../connections.ts'
 
 // Encryption key must be set before connections.ts encrypt/decrypt runs.
@@ -30,7 +31,7 @@ async function seedAgent(adminDb: any) {
     name: 'Acme',
     slug: `acme-${t.slice(0, 8)}`,
     createdBy: u,
-    isPersonal: false,
+    isPersonal: false
   })
   await adminDb.insert(agents).values({
     id: a,
@@ -38,7 +39,7 @@ async function seedAgent(adminDb: any) {
     userId: u,
     name: 'A',
     slug: `a-${a.slice(0, 8)}`,
-    instructions: 'ok ok ok',
+    instructions: 'ok ok ok'
   })
   return { tenantId: t, agentId: a, userId: u }
 }
@@ -52,7 +53,7 @@ const baseParams = (overrides: Record<string, unknown> = {}) => ({
   chatwootWebhookId: 9,
   webhookSecret: generateWebhookSecret(),
   useAgentBot: false,
-  ...overrides,
+  ...overrides
 })
 
 // Local sha256 hex helper mirroring connections.ts hashSecret (which is private).
@@ -86,7 +87,7 @@ describe('chatwoot mapper (rowToChatwootConnection)', () => {
       disconnectionReason: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     } as any)
     expect(c.encryptedApiToken).toBe('apiEnc')
     expect(c.encryptedBotToken).toBe('botEnc')
@@ -121,7 +122,7 @@ describe('chatwoot mapper (rowToChatwootConnection)', () => {
       disconnectionReason: null,
       errorMessage: null,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: now
     } as any)
     // userId null -> '' (legacy doc shape)
     expect(c.userId).toBe('')
@@ -163,7 +164,7 @@ describe('chatwoot mapper (rowToChatwootConnection)', () => {
       disconnectionReason: 'manual',
       errorMessage: 'boom',
       createdAt: created,
-      updatedAt: created,
+      updatedAt: created
     } as any)
     expect(c.lastMessageReceivedAt).toBe('2026-05-26T10:11:12.000Z')
     expect(c.disconnectedAt).toBe('2026-05-27T00:00:00.000Z')
@@ -201,11 +202,58 @@ describe('chatwoot webhook secret hashing / verification', () => {
   it('verifyWebhookSecret returns false when stored hash has a different length', () => {
     const secret = generateWebhookSecret()
     // A truncated hash has a different byte length -> early false, no throw.
-    expect(verifyWebhookSecret(secret, sha256Hex(secret).slice(0, 10))).toBe(false)
+    expect(verifyWebhookSecret(secret, sha256Hex(secret).slice(0, 10))).toBe(
+      false
+    )
   })
 
   it('verifyWebhookSecret returns false for an empty stored hash', () => {
     expect(verifyWebhookSecret('anything', '')).toBe(false)
+  })
+})
+
+describe('Chatwoot signed webhook verification', () => {
+  it('verifies an HMAC over the exact raw request body', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, userId } = await seedAgent(adminDb)
+      const secret = generateWebhookSecret()
+      const { connection } = await createChatwootConnection(
+        tenantId,
+        agentId,
+        baseParams({ webhookSecret: secret }),
+        userId,
+        undefined,
+        adminDb
+      )
+      const body = '{"event":"message_created"}'
+      const timestamp = String(Math.floor(Date.now() / 1_000))
+      const signature = `sha256=${createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}`
+
+      expect(
+        verifyChatwootSignature(
+          body,
+          signature,
+          timestamp,
+          connection.webhookSecretHash
+        )
+      ).toBe(true)
+      expect(
+        verifyChatwootSignature(
+          `${body} `,
+          signature,
+          timestamp,
+          connection.webhookSecretHash
+        )
+      ).toBe(false)
+      expect(
+        verifyChatwootSignature(
+          body,
+          signature,
+          String(Number(timestamp) - 301),
+          connection.webhookSecretHash
+        )
+      ).toBe(false)
+    })
   })
 })
 
@@ -224,7 +272,9 @@ describe('chatwoot credential encryption (crypto-js round-trip)', () => {
       // Stored ciphertext must NOT equal the plaintext.
       expect(connection.encryptedApiToken).not.toBe('super-secret-token')
       // Round-trips back to the original plaintext.
-      expect(decryptToken(connection.encryptedApiToken)).toBe('super-secret-token')
+      expect(decryptToken(connection.encryptedApiToken)).toBe(
+        'super-secret-token'
+      )
     })
   })
 
@@ -240,7 +290,7 @@ describe('chatwoot credential encryption (crypto-js round-trip)', () => {
           botToken: 'bot-tok',
           useAgentBot: true,
           agentBotId: 11,
-          agentBotName: 'AgentBot',
+          agentBotName: 'AgentBot'
         }),
         userId,
         undefined,
@@ -248,7 +298,9 @@ describe('chatwoot credential encryption (crypto-js round-trip)', () => {
       )
       expect(withBot.connection.encryptedBotToken).not.toBeNull()
       expect(withBot.connection.encryptedBotToken).not.toBe('bot-tok')
-      expect(decryptToken(withBot.connection.encryptedBotToken!)).toBe('bot-tok')
+      expect(decryptToken(withBot.connection.encryptedBotToken!)).toBe(
+        'bot-tok'
+      )
       expect(withBot.connection.useAgentBot).toBe(true)
       expect(withBot.connection.agentBotId).toBe(11)
       expect(withBot.connection.agentBotName).toBe('AgentBot')
@@ -285,7 +337,9 @@ describe('chatwoot credential encryption (crypto-js round-trip)', () => {
         adminDb
       )
       // CryptoJS AES uses a random salt/IV -> ciphertexts differ...
-      expect(a.connection.encryptedApiToken).not.toBe(b.connection.encryptedApiToken)
+      expect(a.connection.encryptedApiToken).not.toBe(
+        b.connection.encryptedApiToken
+      )
       // ...but both decrypt to the same plaintext.
       expect(decryptToken(a.connection.encryptedApiToken)).toBe('same-token')
       expect(decryptToken(b.connection.encryptedApiToken)).toBe('same-token')
@@ -313,8 +367,19 @@ describe('chatwoot connections CRUD (pg)', () => {
       expect(connection.totalConversations).toBe(0)
       // create echoes back the raw webhook secret for one-time display
       expect(webhookSecret).toBe(secret)
-      // and the stored hash verifies against the raw secret
-      expect(verifyWebhookSecret(secret, connection.webhookSecretHash)).toBe(true)
+      // and the stored value is encrypted while still verifying signed bodies
+      expect(connection.webhookSecretHash).not.toContain(secret)
+      const body = '{}'
+      const timestamp = String(Math.floor(Date.now() / 1_000))
+      const signature = `sha256=${createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}`
+      expect(
+        verifyChatwootSignature(
+          body,
+          signature,
+          timestamp,
+          connection.webhookSecretHash
+        )
+      ).toBe(true)
     })
   })
 
@@ -377,13 +442,28 @@ describe('chatwoot connections CRUD (pg)', () => {
       expect(connection.id).toBeTruthy()
       expect(connection.encryptedApiToken).not.toBe('tok')
 
-      const list = await listChatwootConnections(tenantId, agentId, 'active', adminDb)
+      const list = await listChatwootConnections(
+        tenantId,
+        agentId,
+        'active',
+        adminDb
+      )
       expect(list.length).toBe(1)
 
       // getById looks up across tenants/agents (webhook handler path)
       const byId = await getChatwootConnectionById(connection.id, adminDb)
       expect(byId?.tenantId).toBe(tenantId)
-      expect(verifyWebhookSecret(secret, byId!.webhookSecretHash)).toBe(true)
+      const body = '{}'
+      const timestamp = String(Math.floor(Date.now() / 1_000))
+      const signature = `sha256=${createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}`
+      expect(
+        verifyChatwootSignature(
+          body,
+          signature,
+          timestamp,
+          byId!.webhookSecretHash
+        )
+      ).toBe(true)
 
       await updateConnectionStats(tenantId, agentId, connection.id, adminDb)
       const afterStats = await getChatwootConnection(
@@ -440,7 +520,12 @@ describe('chatwoot connections CRUD (pg)', () => {
         undefined,
         adminDb
       )
-      const row = await getChatwootConnection(tenantId, agentId, connection.id, adminDb)
+      const row = await getChatwootConnection(
+        tenantId,
+        agentId,
+        connection.id,
+        adminDb
+      )
       expect(row?.status).toBe('disconnected')
       expect(row?.disconnectionReason).toBeUndefined()
     })
@@ -460,7 +545,12 @@ describe('chatwoot connections CRUD (pg)', () => {
       await updateConnectionStats(tenantId, agentId, connection.id, adminDb)
       await updateConnectionStats(tenantId, agentId, connection.id, adminDb)
       await updateConnectionStats(tenantId, agentId, connection.id, adminDb)
-      const row = await getChatwootConnection(tenantId, agentId, connection.id, adminDb)
+      const row = await getChatwootConnection(
+        tenantId,
+        agentId,
+        connection.id,
+        adminDb
+      )
       expect(row?.totalConversations).toBe(3)
     })
   })
@@ -488,9 +578,14 @@ describe('chatwoot connections CRUD (pg)', () => {
 
       // No status filter -> both returned (createdAt desc ordering; defaultNow
       // can tie at sub-ms, so assert membership rather than strict order).
-      const all = await listChatwootConnections(tenantId, agentId, undefined, adminDb)
+      const all = await listChatwootConnections(
+        tenantId,
+        agentId,
+        undefined,
+        adminDb
+      )
       expect(all.length).toBe(2)
-      expect(all.map((c) => c.id).sort()).toEqual(
+      expect(all.map(c => c.id).sort()).toEqual(
         [first.connection.id, second.connection.id].sort()
       )
 
@@ -502,7 +597,12 @@ describe('chatwoot connections CRUD (pg)', () => {
         'x',
         adminDb
       )
-      const active = await listChatwootConnections(tenantId, agentId, 'active', adminDb)
+      const active = await listChatwootConnections(
+        tenantId,
+        agentId,
+        'active',
+        adminDb
+      )
       expect(active.length).toBe(1)
       expect(active[0]!.id).toBe(second.connection.id)
 
@@ -573,7 +673,10 @@ describe('chatwoot connections tenant isolation (pg)', () => {
         'x',
         adminDb
       )
-      const stillActive = await getChatwootConnectionById(connection.id, adminDb)
+      const stillActive = await getChatwootConnectionById(
+        connection.id,
+        adminDb
+      )
       expect(stillActive?.status).toBe('active')
 
       // Wrong tenant cannot delete tenant A's connection.
@@ -583,7 +686,9 @@ describe('chatwoot connections tenant isolation (pg)', () => {
         connection.id,
         adminDb
       )
-      expect(await getChatwootConnectionById(connection.id, adminDb)).not.toBeNull()
+      expect(
+        await getChatwootConnectionById(connection.id, adminDb)
+      ).not.toBeNull()
     })
   })
 })

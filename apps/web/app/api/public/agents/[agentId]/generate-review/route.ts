@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { generateText } from 'ai'
 
 import { getAgentById } from '@vibesboard/agents/server'
 import { completeText, OPENAI_CHAT_MODEL } from '@vibesboard/adapter-openai'
+import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
+import { buildTenantProviderModel } from '@vibesboard/ai/provider-registry'
+import { shouldResolveTenantProvider } from '@vibesboard/ai/provider-routing'
 import { ensureExternalSessionId } from '@/lib/agent-cookies'
 import {
   consumeRateLimit,
@@ -173,19 +177,31 @@ export async function POST(
     }
 
     const prompt = buildReviewPrompt(messages)
-    const review = await completeText({ prompt })
+    const tenantId = agent.tenantId!
+    const providerSpec = shouldResolveTenantProvider({ tenantId })
+      ? await resolveProviderSpec(tenantId, null, undefined, 'chat')
+      : null
+    const review = providerSpec
+      ? await generateText({
+          model: await buildTenantProviderModel(tenantId, providerSpec),
+          prompt,
+          maxOutputTokens: 300,
+          temperature: 0.3
+        })
+      : await completeText({ prompt })
+    const model = providerSpec?.modelId ?? OPENAI_CHAT_MODEL
 
     if (!hasLifetimeResponseCap) {
       await incrementAgentResponseCount(agent.tenantId!, agent.id)
     }
     await recordUsage({
-      tenantId: agent.tenantId!,
+      tenantId,
       agentId: agent.id,
       conversationId: null,
       userId: null,
       externalId,
       source: 'public_chat',
-      model: OPENAI_CHAT_MODEL,
+      model,
       inputTokens: review.usage?.inputTokens,
       outputTokens: review.usage?.outputTokens
     })

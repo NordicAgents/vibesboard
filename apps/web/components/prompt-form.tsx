@@ -26,6 +26,7 @@ export interface PromptProps {
   isLoading: boolean
   placeholder?: string
   onStop?: () => void
+  onClose?: () => void
   canRegenerate?: boolean
   onRegenerate?: () => void
   attachedFiles?: AttachedFile[]
@@ -61,6 +62,7 @@ export function PromptForm({
   isLoading,
   placeholder = 'Message…',
   onStop,
+  onClose,
   canRegenerate,
   onRegenerate,
   attachedFiles,
@@ -97,7 +99,7 @@ export function PromptForm({
       {/* Claude-style: everything inside one rounded container */}
       <div
         className={cn(
-          'duration-[250ms] flex flex-col rounded-[16px] border transition-all',
+          'duration-&lsqb;250ms&rsqb; flex flex-col rounded-[16px] border transition-all',
           'bg-[#f5f8f7] dark:bg-[#192425]',
           'border-[#e4e3e3] dark:border-[#344348]',
           'shadow-[0_1px_3px_rgba(0,0,0,0.06),_0_4px_16px_rgba(0,0,0,0.04)]',
@@ -212,6 +214,18 @@ export function PromptForm({
 
           {/* Right side — regenerate + send/stop */}
           <div className="flex items-center gap-2">
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium text-[#6f7f80] transition-colors hover:bg-[#e6ede6] hover:text-[#222f30] dark:hover:bg-[#253435] dark:hover:text-[#f5f8f7]"
+                aria-label="Close chat"
+              >
+                <IconX className="size-3.5" />
+                <span>Close chat</span>
+              </button>
+            )}
+
             {/* Regenerate button */}
             <AnimatePresence>
               {!isLoading && canRegenerate && onRegenerate && (

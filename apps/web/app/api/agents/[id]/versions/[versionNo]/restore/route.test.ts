@@ -60,8 +60,7 @@ let existingKeys = new Set<string>()
 const fileExistsMock = vi.fn(async (key: string) => existingKeys.has(key))
 vi.mock('@vibesboard/adapter-s3', () => ({
   fileExists: (key: string) => fileExistsMock(key),
-  isCrossTenantFileKey: (key: string, tenantId: string) =>
-    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`)
+  isPermittedAgentFileKey: (key: string) => !key.startsWith('poisoned-key')
 }))
 
 const { POST } = await import('./route.ts')

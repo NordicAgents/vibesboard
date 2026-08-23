@@ -16,7 +16,7 @@ export interface LandingQuickstartTab {
 export const LANDING_QUICKSTART_HEADING = 'Running in about five minutes.'
 
 export const LANDING_QUICKSTART_SUBHEADING =
-  'Every path is the one the maintainers use. Requirements: Bun 1.2.18, Node 22, and Docker with Compose.'
+  'Every path is the one the maintainers use. Requirements: Bun 1.3.14, Node 24, and Docker with Compose.'
 
 /**
  * The local path is copied verbatim out of the README quickstart, and a test

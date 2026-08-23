@@ -3,9 +3,13 @@ import type { CredStore } from '../cred-store/types.ts'
 
 // vi.mock is hoisted by vitest before imports, so getMigrateDb is mocked
 // before tenant-llm-config.ts is evaluated.
-vi.mock('@vibesboard/adapter-postgres/client', () => ({
-  getMigrateDb: vi.fn(),
-}))
+vi.mock('@vibesboard/adapter-postgres/client', () => {
+  const getMigrateDb = vi.fn()
+  return {
+    getMigrateDb,
+    withDb: vi.fn(work => work(getMigrateDb()))
+  }
+})
 
 import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
 import { resolveProviderSpec } from '../tenant-llm-config.ts'
@@ -23,8 +27,10 @@ function makeChain(rows: unknown[]) {
     orderBy: () => chain,
     limit: () => chain,
     // Thenable: satisfies both `await chain` and explicit `chain.then(cb)`.
-    then: (resolve?: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve(rows).then(resolve as any, reject),
+    then: (
+      resolve?: (v: unknown) => unknown,
+      reject?: (e: unknown) => unknown
+    ) => Promise.resolve(rows).then(resolve as any, reject)
   }
   return chain
 }
@@ -32,7 +38,7 @@ function makeChain(rows: unknown[]) {
 const mockStore: CredStore = {
   seal: vi.fn(async (p: string) => `sealed:${p}`),
   unseal: vi.fn(async () => 'decrypted-key'),
-  revoke: vi.fn(async () => {}),
+  revoke: vi.fn(async () => {})
 }
 
 const TENANT_ID = 'tenant-abc-123'
@@ -51,7 +57,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     isDefault: false,
     createdAt: new Date(),
     updatedAt: new Date(),
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -76,7 +82,7 @@ describe('resolveProviderSpec', () => {
 
   it('returns null when apiKeyEncrypted is missing on the row', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
-      makeChain([makeRow({ apiKeyEncrypted: null })]) as any,
+      makeChain([makeRow({ apiKeyEncrypted: null })]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -86,7 +92,7 @@ describe('resolveProviderSpec', () => {
 
   it('returns an openai spec for kind=openai without baseUrl', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
-      makeChain([makeRow({ kind: 'openai', baseUrl: null })]) as any,
+      makeChain([makeRow({ kind: 'openai', baseUrl: null })]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -100,7 +106,9 @@ describe('resolveProviderSpec', () => {
 
   it('returns an openai spec with baseUrl when provided', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
-      makeChain([makeRow({ kind: 'openai', baseUrl: 'https://custom.openai.com' })]) as any,
+      makeChain([
+        makeRow({ kind: 'openai', baseUrl: 'https://custom.openai.com' })
+      ]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -111,7 +119,7 @@ describe('resolveProviderSpec', () => {
 
   it('returns an anthropic spec for kind=anthropic', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
-      makeChain([makeRow({ kind: 'anthropic' })]) as any,
+      makeChain([makeRow({ kind: 'anthropic' })]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -125,8 +133,11 @@ describe('resolveProviderSpec', () => {
   it('returns an openai_compatible spec with baseUrl', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
       makeChain([
-        makeRow({ kind: 'openai_compatible', baseUrl: 'http://ollama:11434/v1' }),
-      ]) as any,
+        makeRow({
+          kind: 'openai_compatible',
+          baseUrl: 'http://ollama:11434/v1'
+        })
+      ]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -138,7 +149,7 @@ describe('resolveProviderSpec', () => {
 
   it('returns null when kind=openai_compatible has no baseUrl', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
-      makeChain([makeRow({ kind: 'openai_compatible', baseUrl: null })]) as any,
+      makeChain([makeRow({ kind: 'openai_compatible', baseUrl: null })]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -150,8 +161,12 @@ describe('resolveProviderSpec', () => {
   it('returns an nvidia spec without baseUrl (registry defaults to the hosted catalog)', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
       makeChain([
-        makeRow({ kind: 'nvidia', modelId: 'meta/llama-3.1-70b-instruct', baseUrl: null }),
-      ]) as any,
+        makeRow({
+          kind: 'nvidia',
+          modelId: 'meta/llama-3.1-70b-instruct',
+          baseUrl: null
+        })
+      ]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -165,8 +180,11 @@ describe('resolveProviderSpec', () => {
   it('returns an nvidia spec with a custom baseUrl (self-hosted NIM)', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
       makeChain([
-        makeRow({ kind: 'nvidia', baseUrl: 'https://nim.internal.example.com/v1' }),
-      ]) as any,
+        makeRow({
+          kind: 'nvidia',
+          baseUrl: 'https://nim.internal.example.com/v1'
+        })
+      ]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)
@@ -177,7 +195,7 @@ describe('resolveProviderSpec', () => {
 
   it('returns a google spec for kind=google', async () => {
     vi.mocked(getMigrateDb).mockReturnValue(
-      makeChain([makeRow({ kind: 'google', modelId: 'gemini-pro' })]) as any,
+      makeChain([makeRow({ kind: 'google', modelId: 'gemini-pro' })]) as any
     )
 
     const result = await resolveProviderSpec(TENANT_ID, CONFIG_ID, mockStore)

@@ -6,7 +6,7 @@ import { canEditAgent } from '@vibesboard/agents/permissions'
 import { restoreAgentVersion } from '@vibesboard/agents/versioning'
 import { createAgentFilesAndTriggerProcessing } from '@vibesboard/agents/file-processing'
 import { getFilesByKeys } from '@vibesboard/ai/files-store'
-import { fileExists, isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { fileExists, isPermittedAgentFileKey } from '@vibesboard/adapter-s3'
 
 export const runtime = 'nodejs'
 
@@ -57,13 +57,18 @@ export async function POST(
     return NextResponse.json({ error: message }, { status })
   }
 
-  // Reconcile file embeddings for keys the restore re-added. Drop any key that
-  // addresses another tenant's namespace so a snapshot written before the
-  // cross-tenant guards cannot reintroduce a poisoned key.
+  // Reconcile file embeddings for keys the restore re-added. Drop any key not
+  // bound to this exact agent so an old snapshot cannot reintroduce a poisoned
+  // reference to another agent's storage object.
   const reAdded = restore.snapshot.fileKeys.filter(
     key =>
       !restore.previousFileKeys.includes(key) &&
-      !isCrossTenantFileKey(key, agent.tenantId)
+      isPermittedAgentFileKey(
+        key,
+        agent.tenantId,
+        agent.id,
+        agent.userId
+      )
   )
   const missingFiles: string[] = []
   if (reAdded.length > 0) {

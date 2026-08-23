@@ -110,17 +110,20 @@ export function SidebarResizableLayout({
 
   // Prefer showing the "Current Agent" view when available
   useEffect(() => {
-    if (!secondarySidebar) {
-      setMobileView('agents')
-      return
-    }
+    const frame = window.requestAnimationFrame(() => {
+      if (!secondarySidebar) {
+        setMobileView('agents')
+        return
+      }
 
-    const isAgentDetailPage =
-      pathname.startsWith('/agents/') && pathname !== '/agents/create-chat'
+      const isAgentDetailPage =
+        pathname.startsWith('/agents/') && pathname !== '/agents/create-chat'
 
-    if (isAgentDetailPage) {
-      setMobileView(prev => (prev === 'agents' ? 'current-agent' : prev))
-    }
+      if (isAgentDetailPage) {
+        setMobileView(prev => (prev === 'agents' ? 'current-agent' : prev))
+      }
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [pathname, secondarySidebar])
 
   const handlePrimarySidebarNavigate = React.useCallback(
@@ -169,7 +172,7 @@ export function SidebarResizableLayout({
         <aside
           className={cn(
             'hidden flex-col border-r border-[#e4e3e3] bg-[#f5f8f7] dark:border-[#344348] dark:bg-[#192425] lg:flex',
-            'ease-[cubic-bezier(0.16,1,0.3,1)] transition-[width] duration-300',
+            'ease-&lsqb;cubic-bezier(0.16,1,0.3,1)&rsqb; transition-[width] duration-300',
             isSidebarOpen ? 'w-[260px]' : 'w-[52px]'
           )}
         >

@@ -4,8 +4,14 @@ import { NextRequest } from 'next/server'
 const events: string[] = []
 const consumeRateLimit = vi.fn()
 const reserveAgentResponseSlot = vi.fn()
-const completeText = vi.fn(async () => {
+const generateText = vi.fn(async () => {
   events.push('model')
+  return {
+    text: 'A useful review.',
+    usage: { inputTokens: 10, outputTokens: 4 }
+  }
+})
+const completeText = vi.fn(async () => {
   return {
     text: 'A useful review.',
     toolCalls: [],
@@ -27,6 +33,20 @@ vi.mock('@vibesboard/agents/server', () => ({
 vi.mock('@vibesboard/adapter-openai', () => ({
   completeText,
   OPENAI_CHAT_MODEL: 'test-model'
+}))
+vi.mock('ai', () => ({ generateText }))
+vi.mock('@vibesboard/ai/tenant-llm-config', () => ({
+  resolveProviderSpec: vi.fn(async () => ({
+    kind: 'anthropic',
+    modelId: 'tenant-review-model',
+    apiKey: 'redacted-test-key'
+  }))
+}))
+vi.mock('@vibesboard/ai/provider-registry', () => ({
+  buildTenantProviderModel: vi.fn(async () => ({ provider: 'tenant-model' }))
+}))
+vi.mock('@vibesboard/ai/provider-routing', () => ({
+  shouldResolveTenantProvider: vi.fn(() => true)
 }))
 vi.mock('@/lib/agent-cookies', () => ({
   ensureExternalSessionId: vi.fn(async () => 'external-session')
@@ -61,6 +81,7 @@ describe('public review generation protections', () => {
   beforeEach(() => {
     events.length = 0
     completeText.mockClear()
+    generateText.mockClear()
     consumeRateLimit.mockReset()
     consumeRateLimit.mockResolvedValue({
       allowed: true,
@@ -82,6 +103,8 @@ describe('public review generation protections', () => {
 
     expect(response.status).toBe(200)
     expect(events).toEqual(['reserve', 'model'])
+    expect(generateText).toHaveBeenCalledOnce()
+    expect(completeText).not.toHaveBeenCalled()
   })
 
   it('returns 429 before inference when rate limited', async () => {

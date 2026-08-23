@@ -53,8 +53,8 @@ describe('landing quickstart copy', () => {
   })
 
   it('states the real runtime requirements', () => {
-    expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Bun 1\.2\.18/)
-    expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Node 22/)
+    expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Bun 1\.3\.14/)
+    expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Node 24/)
     expect(LANDING_QUICKSTART_SUBHEADING).toMatch(/Docker/)
   })
 

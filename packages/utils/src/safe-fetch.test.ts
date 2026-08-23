@@ -58,6 +58,8 @@ describe('isPrivateIpv6', () => {
       '::1',
       '::',
       'fe80::1',
+      'fe90::1',
+      'febf::1',
       'fd00::1',
       '::ffff:127.0.0.1',
       '::ffff:7f00:1'
@@ -161,6 +163,25 @@ describe('safeFetch', () => {
     expect(res.status).toBe(200)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect((fetchSpy.mock.calls[0][1] as RequestInit).redirect).toBe('manual')
+    // The dispatcher uses the address we just resolved, rather than allowing
+    // fetch to perform a second, attacker-controlled DNS lookup at connect.
+    expect(fetchSpy.mock.calls[0][1]).toHaveProperty('dispatcher')
+  })
+
+  it('preserves caller cancellation while adding its timeout', async () => {
+    lookupMock.mockResolvedValue([
+      { address: '93.184.216.34', family: 4 }
+    ] as never)
+    const controller = new AbortController()
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('ok', { status: 200 }))
+
+    await safeFetch('https://example.com', { signal: controller.signal })
+    const signal = (fetchSpy.mock.calls[0][1] as RequestInit).signal!
+    expect(signal.aborted).toBe(false)
+    controller.abort()
+    expect(signal.aborted).toBe(true)
   })
 
   it('re-validates the redirect target and strips auth on cross-origin hop', async () => {

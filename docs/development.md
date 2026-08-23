@@ -2,8 +2,8 @@
 
 ## Requirements
 
-- [Bun](https://bun.sh) 1.2.18
-- Node.js 22
+- [Bun](https://bun.sh) 1.3.14
+- [Node.js](https://nodejs.org) 24 LTS
 - Docker with Compose
 - An OpenAI API key for the platform fallback model
 
@@ -56,12 +56,12 @@ bun run minio:console   # Open the MinIO console on macOS
 
 Local service ports:
 
-| Service | URL or port |
-| --- | --- |
-| Web app | <http://localhost:3000> |
-| PostgreSQL | `localhost:5432` |
-| Adminer | <http://localhost:8888> |
-| MinIO API | <http://localhost:9000> |
+| Service       | URL or port             |
+| ------------- | ----------------------- |
+| Web app       | <http://localhost:3000> |
+| PostgreSQL    | `localhost:5432`        |
+| Adminer       | <http://localhost:8888> |
+| MinIO API     | <http://localhost:9000> |
 | MinIO console | <http://localhost:9001> |
 
 ## Testing
@@ -124,7 +124,7 @@ contributor and release workflow.
 - **Port conflict** — free ports 3000, 5432, 8888, 9000, and 9001, or override
   the applicable service configuration.
 - **Missing nested dependency after install** — run `bun install --force`; see
-  [`local-e2e.md`](local-e2e.md) for known Bun 1.2.18 dependency-materialization
+  [`local-e2e.md`](local-e2e.md) for dependency-materialization
   issues.
 - **Emails not arriving locally** — inspect the server console when
   `RESEND_API_KEY` is unset.

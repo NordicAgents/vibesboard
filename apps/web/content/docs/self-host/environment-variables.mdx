@@ -46,7 +46,8 @@ Core application URL, session signing, and access-control secrets.
 | `BETTER_AUTH_SECRET`                                                                                                                           | Yes      | Server-side session signing secret                                                                                                                                                     |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                                                                                                         | No       | Google sign-in is enabled only when **both** are set; leave unset to disable it                                                                                                        |
 | `ACCESS_GATE_SECRET`                                                                                                                           | Yes      | Hashes access passwords and signs access cookies for password-gated public agents                                                                                                      |
-| `ENCRYPTION_KEY`                                                                                                                               | Yes      | Encrypts tenant LLM, OAuth, and channel credentials at rest. Changing this value makes every previously stored credential undecryptable                                                |
+| `ENCRYPTION_KEY`                                                                                                                               | Yes      | Current AES-256-GCM master key for tenant LLM, OAuth, and channel credentials; use a strong environment-specific value                                                                 |
+| `ENCRYPTION_KEYS_OLD`                                                                                                                          | No       | Comma-separated retired master keys kept temporarily for decrypt-only access during rotation; remove each after affected values have been re-sealed                                    |
 | `CRON_SECRET`                                                                                                                                  | Yes      | Authenticates scheduled and background endpoints                                                                                                                                       |
 | `RATE_LIMIT_SALT`                                                                                                                              | Yes      | HMAC salt for anonymous-request rate-limit identifiers; use a different value per environment. `ENCRYPTION_KEY` is a fallback, but a dedicated salt keeps the two purposes independent |
 | `MONTHLY_MESSAGE_LIMIT`                                                                                                                        | No       | Optional monthly workspace message cap; omit for unlimited self-hosted usage                                                                                                           |
@@ -105,10 +106,12 @@ database — only the webhook verification secrets below belong in the environme
 Rendered on the `/privacy-policy` and `/terms-of-service` pages. Nothing is
 hardcoded, since this repository is public: a baked-in default would be inherited by
 every fork, and an unconfigured deployment would name someone else's company as the
-data controller. Leave all of these unset for local development — the legal pages
-stay readable and simply name nobody. Set them before running a deployment real users
-sign up to: GDPR Article 13 requires identifying the controller, and both Google
-OAuth verification and Meta app review check for it.
+data controller. Leave all of these unset for local development. Before accepting
+real users, set the values that identify the controller and a privacy contact: GDPR
+Article 13 requires identifying the controller, and both Google OAuth verification
+and Meta app review check for it. Follow the
+[privacy and data-rights operations runbook](https://github.com/NordicAgents/vibesboard/blob/main/docs/privacy-data-rights.md)
+to establish retention and request-handling processes.
 
 | Name                               | Required | Description                                                                                                |
 | ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |

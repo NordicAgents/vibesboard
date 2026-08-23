@@ -50,7 +50,7 @@ Many tools make it easy to demo a chatbot. Vibesboard is built for the operation
 | More than a chat playground              | A streaming runtime with tools, lifecycle hooks, public deployment, access gates, configuration history, and rollback            |
 | Agents where customers already are       | An embeddable web agent, WhatsApp and Instagram channels with an inbox for each, and Chatwoot sync                               |
 | Answers that lead to outcomes            | RAG and long-term memory connected to Google Calendar, Google Sheets, webhooks, and data actions                                 |
-| One deployment for many teams or clients | Workspaces, memberships, feature flags, usage metering, optional soft caps, and PostgreSQL row-level security                  |
+| One deployment for many teams or clients | Workspaces, memberships, feature flags, usage metering, optional soft caps, and PostgreSQL row-level security                    |
 | Freedom from model lock-in               | OpenAI, Anthropic, Google Gemini, NVIDIA, and OpenAI-compatible providers, routed per agent or task                              |
 | Control of data and inference spend      | Self-hosted application, PostgreSQL and S3-compatible storage, encrypted tenant credentials, and bring-your-own-provider support |
 
@@ -109,8 +109,8 @@ Connect OpenAI, Anthropic, Google Gemini, NVIDIA, or any compatible OpenAI endpo
 
 ### Requirements
 
-- [Bun](https://bun.sh) 1.2.18
-- Node.js 22
+- [Bun](https://bun.sh) 1.3.14
+- [Node.js](https://nodejs.org) 24 LTS
 - Docker with Compose
 - An OpenAI API key for the platform fallback model
 
@@ -142,16 +142,16 @@ For all setup options and troubleshooting, see [Docker Compose](https://vibesboa
 
 Full documentation lives at **[vibesboard.com/docs](https://vibesboard.com/docs)** — quickstarts, building and deploying agents, self-hosting, and the platform's security and multi-tenancy model.
 
-| Guide                                                                                    | What you will find                                                                |
-| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [Quickstart](https://vibesboard.com/docs/get-started/quickstart)                          | Run Vibesboard locally in a few minutes                                           |
-| [Docker Compose](https://vibesboard.com/docs/self-host/docker-compose)                    | Local setup, commands, ports, and troubleshooting                                 |
-| [Environment variables](https://vibesboard.com/docs/self-host/environment-variables)      | Every configuration value, grouped by concern                                     |
-| [Architecture](https://vibesboard.com/docs/contribute/architecture)                       | Monorepo map, database roles, tenant isolation, and model routing                 |
-| [Cloud Run deployment](https://vibesboard.com/docs/self-host/cloud-run-deployment)        | The maintained production path, and requirements for self-hosting elsewhere       |
-| [Security & credentials](https://vibesboard.com/docs/platform/security-and-credentials)   | Tenant isolation, credential handling, outbound request validation, and scanning  |
-| [Bring your own LLM](https://vibesboard.com/docs/platform/bring-your-own-llm)             | Provider configuration, task routing, and architecture                            |
-| [Testing](https://vibesboard.com/docs/contribute/testing)                                 | Unit, integration, and end-to-end tests, and how CI runs them                     |
+| Guide                                                                                   | What you will find                                                               |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [Quickstart](https://vibesboard.com/docs/get-started/quickstart)                        | Run Vibesboard locally in a few minutes                                          |
+| [Docker Compose](https://vibesboard.com/docs/self-host/docker-compose)                  | Local setup, commands, ports, and troubleshooting                                |
+| [Environment variables](https://vibesboard.com/docs/self-host/environment-variables)    | Every configuration value, grouped by concern                                    |
+| [Architecture](https://vibesboard.com/docs/contribute/architecture)                     | Monorepo map, database roles, tenant isolation, and model routing                |
+| [Cloud Run deployment](https://vibesboard.com/docs/self-host/cloud-run-deployment)      | The maintained production path, and requirements for self-hosting elsewhere      |
+| [Security & credentials](https://vibesboard.com/docs/platform/security-and-credentials) | Tenant isolation, credential handling, outbound request validation, and scanning |
+| [Bring your own LLM](https://vibesboard.com/docs/platform/bring-your-own-llm)           | Provider configuration, task routing, and architecture                           |
+| [Testing](https://vibesboard.com/docs/contribute/testing)                               | Unit, integration, and end-to-end tests, and how CI runs them                    |
 
 The source Markdown for these guides lives under [`apps/web/content/docs/`](apps/web/content/docs/); [`docs/`](docs/) holds the shorter contributor-facing notes on architecture, configuration, deployment, and security.
 

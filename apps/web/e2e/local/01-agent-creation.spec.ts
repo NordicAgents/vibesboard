@@ -499,7 +499,9 @@ test.describe('Agent Creation — detail page', () => {
     // does call notFound() for a missing agent, but the App Router has already
     // flushed the streamed shell by then, so the response is committed as 200.
     // What the user sees is the contract worth guarding:
-    await expect(page.getByText('404')).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 1, name: '404', exact: true }),
+    ).toBeVisible()
     // Neither the chat shell nor the error boundary — a plain not-found.
     await expect(page.getByTestId('chat-input')).toHaveCount(0)
     await expect(page.getByText('Could not load this agent')).toHaveCount(0)

@@ -1,12 +1,31 @@
 import { Buffer } from 'node:buffer'
+import { generateText } from 'ai'
 
 import { downloadFile } from '@vibesboard/adapter-s3'
-import { OPENAI_VISION_MODEL, isResponsesModel } from '@vibesboard/adapter-openai'
+import {
+  OPENAI_VISION_MODEL,
+  isResponsesModel
+} from '@vibesboard/adapter-openai'
 import { chatCompletionWithVision } from '@vibesboard/adapter-openai'
-import { replaceFileChunks, providerFromDimension } from '@vibesboard/ai/rag-store'
+import {
+  replaceFileChunks,
+  providerFromDimension
+} from '@vibesboard/ai/rag-store'
 import { resolveEmbedder, resolveProviderSpec } from './tenant-llm-config.ts'
 import { shouldResolveTenantProvider } from './provider-routing.ts'
-import { getMigrateDb } from '@vibesboard/adapter-postgres/client'
+import { buildTenantProviderModel } from './provider-registry.ts'
+import {
+  FileProcessingLimitError,
+  MAX_PDF_PAGES,
+  MAX_WORKBOOK_CELLS,
+  MAX_WORKBOOK_ROWS,
+  assertChunkCountWithinLimits,
+  assertExtractedTextWithinLimits,
+  assertIngestedFileSize,
+  assertZipArchiveWithinLimits
+} from './file-limits.ts'
+import { withDb } from '@vibesboard/adapter-postgres/client'
+import { withTenant } from '@vibesboard/adapter-postgres/tenant-context'
 import { files as filesTable } from '@vibesboard/adapter-postgres/schema'
 import { eq } from 'drizzle-orm'
 const VISION_MODEL = OPENAI_VISION_MODEL
@@ -76,17 +95,27 @@ const extractFromHtml = (raw: string) =>
   )
 
 const extractFromWorkbook = async (buffer: Buffer) => {
+  await assertZipArchiveWithinLimits(buffer)
   const ExcelJS = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buffer as any)
   const parts: string[] = []
+  let rowCount = 0
+  let cellCount = 0
 
   workbook.eachSheet((worksheet, _sheetId) => {
     const rows: string[] = []
     worksheet.eachRow(row => {
+      rowCount += 1
       const values = Array.isArray(row.values)
         ? (row.values as unknown[]).slice(1) // exceljs row.values is 1-indexed with empty [0]
         : []
+      cellCount += values.length
+      if (rowCount > MAX_WORKBOOK_ROWS || cellCount > MAX_WORKBOOK_CELLS) {
+        throw new FileProcessingLimitError(
+          `Workbook exceeds the extraction limit (${MAX_WORKBOOK_ROWS} rows or ${MAX_WORKBOOK_CELLS} cells).`
+        )
+      }
       rows.push(values.map(v => (v != null ? String(v) : '')).join(','))
     })
     if (rows.length > 0) {
@@ -98,6 +127,7 @@ const extractFromWorkbook = async (buffer: Buffer) => {
 }
 
 const extractFromDoc = async (buffer: Buffer) => {
+  await assertZipArchiveWithinLimits(buffer)
   const mammothModule = await import('mammoth')
   const mammoth: any = (mammothModule as any).default ?? mammothModule
   const result = await mammoth.extractRawText({ buffer })
@@ -156,6 +186,12 @@ const extractFromPdf = async (buffer: Buffer) => {
       ...(pdfCanvasFactory ? { CanvasFactory: pdfCanvasFactory } : {})
     })
     try {
+      const info = await parser.getInfo?.({ parsePageInfo: false })
+      if (typeof info?.total === 'number' && info.total > MAX_PDF_PAGES) {
+        throw new FileProcessingLimitError(
+          `PDF has too many pages (maximum ${MAX_PDF_PAGES}).`
+        )
+      }
       const result = await parser.getText?.()
       return cleanText(result?.text || '')
     } finally {
@@ -180,11 +216,40 @@ const extractFromPdf = async (buffer: Buffer) => {
   throw new Error('Unsupported pdf-parse import shape')
 }
 
-const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
+const extractTextFromImage = async (
+  buffer: Buffer,
+  mimeType: string,
+  tenantId?: string
+) => {
   const base64 = buffer.toString('base64')
   const dataUrl = `data:${mimeType};base64,${base64}`
   const prompt =
     'Extract all visible text from this image and provide a short description. Return plain text only.'
+
+  // A configured workspace provider is a data boundary, not merely a model
+  // preference. Never send its image to the platform OpenAI key as a hidden
+  // fallback. If the configured model lacks vision support, surface that error
+  // so the workspace can choose a vision-capable model explicitly.
+  if (tenantId && shouldResolveTenantProvider({ tenantId })) {
+    const spec = await resolveProviderSpec(tenantId, null, undefined, 'chat')
+    if (spec) {
+      const result = await generateText({
+        model: await buildTenantProviderModel(tenantId, spec),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image', image: buffer, mediaType: mimeType }
+            ]
+          }
+        ],
+        maxOutputTokens: 1_000,
+        temperature: 0
+      })
+      return cleanText(result.text)
+    }
+  }
 
   if (isResponsesModel(VISION_MODEL)) {
     // Use the Responses API for gpt-5.4-nano and similar models
@@ -216,12 +281,8 @@ const extractTextFromImage = async (buffer: Buffer, mimeType: string) => {
     })
 
     if (!res.ok) {
-      const errorText = await res.text().catch(() => '')
-      console.error(
-        '[extractTextFromImage] Responses API error',
-        res.status,
-        errorText
-      )
+      await res.body?.cancel().catch(() => undefined)
+      console.error('[extractTextFromImage] Responses API error', res.status)
       return ''
     }
 
@@ -304,7 +365,8 @@ export class UnsupportedFileTypeError extends Error {
 
 export const extractTextFromBuffer = async (
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  context: { tenantId?: string } = {}
 ): Promise<string> => {
   const unsupported = UNSUPPORTED_MIME_TYPES[mimeType]
   if (unsupported) {
@@ -312,7 +374,7 @@ export const extractTextFromBuffer = async (
   }
 
   if (IMAGE_MIME_TYPES.has(mimeType)) {
-    return extractTextFromImage(buffer, mimeType)
+    return extractTextFromImage(buffer, mimeType, context.tenantId)
   }
 
   // Must precede the generic `text/` branch: text/html starts with `text/`,
@@ -384,15 +446,23 @@ export const ingestFileForAgent = async (args: {
 
   // Download from storage
   const buffer = await downloadFile(fileKey)
+  assertIngestedFileSize(buffer)
 
   let text: string
+  let chunks: string[]
   try {
-    text = await extractTextFromBuffer(buffer, mimeType)
+    text = await extractTextFromBuffer(buffer, mimeType, { tenantId })
+    assertExtractedTextWithinLimits(text)
+    chunks = chunkText(text)
+    assertChunkCountWithinLimits(chunks.length)
   } catch (err: any) {
     // An unsupported format is a normal outcome, not a server fault: report
     // it the same way as the other graceful failures so the file lands in
     // `failed` with a reason the uploader can act on, rather than 500ing.
-    if (err instanceof UnsupportedFileTypeError) {
+    if (
+      err instanceof UnsupportedFileTypeError ||
+      err instanceof FileProcessingLimitError
+    ) {
       return { chunksInserted: 0, message: err.message }
     }
     throw err
@@ -405,9 +475,8 @@ export const ingestFileForAgent = async (args: {
     }
   }
 
-  const chunks = chunkText(text)
   const spec = shouldResolveTenantProvider({ tenantId })
-    ? await resolveProviderSpec(tenantId, null, undefined, 'embed').catch(() => null)
+    ? await resolveProviderSpec(tenantId, null, undefined, 'embed')
     : null
   const providerKind = spec?.kind ?? 'openai'
   const embed = await resolveEmbedder(tenantId)
@@ -419,14 +488,19 @@ export const ingestFileForAgent = async (args: {
     // Surface a human-readable reason so the UI can show actionable guidance
     const msg: string = err?.message ?? String(err)
     const reason =
-      msg.includes('redirect count exceeded') || msg.includes('401') || msg.includes('Unauthorized') || msg.includes('authentication')
+      msg.includes('redirect count exceeded') ||
+      msg.includes('401') ||
+      msg.includes('Unauthorized') ||
+      msg.includes('authentication')
         ? 'Embedding API authentication failed — the API key may be expired. ' +
           (spec?.kind === 'openai_compatible'
             ? 'For Google Cloud MaaS, refresh the access token with: gcloud auth print-access-token'
             : 'Check your embedding provider API key in Settings → LLM Providers.')
-        : msg.includes('429') || msg.includes('quota') || msg.includes('credits')
-        ? 'Embedding API quota exceeded — check your billing/credits for the embedding provider.'
-        : `Embedding failed: ${msg.slice(0, 200)}`
+        : msg.includes('429') ||
+            msg.includes('quota') ||
+            msg.includes('credits')
+          ? 'Embedding API quota exceeded — check your billing/credits for the embedding provider.'
+          : 'Embedding failed. Check the embedding provider configuration and try again.'
     return { chunksInserted: 0, message: reason }
   }
 
@@ -451,15 +525,19 @@ export const ingestFileForAgent = async (args: {
   })
 
   // Mark file as indexed and record which provider embedded it
-  await getMigrateDb()
-    .update(filesTable)
-    .set({
-      status: 'indexed',
-      embeddingProvider: providerKind,
-      processingCompletedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(filesTable.id, fileId))
+  await withTenant({ tenantId, userId: null, isSuperAdmin: false }, () =>
+    withDb(db =>
+      db
+        .update(filesTable)
+        .set({
+          status: 'indexed',
+          embeddingProvider: providerKind,
+          processingCompletedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(filesTable.id, fileId))
+    )
+  )
 
   const totalChars = chunks.reduce((sum, c) => sum + c.length, 0)
 
@@ -481,7 +559,9 @@ export const readFullFileContent = async (
   const name = fileName || fileKey.split('/').pop() || fileKey
   const mimeType = guessMimeFromPath(name)
   const buffer = await downloadFile(fileKey)
+  assertIngestedFileSize(buffer)
   const text = await extractTextFromBuffer(buffer, mimeType)
+  assertExtractedTextWithinLimits(text)
   return { text, fileName: name, charCount: text.length }
 }
 
@@ -512,7 +592,12 @@ export const searchAgentFileChunks = async (args: {
 
     return { matches }
   } catch (err: any) {
-    console.error('[file-search] Search failed:', err?.message)
-    return { matches: [], error: err?.message ?? 'Search failed.' }
+    console.error('[file-search] Search failed', {
+      error: err instanceof Error ? err.name : 'UnknownError'
+    })
+    return {
+      matches: [],
+      error: 'File search is temporarily unavailable.'
+    }
   }
 }

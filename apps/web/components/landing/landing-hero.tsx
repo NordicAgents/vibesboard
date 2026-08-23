@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
+import { cn } from '@vibesboard/utils'
 import { Button } from '@/components/ui/button'
 import { LANDING_MEDIA_AGENT_CREATOR } from '@/lib/landing-media'
 import {
@@ -51,10 +52,13 @@ export function LandingHero() {
               {...rise(0)}
               className="flex flex-wrap items-center gap-2"
             >
-              {LANDING_HERO_BADGES.map(badge => (
+              {LANDING_HERO_BADGES.map((badge, index) => (
                 <span
                   key={badge}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+                  className={cn(
+                    'rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground',
+                    index > 0 && 'hidden sm:inline-flex'
+                  )}
                 >
                   {badge}
                 </span>
@@ -82,13 +86,24 @@ export function LandingHero() {
               {...rise(0.24)}
               className="mt-8 flex flex-wrap items-center gap-3"
             >
-              <Button size="lg" asChild>
+              <Button size="lg" className="sm:hidden" asChild>
+                <Link href={LANDING_HERO_SECONDARY_CTA.href}>
+                  {LANDING_HERO_SECONDARY_CTA.label}
+                  <ArrowRight className="size-4" aria-hidden />
+                </Link>
+              </Button>
+              <Button size="lg" className="hidden sm:inline-flex" asChild>
                 <Link href={LANDING_HERO_PRIMARY_CTA.href}>
                   {LANDING_HERO_PRIMARY_CTA.label}
                   <ArrowRight className="size-4" aria-hidden />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
+              <Button
+                size="lg"
+                variant="outline"
+                className="hidden sm:inline-flex"
+                asChild
+              >
                 <Link
                   href={LANDING_HERO_SECONDARY_CTA.href}
                   target={
@@ -107,7 +122,7 @@ export function LandingHero() {
             </motion.div>
           </div>
 
-          <motion.div {...rise(0.32)} className="min-w-0">
+          <motion.div {...rise(0.32)} className="hidden min-w-0 md:block">
             <TerminalBlock command={LANDING_HERO_COMMAND} />
           </motion.div>
         </div>

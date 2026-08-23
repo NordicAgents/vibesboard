@@ -11,14 +11,12 @@
  * Node-only (uses `node:dns`/`node:net`). Imported via the dedicated
  * `@vibesboard/utils/safe-fetch` subpath, never the client-safe barrel.
  *
- * Residual limitation: there is a small TOCTOU window between our DNS lookup
- * and fetch's own connect (DNS rebinding). Resolve-and-validate-each-hop closes
- * the static "public name -> private IP" case and makes rebinding require a
- * sub-request-timed DNS flip; pinning the resolved IP into the connection would
- * need a custom dispatcher and is left as a further hardening step.
+ * The validated DNS answer is pinned into Undici's connector for each request,
+ * so fetch cannot perform a second lookup between validation and connection.
  */
 import { lookup } from 'node:dns/promises'
 import net from 'node:net'
+import { Agent, buildConnector } from 'undici'
 
 export class SsrfError extends Error {
   constructor(message: string) {
@@ -42,6 +40,14 @@ export interface SafeFetchOptions {
    * app-specific credential headers (e.g. `api_access_token`, a webhook token).
    */
   sensitiveHeaders?: string[]
+}
+
+type ResolvedAddress = { address: string; family: number }
+
+type ValidatedUrl = {
+  url: URL
+  /** Public DNS answers to pin into the outbound connection. */
+  addresses?: ResolvedAddress[]
 }
 
 /** True for a literal IPv4 string in a private/reserved/loopback range. */
@@ -70,7 +76,15 @@ export function isPrivateIpv4(ip: string): boolean {
 export function isPrivateIpv6(ip: string): boolean {
   const v = ip.replace(/^\[|\]$/g, '').toLowerCase()
   if (v === '::1' || v === '::') return true
-  if (v.startsWith('fe80:') || v === 'fe80::') return true // link-local
+  // IPv6 link-local is fe80::/10, not merely fe80::/16. That includes every
+  // first hextet from fe80 through febf (for example fe90::1 and febf::1).
+  const firstHextet = Number.parseInt(v.split(':', 1)[0] ?? '', 16)
+  if (
+    Number.isFinite(firstHextet) &&
+    (firstHextet & 0xffc0) === 0xfe80
+  ) {
+    return true
+  }
   if (v.startsWith('fc') || v.startsWith('fd')) return true // unique local fc00::/7
   if (v.startsWith('ff')) return true // multicast
   // IPv4-mapped (::ffff:a.b.c.d or hex-compressed ::ffff:xxxx:xxxx)
@@ -110,10 +124,10 @@ function normalizeHost(hostname: string): string {
  * any host that is — or resolves to — a private/reserved address. Returns the
  * parsed URL on success; throws SsrfError otherwise.
  */
-export async function assertPublicUrl(
+async function validatePublicUrl(
   rawUrl: string | URL,
   opts: SafeFetchOptions = {}
-): Promise<URL> {
+): Promise<ValidatedUrl> {
   let url: URL
   try {
     url = typeof rawUrl === 'string' ? new URL(rawUrl) : rawUrl
@@ -128,8 +142,8 @@ export async function assertPublicUrl(
   const host = normalizeHost(url.hostname)
   if (!host) throw new SsrfError('Missing host')
 
-  if (opts.hostAllowlist?.some(h => normalizeHost(h) === host)) return url
-  if (opts.allowPrivateHosts) return url
+  if (opts.hostAllowlist?.some(h => normalizeHost(h) === host)) return { url }
+  if (opts.allowPrivateHosts) return { url }
 
   if (host === 'localhost' || host.endsWith('.localhost')) {
     throw new SsrfError('Loopback hosts are not allowed')
@@ -143,11 +157,11 @@ export async function assertPublicUrl(
         'Private, loopback, or reserved address is not allowed'
       )
     }
-    return url
+    return { url }
   }
 
   // Hostname: resolve and reject if ANY resolved address is private.
-  let records: Array<{ address: string }>
+  let records: ResolvedAddress[]
   try {
     records = await lookup(host, { all: true })
   } catch {
@@ -163,7 +177,45 @@ export async function assertPublicUrl(
       )
     }
   }
-  return url
+  return { url, addresses: records }
+}
+
+/**
+ * Parse and validate a URL for outbound use. Rejects non-http(s) schemes and
+ * any host that is — or resolves to — a private/reserved address.
+ */
+export async function assertPublicUrl(
+  rawUrl: string | URL,
+  opts: SafeFetchOptions = {}
+): Promise<URL> {
+  return (await validatePublicUrl(rawUrl, opts)).url
+}
+
+/**
+ * Bind a request to one public DNS answer that was just validated. Without a
+ * connector, fetch performs another resolver lookup at connect time, leaving a
+ * DNS-rebinding window between validation and the actual socket connection.
+ */
+function pinnedDispatcher(hostname: string, address: ResolvedAddress): Agent {
+  const connect = buildConnector({})
+  return new Agent({
+    connections: 1,
+    pipelining: 0,
+    // Each request has its own dispatcher. Avoid retaining a socket after the
+    // response is consumed while keeping it alive long enough for its body.
+    keepAliveTimeout: 1,
+    connect: (options, callback) =>
+      connect(
+        {
+          ...options,
+          hostname: address.address,
+          host: address.address,
+          // TLS must still validate the requested hostname, not the pinned IP.
+          servername: hostname
+        },
+        callback
+      )
+  })
 }
 
 const SENSITIVE_HEADERS = ['authorization', 'cookie', 'proxy-authorization']
@@ -209,13 +261,28 @@ export async function safeFetch(
   })()
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const validated = await assertPublicUrl(currentUrl, opts)
-
-    const res = await fetch(validated, {
+    const validated = await validatePublicUrl(currentUrl, opts)
+    const timeoutSignal = AbortSignal.timeout(timeoutMs)
+    const signal = currentInit.signal
+      ? AbortSignal.any([currentInit.signal, timeoutSignal])
+      : timeoutSignal
+    const requestInit: RequestInit & { dispatcher?: Agent } = {
       ...currentInit,
-      redirect: 'manual',
-      signal: AbortSignal.timeout(timeoutMs)
-    })
+      redirect: 'manual' as const,
+      // Preserve caller cancellation (for example, a disconnected streaming
+      // chat request) while still applying the outbound timeout.
+      signal,
+      ...(validated.addresses?.[0]
+        ? {
+            dispatcher: pinnedDispatcher(
+              validated.url.hostname,
+              validated.addresses[0]
+            )
+          }
+        : {})
+    }
+
+    const res = await fetch(validated.url, requestInit)
 
     if (res.status < 300 || res.status >= 400) return res
 
@@ -225,7 +292,7 @@ export async function safeFetch(
       throw new SsrfError('Too many redirects')
     }
 
-    const nextUrl = new URL(location, validated).toString()
+    const nextUrl = new URL(location, validated.url).toString()
     const nextOrigin = new URL(nextUrl).origin
     if (startOrigin !== null && nextOrigin !== startOrigin) {
       currentInit = stripSensitiveHeaders(currentInit, opts.sensitiveHeaders)

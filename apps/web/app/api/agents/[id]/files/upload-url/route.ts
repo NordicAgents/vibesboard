@@ -94,9 +94,12 @@ export async function POST(
       fileSize
     )
     return NextResponse.json({ uploadUrl, fileKey })
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[file-upload] Failed to create agent upload URL', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
     return NextResponse.json(
-      { error: error?.message ?? 'Failed to generate upload URL' },
+      { error: 'Failed to generate upload URL' },
       { status: 500 }
     )
   }

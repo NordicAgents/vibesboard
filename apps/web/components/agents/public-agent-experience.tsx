@@ -233,12 +233,12 @@ export function PublicAgentExperience({
               {/* Close button */}
               <Button
                 variant="ghost"
-                size="icon"
                 onClick={handleClose}
                 aria-label="Close chat"
-                className="size-8 rounded-full text-[#6f7f80] hover:bg-[#e4e3e3]/60 hover:text-[#222f30] dark:hover:bg-[#344348]/60 dark:hover:text-[#f5f8f7]"
+                className="h-8 gap-1.5 rounded-full px-3 text-[#6f7f80] hover:bg-[#e4e3e3]/60 hover:text-[#222f30] dark:hover:bg-[#344348]/60 dark:hover:text-[#f5f8f7]"
               >
                 <IconClose className="size-4" />
+                <span className="text-xs font-medium">Close chat</span>
               </Button>
             </div>
           </div>
@@ -248,6 +248,7 @@ export function PublicAgentExperience({
             agent={agent}
             endpoint={`/api/public/agents/${agent.id}/chat`}
             onChatComplete={handleChatComplete}
+            onClose={handleClose}
             agentAvatarGradient={avatarGradient}
             agentAvatarInitial={avatarInitial}
             agentLogoUrl={logoUrl}

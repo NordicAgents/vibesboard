@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
 import { canEditAgent } from '@vibesboard/agents/permissions'
-import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { isPermittedAgentFileKey } from '@vibesboard/adapter-s3'
 import { processFile } from '@vibesboard/ai/file-processor'
 import { insertFiles, listFiles } from '@vibesboard/ai/files-store'
 import { resolveProviderSpec } from '@vibesboard/ai/tenant-llm-config'
@@ -132,12 +132,21 @@ export async function POST(
     return NextResponse.json({ error: 'No files provided' }, { status: 400 })
   }
 
-  // fileKey is caller-supplied here; refuse any key that reaches into another
-  // tenant's namespace before it is written to the files table or merged into
-  // the agent's fileKeys array.
-  if (files.some(f => isCrossTenantFileKey(f.fileKey, agent.tenantId))) {
+  // fileKey is caller-supplied. Only this exact agent's canonical namespace,
+  // or a compatible staging key owned by this agent owner, may be registered.
+  if (
+    files.some(
+      f =>
+        !isPermittedAgentFileKey(
+          f.fileKey,
+          agent.tenantId,
+          agent.id,
+          agent.userId
+        )
+    )
+  ) {
     return NextResponse.json(
-      { error: 'fileKey outside this tenant' },
+      { error: 'fileKey is not owned by this agent' },
       { status: 400 }
     )
   }

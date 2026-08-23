@@ -57,18 +57,19 @@ function DocsSearchDialog({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const requestId = useRef(0)
+  const visibleResults = query.trim().length >= 2 ? results : []
 
   useEffect(() => {
     if (!open) return
-    setQuery('')
-    setResults([])
+    const frame = window.requestAnimationFrame(() => {
+      setQuery('')
+      setResults([])
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [open])
 
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults([])
-      return
-    }
+    if (query.trim().length < 2) return
     const id = ++requestId.current
     const timeout = window.setTimeout(async () => {
       try {
@@ -114,12 +115,12 @@ function DocsSearchDialog({
           />
         </div>
         <Command.List className="max-h-[50vh] overflow-y-auto p-2">
-          {query.trim().length >= 2 && results.length === 0 && (
+          {query.trim().length >= 2 && visibleResults.length === 0 && (
             <Command.Empty className="px-3 py-6 text-center text-sm text-text-tertiary">
               No results for &quot;{query}&quot;
             </Command.Empty>
           )}
-          {results.map(result => (
+          {visibleResults.map(result => (
             <Command.Item
               key={result.slug}
               value={result.slug || 'index'}

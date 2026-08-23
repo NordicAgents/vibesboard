@@ -32,7 +32,7 @@ import { nanoid } from '@vibesboard/utils'
 const COMPLETION_MARKERS = {
   COLLECTION_COMPLETE: '[COLLECTION_COMPLETE]',
   INFO_COMPLETE: '[INFO_COMPLETE]',
-  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:(\{.*?\})-->/,
+  CHAT_COMPLETE_REGEX: /<!--CHAT_COMPLETE:\s*(\{[\s\S]*?\})\s*-->/,
   SUGGESTIONS_REGEX: /<!--SUGGESTIONS:\s*(\{[\s\S]*?\})-->/g,
   AGENT_HANDOFF_REGEX: /<!--AGENT_HANDOFF:(\{.*?\})-->/,
   HANDOFF_TO_AGENT_MARKER: /\[HANDOFF_TO_AGENT:[a-zA-Z0-9_-]+\]/
@@ -55,6 +55,7 @@ interface AgentChatProps {
   initialMessages?: Message[]
   className?: string
   onChatComplete?: (messages?: Message[], conversationId?: string) => void
+  onClose?: () => void
   agentAvatarGradient?: string
   agentAvatarInitial?: string
   agentLogoUrl?: string | null
@@ -70,6 +71,7 @@ export function AgentChat({
   initialMessages,
   className,
   onChatComplete,
+  onClose,
   agentAvatarGradient = 'from-violet-400 to-purple-500',
   agentAvatarInitial = 'A',
   agentLogoUrl,
@@ -320,27 +322,30 @@ export function AgentChat({
         targetAgentName: string
       }
 
-      // Update handoff chain
-      setHandoffChain(prev => [
-        ...prev,
-        { agentId: meta.targetAgentId, agentName: meta.targetAgentName }
-      ])
-      setActiveAgentId(meta.targetAgentId)
-      setActiveAgentName(meta.targetAgentName)
-      setHandoffAgentId(meta.targetAgentId)
+      const frame = window.requestAnimationFrame(() => {
+        // Update handoff chain.
+        setHandoffChain(prev => [
+          ...prev,
+          { agentId: meta.targetAgentId, agentName: meta.targetAgentName }
+        ])
+        setActiveAgentId(meta.targetAgentId)
+        setActiveAgentName(meta.targetAgentName)
+        setHandoffAgentId(meta.targetAgentId)
 
-      // Auto-send a continuation message to trigger the target agent,
-      // then clear handoffAgentId so subsequent messages don't re-trigger
-      // the continuation path on the server.
-      setTimeout(() => {
-        append({
-          id: `${HANDOFF_CONTINUE_PREFIX}${nanoid()}`,
-          role: 'user',
-          content: 'Continue'
-        }).then(() => {
-          setHandoffAgentId(undefined)
-        })
-      }, 500)
+        // Auto-send a continuation message to trigger the target agent,
+        // then clear handoffAgentId so subsequent messages don't re-trigger
+        // the continuation path on the server.
+        setTimeout(() => {
+          append({
+            id: `${HANDOFF_CONTINUE_PREFIX}${nanoid()}`,
+            role: 'user',
+            content: 'Continue'
+          }).then(() => {
+            setHandoffAgentId(undefined)
+          })
+        }, 500)
+      })
+      return () => window.cancelAnimationFrame(frame)
     } catch {
       // Invalid handoff metadata, ignore
     }
@@ -475,7 +480,10 @@ export function AgentChat({
   // Check for completion whenever messages change
   useEffect(() => {
     if (!isLoading && rawMessages.length > 0) {
-      checkForCompletion(rawMessages)
+      const frame = window.requestAnimationFrame(() => {
+        checkForCompletion(rawMessages)
+      })
+      return () => window.cancelAnimationFrame(frame)
     }
   }, [rawMessages, isLoading, checkForCompletion])
 
@@ -596,6 +604,7 @@ export function AgentChat({
           agentMode={agentMode}
           agentName={activeAgentName}
           onChatComplete={handleChatComplete}
+          onClose={onClose}
           onCorrect={handleCorrection}
           onEndConversation={handleEndConversation}
           quickSuggestions={quickSuggestions}

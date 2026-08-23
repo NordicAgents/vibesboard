@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AgentSchedulingConfig } from '@vibesboard/contracts'
 import {
   Card,
@@ -68,6 +68,13 @@ export function AgentSchedulingSettings({
     []
   )
   const [loadingConnections, setLoadingConnections] = useState(true)
+  const currentRef = useRef(current)
+  const onChangeRef = useRef(onChange)
+
+  useEffect(() => {
+    currentRef.current = current
+    onChangeRef.current = onChange
+  }, [current, onChange])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -84,10 +91,13 @@ export function AgentSchedulingSettings({
         // Auto-select if none selected or if selected ID doesn't match any active connection
         const active = conns.filter(c => c.status === 'active')
         const selectedIsValid = active.some(
-          c => c.id === current.calendarConnectionId
+          c => c.id === currentRef.current.calendarConnectionId
         )
         if (active.length > 0 && !selectedIsValid) {
-          onChange({ ...current, calendarConnectionId: active[0].id })
+          onChangeRef.current({
+            ...currentRef.current,
+            calendarConnectionId: active[0].id
+          })
         }
       } catch {
         // ignore

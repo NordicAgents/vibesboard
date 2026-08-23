@@ -15,18 +15,6 @@ import { sealSecret } from '@vibesboard/utils/secret-box'
 
 type Db = PostgresJsDatabase<typeof schema>
 
-// ─── Startup Validation ─────────────────────────────────────────────
-
-// Fail fast on the server so misconfiguration is caught at boot time,
-// not silently at the first token encrypt/decrypt call.
-if (typeof window === 'undefined' && !process.env.ENCRYPTION_KEY) {
-  console.error(
-    '[data/connections] FATAL: ENCRYPTION_KEY environment variable is not set. ' +
-      'Data connection tokens cannot be encrypted or decrypted. ' +
-      'Set ENCRYPTION_KEY before deploying.'
-  )
-}
-
 // ─── Token Encryption ───────────────────────────────────────────────
 
 // Authenticated (AES-256-GCM) encryption. Decryption reuses scheduling's

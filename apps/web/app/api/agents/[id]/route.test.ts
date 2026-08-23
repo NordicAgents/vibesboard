@@ -25,7 +25,8 @@ const AGENT = {
   hasAccessPassword: true,
   accessPassword: 'legacy-secret',
   accessPasswordHash: 'database-secret',
-  fileKeys: [] as string[]
+  fileKeys: [] as string[],
+  sourceUrls: ['https://theunseenhook.com']
 }
 let agent: typeof AGENT | null = AGENT
 const getAgentByIdMock = vi.fn(async (_id: string) => agent)
@@ -70,7 +71,15 @@ vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
 vi.mock('@vibesboard/adapter-s3', () => ({
   deleteFile: async () => undefined,
   isCrossTenantFileKey: (key: string, tenantId: string) =>
-    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`)
+    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`),
+  isPermittedAgentFileKey: (
+    key: string,
+    tenantId: string,
+    agentId: string,
+    userId: string
+  ) =>
+    key.startsWith(`tenants/${tenantId}/agents/${agentId}/files/`) ||
+    key.startsWith(`${userId}/`)
 }))
 const getFilesForAgentMock = vi.fn(async (..._args: unknown[]) => [
   {
@@ -131,6 +140,7 @@ describe('GET /api/agents/[id]', () => {
     const body = await res.json()
     expect(body.agent.id).toBe('agent-1')
     expect(body.agent.hasAccessPassword).toBe(true)
+    expect(body.agent.sourceUrls).toEqual(['https://theunseenhook.com'])
     expect(body.agent).not.toHaveProperty('accessPassword')
     expect(body.agent).not.toHaveProperty('accessPasswordHash')
   })
@@ -177,6 +187,19 @@ describe('PATCH /api/agents/[id]', () => {
     expect(updateSpy).toHaveBeenCalledOnce()
   })
 
+  it('persists website source URLs when they are updated', async () => {
+    const res = await PATCH(
+      patchReq({ sourceUrls: ['https://theunseenhook.com'] }) as never,
+      ctx('agent-1')
+    )
+    expect(res.status).toBe(200)
+    expect(updateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceUrls: ['https://theunseenhook.com']
+      })
+    )
+  })
+
   it('returns 401 when unauthenticated', async () => {
     authState = {
       ok: false,
@@ -212,6 +235,18 @@ describe('PATCH /api/agents/[id]', () => {
       ctx('agent-1')
     )
     expect(res.status).toBe(403)
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
+  it('refuses a same-tenant key belonging to a different agent', async () => {
+    const res = await PATCH(
+      patchReq({
+        fileKeys: ['tenants/tenant-b/agents/other-agent/files/private.pdf']
+      }) as never,
+      ctx('agent-1')
+    )
+
+    expect(res.status).toBe(400)
     expect(updateSpy).not.toHaveBeenCalled()
   })
 })

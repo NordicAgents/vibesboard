@@ -28,6 +28,7 @@ const agentRow = {
   name: 'Support',
   instructions: 'Help customers',
   fileKeys: [],
+  sourceUrls: ['https://theunseenhook.com'],
   tools: [],
   allowAnonymous: false,
   accessPasswordHash: 'must-not-leak',
@@ -44,7 +45,14 @@ const agentRow = {
   googleReviewEnabled: false,
   googlePlaceId: null,
   retrievalStrategy: 'direct',
-  notificationConfig: null,
+  notificationConfig: {
+    enabled: true,
+    webhook: {
+      enabled: true,
+      url: 'https://hooks.example.test/notify',
+      secret: 'live-hmac-signing-secret'
+    }
+  },
   schedulingConfig: null,
   dataConfig: null,
   calendarAvailabilityConfig: null,
@@ -96,7 +104,11 @@ describe('GET /api/agents', () => {
 
     const body = await response.json()
     expect(body.agents[0].hasAccessPassword).toBe(true)
+    expect(body.agents[0].sourceUrls).toEqual(['https://theunseenhook.com'])
     expect(body.agents[0]).not.toHaveProperty('accessPassword')
     expect(body.agents[0]).not.toHaveProperty('accessPasswordHash')
+    expect(body.agents[0].notificationConfig.webhook).not.toHaveProperty(
+      'secret'
+    )
   })
 })

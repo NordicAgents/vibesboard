@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById } from '@vibesboard/agents/server'
-import { isCrossTenantFileKey } from '@vibesboard/adapter-s3'
+import { isPermittedAgentFileKey } from '@vibesboard/adapter-s3'
 import { ingestFileForAgent } from '@vibesboard/ai/file-search'
 import {
   getFileByKey,
@@ -53,9 +53,11 @@ export async function POST(
       { status: 400 }
     )
   }
-  // The fileKeys array is caller-writable, so refuse to ingest a poisoned key
-  // that points into another tenant's storage.
-  if (isCrossTenantFileKey(fileKey, agent.tenantId)) {
+  // The fileKeys array is caller-writable, so only ingest objects bound to the
+  // exact agent (or its owner-scoped legacy staging namespace).
+  if (
+    !isPermittedAgentFileKey(fileKey, agent.tenantId, agent.id, agent.userId)
+  ) {
     return new NextResponse('Forbidden', { status: 403 })
   }
 
@@ -101,7 +103,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, ...result })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ingestion failed'
+    console.error('[file-ingest] Unexpected ingestion failure', {
+      error: error instanceof Error ? error.name : 'UnknownError'
+    })
+    const message = 'File ingestion failed. Please try again.'
     await setFileStatus(fileRecord.id, 'failed', { error: message }).catch(
       () => undefined
     )

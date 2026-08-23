@@ -369,7 +369,8 @@ export async function POST(
           respondingAgentId: activeAgent.id
         })
 
-        // Memory ingest — fire-and-forget, never throws or blocks
+        // Persist memory before the completion callback returns; serverless
+        // runtimes may freeze work as soon as the stream closes.
         if (activeAgent.memoryEnabled) {
           const memCtx = {
             conversationId: conversation.id,
@@ -379,15 +380,27 @@ export async function POST(
           const lastUser = normalizedMessages
             .filter(m => m.role === 'user')
             .at(-1)
-          if (lastUser)
-            ingestMemory(getMigrateDb(), lastUser.id, lastUser.content, memCtx)
+          const writes = []
+          if (lastUser) {
+            writes.push(
+              ingestMemory(
+                getMigrateDb(),
+                lastUser.id,
+                lastUser.content,
+                memCtx
+              )
+            )
+          }
           // Use visitor subScopeId for assistant responses too — prevents GROUP BY producing
           // a null-subScopeId ref that causes listMessagesByConversation to leak visitor
           // content into org-scoped observations during Stage 1 processing
-          ingestMemory(getMigrateDb(), nanoid(), cleanedCompletion, memCtx)
+          writes.push(
+            ingestMemory(getMigrateDb(), nanoid(), cleanedCompletion, memCtx)
+          )
+          await Promise.all(writes)
         }
 
-        maybeAutoSummarize({
+        await maybeAutoSummarize({
           tenantId,
           agentId: agent.id,
           conversationId: conversation.id,
@@ -402,7 +415,9 @@ export async function POST(
               }
             : undefined
         }).catch(err =>
-          console.error('[public-chat] Auto-summarize failed:', err)
+          console.error('[public-chat] Auto-summarize failed', {
+            error: err instanceof Error ? err.name : 'UnknownError'
+          })
         )
 
         if (reason === 'handoff_to_agent') {

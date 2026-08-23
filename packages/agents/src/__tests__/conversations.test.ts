@@ -116,7 +116,12 @@ describe('ensureConversation / getConversation (pg)', () => {
         adminDb
       )
       const again = await ensureConversation(
-        { tenantId, agentId, conversationId: first.id },
+        {
+          tenantId,
+          agentId,
+          conversationId: first.id,
+          externalId: 'ext-1'
+        },
         adminDb
       )
       expect(again.id).toBe(first.id)
@@ -141,7 +146,9 @@ describe('ensureConversation / getConversation (pg)', () => {
   it('getConversation returns null for missing id', async () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId } = await seedAgent(adminDb)
-      expect(await getConversation(tenantId, agentId, randomUUID(), adminDb)).toBe(null)
+      expect(
+        await getConversation(tenantId, agentId, randomUUID(), adminDb)
+      ).toBe(null)
     })
   })
 })
@@ -173,7 +180,11 @@ describe('updateConversationMessages / listAgentConversations (pg)', () => {
         adminDb
       )
       const after = await getConversation(tenantId, agentId, conv.id, adminDb)
-      expect(after!.messages.map((m) => m.content)).toEqual(['one', 'two', 'three'])
+      expect(after!.messages.map(m => m.content)).toEqual([
+        'one',
+        'two',
+        'three'
+      ])
       expect(after!.responseCounts?.[agentId]).toBe(1)
     })
   })
@@ -198,7 +209,12 @@ describe('updateConversationMessages / listAgentConversations (pg)', () => {
         },
         adminDb
       )
-      const all = await listAgentConversations(tenantId, agentId, undefined, adminDb)
+      const all = await listAgentConversations(
+        tenantId,
+        agentId,
+        undefined,
+        adminDb
+      )
       expect(all.length).toBe(2)
       expect(all[0].id).toBe(a.id) // a was updated last → newest
       const filtered = await listAgentConversations(
@@ -221,11 +237,17 @@ describe('handoff state (pg)', () => {
         { tenantId, agentId, externalId: 'ext-h' },
         adminDb
       )
-      expect(await isConversationHandedOff(tenantId, agentId, 'ext-h', adminDb)).toBe(false)
+      expect(
+        await isConversationHandedOff(tenantId, agentId, 'ext-h', adminDb)
+      ).toBe(false)
       await markConversationHandedOff(tenantId, agentId, conv.id, adminDb)
-      expect(await isConversationHandedOff(tenantId, agentId, 'ext-h', adminDb)).toBe(true)
+      expect(
+        await isConversationHandedOff(tenantId, agentId, 'ext-h', adminDb)
+      ).toBe(true)
       await resumeConversation(tenantId, agentId, conv.id, adminDb)
-      expect(await isConversationHandedOff(tenantId, agentId, 'ext-h', adminDb)).toBe(false)
+      expect(
+        await isConversationHandedOff(tenantId, agentId, 'ext-h', adminDb)
+      ).toBe(false)
     })
   })
 })
@@ -261,7 +283,12 @@ describe('handoff chain + derived refs (pg)', () => {
         adminDb
       )
 
-      const reloaded = await getConversation(tenantId, agentId, conv.id, adminDb)
+      const reloaded = await getConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        adminDb
+      )
       expect(reloaded!.handoffChain?.length).toBe(1)
       expect(reloaded!.handoffChain?.[0].toAgentId).toBe(targetId)
 
@@ -288,11 +315,19 @@ describe('deleteConversation (pg)', () => {
         },
         adminDb
       )
-      expect(await deleteConversation(tenantId, agentId, conv.id, adminDb)).toBe(true)
-      expect(await getConversation(tenantId, agentId, conv.id, adminDb)).toBe(null)
+      expect(
+        await deleteConversation(tenantId, agentId, conv.id, adminDb)
+      ).toBe(true)
+      expect(await getConversation(tenantId, agentId, conv.id, adminDb)).toBe(
+        null
+      )
       const remaining = await adminDb.select().from(messagesTbl)
-      expect(remaining.filter((m: any) => m.conversationId === conv.id).length).toBe(0)
-      expect(await deleteConversation(tenantId, agentId, conv.id, adminDb)).toBe(false)
+      expect(
+        remaining.filter((m: any) => m.conversationId === conv.id).length
+      ).toBe(0)
+      expect(
+        await deleteConversation(tenantId, agentId, conv.id, adminDb)
+      ).toBe(false)
     })
   })
 })
@@ -311,7 +346,12 @@ describe('feedback (pg)', () => {
         { rating: 'positive', comment: 'great' },
         adminDb
       )
-      const reloaded = await getConversation(tenantId, agentId, conv.id, adminDb)
+      const reloaded = await getConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        adminDb
+      )
       expect(reloaded!.feedback?.rating).toBe('positive')
       expect(reloaded!.feedback?.comment).toBe('great')
     })
@@ -334,7 +374,12 @@ describe('close + refresh helpers (pg)', () => {
         adminDb
       )
       expect(res).toBe(true)
-      const reloaded = await getConversation(tenantId, agentId, conv.id, adminDb)
+      const reloaded = await getConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        adminDb
+      )
       expect(reloaded!.closedAt).toBeTruthy()
       expect(reloaded!.summary).toBe('final summary')
     })
@@ -370,7 +415,12 @@ describe('close + refresh helpers (pg)', () => {
         'refreshed summary',
         adminDb
       )
-      const reloaded = await getConversation(tenantId, agentId, conv.id, adminDb)
+      const reloaded = await getConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        adminDb
+      )
       expect(reloaded!.summary).toBe('refreshed summary')
       expect(reloaded!.closedAt ?? null).toBe(null)
     })
@@ -429,6 +479,45 @@ describe('ensureConversation ownership guards (pg)', () => {
       await expect(
         ensureConversation(
           { tenantId, agentId, conversationId: conv.id, externalId: 'ext-b' },
+          adminDb
+        )
+      ).rejects.toThrow(/Unauthorized conversation access/)
+    })
+  })
+
+  it('rejects an external visitor attaching to a user-bound conversation', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, userId } = await seedAgent(adminDb)
+      const conv = await ensureConversation(
+        { tenantId, agentId, userId, initialMessages: [] },
+        adminDb
+      )
+
+      await expect(
+        ensureConversation(
+          {
+            tenantId,
+            agentId,
+            conversationId: conv.id,
+            externalId: 'public-visitor'
+          },
+          adminDb
+        )
+      ).rejects.toThrow(/Unauthorized conversation access/)
+    })
+  })
+
+  it('rejects an authenticated user attaching to an external conversation', async () => {
+    await withTestDb(async ({ adminDb }) => {
+      const { tenantId, agentId, userId } = await seedAgent(adminDb)
+      const conv = await ensureConversation(
+        { tenantId, agentId, externalId: 'public-visitor' },
+        adminDb
+      )
+
+      await expect(
+        ensureConversation(
+          { tenantId, agentId, conversationId: conv.id, userId },
           adminDb
         )
       ).rejects.toThrow(/Unauthorized conversation access/)
@@ -498,7 +587,13 @@ describe('conversation lifecycle edge cases (pg)', () => {
         { tenantId, agentId, externalId: 'c2' },
         adminDb
       )
-      const ok = await closeConversation(tenantId, agentId, conv.id, null, adminDb)
+      const ok = await closeConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        null,
+        adminDb
+      )
       expect(ok).toBe(true)
       const after = await getConversation(tenantId, agentId, conv.id, adminDb)
       expect(after!.closedAt).toBeTruthy()
@@ -534,7 +629,12 @@ describe('conversation lifecycle edge cases (pg)', () => {
         { rating: 'positive', comment: 'second' },
         adminDb
       )
-      const reloaded = await getConversation(tenantId, agentId, conv.id, adminDb)
+      const reloaded = await getConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        adminDb
+      )
       expect(reloaded!.feedback?.rating).toBe('positive')
       expect(reloaded!.feedback?.comment).toBe('second')
     })
@@ -553,7 +653,12 @@ describe('conversation lifecycle edge cases (pg)', () => {
         { rating: 'positive', comment: 'x'.repeat(600) },
         adminDb
       )
-      const reloaded = await getConversation(tenantId, agentId, conv.id, adminDb)
+      const reloaded = await getConversation(
+        tenantId,
+        agentId,
+        conv.id,
+        adminDb
+      )
       expect(reloaded!.feedback?.comment?.length).toBe(500)
     })
   })
@@ -577,7 +682,10 @@ describe('conversation lifecycle edge cases (pg)', () => {
     await withTestDb(async ({ adminDb }) => {
       const { tenantId, agentId, userId } = await seedAgent(adminDb)
       await ensureConversation({ tenantId, agentId, userId }, adminDb)
-      await ensureConversation({ tenantId, agentId, externalId: 'visitor' }, adminDb)
+      await ensureConversation(
+        { tenantId, agentId, externalId: 'visitor' },
+        adminDb
+      )
       const mine = await listAgentConversations(
         tenantId,
         agentId,
@@ -609,9 +717,9 @@ describe('conversation cross-tenant isolation (pg, regression)', () => {
       expect(
         await getConversation(b.tenantId, b.agentId, conv.id, adminDb)
       ).toBe(null)
-      expect(
-        await getConversationAnyAgent(b.tenantId, conv.id, adminDb)
-      ).toBe(null)
+      expect(await getConversationAnyAgent(b.tenantId, conv.id, adminDb)).toBe(
+        null
+      )
       expect(
         await listAgentConversations(b.tenantId, b.agentId, undefined, adminDb)
       ).toEqual([])
@@ -678,7 +786,7 @@ describe('conversation cross-tenant isolation (pg, regression)', () => {
         targetId,
         adminDb
       )
-      expect(refs.map((r) => r.id)).toEqual([conv.id])
+      expect(refs.map(r => r.id)).toEqual([conv.id])
     })
   })
 })

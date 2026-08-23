@@ -59,6 +59,7 @@ a strong `BETTER_AUTH_SECRET`.
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Storage credentials |
 | `S3_FORCE_PATH_STYLE` | Use `true` for local MinIO and `false` for virtual-hosted production services |
 | `ENCRYPTION_KEY` | Encrypts tenant provider, OAuth, and channel credentials at rest |
+| `ENCRYPTION_KEYS_OLD` | Optional comma-separated retired keys for decrypt-only access during rotation |
 
 ## Integrations
 

@@ -2,6 +2,7 @@
   "name": "@vibesboard/ai",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -35,6 +36,7 @@
     "ai": "^7.0.64",
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
+    "jszip": "3.10.1",
     "jsdom": "^30.0.1",
     "mammoth": "^1.11.0",
     "nanoid": "^5.1.16",

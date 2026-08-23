@@ -23,14 +23,16 @@ export function LandingPage() {
     <div className="dark h-full overflow-y-auto bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <LandingHeader />
       <LandingHero />
-      <LandingQuickstart />
-      <LandingWhy />
-      <LandingChannels />
-      <LandingCapabilities />
-      <LandingModels />
-      <LandingDeploy />
-      <LandingSecurity />
-      <LandingCommunity />
+      <div className="hidden md:contents">
+        <LandingQuickstart />
+        <LandingWhy />
+        <LandingChannels />
+        <LandingCapabilities />
+        <LandingModels />
+        <LandingDeploy />
+        <LandingSecurity />
+        <LandingCommunity />
+      </div>
       <LandingFooter />
     </div>
   )

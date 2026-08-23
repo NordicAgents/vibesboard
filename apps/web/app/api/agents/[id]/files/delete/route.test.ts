@@ -8,7 +8,7 @@ vi.mock('@vibesboard/agents/server', () => ({
     id: 'agent-1',
     tenantId: 'tenant-1',
     userId: 'user-1',
-    fileKeys: ['tenant-1/agent-1/file.txt']
+    fileKeys: ['tenants/tenant-1/agents/agent-1/files/file.txt']
   })
 }))
 vi.mock('@vibesboard/agents/permissions', () => ({
@@ -18,12 +18,15 @@ vi.mock('@vibesboard/agents/permissions', () => ({
 const deleteStorageMock = vi.fn(async (..._args: unknown[]) => undefined)
 vi.mock('@vibesboard/adapter-s3', () => ({
   deleteFile: (...args: unknown[]) => deleteStorageMock(...args),
-  isCrossTenantFileKey: (key: string, tenantId: string) =>
-    key.startsWith('tenants/') && !key.startsWith(`tenants/${tenantId}/`)
+  isPermittedAgentFileKey: (
+    key: string,
+    tenantId: string,
+    agentId: string
+  ) => key.startsWith(`tenants/${tenantId}/agents/${agentId}/files/`)
 }))
 
 const getFilesByKeysMock = vi.fn(async (..._args: unknown[]) => [
-  { id: 'file-1', fileKey: 'tenant-1/agent-1/file.txt' }
+  { id: 'file-1', fileKey: 'tenants/tenant-1/agents/agent-1/files/file.txt' }
 ])
 const deleteFilesByKeyMock = vi.fn(async (..._args: unknown[]) => [])
 vi.mock('@vibesboard/ai/files-store', () => ({
@@ -43,7 +46,9 @@ const tx = {
   select: () => ({
     from: () => ({
       where: () => ({
-        for: async () => [{ fileKeys: ['tenant-1/agent-1/file.txt'] }]
+        for: async () => [
+          { fileKeys: ['tenants/tenant-1/agents/agent-1/files/file.txt'] }
+        ]
       })
     })
   }),
@@ -59,7 +64,7 @@ vi.mock('@vibesboard/adapter-postgres/client', () => ({
 vi.mock('@vibesboard/adapter-postgres/schema', () => ({ agents: {} }))
 
 const { POST } = await import('./route.ts')
-const fileKey = 'tenant-1/agent-1/file.txt'
+const fileKey = 'tenants/tenant-1/agents/agent-1/files/file.txt'
 const request = () =>
   new Request('http://localhost/api/agents/agent-1/files/delete', {
     method: 'POST',
