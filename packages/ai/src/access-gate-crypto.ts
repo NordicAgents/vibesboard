@@ -50,7 +50,8 @@ function legacyV2Digest(plaintext: string, salt: string): string {
   // Compatibility-only verification of existing v2 hashes; hashPassword
   // never creates this format.
   return createHmac('sha256', getSecret())
-    .update(`${LEGACY_HMAC_VERSION}:${salt}:`) // lgtm[js/insufficient-password-hash]
+    // codeql[js/insufficient-password-hash]
+    .update(`${LEGACY_HMAC_VERSION}:${salt}:`)
     .update(plaintext)
     .digest('hex')
 }
