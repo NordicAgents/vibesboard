@@ -11,7 +11,7 @@ import {
   verifyToken,
   generateCode,
   getSecret,
-  MAX_STORED_REDEMPTIONS,
+  MAX_STORED_REDEMPTIONS
 } from './access-gate-crypto.ts'
 
 describe('getSecret', () => {
@@ -31,11 +31,11 @@ describe('getSecret', () => {
 })
 
 describe('hashPassword', () => {
-  it('uses a different stored salt for the same password', () => {
+  it('uses a memory-hard v3 digest and a different salt for the same password', () => {
     const hash1 = hashPassword('mypassword')
     const hash2 = hashPassword('mypassword')
     expect(hash1).not.toBe(hash2)
-    expect(hash1).toMatch(/^v2\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
+    expect(hash1).toMatch(/^v3\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
   })
 
   it('produces different hashes for different inputs', () => {
@@ -86,6 +86,18 @@ describe('verifyPassword', () => {
       .update('legacy-password')
       .digest('hex')
     expect(verifyPassword('legacy-password', legacy)).toBe(true)
+    expect(verifyPassword('wrong-password', legacy)).toBe(false)
+  })
+
+  it('verifies versioned v2 HMAC hashes during migration', () => {
+    const salt = '0123456789abcdef0123456789abcdef'
+    const digest = createHmac('sha256', getSecret())
+      .update(`v2:${salt}:`)
+      .update('legacy-v2-password')
+      .digest('hex')
+    const legacy = `v2$${salt}$${digest}`
+
+    expect(verifyPassword('legacy-v2-password', legacy)).toBe(true)
     expect(verifyPassword('wrong-password', legacy)).toBe(false)
   })
 })

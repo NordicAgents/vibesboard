@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { safeImageUrl } from '@/lib/safe-image-url'
 
 interface BrandingPreviewProps {
   logoUrl?: string | null
@@ -16,6 +17,8 @@ export function BrandingPreview({
   secondaryColor,
   tenantName
 }: BrandingPreviewProps) {
+  const previewLogoUrl = safeImageUrl(logoUrl)
+
   return (
     <Card>
       <CardHeader>
@@ -23,11 +26,11 @@ export function BrandingPreview({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Logo Preview */}
-        {logoUrl && (
+        {previewLogoUrl && (
           <div className="flex items-center justify-center rounded-lg border p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={logoUrl}
+              src={previewLogoUrl}
               alt={`${tenantName} logo`}
               className="h-12 w-auto object-contain"
               onError={e => {

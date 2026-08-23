@@ -157,7 +157,7 @@ The source Markdown for these guides lives under [`apps/web/content/docs/`](apps
 
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the checks your pull request has to pass, and how the branches work. In short: branch from `dev`, use a conventional commit, and open a pull request back to `dev`. For a substantial change, open an [issue](https://github.com/NordicAgents/vibesboard/issues) first so the approach can be discussed.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the checks your pull request has to pass, and how the branches work; [GOVERNANCE.md](GOVERNANCE.md) explains project scope and decision-making. In short: branch from `dev`, use a conventional commit, and open a pull request back to `dev`. For a substantial change, open an [issue](https://github.com/NordicAgents/vibesboard/issues) first so the approach can be discussed.
 
 Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 

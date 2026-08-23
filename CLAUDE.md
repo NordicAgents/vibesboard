@@ -97,5 +97,9 @@ PRs to `dev`/`main` run these workflows on ephemeral `ubuntu-latest` runners wit
 - **Build** (`.github/workflows/ci-build.yml`, "Build") — `bun run build` (Next.js production build of `apps/web`) using `NEXT_PUBLIC_*` values from `STAGING_*` secrets.
 - **Community build** (`.github/workflows/ci-community-build.yml`, "Build without the Enterprise Edition") — asserts no MIT file imports `@vibesboard/ee-billing` outside the composition root, then `rm -rf ee` followed by `bun install` (deliberately not `--frozen-lockfile`), `bun run type-check` and `bun run build`. This is what keeps the root `LICENSE` carve-out honest.
 - **Security** (`.github/workflows/security.yml`, "Security & Quality", on PR and push to `dev`/`main`) — Semgrep SAST + Trivy filesystem vulnerability scan (CRITICAL,HIGH) + Lizard complexity (CCN 15).
+- **Dependency review** (`.github/workflows/dependency-review.yml`, "Dependency Review") — blocks new dependencies with HIGH/CRITICAL advisories or licences incompatible with the project policy.
+- **PR policy** (`.github/workflows/pr-policy.yml`, "Pull Request Policy") — contributor PRs target `dev`; only `dev` release PRs and Release Please may target `main`.
+
+GitHub CodeQL default setup scans protected branches and PRs weekly and on relevant changes. Branch rulesets block HIGH-or-higher security alerts and enforce squash merges into `dev` and merge commits into `main`. `.github/workflows/scorecard.yml` publishes OpenSSF Scorecard results and SARIF on `main` and weekly.
 
 Deployment to Cloud Run is handled separately by `.github/workflows/deploy-cloudrun.yml` on push to `dev`/`main` (migrate then build/push image and deploy via Workload Identity Federation).

@@ -4,10 +4,17 @@
  */
 import { safeFetch } from '@vibesboard/utils/safe-fetch'
 
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--
+  return value.slice(0, end)
+}
+
 // Honor OPENAI_BASE_URL (E2E mock / proxy / gateway), defaulting to public OpenAI.
 const OPENAI_BASE_URL =
-  process.env.OPENAI_BASE_URL?.trim().replace(/\/+$/, '') ??
-  'https://api.openai.com/v1'
+  (process.env.OPENAI_BASE_URL
+    ? withoutTrailingSlashes(process.env.OPENAI_BASE_URL.trim())
+    : undefined) ?? 'https://api.openai.com/v1'
 const OPENAI_CHAT_COMPLETIONS = `${OPENAI_BASE_URL}/chat/completions`
 const OPENAI_EMBEDDINGS = `${OPENAI_BASE_URL}/embeddings`
 
@@ -85,7 +92,7 @@ export async function createEmbedding(params: {
   dimensions?: number
 }): Promise<{ data: { embedding: number[]; index: number }[] }> {
   const url = params.baseUrl
-    ? `${params.baseUrl.replace(/\/+$/, '')}/embeddings`
+    ? `${withoutTrailingSlashes(params.baseUrl)}/embeddings`
     : OPENAI_EMBEDDINGS
   const key = params.apiKey ?? getApiKey()
   const request = {

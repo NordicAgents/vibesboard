@@ -17,7 +17,8 @@ export function slugify(str: string) {
     .trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
 }
 
 export function formatDate(input: string | number | Date): string {

@@ -15,9 +15,9 @@ describe('hashPassword / verifyPassword', () => {
     expect(verifyPassword('hunter2', stored)).toBe(true)
   })
 
-  it('produces a versioned salt and digest', () => {
+  it('produces a memory-hard versioned salt and digest', () => {
     const stored = hashPassword('hunter2')
-    expect(stored).toMatch(/^v2\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
+    expect(stored).toMatch(/^v3\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
   })
 
   it('does not correlate identical passwords across agents', () => {

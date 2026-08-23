@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import {
+  createHmac,
+  randomBytes,
+  randomInt,
+  scryptSync,
+  timingSafeEqual
+} from 'crypto'
 
 /** Max redemption records stored inline on an invite-code document. */
 export const MAX_STORED_REDEMPTIONS = 100
@@ -13,15 +19,36 @@ export function getSecret(): string {
   return secret
 }
 
-// ─── Password hashing (versioned, salted HMAC) ──────────────────────────────
+// ─── Password hashing (versioned, salted scrypt + server-side pepper) ───────
 
-const PASSWORD_HASH_VERSION = 'v2'
+const PASSWORD_HASH_VERSION = 'v3'
+const LEGACY_HMAC_VERSION = 'v2'
 const HEX_32_BYTES = /^[0-9a-f]{64}$/i
 const HEX_16_BYTES = /^[0-9a-f]{32}$/i
+const SCRYPT_OPTIONS = {
+  N: 2 ** 15,
+  r: 8,
+  p: 1,
+  maxmem: 64 * 1024 * 1024
+} as const
 
 function passwordDigest(plaintext: string, salt: string): string {
+  const peppered = Buffer.concat([
+    Buffer.from(plaintext, 'utf8'),
+    Buffer.from([0]),
+    Buffer.from(getSecret(), 'utf8')
+  ])
+  return scryptSync(
+    peppered,
+    Buffer.from(salt, 'hex'),
+    32,
+    SCRYPT_OPTIONS
+  ).toString('hex')
+}
+
+function legacyV2Digest(plaintext: string, salt: string): string {
   return createHmac('sha256', getSecret())
-    .update(`${PASSWORD_HASH_VERSION}:${salt}:`)
+    .update(`${LEGACY_HMAC_VERSION}:${salt}:`)
     .update(plaintext)
     .digest('hex')
 }
@@ -45,6 +72,17 @@ export function verifyPassword(plaintext: string, hash: string): boolean {
     HEX_32_BYTES.test(digest ?? '')
   ) {
     return equalHex(passwordDigest(plaintext, salt), digest)
+  }
+
+  // Migration path for v2 hashes. New and changed passwords are always v3;
+  // this branch can disappear after existing access gates have been rotated.
+  if (
+    version === LEGACY_HMAC_VERSION &&
+    !extra &&
+    HEX_16_BYTES.test(salt ?? '') &&
+    HEX_32_BYTES.test(digest ?? '')
+  ) {
+    return equalHex(legacyV2Digest(plaintext, salt), digest)
   }
 
   // Backward compatibility: existing rows contain the old unsalted 64-char
@@ -106,10 +144,9 @@ export function verifyToken(token: string, agentId: string): boolean {
 
 export function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I/O/0/1 for readability
-  const bytes = randomBytes(6)
   let result = 'VIBE-'
   for (let i = 0; i < 6; i++) {
-    result += chars[bytes[i] % chars.length]
+    result += chars[randomInt(chars.length)]
   }
   return result
 }
