@@ -3,11 +3,11 @@
 <h1 align="center">Vibesboard</h1>
 
 <p align="center">
-  <strong>Open-core platform for AI agents that answer, act, and book—across web and messaging channels.</strong>
+  <strong>Let your agent talk. Get your time back.</strong>
 </p>
 
 <p align="center">
-  Build once. Deploy to web, WhatsApp, and Instagram. Ground every answer in your data, connect real business actions, and operate multiple workspaces from one self-hosted platform.
+Open-source platform agentic platform to build, deploy, and scale agents that vibe with people.Vibesboard — build agents for vibing with people. 
 </p>
 
 <p align="center">
