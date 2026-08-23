@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus, MoreHorizontal, Mail, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/ui/page-header'
@@ -80,26 +80,7 @@ export default function TeamManagementPage() {
   )
   const [isInviting, setIsInviting] = useState(false)
 
-  useEffect(() => {
-    fetchActiveTenant()
-  }, [])
-
-  useEffect(() => {
-    if (tenantId) {
-      const loadTenantData = async () => {
-        const personal = await fetchTenantMeta()
-        await fetchMembers()
-        if (!personal && teamCollaborationEnabled) {
-          fetchInvitations()
-        } else {
-          setInvitations([])
-        }
-      }
-      loadTenantData()
-    }
-  }, [tenantId])
-
-  const fetchActiveTenant = async () => {
+  const fetchActiveTenant = useCallback(async () => {
     try {
       const response = await fetch('/api/user/active-tenant')
       if (response.ok) {
@@ -110,9 +91,9 @@ export default function TeamManagementPage() {
       console.error('Error fetching active tenant:', error)
       toast.error('Failed to load tenant')
     }
-  }
+  }, [])
 
-  const fetchTenantMeta = async () => {
+  const fetchTenantMeta = useCallback(async () => {
     if (!tenantId) return false
     try {
       const response = await fetch(`/api/tenants/${tenantId}/config`)
@@ -139,9 +120,9 @@ export default function TeamManagementPage() {
       console.error('Error fetching tenant meta:', error)
     }
     return false
-  }
+  }, [tenantId])
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     if (!tenantId) return
 
     try {
@@ -157,9 +138,9 @@ export default function TeamManagementPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [tenantId])
 
-  const fetchInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     if (!tenantId) return
 
     try {
@@ -175,7 +156,32 @@ export default function TeamManagementPage() {
     } catch (error) {
       console.error('Error fetching invitations:', error)
     }
-  }
+  }, [tenantId])
+
+  useEffect(() => {
+    fetchActiveTenant()
+  }, [fetchActiveTenant])
+
+  useEffect(() => {
+    if (!tenantId) return
+
+    const loadTenantData = async () => {
+      const personal = await fetchTenantMeta()
+      await fetchMembers()
+      if (!personal && teamCollaborationEnabled) {
+        fetchInvitations()
+      } else {
+        setInvitations([])
+      }
+    }
+    loadTenantData()
+  }, [
+    tenantId,
+    fetchTenantMeta,
+    fetchMembers,
+    fetchInvitations,
+    teamCollaborationEnabled
+  ])
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()

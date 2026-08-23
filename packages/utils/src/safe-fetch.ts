@@ -76,7 +76,15 @@ export function isPrivateIpv4(ip: string): boolean {
 export function isPrivateIpv6(ip: string): boolean {
   const v = ip.replace(/^\[|\]$/g, '').toLowerCase()
   if (v === '::1' || v === '::') return true
-  if (v.startsWith('fe80:') || v === 'fe80::') return true // link-local
+  // IPv6 link-local is fe80::/10, not merely fe80::/16. That includes every
+  // first hextet from fe80 through febf (for example fe90::1 and febf::1).
+  const firstHextet = Number.parseInt(v.split(':', 1)[0] ?? '', 16)
+  if (
+    Number.isFinite(firstHextet) &&
+    (firstHextet & 0xffc0) === 0xfe80
+  ) {
+    return true
+  }
   if (v.startsWith('fc') || v.startsWith('fd')) return true // unique local fc00::/7
   if (v.startsWith('ff')) return true // multicast
   // IPv4-mapped (::ffff:a.b.c.d or hex-compressed ::ffff:xxxx:xxxx)

@@ -106,10 +106,12 @@ database — only the webhook verification secrets below belong in the environme
 Rendered on the `/privacy-policy` and `/terms-of-service` pages. Nothing is
 hardcoded, since this repository is public: a baked-in default would be inherited by
 every fork, and an unconfigured deployment would name someone else's company as the
-data controller. Leave all of these unset for local development — the legal pages
-stay readable and simply name nobody. Set them before running a deployment real users
-sign up to: GDPR Article 13 requires identifying the controller, and both Google
-OAuth verification and Meta app review check for it.
+data controller. Leave all of these unset for local development. Before accepting
+real users, set the values that identify the controller and a privacy contact: GDPR
+Article 13 requires identifying the controller, and both Google OAuth verification
+and Meta app review check for it. Follow the
+[privacy and data-rights operations runbook](https://github.com/NordicAgents/vibesboard/blob/main/docs/privacy-data-rights.md)
+to establish retention and request-handling processes.
 
 | Name                               | Required | Description                                                                                                |
 | ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |

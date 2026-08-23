@@ -172,7 +172,7 @@ export default function AgentsPage() {
                       : undefined
                   }
                 >
-                  <Card className="duration-[250ms] flex h-full flex-col rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <Card className="duration-&lsqb;250ms&rsqb; flex h-full flex-col rounded-xl transition-all hover:-translate-y-0.5 hover:shadow-md">
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle className="line-clamp-1 font-sans text-base font-normal text-[#222f30] dark:text-[#f5f8f7]">

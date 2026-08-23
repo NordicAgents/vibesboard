@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { requireAuth } from '@/lib/auth/route-handler'
 import { getAgentById, getAgentNamesByTenant } from '@vibesboard/agents/server'
+import { canEditAgent } from '@vibesboard/agents/permissions'
 import { agentChatRequestSchema } from '@vibesboard/agents/schema'
 import {
   ensureConversation,
@@ -50,6 +51,19 @@ export async function POST(
 
     if (!agent) {
       return new NextResponse('Agent not found', { status: 404 })
+    }
+
+    // This is the authenticated, private-agent endpoint. getAgentById resolves
+    // an agent before the caller's tenant context exists so public routes can
+    // use it too; never let that convenience turn a known agent UUID into
+    // cross-tenant chat, RAG, or action access.
+    const canEdit = await canEditAgent({
+      sessionUserId: user.id,
+      agentOwnerId: agent.userId,
+      tenantId: agent.tenantId
+    })
+    if (!canEdit) {
+      return new NextResponse('Forbidden', { status: 403 })
     }
 
     // Check tenant usage limit

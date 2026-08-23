@@ -97,7 +97,7 @@ export function PromptForm({
       {/* Claude-style: everything inside one rounded container */}
       <div
         className={cn(
-          'duration-[250ms] flex flex-col rounded-[16px] border transition-all',
+          'duration-&lsqb;250ms&rsqb; flex flex-col rounded-[16px] border transition-all',
           'bg-[#f5f8f7] dark:bg-[#192425]',
           'border-[#e4e3e3] dark:border-[#344348]',
           'shadow-[0_1px_3px_rgba(0,0,0,0.06),_0_4px_16px_rgba(0,0,0,0.04)]',
