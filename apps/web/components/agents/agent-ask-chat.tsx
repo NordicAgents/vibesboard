@@ -147,7 +147,7 @@ export function AgentAskChat({
       setInput('')
       setCompletion('')
     }
-  }, [searchParams, ownerSessions, setInput, setCompletion])
+  }, [searchParams, ownerSessions, activeSessionId, setInput, setCompletion])
 
   const persistSession = React.useCallback(
     (

@@ -322,27 +322,30 @@ export function AgentChat({
         targetAgentName: string
       }
 
-      // Update handoff chain
-      setHandoffChain(prev => [
-        ...prev,
-        { agentId: meta.targetAgentId, agentName: meta.targetAgentName }
-      ])
-      setActiveAgentId(meta.targetAgentId)
-      setActiveAgentName(meta.targetAgentName)
-      setHandoffAgentId(meta.targetAgentId)
+      const frame = window.requestAnimationFrame(() => {
+        // Update handoff chain.
+        setHandoffChain(prev => [
+          ...prev,
+          { agentId: meta.targetAgentId, agentName: meta.targetAgentName }
+        ])
+        setActiveAgentId(meta.targetAgentId)
+        setActiveAgentName(meta.targetAgentName)
+        setHandoffAgentId(meta.targetAgentId)
 
-      // Auto-send a continuation message to trigger the target agent,
-      // then clear handoffAgentId so subsequent messages don't re-trigger
-      // the continuation path on the server.
-      setTimeout(() => {
-        append({
-          id: `${HANDOFF_CONTINUE_PREFIX}${nanoid()}`,
-          role: 'user',
-          content: 'Continue'
-        }).then(() => {
-          setHandoffAgentId(undefined)
-        })
-      }, 500)
+        // Auto-send a continuation message to trigger the target agent,
+        // then clear handoffAgentId so subsequent messages don't re-trigger
+        // the continuation path on the server.
+        setTimeout(() => {
+          append({
+            id: `${HANDOFF_CONTINUE_PREFIX}${nanoid()}`,
+            role: 'user',
+            content: 'Continue'
+          }).then(() => {
+            setHandoffAgentId(undefined)
+          })
+        }, 500)
+      })
+      return () => window.cancelAnimationFrame(frame)
     } catch {
       // Invalid handoff metadata, ignore
     }
@@ -477,7 +480,10 @@ export function AgentChat({
   // Check for completion whenever messages change
   useEffect(() => {
     if (!isLoading && rawMessages.length > 0) {
-      checkForCompletion(rawMessages)
+      const frame = window.requestAnimationFrame(() => {
+        checkForCompletion(rawMessages)
+      })
+      return () => window.cancelAnimationFrame(frame)
     }
   }, [rawMessages, isLoading, checkForCompletion])
 

@@ -1,7 +1,9 @@
 {
   "name": "@vibesboard/web",
+  "type": "module",
   "version": "0.0.2",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

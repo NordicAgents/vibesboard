@@ -128,7 +128,9 @@ export default function PrivacyPolicyPage() {
             resolution, or legal obligations. Workspace owners control deletion
             of much of their agent and conversation content. Retention by a
             connected third party is governed by that party&apos;s settings and
-            policies.
+            policies. The deployment operator documents its applicable retention
+            periods and handles requests to access, export, correct, or delete
+            personal data through the contact below.
           </p>
 
           <h2>7. Security</h2>
@@ -197,8 +199,11 @@ export default function PrivacyPolicyPage() {
             {hasOperatorIdentity && legalEntity.address.length > 0 && (
               <> or by post at the address below</>
             )}
-            . We will update the date above when this policy changes and provide
-            additional notice for material changes where required.
+            . Please include the account or workspace concerned and the type of
+            request; we will verify identity and respond within the timeframe
+            required by applicable law. We will update the date above when this
+            policy changes and provide additional notice for material changes
+            where required.
           </p>
           {hasOperatorIdentity && (
             <address className="not-italic">

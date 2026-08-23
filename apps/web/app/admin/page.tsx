@@ -62,7 +62,7 @@ export default async function AdminPage() {
             href={item.href}
             className={`stagger- group animate-fade-slide-in${i + 1}`}
           >
-            <Card className="duration-[250ms] h-full transition-all hover:-translate-y-0.5 hover:border-[#a7e26e]/40 hover:shadow-md">
+            <Card className="duration-&lsqb;250ms&rsqb; h-full transition-all hover:-translate-y-0.5 hover:border-[#a7e26e]/40 hover:shadow-md">
               <CardHeader>
                 <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-[#e6ede6] dark:bg-[#344348]">
                   <item.icon className="size-5 text-accent-orange" />
