@@ -14,6 +14,7 @@
 import { defineConfig, devices } from '@playwright/test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   APP_PORT,
   BASE_URL,
@@ -21,6 +22,8 @@ import {
   SMOKE_TEST_SECRET,
   STORAGE_STATE,
 } from './e2e/constants.ts'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // APP_PORT / BASE_URL / MOCK_PORT come from e2e/constants.ts rather than being
 // re-declared here. They used to be duplicated, so this config and the specs
