@@ -90,10 +90,17 @@ jobs:
         run: docker compose -f docker-compose.dev.yml down -v --remove-orphans
 
   e2e-deep:
-    name: Playwright deep suite
+    name: Playwright deep suite (${{ matrix.shard }})
     runs-on: ubuntu-latest
     # Backstop only — the config sets a lower globalTimeout (20 min).
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # The public hosted environment terminates the single 209-test process
+      # after roughly eight minutes. Two isolated shards retain the full suite
+      # while keeping each process below that external runtime limit.
+      matrix:
+        shard: ["1/2", "2/2"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -107,14 +114,16 @@ jobs:
         # cross-tenant isolation. Its globalSetup seeds everything it needs
         # (including the base E2E user, plus an outsider and a superadmin), so
         # it does not depend on the core job having run.
-        run: bun run test:e2e:local
+        run: bun run test:e2e:local -- --shard=${{ matrix.shard }}
         working-directory: apps/web
 
       - name: Upload local Playwright report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-local
+          # Matrix jobs cannot upload to the same artifact name. job-index is
+          # a stable, slash-free identifier for each shard.
+          name: playwright-report-local-${{ strategy.job-index }}
           path: apps/web/playwright-report-local/
           if-no-files-found: ignore
           retention-days: 14

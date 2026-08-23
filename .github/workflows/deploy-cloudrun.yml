@@ -25,10 +25,9 @@ jobs:
     # Applies Drizzle migrations to the target env's Postgres VM over an IAP TCP
     # tunnel before the service deploys. Runs for both staging (dev) and prod (main).
     if: github.ref_name == 'dev' || github.ref_name == 'main'
-    # Self-hosted while the org's GitHub-hosted runners are billing-blocked
-    # (see the deploy job for the full rationale). No docker needed here, so
-    # this job takes the whole pool; gcloud arrives via setup-gcloud.
-    runs-on: [self-hosted, Linux, X64]
+    # Public repositories receive free GitHub-hosted standard runners. Keeping
+    # deployments here avoids exposing the persistent self-hosted fleet.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
       name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
@@ -78,16 +77,10 @@ jobs:
       always() &&
       (github.ref_name == 'dev' || github.ref_name == 'main') &&
       needs.migrate.result == 'success'
-    # Self-hosted: GitHub-hosted runners have refused every job since
-    # 2026-08-13 ("recent account payments have failed"), so this workflow died
-    # in ~5s with zero steps and staging shipped nothing. PR #282 moved the PR
-    # gates over but deliberately left deploy behind; setup-gcloud installs the
-    # SDK itself, so nothing here actually needed a GitHub-hosted image.
-    #
-    # `docker` is the narrower label: only one runner carries it, so the image
-    # build queues behind Tests/E2E instead of racing them for the box's 8 GB
-    # of RAM against a builder stage that asks for a 4 GB Node heap.
-    runs-on: [self-hosted, docker]
+    # Trusted pushes to dev/main can use GitHub-hosted Docker and Buildx. This
+    # is free for this public repository and keeps the persistent runner fleet
+    # unavailable to pull-request code.
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -229,24 +222,11 @@ jobs:
             exit 1
           fi
 
-      # The runner is persistent, so whatever this job leaves behind is still
-      # here on the next deploy. buildx keeps its cache inside the builder
-      # container and it grows without bound; a week's worth is plenty to keep
-      # layer reuse working. Never fails the deploy -- the image is already live
-      # by this point.
-      - name: Reclaim builder disk
-        if: always()
-        run: |
-          docker buildx prune -f --filter until=168h || true
-          docker image prune -f || true
-
   lighthouse:
     name: Audit staging deployment
     needs: [deploy]
-    # Parked while CI is self-hosted. This job scores a live URL and fails the
-    # run under 50 perf; run it on a shared laptop and the score reflects the
-    # box's load, not the deployment. Set repo variable LIGHTHOUSE_ENABLED=true
-    # (or just delete this clause) once GitHub-hosted runners are back.
+    # This is opt-in because performance scores vary between GitHub-hosted
+    # runners. Set LIGHTHOUSE_ENABLED=true to include it in staging deploys.
     if: >-
       github.ref_name == 'dev' && needs.deploy.result == 'success' &&
       vars.LIGHTHOUSE_ENABLED == 'true'

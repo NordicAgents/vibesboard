@@ -13,9 +13,10 @@ permissions: {}
 jobs:
   release:
     name: Release Please
-    # This job runs only trusted code after a push to main. Pull-request jobs
-    # use ephemeral GitHub-hosted VMs and never share this persistent runner.
-    runs-on: [self-hosted, Linux, X64]
+    # Release Please only calls the GitHub API. Keeping it on an isolated,
+    # standard hosted runner avoids exposing the self-hosted fleet after the
+    # repository is made public; hosted runners are free for public projects.
+    runs-on: ubuntu-latest
     permissions:
       contents: write # Required to create release commits, tags, and releases.
       pull-requests: write # Required to create and update the release PR.

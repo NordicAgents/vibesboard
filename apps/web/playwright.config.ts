@@ -6,6 +6,7 @@
 // global-setup seeds an E2E user + tenant and saves an authenticated cookie jar.
 import { defineConfig, devices } from '@playwright/test'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   APP_PORT,
   BASE_URL,
@@ -13,6 +14,8 @@ import {
   SMOKE_TEST_SECRET,
   STORAGE_STATE
 } from './e2e/constants.ts'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const dbUrl =
   process.env.DATABASE_URL ??
