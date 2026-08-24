@@ -23,6 +23,16 @@ updates:
     cooldown:
       default-days: 7
 
+  - package-ecosystem: github-actions
+    directory: /.github/actions/e2e-stack
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
   # Dockerfile + docker-compose base images are digest-pinned and otherwise rot.
   - package-ecosystem: docker
     directory: /

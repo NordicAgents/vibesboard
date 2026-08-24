@@ -10,6 +10,9 @@ For anything larger than a bug fix or a small correction, open an issue first
 and describe what you want to change. It is much cheaper to agree on an approach
 in an issue than to discover a mismatch after the code is written.
 
+Project scope, maintainer responsibilities, and how decisions are made are
+described in [`GOVERNANCE.md`](GOVERNANCE.md).
+
 For security problems, do **not** open an issue. Follow
 [`SECURITY.md`](SECURITY.md) instead.
 
@@ -97,8 +100,8 @@ See [`docs/local-e2e.md`](docs/local-e2e.md) for running the deep suite locally,
 including the path that does not need Docker. The E2E suites are heavy; letting
 CI run them is usually the better trade unless you are actively changing them.
 
-The security workflow (Semgrep, Trivy, and a complexity gate) also runs on every
-pull request.
+The security workflow (Semgrep, Trivy, and a complexity gate), CodeQL, and the
+dependency vulnerability/licence review also gate pull requests.
 
 ### A note on forks
 

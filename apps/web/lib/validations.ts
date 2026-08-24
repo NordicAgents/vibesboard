@@ -54,9 +54,18 @@ export function validateFeatureFlagName(name: string): boolean {
  * Validates email address
  */
 export function validateEmail(email: string): boolean {
-  if (!email) return false
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
+  if (!email || email.length > 254) return false
+  if ([...email].some(char => /\s/.test(char))) return false
+
+  const separator = email.indexOf('@')
+  if (separator <= 0 || separator !== email.lastIndexOf('@')) return false
+
+  const domain = email.slice(separator + 1)
+  if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) {
+    return false
+  }
+  const dot = domain.lastIndexOf('.')
+  return dot > 0 && dot < domain.length - 1
 }
 
 /**

@@ -116,7 +116,10 @@ export async function POST(
   const accessPasswordHash = await getAgentAccessPasswordHash(agentId)
 
   // Try password first
-  if (accessPasswordHash && verifyPassword(value, accessPasswordHash)) {
+  if (
+    accessPasswordHash &&
+    (await verifyPassword(value, accessPasswordHash))
+  ) {
     await setAccessCookie(agentId, { crossOrigin: isEmbed })
     return NextResponse.json({ ok: true })
   }

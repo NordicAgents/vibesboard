@@ -86,6 +86,14 @@ describe('validateEmail', () => {
     expect(validateEmail('user@example .com')).toBe(false)
   })
 
+  it('should reject ambiguous separators and oversized input', () => {
+    expect(validateEmail('user@@example.com')).toBe(false)
+    expect(validateEmail('@example.com')).toBe(false)
+    expect(validateEmail('user@.example.com')).toBe(false)
+    expect(validateEmail('user@example.com.')).toBe(false)
+    expect(validateEmail(`${'a'.repeat(245)}@example.com`)).toBe(false)
+  })
+
   it('should return false for empty strings', () => {
     expect(validateEmail('')).toBe(false)
   })
