@@ -2,7 +2,7 @@ name: Health Check
 
 on:
   schedule:
-    - cron: "0 */6 * * *" # Every 6 hours
+    - cron: '0 */6 * * *' # Every 6 hours
   workflow_dispatch:
 
 concurrency:
@@ -15,9 +15,10 @@ permissions:
 jobs:
   staging:
     name: Staging
-    # This workflow executes only the trusted, hard-coded health probes below;
-    # it never checks out or runs pull-request code.
-    runs-on: [self-hosted, Linux, X64]
+    # A manual dispatch can select a non-default branch. Keep even these simple
+    # probes on an ephemeral runner so a modified branch can never reach the
+    # persistent runner fleet.
+    runs-on: ubuntu-latest
     steps:
       - name: Health check (staging)
         id: check
@@ -46,7 +47,7 @@ jobs:
 
   production:
     name: Production
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     steps:
       - name: Health check (production)
         id: check

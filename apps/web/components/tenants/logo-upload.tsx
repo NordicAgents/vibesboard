@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Upload, X, Link as LinkIcon, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { isGoogleStorageImageUrl, safeImageUrl } from '@/lib/safe-image-url'
 
 interface LogoUploadProps {
   value: string
@@ -23,9 +24,10 @@ export function LogoUpload({
 }: LogoUploadProps) {
   const [isUploading, setIsUploading] = React.useState(false)
   const [mode, setMode] = React.useState<'upload' | 'url'>(
-    value && !value.includes('storage.googleapis.com') ? 'url' : 'upload'
+    value && !isGoogleStorageImageUrl(value) ? 'url' : 'upload'
   )
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const previewUrl = safeImageUrl(value)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -121,11 +123,11 @@ export function LogoUpload({
             className="hidden"
             disabled={disabled || isUploading}
           />
-          {value ? (
+          {previewUrl ? (
             <div className="flex items-center gap-3 rounded-lg border p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={value}
+                src={previewUrl}
                 alt="Logo"
                 className="h-12 w-auto max-w-[120px] object-contain"
                 onError={e => {
@@ -188,11 +190,11 @@ export function LogoUpload({
             onChange={e => onChange(e.target.value)}
             disabled={disabled}
           />
-          {value && (
+          {previewUrl && (
             <div className="rounded-lg border p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={value}
+                src={previewUrl}
                 alt="Logo preview"
                 className="h-12 object-contain"
                 onError={e => {
