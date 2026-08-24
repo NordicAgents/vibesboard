@@ -16,7 +16,7 @@
   "dependencies": {
     "@react-email/render": "^1.1.2",
     "@vibesboard/adapter-postgres": "workspace:*",
-    "better-auth": "1.6.26",
+    "better-auth": "1.6.29",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
     "resend": "^6.18.1",
