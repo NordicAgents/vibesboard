@@ -1,6 +1,12 @@
 import type { LLMProvider, LLMOptions } from '../../interfaces/llm.ts'
 import type { Embedder } from '../../interfaces/embedder.ts'
 
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length
+  while (end > 0 && value.charCodeAt(end - 1) === 47) end--
+  return value.slice(0, end)
+}
+
 // ─── OpenAI LLM Provider ──────────────────────────────────────────────────────
 
 export interface OpenAILLMConfig {
@@ -16,7 +22,9 @@ export class OpenAILLMProvider implements LLMProvider {
 
   constructor(config: OpenAILLMConfig) {
     this.apiKey = config.apiKey
-    this.baseUrl = config.baseUrl?.replace(/\/+$/, '') ?? 'https://api.openai.com/v1'
+    this.baseUrl = config.baseUrl
+      ? withoutTrailingSlashes(config.baseUrl)
+      : 'https://api.openai.com/v1'
     this.defaultModel = config.defaultModel ?? 'gpt-4o-mini'
   }
 
@@ -61,7 +69,9 @@ export class OpenAIEmbedder implements Embedder {
 
   constructor(config: OpenAIEmbedderConfig) {
     this.apiKey = config.apiKey
-    this.baseUrl = config.baseUrl?.replace(/\/+$/, '') ?? 'https://api.openai.com/v1'
+    this.baseUrl = config.baseUrl
+      ? withoutTrailingSlashes(config.baseUrl)
+      : 'https://api.openai.com/v1'
     this.model = config.model ?? 'text-embedding-3-small'
   }
 
