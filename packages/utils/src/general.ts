@@ -12,12 +12,15 @@ export const nanoid = customAlphabet(
 ) // 7-character random string
 
 export function slugify(str: string) {
-  return str
+  let slug = str
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+
+  while (slug.startsWith('-')) slug = slug.slice(1)
+  while (slug.endsWith('-')) slug = slug.slice(0, -1)
+  return slug
 }
 
 export function formatDate(input: string | number | Date): string {

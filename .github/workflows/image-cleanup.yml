@@ -2,7 +2,7 @@ name: Artifact Registry Cleanup
 
 on:
   schedule:
-    - cron: "0 3 * * 0"  # Every Sunday at 03:00 UTC
+    - cron: '0 3 * * 0' # Every Sunday at 03:00 UTC
   workflow_dispatch:
 
 concurrency:
@@ -16,9 +16,9 @@ jobs:
   cleanup:
     name: Delete expired images
     runs-on: ubuntu-latest
-    # The `maintenance` environment carries a deployment branch policy (dev and
-    # main only), so a modified copy of this workflow pushed to an arbitrary
-    # branch cannot mint deploy-SA tokens via workflow_dispatch.
+    # The `maintenance` environment permits main only and requires approval by
+    # someone other than the triggering actor, so a modified workflow on an
+    # arbitrary branch cannot mint deploy-SA tokens via workflow_dispatch.
     environment: maintenance
     permissions:
       contents: read

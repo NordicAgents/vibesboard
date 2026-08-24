@@ -765,8 +765,12 @@ describe('whatsapp sendReply (window + Graph API stub)', () => {
       const realFetch = globalThis.fetch
       const fetchMock = vi.fn(async (input: any) => {
         const url = typeof input === 'string' ? input : input.url
+        const parsedUrl = new URL(url)
         // outbound WhatsApp Graph API call
-        if (url.includes('graph.facebook.com') && url.endsWith('/messages')) {
+        if (
+          parsedUrl.hostname === 'graph.facebook.com' &&
+          parsedUrl.pathname.endsWith('/messages')
+        ) {
           return new Response(
             JSON.stringify({ messages: [{ id: 'wamid.sent.99' }] }),
             { status: 200, headers: { 'Content-Type': 'application/json' } },

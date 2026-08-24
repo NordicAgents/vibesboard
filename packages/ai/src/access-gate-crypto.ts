@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import {
+  createHmac,
+  randomBytes,
+  randomInt,
+  scrypt,
+  timingSafeEqual
+} from 'crypto'
 
 /** Max redemption records stored inline on an invite-code document. */
 export const MAX_STORED_REDEMPTIONS = 100
@@ -13,15 +19,47 @@ export function getSecret(): string {
   return secret
 }
 
-// ─── Password hashing (versioned, salted HMAC) ──────────────────────────────
+// ─── Password hashing (versioned, salted scrypt + server-side pepper) ───────
 
-const PASSWORD_HASH_VERSION = 'v2'
+const PASSWORD_HASH_VERSION = 'v3'
+const LEGACY_HMAC_VERSION = 'v2'
 const HEX_32_BYTES = /^[0-9a-f]{64}$/i
 const HEX_16_BYTES = /^[0-9a-f]{32}$/i
+const SCRYPT_OPTIONS = {
+  N: 2 ** 15,
+  r: 8,
+  p: 1,
+  maxmem: 64 * 1024 * 1024
+} as const
 
-function passwordDigest(plaintext: string, salt: string): string {
+function derivePasswordDigest(
+  plaintext: string,
+  salt: string
+): Promise<string> {
+  const peppered = Buffer.concat([
+    Buffer.from(plaintext, 'utf8'),
+    Buffer.from([0]),
+    Buffer.from(getSecret(), 'utf8')
+  ])
+  return new Promise((resolve, reject) => {
+    scrypt(
+      peppered,
+      Buffer.from(salt, 'hex'),
+      32,
+      SCRYPT_OPTIONS,
+      (error, derivedKey) => {
+        if (error) reject(error)
+        else resolve(derivedKey.toString('hex'))
+      }
+    )
+  })
+}
+
+function legacyV2Digest(plaintext: string, salt: string): string {
+  // Compatibility-only verification of existing v2 hashes; hashPassword
+  // never creates this format.
   return createHmac('sha256', getSecret())
-    .update(`${PASSWORD_HASH_VERSION}:${salt}:`)
+    .update(`${LEGACY_HMAC_VERSION}:${salt}:`)
     .update(plaintext)
     .digest('hex')
 }
@@ -31,20 +69,44 @@ function equalHex(left: string, right: string): boolean {
   return timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'))
 }
 
-export function hashPassword(plaintext: string): string {
-  const salt = randomBytes(16).toString('hex')
-  return `${PASSWORD_HASH_VERSION}$${salt}$${passwordDigest(plaintext, salt)}`
+function parseVersionedHash(
+  hash: string,
+  expectedVersion: string
+): { salt: string; digest: string } | null {
+  const [version, salt, digest, extra] = hash.split('$')
+  if (version !== expectedVersion || extra) return null
+  if (!HEX_16_BYTES.test(salt ?? '') || !HEX_32_BYTES.test(digest ?? '')) {
+    return null
+  }
+  return { salt, digest }
 }
 
-export function verifyPassword(plaintext: string, hash: string): boolean {
-  const [version, salt, digest, extra] = hash.split('$')
-  if (
-    version === PASSWORD_HASH_VERSION &&
-    !extra &&
-    HEX_16_BYTES.test(salt ?? '') &&
-    HEX_32_BYTES.test(digest ?? '')
-  ) {
-    return equalHex(passwordDigest(plaintext, salt), digest)
+export async function hashPassword(plaintext: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex')
+  const digest = await derivePasswordDigest(plaintext, salt)
+  return `${PASSWORD_HASH_VERSION}$${salt}$${digest}`
+}
+
+export async function verifyPassword(
+  plaintext: string,
+  hash: string
+): Promise<boolean> {
+  const current = parseVersionedHash(hash, PASSWORD_HASH_VERSION)
+  if (current) {
+    return equalHex(
+      await derivePasswordDigest(plaintext, current.salt),
+      current.digest
+    )
+  }
+
+  // Migration path for v2 hashes. New and changed passwords are always v3;
+  // this branch can disappear after existing access gates have been rotated.
+  const legacyV2 = parseVersionedHash(hash, LEGACY_HMAC_VERSION)
+  if (legacyV2) {
+    return equalHex(
+      legacyV2Digest(plaintext, legacyV2.salt),
+      legacyV2.digest
+    )
   }
 
   // Backward compatibility: existing rows contain the old unsalted 64-char
@@ -106,10 +168,9 @@ export function verifyToken(token: string, agentId: string): boolean {
 
 export function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no I/O/0/1 for readability
-  const bytes = randomBytes(6)
   let result = 'VIBE-'
   for (let i = 0; i < 6; i++) {
-    result += chars[bytes[i] % chars.length]
+    result += chars[randomInt(chars.length)]
   }
   return result
 }

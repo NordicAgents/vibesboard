@@ -76,7 +76,7 @@ export async function PUT(
     await setAgentAccessPasswordHash(
       agent.tenantId,
       id,
-      hashPassword(parsed.data.password)
+      await hashPassword(parsed.data.password)
     )
   } catch (err) {
     console.error('access-password PUT failed', {

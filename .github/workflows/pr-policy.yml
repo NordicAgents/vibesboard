@@ -1,0 +1,44 @@
+name: Pull Request Policy
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  target:
+    name: Allowed target branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce the release branch flow
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$BASE_REF" != "main" ]; then
+            echo "PR targets $BASE_REF; contributor changes belong on dev."
+            exit 0
+          fi
+
+          if [ "$HEAD_REPOSITORY" != "$THIS_REPOSITORY" ]; then
+            echo "::error::PRs from forks must target dev, not main."
+            exit 1
+          fi
+
+          case "$HEAD_REF" in
+            dev|release-please--branches--main*)
+              echo "Approved main-branch source: $HEAD_REF"
+              ;;
+            *)
+              echo "::error::Only dev release PRs and Release Please may target main."
+              exit 1
+              ;;
+          esac
