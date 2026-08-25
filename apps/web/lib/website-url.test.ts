@@ -16,4 +16,10 @@ describe('extractWebsiteUrls', () => {
       )
     ).toEqual(['https://example.com/path?x=1', 'http://example.org'])
   })
+
+  it('handles repeated trailing punctuation in linear time', () => {
+    expect(extractWebsiteUrls(`justprint.io${'!'.repeat(20_000)}`)).toEqual([
+      'https://justprint.io'
+    ])
+  })
 })
