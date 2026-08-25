@@ -44,7 +44,10 @@ updates:
     cooldown:
       default-days: 7
 
-  - package-ecosystem: npm
+  # This repository uses Bun's text lockfile. The `bun` ecosystem updates both
+  # manifests and bun.lock; using `npm` only updated manifests, causing every
+  # CI job with `bun install --frozen-lockfile` to fail.
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
@@ -58,3 +61,9 @@ updates:
         update-types:
           - minor
           - patch
+    # TypeScript 7 is the native-preview release. Its API is not yet supported
+    # by the ESLint TypeScript tooling used in this repository.
+    ignore:
+      - dependency-name: typescript
+        versions:
+          - ">=7.0.0"
