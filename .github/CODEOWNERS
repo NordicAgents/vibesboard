@@ -4,16 +4,16 @@
 # See https://docs.github.com/articles/about-code-owners
 
 # Default owners for everything in the repository.
-*                       @midhunxavier @vaisahub
+*                       @midhunxavier @vaisahub @melwinxavier @Melveenajolly
 
 # Release, CI, and deployment plumbing — a bad change here affects every branch.
-/.github/               @midhunxavier @vaisahub
-/Dockerfile             @midhunxavier @vaisahub
-/docker-compose.dev.yml @midhunxavier @vaisahub
-/scripts/               @midhunxavier @vaisahub
+/.github/               @midhunxavier @vaisahub @melwinxavier @Melveenajolly
+/Dockerfile             @midhunxavier @vaisahub @melwinxavier @Melveenajolly
+/docker-compose.dev.yml @midhunxavier @vaisahub @melwinxavier @Melveenajolly
+/scripts/               @midhunxavier @vaisahub @melwinxavier @Melveenajolly
 
 # Security-sensitive surfaces: tenancy, auth, migrations, and stored credentials.
-/packages/adapter-postgres/     @midhunxavier @vaisahub
-/packages/adapter-better-auth/  @midhunxavier @vaisahub
-/SECURITY.md                    @midhunxavier @vaisahub
-/docs/security.md               @midhunxavier @vaisahub
+/packages/adapter-postgres/     @midhunxavier @vaisahub @melwinxavier @Melveenajolly
+/packages/adapter-better-auth/  @midhunxavier @vaisahub @melwinxavier @Melveenajolly
+/SECURITY.md                    @midhunxavier @vaisahub @melwinxavier @Melveenajolly
+/docs/security.md               @midhunxavier @vaisahub @melwinxavier @Melveenajolly
