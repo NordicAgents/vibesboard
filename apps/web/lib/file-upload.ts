@@ -1,5 +1,11 @@
 export const MAX_FILE_UPLOAD_BYTES = 10 * 1024 * 1024
 
+// Keep browser file pickers in sync with the formats accepted below. These are
+// extensions rather than MIME types because the HTML `accept` attribute is a
+// picker hint; the server remains the enforcement point.
+export const ACCEPTED_UPLOAD_FILE_TYPES =
+  '.pdf,.txt,.md,.json,.csv,.docx,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.tiff,.svg,.html,.xml'
+
 // Only formats packages/ai/src/file-search.ts can actually extract text from.
 // PowerPoint (.ppt/.pptx) and the legacy binary Word/Excel formats (.doc/.xls)
 // were accepted here but have no working extractor behind them, so they were

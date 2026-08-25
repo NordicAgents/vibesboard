@@ -1,6 +1,12 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode
+} from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Check,
@@ -62,8 +68,13 @@ export function TenantSwitcher({
   const [open, setOpen] = useState(false)
   const [isSwitching, setIsSwitching] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const hasPersistedDefault = useRef(false)
 
-  const currentTenant = tenants.find(t => t.id === currentTenantId)
+  const selectedTenant = tenants.find(t => t.id === currentTenantId)
+  const defaultTenant = selectedTenant
+    ? null
+    : tenants.find(tenant => tenant.isPersonal) ?? tenants[0] ?? null
+  const currentTenant = selectedTenant ?? defaultTenant
 
   const personalTenants = showWorkspaceList
     ? tenants.filter(t => t.isPersonal)
@@ -85,7 +96,7 @@ export function TenantSwitcher({
     return names.join(', ')
   }
 
-  const handleTenantSwitch = async (tenantId: string) => {
+  const handleTenantSwitch = useCallback(async (tenantId: string) => {
     try {
       setIsSwitching(true)
       const response = await fetch('/api/user/active-tenant', {
@@ -109,7 +120,24 @@ export function TenantSwitcher({
     } finally {
       setIsSwitching(false)
     }
-  }
+  }, [router])
+
+  // `getActiveTenant()` can resolve a personal workspace during the initial
+  // server render without being able to write the cookie from that component.
+  // Persist the same personal fallback here so the next render, API calls and
+  // manual workspace switches all share one active tenant.
+  useEffect(() => {
+    if (
+      !showWorkspaceList ||
+      selectedTenant ||
+      !defaultTenant ||
+      hasPersistedDefault.current
+    ) {
+      return
+    }
+    hasPersistedDefault.current = true
+    void handleTenantSwitch(defaultTenant.id)
+  }, [defaultTenant, handleTenantSwitch, selectedTenant, showWorkspaceList])
 
   const canCreate = allowCreate && showWorkspaceList
   // Keep the switcher reachable for single-workspace users when creation is
@@ -201,7 +229,7 @@ export function TenantSwitcher({
                 <TenantItem
                   key={tenant.id}
                   tenant={tenant}
-                  isActive={currentTenantId === tenant.id}
+                  isActive={currentTenant?.id === tenant.id}
                   memberLabel={getMemberLabel(tenant)}
                   onSelect={() => handleTenantSwitch(tenant.id)}
                   isPersonal
@@ -226,7 +254,7 @@ export function TenantSwitcher({
                 <TenantItem
                   key={tenant.id}
                   tenant={tenant}
-                  isActive={currentTenantId === tenant.id}
+                  isActive={currentTenant?.id === tenant.id}
                   memberLabel={getMemberLabel(tenant)}
                   onSelect={() => handleTenantSwitch(tenant.id)}
                   isPersonal={false}
