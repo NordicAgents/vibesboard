@@ -1,12 +1,6 @@
 'use client'
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode
-} from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Check,
@@ -71,9 +65,12 @@ export function TenantSwitcher({
   const hasPersistedDefault = useRef(false)
 
   const selectedTenant = tenants.find(t => t.id === currentTenantId)
-  const defaultTenant = selectedTenant
+  // Some callers intentionally pass a filtered list (for example, Settings
+  // lists only workspaces the user can manage). An active tenant omitted from
+  // that list must not be replaced or persisted as a different workspace.
+  const defaultTenant = currentTenantId
     ? null
-    : tenants.find(tenant => tenant.isPersonal) ?? tenants[0] ?? null
+    : (tenants.find(tenant => tenant.isPersonal) ?? tenants[0] ?? null)
   const currentTenant = selectedTenant ?? defaultTenant
 
   const personalTenants = showWorkspaceList
@@ -96,31 +93,34 @@ export function TenantSwitcher({
     return names.join(', ')
   }
 
-  const handleTenantSwitch = useCallback(async (tenantId: string) => {
-    try {
-      setIsSwitching(true)
-      const response = await fetch('/api/user/active-tenant', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: tenantId })
-      })
+  const handleTenantSwitch = useCallback(
+    async (tenantId: string) => {
+      try {
+        setIsSwitching(true)
+        const response = await fetch('/api/user/active-tenant', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenant_id: tenantId })
+        })
 
-      if (response.ok) {
-        router.refresh()
-        window.dispatchEvent(
-          new CustomEvent('tenantChanged', { detail: { tenantId } })
-        )
-        setOpen(false)
-      } else {
-        toast.error('Failed to switch workspace. Please try again.')
+        if (response.ok) {
+          router.refresh()
+          window.dispatchEvent(
+            new CustomEvent('tenantChanged', { detail: { tenantId } })
+          )
+          setOpen(false)
+        } else {
+          toast.error('Failed to switch workspace. Please try again.')
+        }
+      } catch (error) {
+        console.error('Failed to switch workspace:', error)
+        toast.error('Unable to switch workspace right now.')
+      } finally {
+        setIsSwitching(false)
       }
-    } catch (error) {
-      console.error('Failed to switch workspace:', error)
-      toast.error('Unable to switch workspace right now.')
-    } finally {
-      setIsSwitching(false)
-    }
-  }, [router])
+    },
+    [router]
+  )
 
   // `getActiveTenant()` can resolve a personal workspace during the initial
   // server render without being able to write the cookie from that component.
@@ -129,6 +129,7 @@ export function TenantSwitcher({
   useEffect(() => {
     if (
       !showWorkspaceList ||
+      currentTenantId ||
       selectedTenant ||
       !defaultTenant ||
       hasPersistedDefault.current
@@ -137,7 +138,13 @@ export function TenantSwitcher({
     }
     hasPersistedDefault.current = true
     void handleTenantSwitch(defaultTenant.id)
-  }, [defaultTenant, handleTenantSwitch, selectedTenant, showWorkspaceList])
+  }, [
+    currentTenantId,
+    defaultTenant,
+    handleTenantSwitch,
+    selectedTenant,
+    showWorkspaceList
+  ])
 
   const canCreate = allowCreate && showWorkspaceList
   // Keep the switcher reachable for single-workspace users when creation is

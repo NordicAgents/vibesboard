@@ -9,10 +9,11 @@ const component = readFileSync(
 )
 
 describe('TenantSwitcher', () => {
-  it('defaults a missing active workspace to the personal workspace and persists it', () => {
-    expect(component).toContain(
-      'tenants.find(tenant => tenant.isPersonal) ?? tenants[0] ?? null'
+  it('defaults only an unset active workspace to the personal workspace', () => {
+    expect(component).toMatch(
+      /const defaultTenant = currentTenantId\s*\?\s*null\s*:\s*\(tenants\.find\(tenant => tenant\.isPersonal\)/
     )
     expect(component).toContain('void handleTenantSwitch(defaultTenant.id)')
+    expect(component).toContain('currentTenantId ||')
   })
 })

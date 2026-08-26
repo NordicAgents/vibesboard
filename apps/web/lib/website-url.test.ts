@@ -22,4 +22,10 @@ describe('extractWebsiteUrls', () => {
       'https://justprint.io'
     ])
   })
+
+  it('does not treat an email address as a website', () => {
+    expect(extractWebsiteUrls('Contact alice@example.com for help.')).toEqual(
+      []
+    )
+  })
 })
