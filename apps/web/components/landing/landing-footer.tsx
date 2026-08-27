@@ -100,7 +100,7 @@ export function LandingFooter() {
               your own model, keep your data.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {['MIT core', 'Self-hosted', 'Postgres RLS'].map(chip => (
+              {['MIT core', 'Self-hosted'].map(chip => (
                 <span
                   key={chip}
                   className="rounded-full border border-white/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
