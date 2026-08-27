@@ -1,7 +1,6 @@
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
-import { getGitHubStars } from '@/lib/github-stars'
 import { LANDING_LINKS, LANDING_NAV_LINKS } from '@/lib/landing-links'
 
 import { GitHubStarButton } from './github-star-button'
@@ -20,9 +19,7 @@ import { GitHubStarButton } from './github-star-button'
  * Carries the `dark` class itself so it renders identically on the landing page
  * and on the legal pages, regardless of the visitor's app theme.
  */
-export async function LandingHeader() {
-  const stars = await getGitHubStars()
-
+export function LandingHeader() {
   return (
     <header className="safe-area-inset-top dark fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-white/10 bg-background/80 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-4">
       <div className="flex items-center gap-6 lg:gap-10">
@@ -51,7 +48,7 @@ export async function LandingHeader() {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <GitHubStarButton stars={stars} />
+        <GitHubStarButton />
         <Button variant="outline" className="px-4 lg:px-6" asChild>
           <Link href={LANDING_LINKS.signIn}>Sign in</Link>
         </Button>

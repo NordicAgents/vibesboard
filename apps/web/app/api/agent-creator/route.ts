@@ -33,6 +33,7 @@ import {
   createDirectBookingDraftConfig,
   resolveAgentCreatorBookingConfig
 } from '@vibesboard/agents/booking-defaults'
+import { extractWebsiteUrls } from '@/lib/website-url'
 
 export const runtime = 'nodejs'
 
@@ -120,7 +121,7 @@ Your job is to GATHER information, SUGGEST values, and UPDATE the form preview. 
 **Your Goal:**
 Make agent creation easy and delightful. Guide users through understanding their needs before suggesting anything.
 
-**Available Tools:**
+**Agent capabilities to select in the draft (these are not callable functions):**
 ${availableTools.map(t => `- ${t.id}: ${t.name} – ${t.description}`).join('\n')}
 
 **Conversational Flow:**
@@ -198,6 +199,9 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 1. **create_agent** - ONLY when user explicitly says "create it" or similar
    Parameters: { name: string, instructions: string, greetingText: string, allowAnonymous?: boolean, tools?: string[], fileKeys?: string[], mode?: "provider" | "collector", maxResponses?: number | null, maxAgentResponses?: number | null, quickSuggestionsMode?: "off" | "smart" | "always", quickSuggestionsCount?: 1 | 2 | 3 | 4 | 5, retrievalStrategy?: "direct" | "rag" | "bash", bookingConfig?: object }
 
+Never call an agent capability (for example, web_fetch) as a function. Website
+content is fetched by the server before this conversation reaches you.
+
 **Interaction style:**
 - Be conversational and encouraging
 - Ask clarifying questions to understand the agent's purpose
@@ -218,14 +222,12 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
 
   // Detect URLs in user messages and fetch content for the latest one
   const messageList = Array.isArray(messages) ? messages : []
-  const urlRegex = /https?:\/\/[^\s)>\]]+/g
-
   // Collect all URLs from all user messages (for sourceUrls storage)
   const allDetectedUrls = [
     ...new Set(
       messageList
         .filter((m: any) => m.role === 'user')
-        .flatMap((m: any) => m.content?.match(urlRegex) ?? [])
+        .flatMap((m: any) => extractWebsiteUrls(m.content ?? ''))
     )
   ].slice(0, 5)
 
@@ -235,7 +237,7 @@ This lets the UI update the form in real-time. Include this block AFTER your exp
     .find((m: any) => m.role === 'user')
 
   if (lastUserMsg?.content) {
-    const urls = (lastUserMsg.content.match(urlRegex) ?? []).slice(0, 3)
+    const urls = extractWebsiteUrls(lastUserMsg.content).slice(0, 3)
 
     if (urls.length > 0) {
       const results = await Promise.all(

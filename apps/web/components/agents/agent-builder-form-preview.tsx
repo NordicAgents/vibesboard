@@ -125,6 +125,18 @@ export function AgentBuilderFormPreview({
               Agent Builder
             </h2>
           </div>
+          {onClose && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onClose}
+              aria-label="Hide preview"
+              title="Hide preview"
+              className="size-8 shrink-0 p-0"
+            >
+              <IconX className="size-4" />
+            </Button>
+          )}
         </div>
         <p className="mt-1 font-switzer text-sm text-gray-secondary">
           Live preview of your agent

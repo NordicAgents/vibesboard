@@ -35,13 +35,23 @@ const RESERVED_SLUGS = new Set([
 
 export function buildContentSecurityPolicy(
   nonce: string,
-  options: { widget: boolean; development: boolean }
+  options: {
+    widget: boolean
+    development: boolean
+    storageOrigin?: string | null
+  }
 ): string {
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
     ...(options.development ? ["'unsafe-eval'"] : [])
+  ].join(' ')
+  const connectSrc = [
+    "'self'",
+    'https:',
+    'wss:',
+    ...(options.storageOrigin ? [options.storageOrigin] : [])
   ].join(' ')
 
   return [
@@ -53,7 +63,7 @@ export function buildContentSecurityPolicy(
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https: wss:",
+    `connect-src ${connectSrc}`,
     "frame-src 'self' https:",
     "worker-src 'self' blob:",
     "media-src 'self' blob: https:",
@@ -65,11 +75,32 @@ export function buildContentSecurityPolicy(
   ].join('; ')
 }
 
+export function storageOriginFromEndpoint(
+  endpoint: string | undefined
+): string | null {
+  if (!endpoint) return null
+
+  try {
+    const url = new URL(endpoint)
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username ||
+      url.password
+    ) {
+      return null
+    }
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
 function secureNextResponse(req: NextRequest, nonce: string) {
   const requestHeaders = new Headers(req.headers)
   const csp = buildContentSecurityPolicy(nonce, {
     widget: req.nextUrl.pathname.startsWith('/widget/'),
-    development: process.env.NODE_ENV !== 'production'
+    development: process.env.NODE_ENV !== 'production',
+    storageOrigin: storageOriginFromEndpoint(process.env.S3_ENDPOINT)
   })
   requestHeaders.set('x-nonce', nonce)
   requestHeaders.set('Content-Security-Policy', csp)
@@ -147,7 +178,8 @@ export async function proxy(req: NextRequest) {
       'Content-Security-Policy',
       buildContentSecurityPolicy(nonce, {
         widget: false,
-        development: process.env.NODE_ENV !== 'production'
+        development: process.env.NODE_ENV !== 'production',
+        storageOrigin: storageOriginFromEndpoint(process.env.S3_ENDPOINT)
       })
     )
     return redirect
