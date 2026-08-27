@@ -99,7 +99,7 @@
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^3.0.1",
     "remark-gfm-mdx": "npm:remark-gfm@^4.0.1",
-    "remark-math": "^5.1.1",
+    "remark-math": "^6.0.0",
     "remark-mdx-frontmatter": "^5.2.0",
     "resend": "^6.9.4",
     "server-only": "^0.0.1",
