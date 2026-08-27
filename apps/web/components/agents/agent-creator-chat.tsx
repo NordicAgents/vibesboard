@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import {
   IconPlus,
   IconSidebar,
-  IconX,
   IconStop,
   IconSpinner
 } from '@/components/ui/icons'
@@ -22,6 +21,8 @@ import {
 } from './agent-builder-form-preview'
 import { AgentCreationSuccess } from './agent-creation-success'
 import { QuickSuggestions } from '@/components/quick-suggestions'
+import { ACCEPTED_UPLOAD_FILE_TYPES } from '@/lib/file-upload'
+import { extractWebsiteUrls } from '@/lib/website-url'
 
 const STARTER_PROMPTS = [
   'Customer support agent for my business',
@@ -32,8 +33,7 @@ const STARTER_PROMPTS = [
 
 const MAX_FILES = 5
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ACCEPTED_FILE_TYPES =
-  '.pdf,.txt,.doc,.docx,.md,.json,.csv,.png,.jpg,.jpeg,.gif,.webp,.xlsx,.xls'
+const ACCEPTED_FILE_TYPES = ACCEPTED_UPLOAD_FILE_TYPES
 
 interface AgentCreatorChatProps {
   className?: string
@@ -474,20 +474,6 @@ export function AgentCreatorChat({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                    aria-label={isPreviewOpen ? 'Hide preview' : 'Show preview'}
-                    title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
-                    className="size-8 p-0"
-                  >
-                    {isPreviewOpen ? (
-                      <IconX className="size-3.5" />
-                    ) : (
-                      <IconSidebar className="size-3.5" />
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
                     onClick={handleNewChat}
                     aria-label="New chat"
                     title="New chat"
@@ -526,27 +512,9 @@ export function AgentCreatorChat({
             <div className="flex flex-1 flex-col items-center justify-center px-4">
               <div className="w-full max-w-2xl space-y-8 text-center">
                 <div className="space-y-3">
-                  <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#f5f8f7] md:text-5xl">
-                      Build Your Agent
-                    </h1>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                      aria-label={
-                        isPreviewOpen ? 'Hide preview' : 'Show preview'
-                      }
-                      title={isPreviewOpen ? 'Hide preview' : 'Show preview'}
-                      className="ml-2"
-                    >
-                      {isPreviewOpen ? (
-                        <IconX className="size-4" />
-                      ) : (
-                        <IconSidebar className="size-4" />
-                      )}
-                    </Button>
-                  </div>
+                  <h1 className="font-switzer text-4xl font-bold tracking-tight text-black-primary dark:text-[#f5f8f7] md:text-5xl">
+                    Build Your Agent
+                  </h1>
                   <p className="font-switzer text-lg text-gray-secondary">
                     Tell me about your agent or upload files to get started
                   </p>
@@ -573,7 +541,7 @@ export function AgentCreatorChat({
                   <PromptForm
                     onSubmit={async (value: string) => {
                       // Track URLs from user messages for sourceUrls
-                      const detectedUrls = value.match(/https?:\/\/[^\s)>\]]+/g)
+                      const detectedUrls = extractWebsiteUrls(value)
                       if (detectedUrls?.length) {
                         setFormData(prev => ({
                           ...prev,
@@ -640,7 +608,7 @@ export function AgentCreatorChat({
                 <PromptForm
                   onSubmit={async (value: string) => {
                     // Track URLs from user messages for sourceUrls
-                    const detectedUrls = value.match(/https?:\/\/[^\s)>\]]+/g)
+                    const detectedUrls = extractWebsiteUrls(value)
                     if (detectedUrls?.length) {
                       setFormData(prev => ({
                         ...prev,
