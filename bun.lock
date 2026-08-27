@@ -75,7 +75,7 @@
         "nanoid": "^5.1.16",
         "next": "16.3.0",
         "next-themes": "^0.4.6",
-        "openai-edge": "^0.5.1",
+        "openai-edge": "^1.2.3",
         "pdf-parse": "^2.4.5",
         "qrcode": "^1.5.4",
         "react": "^19.2.1",
@@ -2421,7 +2421,7 @@
 
     "oniguruma-to-es": ["oniguruma-to-es@4.3.6", "", { "dependencies": { "oniguruma-parser": "^0.12.2", "regex": "^6.1.0", "regex-recursion": "^6.0.2" } }, "sha512-csuQ9x3Yr0cEIs/Zgx/OEt9iBw9vqIunAPQkx19R/fiMq2oGVTgcMqO/V3Ybqefr1TBvosI6jU539ksaBULJyA=="],
 
-    "openai-edge": ["openai-edge@0.5.1", "", {}, "sha512-/Q/b9wkPKWIzcnsp2o0Of5QW/t4A0XLw+E7rjVSYR3gLVt+pWpFuWCgWPWUVS1UrrLJPvzmndwe1JMpfqLRJIQ=="],
+    "openai-edge": ["openai-edge@1.2.3", "", {}, "sha512-CnEm2VbPSng1S9N/OFWmRmFC5Rm+pNID+7KYR6aIPJEnCXoH6CHzdBH6s+rLH+JGt0zuWmpC7NHMXED2dpZqPg=="],
 
     "option": ["option@0.2.4", "", {}, "sha512-pkEqbDyl8ou5cpq+VsnQbe/WlEy5qS7xPzMS1U55OCG9KPvwFD46zDbxQIj3egJSFc3D+XhYOPUzz49zQAVy7A=="],
 
