@@ -79,14 +79,8 @@ runs:
             echo "MinIO never came up"; docker compose -f docker-compose.dev.yml logs minio; exit 1
           fi
         done
-        # Create the bucket via the mc client image. The image's ENTRYPOINT
-        # is 'mc'; override to sh so we can chain commands. --network host
-        # so 'localhost:9000' resolves to the runner-bound minio port.
-        docker run --rm --network host --entrypoint sh minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c "
-          mc alias set local http://localhost:9000 vibesboard vibesboard &&
-          (mc mb -p local/vibesboard-files || true) &&
-          mc anonymous set none local/vibesboard-files
-        "
+        # Reuse Compose's pinned image and bucket setup on its own network.
+        docker compose -f docker-compose.dev.yml run --rm --no-deps minio-init
 
     - name: Apply database migrations
       shell: bash
