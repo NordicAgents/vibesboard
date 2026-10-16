@@ -67,3 +67,10 @@ updates:
       - dependency-name: typescript
         versions:
           - ">=7.0.0"
+      # ESLint 10 removed the legacy rule-context API that eslint-plugin-react
+      # (7.37.5, latest; peer eslint ^9.7, pulled in by eslint-config-next)
+      # still calls, so `bun run lint` crashes on load. Re-checked 2026-10-16.
+      # Drop this once eslint-plugin-react ships an eslint 10 peer range.
+      - dependency-name: eslint
+        versions:
+          - ">=10.0.0"
