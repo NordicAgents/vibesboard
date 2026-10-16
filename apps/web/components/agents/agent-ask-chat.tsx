@@ -64,7 +64,10 @@ export function AgentAskChat({
     id: completionId,
     api: `/api/agents/${agent.id}/conversations/ask`,
     streamProtocol: 'text',
-    onResponse(response: Response) {
+    // useCompletion no longer exposes onResponse. Inspect the response through
+    // its supported fetch option before the SDK consumes the text stream.
+    fetch: async (request, init) => {
+      const response = await globalThis.fetch(request, init)
       if (!response.ok) {
         // Without this the request just vanished: the spinner stopped, no
         // answer appeared, and nothing said why.
@@ -79,13 +82,14 @@ export function AgentAskChat({
           .catch(() => {
             toast.error('Ask AI could not answer that. Try again.')
           })
-        return
+        return response
       }
       const nextSessionId = response.headers.get('x-session-id')
       if (nextSessionId) {
         sessionIdRef.current = nextSessionId
         setActiveSessionId(nextSessionId)
       }
+      return response
     },
     onError() {
       toast.error('The connection dropped before Ask AI finished answering.')
@@ -107,7 +111,7 @@ export function AgentAskChat({
       })
       setCompletion('')
     }
-  } as any)
+  })
 
   React.useEffect(() => {
     sessionIdRef.current = activeSessionId
