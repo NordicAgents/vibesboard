@@ -19,14 +19,17 @@ If you just want the app running, see the
 
 `docker-compose.dev.yml` defines four services:
 
-| Service      | Image                    | Purpose                                                                                        |
-| ------------ | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `postgres`   | `pgvector/pgvector:pg16` | PostgreSQL 16 with the `pgvector` extension pre-installed, for embedding storage and retrieval |
-| `adminer`    | `adminer:4`              | Web-based database browser                                                                     |
-| `minio`      | `minio/minio:latest`     | S3-compatible object storage for uploads and knowledge-base files                              |
-| `minio-init` | `minio/mc:latest`        | Runs once against a healthy `minio`, then exits                                                |
+| Service      | Image                      | Purpose                                                                                        |
+| ------------ | -------------------------- | ---------------------------------------------------------------------------------------------- |
+| `postgres`   | `pgvector/pgvector:pg16`   | PostgreSQL 16 with the `pgvector` extension pre-installed, for embedding storage and retrieval |
+| `adminer`    | `adminer:4`                | Web-based database browser                                                                     |
+| `minio`      | `ghcr.io/coollabsio/minio` | S3-compatible object storage for uploads and knowledge-base files                              |
+| `minio-init` | `ghcr.io/coollabsio/minio` | Runs once against a healthy `minio`, then exits                                                |
 
 All images are pinned by digest in the compose file, not by floating tag.
+The MinIO services use [Coolify's source build](https://github.com/coollabsio/minio)
+of `RELEASE.2025-10-15T17-29-55Z`, which includes both `minio` and `mc`. The
+original `minio/minio` and `minio/mc` images are no longer publicly available.
 
 ### postgres
 
@@ -63,9 +66,10 @@ database `vibesboard_dev`.
 
 `minio` serves the S3 API on port `9000` and its web console on `9001`. It has
 no buckets by default. `minio-init` depends on `minio`'s healthcheck, then
-runs three `mc` commands against it: sets an alias, creates the
+runs `mc` commands against it: sets an alias, creates the
 `vibesboard-files` bucket (idempotently — `mc mb -p ... || true`), and sets
-the bucket's anonymous-access policy to `none`. `minio-init` is not a
+the bucket's anonymous-access policy to `none`, then lists the buckets to
+verify access. `minio-init` is not a
 long-running service; it exits once those commands finish.
 
 If uploads fail with a bucket-not-found error, `minio-init` likely didn't
@@ -76,19 +80,19 @@ finish before something else needed the bucket — rerun `bun run db:up`.
 The root `package.json` wraps Compose (and Drizzle) in scripts you run with
 `bun run`:
 
-| Script            | What it does                                                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `db:up`           | `docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init` — starts local infrastructure        |
-| `db:down`         | `docker compose -f docker-compose.dev.yml down` — stops it, volumes preserved                                           |
-| `db:reset`        | `down -v`, then `db:up`, then `db:migrate` and `db:seed` — destroys volumes and rebuilds from scratch                   |
-| `db:migrate`      | Runs `drizzle-kit migrate` via `@vibesboard/adapter-postgres`, using `DATABASE_MIGRATE_URL`                             |
-| `db:generate`     | Runs `drizzle-kit generate` to emit a new migration from schema changes                                                 |
-| `db:seed`         | Runs the package's seed script against local Postgres                                                                   |
-| `db:setup`        | `db:up`, wait, `db:migrate`, `db:seed` — the one-command path to a working local stack                                  |
-| `db:studio`       | Opens Drizzle Studio against the local database                                                                         |
-| `db:make-admin`   | Promotes a user to platform super admin by email (`--revoke` demotes)                                                   |
-| `db:set-password` | Sets a user's email/password credential directly, without the reset-email flow                                          |
-| `minio:console`   | Opens `http://localhost:9001` (macOS `open`)                                                                            |
+| Script            | What it does                                                                                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `db:up`           | `docker compose -f docker-compose.dev.yml up -d postgres adminer minio minio-init` — starts local infrastructure |
+| `db:down`         | `docker compose -f docker-compose.dev.yml down` — stops it, volumes preserved                                    |
+| `db:reset`        | `down -v`, then `db:up`, then `db:migrate` and `db:seed` — destroys volumes and rebuilds from scratch            |
+| `db:migrate`      | Runs `drizzle-kit migrate` via `@vibesboard/adapter-postgres`, using `DATABASE_MIGRATE_URL`                      |
+| `db:generate`     | Runs `drizzle-kit generate` to emit a new migration from schema changes                                          |
+| `db:seed`         | Runs the package's seed script against local Postgres                                                            |
+| `db:setup`        | `db:up`, wait, `db:migrate`, `db:seed` — the one-command path to a working local stack                           |
+| `db:studio`       | Opens Drizzle Studio against the local database                                                                  |
+| `db:make-admin`   | Promotes a user to platform super admin by email (`--revoke` demotes)                                            |
+| `db:set-password` | Sets a user's email/password credential directly, without the reset-email flow                                   |
+| `minio:console`   | Opens `http://localhost:9001` (macOS `open`)                                                                     |
 
 `db:reset` and `db:setup` both insert a fixed `sleep` between bringing services
 up and running migrations, rather than polling readiness — if migrations fail

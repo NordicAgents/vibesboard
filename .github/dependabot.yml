@@ -67,3 +67,17 @@ updates:
       - dependency-name: typescript
         versions:
           - ">=7.0.0"
+      # ESLint 10 removed legacy APIs that three of our lint loaders still
+      # call, so `bun run lint` crashes on load. All three must be fixed:
+      #   - eslint-plugin-react 7.37.5 (latest; peer eslint ^9.7, pulled in
+      #     by eslint-config-next): `contextOrFilename.getFilename`.
+      #   - eslint-plugin-tailwindcss 3.18.3: `context.getSourceCode`. 4.x
+      #     supports eslint 10 but needs Tailwind 4 (we are on 3.4).
+      #   - eslint-config-next's bundled Babel parser for .js/.mjs files:
+      #     `scopeManager.addGlobals`.
+      # Crashes reproduced 2026-10-16 (eslint 10.12.0, eslint-config-next
+      # 16.3.8); peer ranges re-checked 2026-10-18, unchanged. A new
+      # eslint-plugin-react release alone does not unblock this.
+      - dependency-name: eslint
+        versions:
+          - ">=10.0.0"
