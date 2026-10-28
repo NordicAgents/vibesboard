@@ -14,6 +14,8 @@ function buildAuth(db: any, sink: { sent?: { email: string; url: string } } = {}
     // Our schema uses uuid columns. Pass a function via advanced.database.generateId
     // so that get-id-field picks it up and generates valid UUIDs instead of nanoids.
     advanced: { database: { generateId: () => uuidv7() } },
+    // Match production's avatar mapping; Better Auth 1.7 validates it at init.
+    user: { fields: { image: 'imageUrl' } },
     emailAndPassword: { enabled: false },
     plugins: [
       magicLink({

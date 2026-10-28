@@ -18,6 +18,8 @@ function buildAuth(db: any) {
     // Our schema uses uuid columns. Pass a function via advanced.database.generateId
     // so that get-id-field picks it up and generates valid UUIDs instead of nanoids.
     advanced: { database: { generateId: () => uuidv7() } },
+    // Match production's avatar mapping; Better Auth 1.7 validates it at init.
+    user: { fields: { image: 'imageUrl' } },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false, // simplify test
@@ -39,22 +41,26 @@ describe('Better Auth email/password sign-up + sign-in', () => {
   it('sign-up creates user', async () => {
     await withTestDb(async ({ adminDb }) => {
       const auth = buildAuth(adminDb);
+      const image = 'https://example.com/avatar.png';
       const result = await auth.api.signUpEmail({
         body: {
           email: 'alice@acme.com',
           password: 'correct-horse-battery-staple',
           name: 'Alice',
+          image,
         },
       });
 
       expect(result.user).toBeTruthy();
       expect(result.user.email).toBe('alice@acme.com');
+      expect(result.user.image).toBe(image);
 
       const rows = await adminDb
         .select()
         .from(schema.users)
         .where(eq(schema.users.email, 'alice@acme.com'));
       expect(rows.length).toBe(1);
+      expect(rows[0].imageUrl).toBe(image);
     });
   });
 
