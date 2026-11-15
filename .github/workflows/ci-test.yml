@@ -61,7 +61,7 @@ jobs:
           # Create the bucket via the mc client image. The image's ENTRYPOINT
           # is 'mc'; override to sh so we can chain commands. --network host
           # so 'localhost:9000' resolves to the runner-bound minio port.
-          docker run --rm --network host --entrypoint sh minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c "
+          docker run --rm --network host --entrypoint sh rancher/mirrored-minio-mc:RELEASE.2023-06-28T21-54-17Z@sha256:8ccda10d75b985ca53a952f15ebc1bc0996a2620ece66a09f5ee6a4622563a1e -c "
             mc alias set local http://localhost:9000 vibesboard vibesboard &&
             (mc mb -p local/vibesboard-files || true) &&
             mc anonymous set none local/vibesboard-files &&
@@ -79,7 +79,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: coverage/
