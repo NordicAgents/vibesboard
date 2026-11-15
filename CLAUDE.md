@@ -86,7 +86,7 @@ For feature → `dev` PRs, squash merge is fine (those branches are deleted afte
 
 ## CI Requirements
 
-PRs to `dev`/`main` run these workflows on ephemeral `ubuntu-latest` runners with Bun 1.3.14 via `oven-sh/setup-bun@v2` and Node 24. Pull-request code must never run on the persistent self-hosted fleet: fork authors control the checked-out source and build scripts. Push-only deployment and release workflows may use self-hosted runners because they execute trusted branch code. GitHub-hosted Actions billing must therefore be enabled before accepting public pull requests.
+PRs to `dev`/`main` run these workflows on ephemeral `ubuntu-latest` runners with Bun 1.4.4 via `oven-sh/setup-bun@v2` and Node 24. Pull-request code must never run on the persistent self-hosted fleet: fork authors control the checked-out source and build scripts. Push-only deployment and release workflows may use self-hosted runners because they execute trusted branch code. GitHub-hosted Actions billing must therefore be enabled before accepting public pull requests.
 
 - **Lint** (`.github/workflows/ci-lint.yml`, "Lint & Format") — `bun run lint` + `bun run format:check`. Note: `bun run lint` is `bun run --filter '*' lint`, and only `apps/web` defines a `lint`/`format:check` script, so coverage is effectively the web app.
 - **Type-check** (`.github/workflows/ci-typecheck.yml`, "Type Check") — `bun run type-check` (TypeScript strict mode, `tsc --noEmit` per package). This job used to set `continue-on-error: true`, which meant a type-check failure could not block a merge; that has been removed and it now gates.

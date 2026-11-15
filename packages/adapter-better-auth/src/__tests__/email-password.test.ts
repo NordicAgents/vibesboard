@@ -15,6 +15,11 @@ function buildAuth(db: any) {
     }),
     baseURL: 'http://localhost:3000',
     secret: 'test-secret-32-chars-long-aaaaaaaaaa',
+    user: {
+      fields: {
+        image: 'imageUrl',
+      },
+    },
     // Our schema uses uuid columns. Pass a function via advanced.database.generateId
     // so that get-id-field picks it up and generates valid UUIDs instead of nanoids.
     advanced: { database: { generateId: () => uuidv7() } },

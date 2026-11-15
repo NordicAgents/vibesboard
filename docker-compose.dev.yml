@@ -25,7 +25,7 @@ services:
         condition: service_healthy
 
   minio:
-    image: minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    image: pgsty/silo:latest@sha256:c20d112390b9a9ce8c11b8af95ad35bcaa62f4759663c09c936cd8d2b511f329
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: vibesboard
@@ -42,7 +42,7 @@ services:
       retries: 30
 
   minio-init:
-    image: minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    image: rancher/mirrored-minio-mc:RELEASE.2023-06-28T21-54-17Z@sha256:8ccda10d75b985ca53a952f15ebc1bc0996a2620ece66a09f5ee6a4622563a1e
     depends_on:
       minio:
         condition: service_healthy
