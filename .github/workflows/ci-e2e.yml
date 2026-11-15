@@ -41,7 +41,7 @@ env:
 jobs:
   e2e-core:
     name: Playwright core suite
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Backstop only — the config sets a lower globalTimeout (10 min) so
     # Playwright aborts itself and still uploads its report. Without this, a
     # wedged dev server ran to GitHub's 6-hour job ceiling (run 31392110921
@@ -91,7 +91,7 @@ jobs:
 
   e2e-deep:
     name: Playwright deep suite (${{ matrix.shard }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Backstop only — the config sets a lower globalTimeout (20 min).
     timeout-minutes: 30
     strategy:
